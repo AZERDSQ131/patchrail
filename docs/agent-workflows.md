@@ -12,4 +12,8 @@ Recommended workflow:
 4. Keep repository write actions behind human approval.
 5. Attach before/after test output to any pull request.
 
+The bundled [GitHub Actions CI triage workflow](github-action.md) follows the
+same boundary: it uploads local PatchRail reports as artifacts and does not
+comment, open pull requests, push commits, or call external models.
+
 Repository-specific agent instructions should follow [AGENTS.md](../AGENTS.md).

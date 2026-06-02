@@ -78,11 +78,14 @@ See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
 - [Quickstart](docs/quickstart.md)
 - [CI Janitor](docs/ci-janitor.md)
 - [CI Failure Zoo](docs/ci-failure-zoo.md)
+- [GitHub Actions CI triage](docs/github-action.md)
+- [Codex workflows](docs/codex-workflows.md)
 - [Reviewable automation workflows](docs/agent-workflows.md)
 - [Threat model](docs/threat-model.md)
 - [Funded issue ethics](docs/funded-issues-ethics.md)
 - [Roadmap](docs/roadmap.md)
 - [Release process](docs/release-process.md)
+- [Codex for Open Source evidence](docs/openai-codex-for-oss-evidence.md)
 - [Open source evidence tracker](docs/oss-program-evidence.md)
 
 ## Contributing

@@ -1,0 +1,71 @@
+name: PatchRail CI Triage
+
+on:
+  workflow_dispatch:
+    inputs:
+      log-path:
+        description: "Path to a CI log inside the checked-out repository"
+        required: false
+        default: "examples/ci-triage/dependency-failure.log"
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  triage:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: Install PatchRail
+        run: uv sync --extra dev
+
+      - name: Download failed workflow artifacts
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: patchrail-input-artifacts
+
+      - name: Select log
+        id: select-log
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            log_path="${{ inputs.log-path }}"
+          else
+            log_path="$(find patchrail-input-artifacts -type f \( -name '*.log' -o -name '*.txt' \) | sort | head -n 1 || true)"
+            if [ -z "$log_path" ]; then
+              log_path="examples/ci-triage/dependency-failure.log"
+            fi
+          fi
+          test -f "$log_path"
+          printf 'log_path=%s\n' "$log_path" >> "$GITHUB_OUTPUT"
+
+      - name: Generate local CI triage reports
+        run: |
+          mkdir -p patchrail-report
+          uv run patchrail ci explain --redact --log "${{ steps.select-log.outputs.log_path }}" --format markdown --out patchrail-report/ci-report.md
+          uv run patchrail ci classify --redact --log "${{ steps.select-log.outputs.log_path }}" --format json --out patchrail-report/ci-result.json
+          uv run patchrail ci benchmark examples/ci-triage --format json --out patchrail-report/fixture-benchmark.json
+          uv run patchrail doctor --format json --out patchrail-report/doctor.json
+
+      - name: Upload PatchRail report
+        uses: actions/upload-artifact@v4
+        with:
+          name: patchrail-ci-triage
+          path: patchrail-report/
+          if-no-files-found: error

@@ -19,8 +19,15 @@ uv run --extra dev pytest -q
 uv run --extra dev ruff check .
 uv run --extra dev ruff format --check .
 uv run --extra dev patchrail ci benchmark examples/ci-triage --format json
-python -m build
-python -m twine check dist/*
+uv run --extra dev python -m build
+uv run --extra dev twine check dist/*
+python -m venv .pkg-smoke
+. .pkg-smoke/bin/activate
+python -m pip install --upgrade pip
+python -m pip install dist/*.whl
+patchrail doctor --format json
+patchrail ci explain --log examples/ci-triage/dependency-failure.log --format text
+deactivate
 ```
 
 ## Manual Publish Gate

@@ -25,6 +25,16 @@ PatchRail's public safety posture is local-first and human-approved:
 - Write actions are outside v0.1 scope.
 - Future agent workflows must use human approval gates.
 
+## Local Release Evidence
+
+Last verified: 2026-06-02.
+
+- Tests: `uv run --extra dev pytest -q` -> 13 passed.
+- Lint: `uv run --extra dev ruff check .` -> all checks passed.
+- CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 20/20 fixtures passed.
+- Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
+- Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
+
 ## Evidence To Add Before Applying
 
 - PR review examples for parser, redaction or workflow changes.
