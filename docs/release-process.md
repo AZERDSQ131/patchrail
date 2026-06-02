@@ -15,10 +15,10 @@ PatchRail uses semantic versioning while the public API stabilizes.
 ## Local Checks
 
 ```bash
-python -m pip install -e ".[dev]"
-python -m pytest -q
-python -m ruff check .
-python -m ruff format --check .
+uv run --extra dev pytest -q
+uv run --extra dev ruff check .
+uv run --extra dev ruff format --check .
+uv run --extra dev patchrail ci benchmark examples/ci-triage --format json
 python -m build
 python -m twine check dist/*
 ```

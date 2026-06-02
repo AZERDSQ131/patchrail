@@ -7,9 +7,9 @@ without maintainer approval.
 ## Setup
 
 ```bash
-python -m pip install -e ".[dev]"
-pytest
-ruff check .
+uv run --extra dev pytest -q
+uv run --extra dev ruff check .
+uv run --extra dev patchrail ci benchmark examples/ci-triage --format json
 ```
 
 ## Review guidelines
