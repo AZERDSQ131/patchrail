@@ -1,0 +1,4 @@
+npm run lint
+biome check .
+src/pages/index.tsx format differs from prettier output
+lint failed

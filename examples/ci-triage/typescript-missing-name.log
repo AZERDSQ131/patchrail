@@ -1,0 +1,3 @@
+pnpm typecheck
+tsc --noEmit
+src/app.ts:17:10 - error TS2304: Cannot find name 'loadFixture'.

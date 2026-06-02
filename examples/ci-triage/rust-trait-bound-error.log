@@ -1,0 +1,4 @@
+cargo test --workspace
+error[E0277]: the trait bound `UserId: serde::Serialize` is not satisfied
+thread 'api_contract_tests::serializes_user' panicked at tests/api_contract_tests.rs:42:5
+test result: FAILED. 18 passed; 1 failed

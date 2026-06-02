@@ -1,0 +1,3 @@
+npm run typecheck
+tsc
+error TS2322: Type 'string | undefined' is not assignable to type 'string'.

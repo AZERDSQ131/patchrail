@@ -1,0 +1,86 @@
+# PatchRail
+
+PatchRail is a local-first maintainer automation toolkit for open-source projects.
+The first public release focuses on CI failure triage: it reads failed CI logs,
+classifies the likely root cause, extracts evidence signals, and emits Markdown,
+JSON, or plain text reports that maintainers can review.
+
+PatchRail does not auto-submit pull requests, claim funded issues, or comment on
+third-party repositories. It produces evidence and reviewable suggestions so
+maintainers stay in control.
+
+## Quickstart
+
+```bash
+python -m pip install -e ".[dev]"
+patchrail ci explain --log examples/ci-triage/dependency-failure.log
+```
+
+Example output:
+
+```markdown
+# PatchRail CI Report
+
+- Root cause: `python_dependency_resolution`
+- Confidence: `0.89`
+- Subsystem: Python dependency installation
+- Reproduce: `python -m pip install -r requirements.txt`
+- Suggested action: Pin or relax the conflicting dependency range, then rerun
+  the same install command and the affected tests.
+```
+
+## Why maintainers use PatchRail
+
+- Turn long CI logs into concise root-cause reports.
+- Keep CI log processing local by default.
+- Emit Markdown for humans and JSON for automation.
+- Preserve a human approval boundary for write actions.
+- Use the classifier as a building block for reviewable agent workflows.
+
+## Current scope
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| CI failure triage | Beta | GitHub Actions-style logs and common OSS toolchains |
+| Markdown/JSON reports | Beta | Suitable for local review or manually pasted reports |
+| Local queue/control plane | Planned | SQLite-backed human approval gates |
+| Funded issue discovery | Planned | Read-only, later, and explicitly anti-abuse |
+
+## Safety
+
+PatchRail is local-first. The CI classifier does not require billing, a GitHub
+App, repo write permissions, or an external model call. Write actions are outside
+the v0.1 scope and must remain human-approved.
+
+Redact logs before sharing fixtures or reports:
+
+```bash
+patchrail redact --log failed.log > failed.redacted.log
+patchrail ci explain --redact --log failed.log
+patchrail schema ci-result > ci-result.schema.json
+patchrail ci benchmark examples/ci-triage --format markdown
+```
+
+See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
+[docs/threat-model.md](docs/threat-model.md).
+
+## Documentation
+
+- [Quickstart](docs/quickstart.md)
+- [CI Janitor](docs/ci-janitor.md)
+- [CI Failure Zoo](docs/ci-failure-zoo.md)
+- [Reviewable automation workflows](docs/agent-workflows.md)
+- [Threat model](docs/threat-model.md)
+- [Funded issue ethics](docs/funded-issues-ethics.md)
+- [Roadmap](docs/roadmap.md)
+- [Release process](docs/release-process.md)
+- [Open source evidence tracker](docs/oss-program-evidence.md)
+
+## Contributing
+
+The easiest contribution is a sanitized CI failure fixture. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+Apache-2.0.

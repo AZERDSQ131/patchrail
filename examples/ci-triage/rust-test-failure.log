@@ -1,0 +1,4 @@
+Run cargo test
+thread 'parser::tests::keeps_order' panicked at crates/parser/src/lib.rs:44:9:
+assertion failed: left == right
+test result: FAILED. 24 passed; 1 failed; 0 ignored

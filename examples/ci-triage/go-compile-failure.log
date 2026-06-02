@@ -1,0 +1,4 @@
+go test ./...
+# example.org/project/pkg/worker
+pkg/worker/job.go:42:13: undefined: NewScheduler
+FAIL	example.org/project/pkg/worker [build failed]

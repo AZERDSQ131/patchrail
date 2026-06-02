@@ -1,0 +1,4 @@
+cargo test
+error[E0432]: unresolved import `crate::demo::missing`
+ --> src/lib.rs:3:5
+test result: FAILED
