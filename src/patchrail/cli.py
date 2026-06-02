@@ -7,6 +7,7 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
+from patchrail import __version__
 from patchrail.ci import classify_ci_log, redact_ci_log
 
 
@@ -98,6 +99,83 @@ def _load_schema(name: str) -> str:
     return (
         files("patchrail.schemas").joinpath("ci-result.v1.schema.json").read_text(encoding="utf-8")
     )
+
+
+def _doctor_payload(root: Path) -> dict[str, Any]:
+    fixture_root = root / "examples" / "ci-triage"
+    fixtures = sorted(fixture_root.glob("*.log")) if fixture_root.exists() else []
+    schema_available = bool(_load_schema("ci-result").strip())
+    return {
+        "schema_version": "patchrail.doctor.v1",
+        "patchrail_version": __version__,
+        "python_version": sys.version.split()[0],
+        "project_root": str(root),
+        "local_first": True,
+        "requirements": {
+            "billing_required": False,
+            "external_model_required": False,
+            "network_required": False,
+            "github_write_permission_required": False,
+        },
+        "checks": {
+            "ci_result_schema_available": schema_available,
+            "ci_fixture_count": len(fixtures),
+            "ci_fixture_directory": str(fixture_root),
+        },
+        "status": "ok" if schema_available else "warning",
+    }
+
+
+def _render_doctor_text(result: dict[str, Any]) -> str:
+    requirements = result["requirements"]
+    checks = result["checks"]
+    lines = [
+        f"PatchRail: {result['patchrail_version']}",
+        f"Python: {result['python_version']}",
+        f"Status: {result['status']}",
+        f"Local-first: {result['local_first']}",
+        f"CI fixtures: {checks['ci_fixture_count']}",
+        f"Schema available: {checks['ci_result_schema_available']}",
+        f"Network required: {requirements['network_required']}",
+        f"External model required: {requirements['external_model_required']}",
+        f"GitHub write permission required: {requirements['github_write_permission_required']}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _render_doctor_markdown(result: dict[str, Any]) -> str:
+    requirements = result["requirements"]
+    checks = result["checks"]
+    lines = [
+        "# PatchRail Doctor",
+        "",
+        f"- PatchRail version: `{result['patchrail_version']}`",
+        f"- Python version: `{result['python_version']}`",
+        f"- Status: `{result['status']}`",
+        f"- Local-first: `{result['local_first']}`",
+        f"- CI fixtures: `{checks['ci_fixture_count']}`",
+        f"- CI result schema available: `{checks['ci_result_schema_available']}`",
+        "",
+        "## Requirements",
+        "",
+        f"- Billing required: `{requirements['billing_required']}`",
+        f"- External model required: `{requirements['external_model_required']}`",
+        f"- Network required: `{requirements['network_required']}`",
+        f"- GitHub write permission required: `{requirements['github_write_permission_required']}`",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _doctor(args: argparse.Namespace) -> int:
+    result = _doctor_payload(Path.cwd())
+    if args.format == "json":
+        text = json.dumps(result, indent=2, sort_keys=True) + "\n"
+    elif args.format == "markdown":
+        text = _render_doctor_markdown(result)
+    else:
+        text = _render_doctor_text(result)
+    _write_or_print(text, args.out)
+    return 0 if result["status"] == "ok" else 1
 
 
 def _ci_explain(args: argparse.Namespace) -> int:
@@ -326,6 +404,19 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     schema.add_argument("--out", type=Path, help="Optional output path.")
     schema.set_defaults(func=_schema)
+
+    doctor = subparsers.add_parser(
+        "doctor",
+        help="Check local PatchRail installation and safety requirements.",
+    )
+    doctor.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="text",
+        help="Output format.",
+    )
+    doctor.add_argument("--out", type=Path, help="Optional output path.")
+    doctor.set_defaults(func=_doctor)
 
     return parser
 

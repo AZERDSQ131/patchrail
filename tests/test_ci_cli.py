@@ -53,6 +53,26 @@ class PatchRailCITests(unittest.TestCase):
             False,
         )
 
+    def test_doctor_reports_local_first_requirements(self) -> None:
+        proc = subprocess.run(
+            [sys.executable, "-m", "patchrail", "doctor", "--format", "json"],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["schema_version"], "patchrail.doctor.v1")
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["local_first"], True)
+        self.assertEqual(payload["checks"]["ci_fixture_count"], 20)
+        self.assertEqual(payload["checks"]["ci_result_schema_available"], True)
+        self.assertEqual(payload["requirements"]["billing_required"], False)
+        self.assertEqual(payload["requirements"]["external_model_required"], False)
+        self.assertEqual(payload["requirements"]["network_required"], False)
+        self.assertEqual(payload["requirements"]["github_write_permission_required"], False)
+
     def test_ci_benchmark_checks_fixture_expectations(self) -> None:
         proc = subprocess.run(
             [

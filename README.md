@@ -12,8 +12,8 @@ maintainers stay in control.
 ## Quickstart
 
 ```bash
-python -m pip install -e ".[dev]"
-patchrail ci explain --log examples/ci-triage/dependency-failure.log
+uv run --extra dev patchrail doctor
+uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log
 ```
 
 Example output:
@@ -55,10 +55,19 @@ the v0.1 scope and must remain human-approved.
 Redact logs before sharing fixtures or reports:
 
 ```bash
-patchrail redact --log failed.log > failed.redacted.log
-patchrail ci explain --redact --log failed.log
-patchrail schema ci-result > ci-result.schema.json
-patchrail ci benchmark examples/ci-triage --format markdown
+uv run --extra dev patchrail doctor --format markdown
+uv run --extra dev patchrail redact --log failed.log > failed.redacted.log
+uv run --extra dev patchrail ci explain --redact --log failed.log
+uv run --extra dev patchrail schema ci-result > ci-result.schema.json
+uv run --extra dev patchrail ci benchmark examples/ci-triage --format markdown
+```
+
+Run the public checks from a fresh checkout:
+
+```bash
+uv run --extra dev pytest -q
+uv run --extra dev ruff check .
+uv run --extra dev patchrail ci benchmark examples/ci-triage --format json
 ```
 
 See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and

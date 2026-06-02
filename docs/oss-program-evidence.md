@@ -21,6 +21,7 @@ PatchRail's public safety posture is local-first and human-approved:
 
 - CI failure triage produces Markdown, JSON or text reports.
 - Redaction runs locally before fixture sharing.
+- `patchrail doctor` reports that v0.1 requires no billing, network, external model, or GitHub write permission.
 - Write actions are outside v0.1 scope.
 - Future agent workflows must use human approval gates.
 
