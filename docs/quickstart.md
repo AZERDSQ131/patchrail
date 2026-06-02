@@ -1,38 +1,40 @@
 # Quickstart
 
-Install PatchRail from a checkout:
+Install PatchRail:
 
 ```bash
-uv run --extra dev patchrail --help
+pipx install patchrail
+patchrail --help
 ```
 
 Confirm the local installation and safety boundary:
 
 ```bash
-uv run --extra dev patchrail doctor
+patchrail doctor
 ```
 
-Classify the bundled fixture:
+Classify a failed CI log:
 
 ```bash
-uv run --extra dev patchrail ci classify --log examples/ci-triage/dependency-failure.log --format json
+patchrail ci classify --log failed-github-actions.log --format json
 ```
 
 Render a maintainer-readable report:
 
 ```bash
-uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown
+patchrail ci explain --log failed-github-actions.log --format markdown
 ```
 
 Redact a log before sharing it:
 
 ```bash
-uv run --extra dev patchrail redact --log examples/ci-triage/dependency-failure.log
+patchrail redact --log failed-github-actions.log > failed-github-actions.redacted.log
 ```
 
-Check the fixture benchmark:
+From a source checkout, run the bundled fixture and benchmark:
 
 ```bash
+uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown
 uv run --extra dev patchrail ci benchmark examples/ci-triage --format markdown
 ```
 

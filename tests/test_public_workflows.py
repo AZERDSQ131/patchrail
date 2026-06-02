@@ -34,9 +34,13 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     codex_workflows = (ROOT / "docs" / "codex-workflows.md").read_text(encoding="utf-8")
     evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(encoding="utf-8")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    quickstart = (ROOT / "docs" / "quickstart.md").read_text(encoding="utf-8")
 
     assert "docs/codex-workflows.md" in readme
     assert "docs/openai-codex-for-oss-evidence.md" in readme
+    assert "pipx install patchrail" in readme
+    assert "pipx install patchrail" in quickstart
+    assert "patchrail ci explain --log failed-github-actions.log" in quickstart
     assert "The v0.1 release does not require Codex or any external model" in codex_workflows
     assert "no automatic pull requests" in codex_workflows
     assert "Human approval gates for write actions" in evidence
@@ -50,6 +54,7 @@ def test_ci_workflow_builds_and_smokes_installable_package() -> None:
     assert "package-smoke:" in workflow
     assert "uv run --extra dev python -m build" in workflow
     assert "uv run --extra dev twine check dist/*" in workflow
+    assert "uv run ruff format --check ." in workflow
     assert "python -m venv .pkg-smoke" in workflow
     assert "python -m pip install dist/*.whl" in workflow
     assert "patchrail doctor --format json" in workflow

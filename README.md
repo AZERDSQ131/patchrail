@@ -11,6 +11,21 @@ maintainers stay in control.
 
 ## Quickstart
 
+Install the CLI:
+
+```bash
+pipx install patchrail
+```
+
+Run the local safety check and classify a failed CI log:
+
+```bash
+patchrail doctor
+patchrail ci explain --log failed-github-actions.log
+```
+
+From a source checkout, use the bundled fixture:
+
 ```bash
 uv run --extra dev patchrail doctor
 uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log
