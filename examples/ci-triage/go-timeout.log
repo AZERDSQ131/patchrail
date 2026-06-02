@@ -1,0 +1,3 @@
+go test ./...
+panic: test timed out after 10m0s
+FAIL	example.org/project/internal/cache	600.014s

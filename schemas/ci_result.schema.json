@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/ci-result.v1.schema.json",
+  "title": "PatchRail CI Result",
+  "description": "Local CI failure classification result emitted by patchrail ci classify and patchrail ci explain --format json.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "failure_class",
+    "likely_subsystem",
+    "reproduction_command",
+    "minimal_repair_strategy",
+    "confidence",
+    "signals",
+    "requirements"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.ci_result.v1"
+    },
+    "failure_class": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "python_dependency_resolution",
+        "python_test_failure",
+        "node_dependency_install",
+        "typescript_typecheck",
+        "javascript_lint",
+        "github_actions_workflow",
+        "rust_test_failure",
+        "go_test_failure"
+      ]
+    },
+    "likely_subsystem": {
+      "type": "string",
+      "minLength": 1
+    },
+    "reproduction_command": {
+      "type": "string",
+      "minLength": 1
+    },
+    "minimal_repair_strategy": {
+      "type": "string",
+      "minLength": 1
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "signals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "requirements": {
+      "type": "object",
+      "required": [
+        "billing_required",
+        "webhook_required_for_local_classification",
+        "github_app_required_for_local_classification",
+        "pr_creation_required",
+        "external_model_required"
+      ],
+      "properties": {
+        "billing_required": {
+          "const": false
+        },
+        "webhook_required_for_local_classification": {
+          "const": false
+        },
+        "github_app_required_for_local_classification": {
+          "const": false
+        },
+        "pr_creation_required": {
+          "type": "string",
+          "pattern": "^no;"
+        },
+        "external_model_required": {
+          "const": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "redaction": {
+      "type": "object",
+      "required": ["redacted", "redactions", "local_only"],
+      "properties": {
+        "redacted": {
+          "type": "string"
+        },
+        "redactions": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "local_only": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

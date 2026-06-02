@@ -1,0 +1,3 @@
+python -m pytest -q
+ERROR tests/test_cli.py
+ModuleNotFoundError: No module named 'patchrail_demo'

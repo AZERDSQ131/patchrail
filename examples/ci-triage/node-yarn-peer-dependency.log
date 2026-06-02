@@ -1,0 +1,4 @@
+yarn install --immutable
+YN0002: workspace-app@workspace:. does not provide react, requested by @testing-library/react
+YN0060: lockfile would have been modified by this install
+peer dep warnings treated as errors in CI
