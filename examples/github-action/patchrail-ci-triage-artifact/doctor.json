@@ -1,0 +1,19 @@
+{
+  "checks": {
+    "ci_fixture_count": 40,
+    "ci_fixture_directory": "patchrail/examples/ci-triage",
+    "ci_result_schema_available": true
+  },
+  "local_first": true,
+  "patchrail_version": "0.1.0",
+  "project_root": "patchrail",
+  "python_version": "3.11.15",
+  "requirements": {
+    "billing_required": false,
+    "external_model_required": false,
+    "github_write_permission_required": false,
+    "network_required": false
+  },
+  "schema_version": "patchrail.doctor.v1",
+  "status": "ok"
+}

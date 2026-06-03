@@ -7,7 +7,7 @@
 - Local redaction helper for shared logs.
 - Fixture-backed tests.
 - Local fixture benchmark command.
-- Initial 20-fixture CI failure zoo.
+- Initial 40-fixture CI failure zoo.
 - Safety, ethics, and security documentation.
 
 ## v0.2
@@ -18,12 +18,13 @@
 
 ## v0.3
 
-- Local SQLite queue for maintainer work items.
-- Human approval gates.
-- Exportable audit log.
+- Local SQLite queue for maintainer work items. `alpha`
+- Human approval gates via `patchrail queue approve` / `reject`. `alpha`
+- Exportable audit log via `patchrail queue export`. `alpha`
+- Next: queue-to-CI-result helper and demo workflow for approved repair proposals.
 
 ## v0.4
 
-- Read-only funded issue discovery.
+- Read-only funded issue discovery over local JSON metadata.
 - Contribution etiquette and anti-abuse guardrails.
-- No automatic claims, comments, or pull requests.
+- No automatic claims, comments, pull requests, maintainer contact, external API fetch, or model call.

@@ -1,0 +1,4 @@
+pnpm typecheck
+src/api-client.ts:18:10 - error TS2305: Module '"./schema"' has no exported member 'ApiResponse'.
+src/api-client.ts:31:7 - error TS2322: Type 'unknown' is not assignable to type 'ApiResponse'.
+Found 2 errors in src/api-client.ts

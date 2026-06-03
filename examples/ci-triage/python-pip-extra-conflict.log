@@ -1,0 +1,6 @@
+Run python -m pip install "demo-api[postgres]==1.0.0" -r requirements.txt
+ERROR: Cannot install demo-api[postgres]==1.0.0 and reporting-client==3.0.0 because these package versions have conflicting dependencies.
+The conflict is caused by:
+    demo-api[postgres] 1.0.0 depends on db-driver<2
+    reporting-client 3.0.0 depends on db-driver>=2
+ERROR: ResolutionImpossible

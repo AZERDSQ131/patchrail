@@ -11,6 +11,21 @@ maintainers stay in control.
 
 ## Quickstart
 
+Install the CLI:
+
+```bash
+pipx install patchrail
+```
+
+Run the local safety check and classify a failed CI log:
+
+```bash
+patchrail doctor
+patchrail ci explain --log failed-github-actions.log
+```
+
+From a source checkout, use the bundled fixture:
+
 ```bash
 python -m pip install -e ".[dev]"
 patchrail ci explain --log examples/ci-triage/dependency-failure.log
@@ -43,7 +58,7 @@ Example output:
 | --- | --- | --- |
 | CI failure triage | Beta | GitHub Actions-style logs and common OSS toolchains |
 | Markdown/JSON reports | Beta | Suitable for local review or manually pasted reports |
-| Local queue/control plane | Planned | SQLite-backed human approval gates |
+| Local queue/control plane | Alpha | SQLite-backed human approval gates and audit export |
 | Funded issue discovery | Planned | Read-only, later, and explicitly anti-abuse |
 
 ## Safety
@@ -61,6 +76,23 @@ patchrail schema ci-result > ci-result.schema.json
 patchrail ci benchmark examples/ci-triage --format markdown
 ```
 
+Create a local review queue before any write action:
+
+```bash
+patchrail queue init
+patchrail queue add \
+  --kind ci_failure \
+  --title "Triage dependency install failure" \
+  --source examples/ci-triage/dependency-failure.log \
+  --payload-json '{"failure_class":"python_dependency_resolution"}'
+patchrail queue approve 1 --note "Maintainer reviewed the evidence"
+patchrail queue export --format jsonl
+```
+
+The queue is local SQLite by default and records an audit event for proposals and
+approval decisions. It does not need network access, GitHub credentials, or an
+external model.
+
 See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
 [docs/threat-model.md](docs/threat-model.md).
 
@@ -69,11 +101,15 @@ See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
 - [Quickstart](docs/quickstart.md)
 - [CI Janitor](docs/ci-janitor.md)
 - [CI Failure Zoo](docs/ci-failure-zoo.md)
+- [GitHub Actions CI triage](docs/github-action.md)
 - [Reviewable automation workflows](docs/agent-workflows.md)
+- [Agent Control Plane](docs/agent-control-plane.md)
+- [Codex workflows](docs/codex-workflows.md)
 - [Threat model](docs/threat-model.md)
 - [Funded issue ethics](docs/funded-issues-ethics.md)
 - [Roadmap](docs/roadmap.md)
 - [Release process](docs/release-process.md)
+- [Codex for Open Source evidence](docs/openai-codex-for-oss-evidence.md)
 - [Open source evidence tracker](docs/oss-program-evidence.md)
 
 ## Contributing

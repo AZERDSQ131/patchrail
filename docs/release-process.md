@@ -21,6 +21,11 @@ python -m ruff check .
 python -m ruff format --check .
 python -m build
 python -m twine check dist/*
+python -m venv .pkg-smoke
+. .pkg-smoke/bin/activate
+python -m pip install dist/*.whl
+patchrail doctor --format json
+patchrail ci explain --log examples/ci-triage/dependency-failure.log --format text
 ```
 
 ## Manual Publish Gate

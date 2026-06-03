@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/work-item.v1.schema.json",
+  "title": "PatchRail Work Item",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "kind",
+    "title",
+    "priority",
+    "status",
+    "payload",
+    "created_at",
+    "updated_at",
+    "requirements"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.work_item.v1"
+    },
+    "id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": ["string", "null"]
+    },
+    "priority": {
+      "type": "integer"
+    },
+    "status": {
+      "enum": ["proposed", "approved", "rejected", "done"]
+    },
+    "payload": {
+      "type": "object"
+    },
+    "created_at": {
+      "type": "string"
+    },
+    "updated_at": {
+      "type": "string"
+    },
+    "approved_at": {
+      "type": ["string", "null"]
+    },
+    "rejected_at": {
+      "type": ["string", "null"]
+    },
+    "decision_note": {
+      "type": ["string", "null"]
+    },
+    "requirements": {
+      "type": "object",
+      "required": [
+        "network_required",
+        "external_model_required",
+        "github_token_required",
+        "write_actions_require_human_approval"
+      ],
+      "properties": {
+        "network_required": {
+          "const": false
+        },
+        "external_model_required": {
+          "const": false
+        },
+        "github_token_required": {
+          "const": false
+        },
+        "write_actions_require_human_approval": {
+          "const": true
+        }
+      }
+    }
+  }
+}

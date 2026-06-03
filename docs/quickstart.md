@@ -1,9 +1,28 @@
 # Quickstart
 
+Install PatchRail:
+
+```bash
+pipx install patchrail
+patchrail --help
+```
+
+Confirm the local installation and safety boundary:
+
+```bash
+patchrail doctor
+```
+
 Install PatchRail from a checkout:
 
 ```bash
 python -m pip install -e ".[dev]"
+```
+
+Classify a failed CI log:
+
+```bash
+patchrail ci explain --log failed-github-actions.log
 ```
 
 Classify the bundled fixture:

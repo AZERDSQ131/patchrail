@@ -36,4 +36,5 @@ patchrail funded-issues list --safe-only --format json
 ```
 
 No comment, pull request, claim or contact action should happen from that
-command. Any write-capable integration must be a separate human-approved path.
+command. The funded issue scout does not permit write actions. Any write-capable
+integration must be a separate human-approved path.

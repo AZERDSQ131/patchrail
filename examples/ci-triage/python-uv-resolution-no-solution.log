@@ -1,0 +1,3 @@
+Run uv pip compile pyproject.toml
+No solution found when resolving dependencies.
+Because demo-api depends on fastqueue>=9 and no versions of fastqueue match >=9, requirements are unsatisfiable.

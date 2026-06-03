@@ -1,0 +1,4 @@
+Run python -m pip install -r requirements.txt
+ERROR: Ignored the following versions that require a different python version: 1.2.0 Requires-Python >=3.12
+ERROR: Could not find a version that satisfies the requirement platform-wheel==1.2.3; platform_machine == "x86_64"
+ERROR: No matching distribution found for platform-wheel==1.2.3

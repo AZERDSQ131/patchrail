@@ -1,0 +1,6 @@
+Run python -m pip install -c constraints.txt -r requirements.txt
+ERROR: Cannot install demo-service==1.4.0 and report-lib==2.0.0 because these package versions have conflicting dependencies.
+The conflict is caused by:
+    demo-service 1.4.0 depends on shared-utils<3
+    report-lib 2.0.0 depends on shared-utils>=3
+ERROR: ResolutionImpossible

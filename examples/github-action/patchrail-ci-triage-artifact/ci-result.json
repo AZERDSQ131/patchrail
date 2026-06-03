@@ -1,0 +1,26 @@
+{
+  "confidence": 0.95,
+  "failure_class": "python_dependency_resolution",
+  "likely_subsystem": "Python dependency installation",
+  "minimal_repair_strategy": "Pin or relax the conflicting dependency range, then rerun the same install command and the affected tests.",
+  "redaction": {
+    "local_only": true,
+    "redacted": "Run python -m pip install -r requirements.txt\nERROR: Cannot install project requirements because these package versions have conflicting dependencies.\nERROR: Could not find a version that satisfies the requirement example-lib==99.99.99\nERROR: ResolutionImpossible\n",
+    "redactions": {}
+  },
+  "reproduction_command": "python -m pip install -r requirements.txt",
+  "requirements": {
+    "billing_required": false,
+    "external_model_required": false,
+    "github_app_required_for_local_classification": false,
+    "pr_creation_required": "no; write actions remain separate human-approved gates",
+    "webhook_required_for_local_classification": false
+  },
+  "schema_version": "patchrail.ci_result.v1",
+  "signals": [
+    "Could not find a version that satisfies the requirement",
+    "Cannot install .*because these package versions have conflicting dependencies",
+    "ResolutionImpossible",
+    "python -m pip install"
+  ]
+}

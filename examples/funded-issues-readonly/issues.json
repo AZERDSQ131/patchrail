@@ -1,0 +1,44 @@
+{
+  "schema_version": "patchrail.funded_issues.v1",
+  "issues": [
+    {
+      "id": "polar-example-project-42",
+      "platform": "polar",
+      "repository": "example/project",
+      "issue_number": 42,
+      "title": "Reduce flaky integration test timeout",
+      "url": "https://github.com/example/project/issues/42",
+      "funding": {
+        "amount": 250,
+        "currency": "USD"
+      },
+      "language": "python",
+      "labels": ["ci", "tests", "good-first-investigation"],
+      "contribution_signals": [
+        "reproduction included",
+        "maintainer labeled investigation welcome",
+        "tests documented"
+      ],
+      "risk_flags": [],
+      "maintainer_permission": "public_issue_only",
+      "contribution_guidelines_url": "https://github.com/example/project/blob/main/CONTRIBUTING.md"
+    },
+    {
+      "id": "algora-example-toolkit-17",
+      "platform": "algora",
+      "repository": "example/toolkit",
+      "issue_number": 17,
+      "title": "Rewrite broad plugin architecture",
+      "url": "https://github.com/example/toolkit/issues/17",
+      "funding": {
+        "amount": 1500,
+        "currency": "USD"
+      },
+      "language": "typescript",
+      "labels": ["architecture"],
+      "contribution_signals": ["large design surface"],
+      "risk_flags": ["ambiguous_scope", "spam_attractive"],
+      "maintainer_permission": "public_issue_only"
+    }
+  ]
+}
