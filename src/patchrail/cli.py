@@ -19,6 +19,7 @@ from patchrail.queue import (
     init_queue,
     list_work_items,
     reject_work_item,
+    serve_control_plane,
 )
 
 
@@ -537,6 +538,33 @@ def _queue_add(args: argparse.Namespace) -> int:
     return 0
 
 
+def _queue_from_ci_result(args: argparse.Namespace) -> int:
+    result = json.loads(args.result.read_text(encoding="utf-8"))
+    if not isinstance(result, dict):
+        raise ValueError("CI result must be a JSON object")
+
+    failure_class = str(result.get("failure_class") or "unknown")
+    confidence = result.get("confidence")
+    title = args.title or f"Review CI failure: {failure_class}"
+    source = args.source or str(args.result)
+    payload = {
+        "ci_result": result,
+        "failure_class": failure_class,
+        "confidence": confidence,
+        "source_result": str(args.result),
+    }
+    item = add_work_item(
+        db_path=args.db,
+        kind="ci_failure",
+        title=title,
+        source=source,
+        priority=args.priority,
+        payload=payload,
+    )
+    _write_or_print(json.dumps(item, indent=2, sort_keys=True) + "\n", args.out)
+    return 0
+
+
 def _queue_list(args: argparse.Namespace) -> int:
     items = list_work_items(db_path=args.db, status=args.status)
     if args.format == "json":
@@ -572,6 +600,11 @@ def _queue_export(args: argparse.Namespace) -> int:
     else:
         text = "".join(json.dumps(event, sort_keys=True) + "\n" for event in events)
     _write_or_print(text, args.out)
+    return 0
+
+
+def _serve(args: argparse.Namespace) -> int:
+    serve_control_plane(host=args.host, port=args.port, db_path=args.db)
     return 0
 
 
@@ -674,6 +707,24 @@ def _build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--out", type=Path, help="Optional output path.")
     doctor.set_defaults(func=_doctor)
 
+    serve = subparsers.add_parser(
+        "serve",
+        help="Run the local Agent Control Plane HTTP server on loopback.",
+    )
+    serve.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Bind host. Defaults to 127.0.0.1.",
+    )
+    serve.add_argument("--port", type=int, default=8765, help="Bind port. Defaults to 8765.")
+    serve.add_argument(
+        "--db",
+        type=Path,
+        default=DEFAULT_DB_PATH,
+        help="SQLite queue path. Defaults to .patchrail/queue.sqlite.",
+    )
+    serve.set_defaults(func=_serve)
+
     queue_parser = subparsers.add_parser(
         "queue",
         help="Manage local human-approved maintainer work items.",
@@ -693,6 +744,17 @@ def _build_parser() -> argparse.ArgumentParser:
     queue_add.add_argument("--payload-json", help="Optional structured JSON payload.")
     queue_add.add_argument("--payload-file", type=Path, help="Optional JSON payload file.")
     queue_add.set_defaults(func=_queue_add)
+
+    queue_from_ci = queue_subparsers.add_parser(
+        "from-ci-result",
+        help="Create a proposed work item from a local PatchRail CI JSON result.",
+    )
+    _add_queue_db_argument(queue_from_ci)
+    queue_from_ci.add_argument("--result", type=Path, required=True, help="CI result JSON file.")
+    queue_from_ci.add_argument("--source", help="Optional source reference to store on the item.")
+    queue_from_ci.add_argument("--title", help="Optional human-readable work item title.")
+    queue_from_ci.add_argument("--priority", type=int, default=0, help="Higher numbers sort first.")
+    queue_from_ci.set_defaults(func=_queue_from_ci_result)
 
     queue_list = queue_subparsers.add_parser("list", help="List work items.")
     _add_queue_db_argument(queue_list)

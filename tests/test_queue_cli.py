@@ -133,6 +133,60 @@ class PatchRailQueueTests(unittest.TestCase):
             True,
         )
 
+    def test_queue_from_ci_result_creates_proposed_work_item(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db_path = Path(tmpdir) / "queue.sqlite"
+            result_path = Path(tmpdir) / "ci-result.json"
+            result_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.ci_result.v1",
+                        "failure_class": "python_dependency_resolution",
+                        "confidence": 0.95,
+                        "requirements": {
+                            "billing_required": False,
+                            "external_model_required": False,
+                            "network_required": False,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "patchrail",
+                    "queue",
+                    "from-ci-result",
+                    "--db",
+                    str(db_path),
+                    "--result",
+                    str(result_path),
+                    "--source",
+                    "examples/ci-triage/dependency-failure.log",
+                    "--priority",
+                    "20",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            item = json.loads(proc.stdout)
+            self.assertEqual(item["kind"], "ci_failure")
+            self.assertEqual(item["status"], "proposed")
+            self.assertEqual(item["priority"], 20)
+            self.assertEqual(item["source"], "examples/ci-triage/dependency-failure.log")
+            self.assertEqual(item["title"], "Review CI failure: python_dependency_resolution")
+            self.assertEqual(item["payload"]["failure_class"], "python_dependency_resolution")
+            self.assertEqual(
+                item["payload"]["ci_result"]["requirements"]["network_required"], False
+            )
+            self.assertTrue(item["requirements"]["write_actions_require_human_approval"])
+
 
 if __name__ == "__main__":
     unittest.main()

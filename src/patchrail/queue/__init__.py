@@ -10,6 +10,7 @@ from patchrail.queue.store import (
     list_work_items,
     reject_work_item,
 )
+from patchrail.queue.server import make_handler, serve_control_plane
 
 __all__ = [
     "DEFAULT_DB_PATH",
@@ -19,5 +20,7 @@ __all__ = [
     "get_work_item",
     "init_queue",
     "list_work_items",
+    "make_handler",
     "reject_work_item",
+    "serve_control_plane",
 ]

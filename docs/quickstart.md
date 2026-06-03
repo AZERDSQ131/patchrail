@@ -49,5 +49,13 @@ Check the fixture benchmark:
 patchrail ci benchmark examples/ci-triage --format markdown
 ```
 
+Queue a local CI result for human approval:
+
+```bash
+patchrail ci classify --log examples/ci-triage/dependency-failure.log --format json --out patchrail-result.json
+patchrail queue from-ci-result --result patchrail-result.json --source examples/ci-triage/dependency-failure.log
+patchrail queue list
+```
+
 PatchRail v0.1 does not create pull requests, comments, funded issue claims, or
 remote uploads. The command reads a local log file and writes a local report.

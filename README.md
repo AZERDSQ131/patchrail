@@ -87,11 +87,20 @@ patchrail queue add \
   --payload-json '{"failure_class":"python_dependency_resolution"}'
 patchrail queue approve 1 --note "Maintainer reviewed the evidence"
 patchrail queue export --format jsonl
+patchrail serve --host 127.0.0.1 --port 8765
+```
+
+Queue a classifier result directly:
+
+```bash
+patchrail ci classify --log failed.log --format json --out patchrail-result.json
+patchrail queue from-ci-result --result patchrail-result.json --source failed.log
 ```
 
 The queue is local SQLite by default and records an audit event for proposals and
-approval decisions. It does not need network access, GitHub credentials, or an
-external model.
+approval decisions. The optional HTTP control plane binds to loopback by default
+for local dashboards or supervisors. It does not need network access, GitHub
+credentials, or an external model.
 
 See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
 [docs/threat-model.md](docs/threat-model.md).

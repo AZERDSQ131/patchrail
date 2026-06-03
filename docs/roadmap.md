@@ -21,7 +21,9 @@
 - Local SQLite queue for maintainer work items. `alpha`
 - Human approval gates via `patchrail queue approve` / `reject`. `alpha`
 - Exportable audit log via `patchrail queue export`. `alpha`
-- Next: queue-to-CI-result helper and demo workflow for approved repair proposals.
+- Loopback-only HTTP control plane via `patchrail serve`. `alpha`
+- CI-result-to-queue helper via `patchrail queue from-ci-result`. `alpha`
+- Next: demo workflow for approved repair proposals.
 
 ## v0.4
 
