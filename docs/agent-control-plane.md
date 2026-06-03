@@ -14,6 +14,8 @@ The queue is local-first:
 - export is JSON or JSONL for audit, handoff, or demos;
 - audit events are local, append-only SQLite records for queue add, approve,
   reject, proposal, and export decisions;
+- an optional HTTP API binds to `127.0.0.1` by default for local dashboards,
+  demos, and handoffs;
 - no command posts comments, opens pull requests, contacts third-party repos,
   claims funding, or calls an external model.
 
@@ -93,6 +95,34 @@ patchrail queue export --format jsonl > patchrail-queue.jsonl
 patchrail queue audit --format jsonl > patchrail-audit-events.jsonl
 ```
 
+Run the local-only HTTP API:
+
+```bash
+patchrail serve --host 127.0.0.1 --port 8765 --db .patchrail/queue.sqlite
+```
+
+Example local API calls:
+
+```bash
+curl -sS http://127.0.0.1:8765/health
+curl -sS http://127.0.0.1:8765/status
+curl -sS http://127.0.0.1:8765/work-items
+curl -sS http://127.0.0.1:8765/proposals
+curl -sS http://127.0.0.1:8765/audit-events
+```
+
+Create and approve local records through the API:
+
+```bash
+curl -sS -X POST http://127.0.0.1:8765/work-items \
+  -H 'Content-Type: application/json' \
+  -d '{"kind":"ci_failure","title":"Review failed dependency install","source":"local-demo"}'
+
+curl -sS -X POST http://127.0.0.1:8765/work-items/prq_example/approve \
+  -H 'Content-Type: application/json' \
+  -d '{"note":"Maintainer reviewed the local evidence."}'
+```
+
 For a complete local demo that starts from a CI report and ends with an
 approved queue export, see
 [`examples/local-agent-queue`](../examples/local-agent-queue/README.md).
@@ -130,6 +160,8 @@ The current queue is enough for local demos and release evidence:
 - list and show items;
 - approve or reject items;
 - add, list, show, approve, and reject local proposal records;
+- run a local HTTP API for `health`, `status`, work items, proposals,
+  approval decisions, and audit events;
 - export work items;
 - export audit events for item creation, proposals, maintainer decisions, and
   handoffs.

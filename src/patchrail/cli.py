@@ -26,6 +26,7 @@ from patchrail.queue import (
     show_proposal,
     show_work_item,
 )
+from patchrail.queue.server import serve_queue_api
 
 
 def _read_log(path: Path | None) -> str:
@@ -531,6 +532,18 @@ def _queue_proposal_reject(args: argparse.Namespace) -> int:
     return 0
 
 
+def _serve(args: argparse.Namespace) -> int:
+    try:
+        serve_queue_api(host=args.host, port=args.port, db_path=Path(args.db))
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    except KeyboardInterrupt:
+        print("PatchRail local API stopped.", file=sys.stderr)
+        return 130
+    return 0
+
+
 def _ci_explain(args: argparse.Namespace) -> int:
     raw_log = _read_log(args.log)
     result = classify_ci_log(raw_log)
@@ -926,6 +939,24 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     doctor.add_argument("--out", type=Path, help="Optional output path.")
     doctor.set_defaults(func=_doctor)
+
+    serve = subparsers.add_parser(
+        "serve",
+        help="Run the local-only PatchRail Agent Control Plane HTTP API.",
+    )
+    serve.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Bind host. Only 127.0.0.1 or localhost are allowed.",
+    )
+    serve.add_argument("--port", type=int, default=8765, help="Local API port.")
+    serve.add_argument(
+        "--db",
+        type=Path,
+        default=DEFAULT_QUEUE_PATH,
+        help="SQLite queue path. Defaults to .patchrail/queue.sqlite.",
+    )
+    serve.set_defaults(func=_serve)
 
     queue = subparsers.add_parser(
         "queue",

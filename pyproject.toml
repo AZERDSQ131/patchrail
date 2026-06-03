@@ -36,6 +36,37 @@ patchrail = "patchrail.cli:main"
 [project.optional-dependencies]
 dev = ["build>=1.2", "pytest>=8", "ruff>=0.5", "twine>=5.1"]
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/patchrail"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src/patchrail",
+  "/tests",
+  "/examples",
+  "/docs",
+  "/schemas",
+  "/README.md",
+  "/LICENSE",
+  "/CHANGELOG.md",
+  "/AGENTS.md",
+  "/ETHICS.md",
+  "/SECURITY.md",
+  "/CONTRIBUTING.md",
+  "/CODE_OF_CONDUCT.md",
+  "/GOVERNANCE.md",
+  "/pyproject.toml",
+  "/uv.lock",
+]
+exclude = [
+  "/.pkg-smoke",
+  "/.venv",
+  "/.pytest_cache",
+  "/.ruff_cache",
+  "/dist",
+  "/build",
+]
+
 [tool.ruff]
 line-length = 100
 target-version = "py311"

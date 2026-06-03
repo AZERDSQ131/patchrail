@@ -32,6 +32,8 @@
 - Local audit event export for add, approve, reject, and handoff decisions.
 - Local proposal records for reviewable patch plans linked to queue items.
 - Proposal approval/rejection audit events without granting write permission.
+- Local-only HTTP API for queue health, status, work items, proposals,
+  approvals, and audit events.
 
 ## v0.4
 

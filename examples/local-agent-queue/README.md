@@ -67,6 +67,17 @@ patchrail queue --db .patchrail-demo/queue.sqlite audit \
   --out .patchrail-demo/audit-events.jsonl
 ```
 
+Optional local API demo:
+
+```bash
+patchrail serve --host 127.0.0.1 --port 8765 --db .patchrail-demo/queue.sqlite
+
+curl -sS http://127.0.0.1:8765/health
+curl -sS http://127.0.0.1:8765/status
+curl -sS http://127.0.0.1:8765/work-items
+curl -sS "http://127.0.0.1:8765/audit-events?work_item_id=$ITEM_ID"
+```
+
 Expected local artifacts:
 
 - `.patchrail-demo/ci-report.md`: the local CI explanation.
@@ -80,6 +91,8 @@ Expected local artifacts:
 - `.patchrail-demo/queue.jsonl`: the exported work items.
 - `.patchrail-demo/audit-events.jsonl`: the append-only local event trail for
   add, proposal, approve, and export decisions.
+- Local API responses expose the same local SQLite state for dashboard or demo
+  use without GitHub write permissions or external model calls.
 
 Check the safety boundary:
 

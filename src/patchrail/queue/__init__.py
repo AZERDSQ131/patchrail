@@ -20,6 +20,11 @@ from patchrail.queue.store import (
     show_proposal,
     show_work_item,
 )
+from patchrail.queue.server import (
+    handle_queue_api_request,
+    make_queue_api_handler,
+    serve_queue_api,
+)
 
 __all__ = [
     "AuditEvent",
@@ -40,4 +45,7 @@ __all__ = [
     "reject_work_item",
     "show_proposal",
     "show_work_item",
+    "handle_queue_api_request",
+    "make_queue_api_handler",
+    "serve_queue_api",
 ]

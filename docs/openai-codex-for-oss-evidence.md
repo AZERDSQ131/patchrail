@@ -28,8 +28,9 @@ Current public evidence is local and preparatory:
 - Release automation: first release-prep checklist is documented in
   [release-process.md](release-process.md); public PR history is pending
 - CI triage: public CI is green, and the read-only triage workflow is installed for failed CI runs
-- Agent control plane: experimental local SQLite queue added for human-gated
-  maintainer work items and reviewable proposal records
+- Agent control plane: experimental local SQLite queue and `127.0.0.1` HTTP API
+  added for human-gated maintainer work items, reviewable proposal records,
+  approval decisions, status, and audit events
 - Funded issue scout: experimental read-only `funded-issues` CLI now inspects
   local metadata with safe-only filtering and explicit anti-abuse blocked actions
 
@@ -68,6 +69,10 @@ Last verified: 2026-06-03.
   queued CI failure to a local patch plan and records `proposal_added`,
   `proposal_approved`, and `proposal_rejected` audit events without executing
   the plan.
+- Local queue API: `patchrail serve --host 127.0.0.1 --port 8765` exposes
+  `/health`, `/status`, `/work-items`, `/proposals`, and `/audit-events` for
+  local dashboards/demos. The API rejects non-local bind hosts and reports no
+  billing, external model, network, or GitHub write permission requirement.
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
 - Wheel smoke: installed `dist/patchrail-0.1.0-py3-none-any.whl` in a fresh `.pkg-smoke` virtual environment, then ran `patchrail doctor --format json` and `patchrail ci explain --log examples/ci-triage/dependency-failure.log --format text`.
