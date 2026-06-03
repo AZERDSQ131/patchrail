@@ -87,6 +87,22 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "No automatic bounty claiming" in evidence
 
 
+def test_funded_issues_docs_preserve_read_only_boundary() -> None:
+    docs = (ROOT / "docs" / "funded-issues-ethics.md").read_text(encoding="utf-8")
+    roadmap = (ROOT / "docs" / "roadmap.md").read_text(encoding="utf-8")
+    example = (ROOT / "examples" / "funded-issues-readonly" / "README.md").read_text(
+        encoding="utf-8"
+    )
+
+    combined = "\n".join([docs, roadmap, example])
+    assert "patchrail funded-issues list" in combined
+    assert "patchrail funded-issues explain" in combined
+    assert "does not claim rewards" in combined
+    assert "does not permit write actions" in combined
+    assert "No automatic claims, comments, pull requests" in roadmap
+    assert "local JSON" in combined
+
+
 def test_ci_workflow_builds_and_smokes_installable_package() -> None:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     release_process = (ROOT / "docs" / "release-process.md").read_text(encoding="utf-8")

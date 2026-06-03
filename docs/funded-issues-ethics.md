@@ -1,8 +1,8 @@
 # Funded Issues Ethics
 
-Funded issue discovery is not part of the v0.1 public feature set. It is listed
-on the roadmap because funding can be a useful sustainability signal for open
-source maintenance when handled carefully.
+Funded issue discovery is experimental and intentionally read-only. Funding can
+be a useful sustainability signal for open source maintenance when handled
+carefully, but it must never become bounty farming.
 
 ## Policy
 
@@ -29,11 +29,35 @@ The intended future use is contribution readiness, not bounty farming:
 
 ## Default Boundary
 
-If this feature is added, the safe default should be local output only:
+The safe default is local output only:
 
 ```bash
-patchrail funded-issues list --safe-only --format json
+patchrail funded-issues list \
+  --source examples/funded-issues-readonly/issues.json \
+  --format json
+
+patchrail funded-issues explain example/project#42 \
+  --source examples/funded-issues-readonly/issues.json \
+  --format markdown
 ```
 
-No comment, pull request, claim or contact action should happen from that
-command. Any write-capable integration must be a separate human-approved path.
+No comment, pull request, claim or contact action happens from these commands.
+The default list view filters out high-risk records. `--include-risky` only
+changes local output visibility; it still does not permit write actions.
+
+## Local Source Contract
+
+The first public implementation reads a local JSON file only. It does not fetch
+platform APIs, scrape websites, call models, require billing, or ask for GitHub
+write permissions.
+
+Each record is evaluated for:
+
+- contribution-readiness signals;
+- contribution guideline availability;
+- anti-abuse risk flags;
+- maintainer permission posture;
+- funding metadata as context, not as the ranking objective.
+
+High-risk examples include ambiguous scope, spam-attractive funding, missing
+contribution guidelines, and language that frames the work as payout capture.

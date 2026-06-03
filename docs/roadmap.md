@@ -35,6 +35,8 @@
 
 ## v0.4
 
-- Read-only funded issue discovery.
+- Experimental `patchrail funded-issues list/explain` over local JSON metadata.
+- Safe-only filtering by default, with `--include-risky` limited to local output visibility.
 - Contribution etiquette and anti-abuse guardrails.
-- No automatic claims, comments, or pull requests.
+- Risk explanations for ambiguous scope, spam-attractive work, and missing contribution guidelines.
+- No automatic claims, comments, pull requests, maintainer contact, external API fetch, or model call.

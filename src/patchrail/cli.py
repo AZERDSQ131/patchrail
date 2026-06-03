@@ -9,6 +9,7 @@ from typing import Any
 
 from patchrail import __version__
 from patchrail.ci import classify_ci_log, redact_ci_log
+from patchrail.funded_issues import explain_issue, load_funded_issues, summarize_issues
 from patchrail.queue import (
     DEFAULT_QUEUE_PATH,
     add_proposal,
@@ -669,6 +670,162 @@ def _render_benchmark_text(result: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_text(issues: list[dict[str, Any]]) -> str:
+    if not issues:
+        return "No funded issues matched the safe read-only filters.\n"
+    lines = []
+    for issue in issues:
+        lines.append(
+            f"{issue['reference']} [{issue['risk_level']}] "
+            f"{issue['funding']['display']} {issue['title']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_markdown(payload: dict[str, Any]) -> str:
+    lines = [
+        "# PatchRail Funded Issues",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Safe-only filter: `{payload['safe_only']}`",
+        f"- Loaded: `{payload['total_loaded']}`",
+        f"- Returned: `{payload['total_returned']}`",
+        "",
+        "## Issues",
+        "",
+    ]
+    if not payload["issues"]:
+        lines.append("No funded issues matched the safe read-only filters.")
+    for issue in payload["issues"]:
+        lines.extend(
+            [
+                f"### {issue['reference']}",
+                "",
+                f"- Title: {issue['title']}",
+                f"- Platform: `{issue['platform']}`",
+                f"- Funding: `{issue['funding']['display']}`",
+                f"- Risk level: `{issue['risk_level']}`",
+                f"- URL: {issue['url']}",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Boundary",
+            "",
+            (
+                "PatchRail reads local metadata only. This command does not claim rewards, "
+                "post comments, open pull requests, contact maintainers, or rank work by money alone."
+            ),
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issue_explain_markdown(payload: dict[str, Any]) -> str:
+    issue = payload["issue"]
+    lines = [
+        "# PatchRail Funded Issue",
+        "",
+        f"- Reference: `{issue['reference']}`",
+        f"- Title: {issue['title']}",
+        f"- Platform: `{issue['platform']}`",
+        f"- Funding: `{issue['funding']['display']}`",
+        f"- Risk level: `{issue['risk_level']}`",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- URL: {issue['url']}",
+        "",
+        "## Recommendation",
+        "",
+        payload["recommendation"],
+        "",
+        "## Signals",
+        "",
+    ]
+    signals = issue["contribution_signals"]
+    if signals:
+        lines.extend(f"- {signal}" for signal in signals)
+    else:
+        lines.append("- No positive contribution-readiness signals recorded.")
+    lines.extend(["", "## Risk Flags", ""])
+    risk_flags = issue["risk_flags"]
+    if risk_flags:
+        lines.extend(f"- `{flag}`" for flag in risk_flags)
+    else:
+        lines.append("- No high-risk flags recorded.")
+    lines.extend(
+        [
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["ethics"]["blocked"])
+    lines.extend(
+        [
+            "",
+            "PatchRail does not claim rewards, post comments, open pull requests, "
+            "or contact maintainers from funded issue commands.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _default_funded_issues_source() -> Path:
+    return Path("examples") / "funded-issues-readonly" / "issues.json"
+
+
+def _load_funded_issues_for_cli(source: Path) -> list[Any]:
+    if not source.exists():
+        raise FileNotFoundError(source)
+    return load_funded_issues(source)
+
+
+def _funded_issues_list(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        payload = summarize_issues(
+            issues,
+            safe_only=not args.include_risky,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_markdown(payload)
+    else:
+        text = _render_funded_issues_text(payload["issues"])
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_explain(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        payload = explain_issue(issues, args.reference)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    except KeyError:
+        print(f"Unknown funded issue: {args.reference}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issue_explain_markdown(payload)
+    else:
+        text = _render_funded_issues_text([payload["issue"]])
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _ci_benchmark(args: argparse.Namespace) -> int:
     result = _run_ci_benchmark(args.path)
     if args.format == "json":
@@ -944,6 +1101,59 @@ def _build_parser() -> argparse.ArgumentParser:
     proposal_reject.add_argument("--note", help="Decision note to keep in the audit trail.")
     proposal_reject.add_argument("--out", type=Path, help="Optional output path.")
     proposal_reject.set_defaults(func=_queue_proposal_reject)
+
+    funded = subparsers.add_parser(
+        "funded-issues",
+        help="Inspect funded maintenance issues from local read-only metadata.",
+    )
+    funded_subparsers = funded.add_subparsers(dest="funded_issues_command", required=True)
+
+    funded_list = funded_subparsers.add_parser(
+        "list",
+        help="List local funded issue metadata with safe-only filtering by default.",
+    )
+    funded_list.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_list.add_argument(
+        "--include-risky",
+        action="store_true",
+        help="Include high-risk issues in local output. Still read-only.",
+    )
+    funded_list.add_argument("--platform", help="Filter by funding platform.")
+    funded_list.add_argument("--language", help="Filter by repository language.")
+    funded_list.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_list.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="text",
+        help="Output format.",
+    )
+    funded_list.add_argument("--out", type=Path, help="Optional output path.")
+    funded_list.set_defaults(func=_funded_issues_list)
+
+    funded_explain = funded_subparsers.add_parser(
+        "explain",
+        help="Explain one local funded issue record and its anti-abuse boundary.",
+    )
+    funded_explain.add_argument("reference", help="Issue id, URL, or owner/repo#number.")
+    funded_explain.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_explain.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_explain.add_argument("--out", type=Path, help="Optional output path.")
+    funded_explain.set_defaults(func=_funded_issues_explain)
 
     return parser
 

@@ -30,6 +30,8 @@ Current public evidence is local and preparatory:
 - CI triage: public CI is green, and the read-only triage workflow is installed for failed CI runs
 - Agent control plane: experimental local SQLite queue added for human-gated
   maintainer work items and reviewable proposal records
+- Funded issue scout: experimental read-only `funded-issues` CLI now inspects
+  local metadata with safe-only filtering and explicit anti-abuse blocked actions
 
 PatchRail's intended Codex usage is bounded to maintainer-approved work:
 
@@ -73,6 +75,11 @@ Last verified: 2026-06-03.
   [`examples/github-action`](../examples/github-action/README.md) documents the
   read-only `patchrail-ci-triage` artifact with `ci-report.md`,
   `ci-result.json`, `fixture-benchmark.json`, and `doctor.json`.
+- Funded issue read-only demo:
+  [`examples/funded-issues-readonly`](../examples/funded-issues-readonly/README.md)
+  shows `patchrail funded-issues list/explain` over local JSON. The command
+  reports blocked actions including automatic claims, comments, pull requests,
+  mass outreach, and money-only ranking.
 
 ## Public Launch Issues
 
@@ -93,6 +100,7 @@ Last verified: 2026-06-03.
 - No automatic bounty claiming
 - No mass comments
 - No automatic pull requests to third-party repositories
+- Funded issue discovery is read-only, safe-only by default, and local-source only
 - Local CI log processing by default
 - Redaction guidance in README, quickstart, and threat model
 
