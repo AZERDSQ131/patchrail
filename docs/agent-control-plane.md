@@ -11,6 +11,8 @@ The queue is local-first:
 - approving an item records a maintainer decision but does not execute a write
   action;
 - export is JSON or JSONL for audit, handoff, or demos;
+- audit events are local, append-only SQLite records for queue add, approve,
+  reject, and export decisions;
 - no command posts comments, opens pull requests, contacts third-party repos,
   claims funding, or calls an external model.
 
@@ -67,6 +69,7 @@ Export the local audit trail:
 
 ```bash
 patchrail queue export --format jsonl > patchrail-queue.jsonl
+patchrail queue audit --format jsonl > patchrail-audit-events.jsonl
 ```
 
 For a complete local demo that starts from a CI report and ends with an
@@ -102,6 +105,7 @@ The current queue is enough for local demos and release evidence:
 - list and show items;
 - approve or reject items;
 - export work items.
+- export audit events for item creation, maintainer decisions, and handoffs.
 
-Future work will add richer audit events and proposal records that link a
-queued CI failure to a reviewed patch plan.
+Future work will add proposal records that link a queued CI failure to a
+reviewed patch plan.

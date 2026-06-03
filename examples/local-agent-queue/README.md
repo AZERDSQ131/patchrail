@@ -41,6 +41,10 @@ patchrail queue --db .patchrail-demo/queue.sqlite approve "$ITEM_ID" \
 patchrail queue --db .patchrail-demo/queue.sqlite export \
   --format jsonl \
   --out .patchrail-demo/queue.jsonl
+
+patchrail queue --db .patchrail-demo/queue.sqlite audit \
+  --format jsonl \
+  --out .patchrail-demo/audit-events.jsonl
 ```
 
 Expected local artifacts:
@@ -50,7 +54,9 @@ Expected local artifacts:
 - `.patchrail-demo/item.json`: the pending work item.
 - `.patchrail-demo/item.md`: a human-readable queue item.
 - `.patchrail-demo/approved.json`: the approval decision.
-- `.patchrail-demo/queue.jsonl`: the exported audit trail.
+- `.patchrail-demo/queue.jsonl`: the exported work items.
+- `.patchrail-demo/audit-events.jsonl`: the append-only local event trail for
+  add, approve, and export decisions.
 
 Check the safety boundary:
 
@@ -64,6 +70,13 @@ assert item["approval_state"] == "approved"
 assert item["write_actions_allowed"] is False
 assert item["payload"]["failure_class"] == "python_dependency_resolution"
 assert item["payload"]["ci_result"]["schema_version"] == "patchrail.ci_result.v1"
+
+events = [json.loads(line) for line in Path(".patchrail-demo/audit-events.jsonl").read_text().splitlines()]
+assert [event["event_type"] for event in events] == [
+    "work_item_added",
+    "work_item_approved",
+    "work_items_exported",
+]
 PY
 ```
 

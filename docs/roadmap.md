@@ -29,6 +29,7 @@
 - Exportable audit log.
 - CI report to queue-item demo.
 - Direct `ci-result.json` import into pending local queue items.
+- Local audit event export for add, approve, reject, and handoff decisions.
 
 ## v0.4
 

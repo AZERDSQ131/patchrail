@@ -13,6 +13,7 @@ from patchrail.queue import (
     DEFAULT_QUEUE_PATH,
     add_work_item,
     approve_work_item,
+    export_audit_events,
     export_work_items,
     init_queue,
     list_work_items,
@@ -255,6 +256,20 @@ def _render_queue_export_jsonl(payload: dict[str, Any]) -> str:
     return "".join(json.dumps(item, sort_keys=True) + "\n" for item in payload["work_items"])
 
 
+def _render_queue_audit_jsonl(payload: dict[str, Any]) -> str:
+    return "".join(json.dumps(event, sort_keys=True) + "\n" for event in payload["audit_events"])
+
+
+def _render_queue_audit_text(events: list[dict[str, Any]]) -> str:
+    if not events:
+        return "No audit events.\n"
+    lines = []
+    for event in events:
+        target = event["work_item_id"] or "queue"
+        lines.append(f"{event['id']} {event['ts']} {event['event_type']} {target}")
+    return "\n".join(lines) + "\n"
+
+
 def _queue_init(args: argparse.Namespace) -> int:
     payload = init_queue(_queue_db(args))
     _write_or_print(_json_dump(payload), args.out)
@@ -364,6 +379,18 @@ def _queue_export(args: argparse.Namespace) -> int:
         text = _render_queue_export_jsonl(payload)
     else:
         text = _json_dump(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _queue_audit(args: argparse.Namespace) -> int:
+    payload = export_audit_events(db_path=_queue_db(args), work_item_id=args.item_id)
+    if args.format == "jsonl":
+        text = _render_queue_audit_jsonl(payload)
+    elif args.format == "json":
+        text = _json_dump(payload)
+    else:
+        text = _render_queue_audit_text(payload["audit_events"])
     _write_or_print(text, args.out)
     return 0
 
@@ -694,6 +721,23 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     queue_export.add_argument("--out", type=Path, help="Optional output path.")
     queue_export.set_defaults(func=_queue_export)
+
+    queue_audit = queue_subparsers.add_parser(
+        "audit",
+        help="Export local audit events for queue decisions and handoffs.",
+    )
+    queue_audit.add_argument(
+        "--item-id",
+        help="Only show audit events for one work item.",
+    )
+    queue_audit.add_argument(
+        "--format",
+        choices=["json", "jsonl", "text"],
+        default="text",
+        help="Output format.",
+    )
+    queue_audit.add_argument("--out", type=Path, help="Optional output path.")
+    queue_audit.set_defaults(func=_queue_audit)
 
     return parser
 

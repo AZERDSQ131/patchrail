@@ -89,6 +89,38 @@ class PatchRailQueueTests(unittest.TestCase):
             exported = [json.loads(line) for line in export_proc.stdout.splitlines()]
             self.assertEqual(exported[0]["id"], added["id"])
 
+            audit_proc = run_patchrail(["queue", "--db", str(db), "audit", "--format", "json"])
+            self.assertEqual(audit_proc.returncode, 0, audit_proc.stderr)
+            audit = json.loads(audit_proc.stdout)
+            self.assertEqual(
+                [event["event_type"] for event in audit["audit_events"]],
+                ["work_item_added", "work_item_approved", "work_items_exported"],
+            )
+            self.assertEqual(audit["audit_events"][0]["work_item_id"], added["id"])
+            self.assertEqual(
+                audit["audit_events"][1]["payload"]["decision_note"], approved["decision_note"]
+            )
+            self.assertEqual(audit["audit_events"][2]["payload"]["count"], 1)
+
+            item_audit_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "audit",
+                    "--item-id",
+                    added["id"],
+                    "--format",
+                    "jsonl",
+                ]
+            )
+            self.assertEqual(item_audit_proc.returncode, 0, item_audit_proc.stderr)
+            item_events = [json.loads(line) for line in item_audit_proc.stdout.splitlines()]
+            self.assertEqual(
+                [event["event_type"] for event in item_events],
+                ["work_item_added", "work_item_approved"],
+            )
+
     def test_queue_reject_marks_item_closed_locally(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             db = Path(tmpdir) / "queue.sqlite"

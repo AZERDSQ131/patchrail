@@ -15,7 +15,9 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public CI fixtures: 40 sanitized synthetic fixtures in the local benchmark
-- Public issue queue: 5 launch issues for fixtures, contribution docs, release-prep evidence, and CI maintenance
+- Public issue queue: launch issues for fixtures, contribution docs,
+  release-prep evidence, CI maintenance, GitHub Actions artifacts, and the
+  Agent Control Plane
 
 ## Codex Workflows In Use
 
@@ -55,6 +57,9 @@ Last verified: 2026-06-03.
 - CI result importer: `patchrail queue add --from-ci-result ci-result.json`
   turns the read-only CI artifact JSON into a pending local queue item while
   keeping `write_actions_allowed=false`.
+- Queue audit trail: `patchrail queue audit --format jsonl` exports local
+  `work_item_added`, `work_item_approved`, `work_item_rejected`, and
+  `work_items_exported` events without granting GitHub write permissions.
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
 - Public CI: <https://github.com/patchrail/patchrail/actions/workflows/ci.yml> runs tests, lint, benchmark and package smoke on every push to `main`.
@@ -72,6 +77,9 @@ Last verified: 2026-06-03.
 - <https://github.com/patchrail/patchrail/issues/4> - create the first release-prep evidence checklist.
 - <https://github.com/patchrail/patchrail/issues/5> - review GitHub Actions Node 24 compatibility before the runner default changes.
 - <https://github.com/patchrail/patchrail/issues/6> - add Agent Control Plane demo flow.
+- <https://github.com/patchrail/patchrail/issues/7> - add GitHub Actions triage artifact example.
+- <https://github.com/patchrail/patchrail/issues/8> - import CI result JSON into the local queue.
+- <https://github.com/patchrail/patchrail/issues/9> - export queue audit events for Agent Control Plane.
 
 ## Safety Posture
 

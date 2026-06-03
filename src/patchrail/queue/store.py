@@ -44,6 +44,24 @@ class QueueItem:
         }
 
 
+@dataclass(frozen=True)
+class AuditEvent:
+    id: int
+    ts: str
+    event_type: str
+    work_item_id: str | None
+    payload: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "ts": self.ts,
+            "event_type": self.event_type,
+            "work_item_id": self.work_item_id,
+            "payload": self.payload,
+        }
+
+
 def _now() -> str:
     return datetime.now(tz=UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -123,6 +141,16 @@ def _row_to_item(row: sqlite3.Row) -> QueueItem:
         updated_at=str(row["updated_at"]),
         payload=json.loads(str(row["payload_json"])),
         decision_note=row["decision_note"],
+    )
+
+
+def _row_to_audit_event(row: sqlite3.Row) -> AuditEvent:
+    return AuditEvent(
+        id=int(row["id"]),
+        ts=str(row["ts"]),
+        event_type=str(row["event_type"]),
+        work_item_id=row["work_item_id"],
+        payload=json.loads(str(row["payload_json"])),
     )
 
 
@@ -282,9 +310,53 @@ def reject_work_item(
 
 
 def export_work_items(*, db_path: Path = DEFAULT_QUEUE_PATH) -> dict[str, Any]:
+    work_items = [item.to_dict() for item in list_work_items(db_path=db_path)]
+    with _connect(db_path) as conn:
+        _write_audit_event(
+            conn,
+            event_type="work_items_exported",
+            work_item_id=None,
+            payload={"count": len(work_items), "export": "work_items"},
+        )
     return {
         "schema_version": SCHEMA_VERSION,
         "db_path": str(db_path),
         "local_first": True,
-        "work_items": [item.to_dict() for item in list_work_items(db_path=db_path)],
+        "work_items": work_items,
+    }
+
+
+def list_audit_events(
+    *,
+    db_path: Path = DEFAULT_QUEUE_PATH,
+    work_item_id: str | None = None,
+) -> list[AuditEvent]:
+    init_queue(db_path)
+    clauses: list[str] = []
+    values: list[str] = []
+    if work_item_id:
+        clauses.append("work_item_id = ?")
+        values.append(work_item_id)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            f"SELECT * FROM audit_events {where} ORDER BY id ASC",
+            values,
+        ).fetchall()
+    return [_row_to_audit_event(row) for row in rows]
+
+
+def export_audit_events(
+    *,
+    db_path: Path = DEFAULT_QUEUE_PATH,
+    work_item_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "db_path": str(db_path),
+        "local_first": True,
+        "audit_events": [
+            event.to_dict()
+            for event in list_audit_events(db_path=db_path, work_item_id=work_item_id)
+        ],
     }
