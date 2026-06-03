@@ -35,11 +35,13 @@ classification and confidence floor.
 ## Adding A Fixture
 
 1. Redact the log before committing it.
-2. Reduce the log to the shortest evidence that still represents the failure.
-3. Add the log under `examples/ci-triage/<name>.log`.
-4. Add `examples/ci-triage/<name>.expected.json`.
-5. Run `patchrail ci benchmark examples/ci-triage --format json`.
-6. Include the evidence lines and benchmark result in the pull request.
+2. Remove tokens, emails, private repository names, user names, and local home
+   paths.
+3. Reduce the log to the shortest evidence that still represents the failure.
+4. Add the log under `examples/ci-triage/<name>.log`.
+5. Add `examples/ci-triage/<name>.expected.json`.
+6. Run `patchrail ci benchmark examples/ci-triage --format json`.
+7. Include the evidence lines and benchmark result in the pull request.
 
 Expected files use this shape:
 
@@ -62,6 +64,9 @@ patchrail ci explain --redact --log failed.log
 
 If a log cannot be safely reduced or redacted, do not add it as a public
 fixture. Create a minimal synthetic reproduction instead.
+
+Use the [CI failure fixture issue template](../.github/ISSUE_TEMPLATE/ci_failure_fixture.md)
+when requesting or proposing a new fixture.
 
 ## Non-Goals
 
