@@ -1,0 +1,4 @@
+npm ci
+npm ERR! code EUSAGE
+npm ERR! The `npm ci` command can only install with an existing package-lock.json.
+npm ERR! A lockfile is required for reproducible CI installs.

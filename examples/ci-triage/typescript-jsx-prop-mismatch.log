@@ -1,0 +1,4 @@
+npm run typecheck
+src/components/StatusBadge.tsx:22:15 - error TS2322: Type '{ state: "ready"; tone: string; }' is not assignable to type 'StatusBadgeProps'.
+Property 'label' is missing in type '{ state: "ready"; tone: string; }' but required in type 'StatusBadgeProps'.
+Found 1 error in src/components/StatusBadge.tsx

@@ -1,0 +1,4 @@
+npm run typecheck
+src/config.ts:27:7 - error TS2322: Type 'ZodObject<{ port: ZodString; }>' is not assignable to type 'ZodObject<{ port: ZodNumber; }>'.
+Type 'string' is not assignable to type 'number'.
+Found 1 error in src/config.ts

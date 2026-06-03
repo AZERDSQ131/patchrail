@@ -15,6 +15,7 @@
 ## v0.2
 
 - Larger CI failure fixture set toward 40+ cases.
+- Expanded Node and TypeScript drift fixtures toward 28 total benchmark cases.
 - GitHub Actions report artifact example.
 - Classifier fixture contribution flow.
 

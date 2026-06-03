@@ -1,0 +1,4 @@
+pnpm install --frozen-lockfile
+ERR_PNPM_PEER_DEP_ISSUES Unmet peer dependencies
+peer dep missing: react@^18.0.0, required by @example/ui@1.4.0
+CI cannot resolve the peer dep graph without updating package metadata.
