@@ -2292,3 +2292,61 @@ def test_ci_evidence_reference_refresh_script_is_local_and_guardrailed() -> None
         "scripts/update_ci_evidence_reference.py --run-url <actions-run-url> --commit <full-sha>"
         in release_process
     )
+
+
+def test_release_readiness_evidence_smokes_local_artifacts_without_publishing(
+    tmp_path: Path,
+) -> None:
+    dist_dir = tmp_path / "dist"
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "patchrail",
+            "evidence",
+            "release-readiness",
+            "--dist-dir",
+            str(dist_dir),
+            "--format",
+            "json",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    payload = json.loads(proc.stdout)
+    assert payload["schema_version"] == "patchrail.release_readiness.v1"
+    assert payload["version"] == "0.1.0"
+    assert payload["published"] is False
+    assert payload["manual_gates_remaining"] == [
+        "PyPI publish",
+        "release tag",
+        "public announcement",
+        "external program application",
+    ]
+    assert payload["checks"]["build"] == "passed"
+    assert payload["checks"]["twine_check"] == "passed"
+    assert payload["checks"]["wheel_smoke"] == "passed"
+    assert payload["checks"]["doctor_status"] == "ok"
+    assert payload["checks"]["doctor_local_first"] is True
+    assert payload["checks"]["external_model_required"] is False
+    assert payload["checks"]["network_required"] is False
+    assert payload["checks"]["github_write_permission_required"] is False
+    assert payload["checks"]["fixture_failure_class"] == "python_dependency_resolution"
+    assert {artifact["file"] for artifact in payload["artifacts"]} == {
+        "patchrail-0.1.0-py3-none-any.whl",
+        "patchrail-0.1.0.tar.gz",
+    }
+    assert payload["safety"]["local_first"] is True
+    assert payload["safety"]["published_to_pypi"] is False
+    assert payload["safety"]["created_release_tag"] is False
+    assert payload["safety"]["announced_publicly"] is False
+    assert payload["safety"]["contacted_third_parties"] is False
+    assert payload["safety"]["github_write_permission_required"] is False
+    assert payload["safety"]["external_model_required"] is False
+    assert "/Volumes/" not in proc.stdout
+    assert "/Users/" not in proc.stdout
+    assert "/home/" not in proc.stdout
