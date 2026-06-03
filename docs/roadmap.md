@@ -18,9 +18,10 @@
 
 ## v0.3
 
-- Local SQLite queue for maintainer work items.
-- Human approval gates.
+- Experimental local SQLite queue for maintainer work items.
+- Human approval states for local decisions.
 - Exportable audit log.
+- CI report to queue-item demo.
 
 ## v0.4
 

@@ -58,7 +58,7 @@ Example output:
 | --- | --- | --- |
 | CI failure triage | Beta | GitHub Actions-style logs and common OSS toolchains |
 | Markdown/JSON reports | Beta | Suitable for local review or manually pasted reports |
-| Local queue/control plane | Planned | SQLite-backed human approval gates |
+| Local queue/control plane | Experimental | SQLite-backed work items with human approval states |
 | Funded issue discovery | Planned | Read-only, later, and explicitly anti-abuse |
 
 ## Safety
@@ -94,6 +94,7 @@ See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
 - [CI Janitor](docs/ci-janitor.md)
 - [CI Failure Zoo](docs/ci-failure-zoo.md)
 - [GitHub Actions CI triage](docs/github-action.md)
+- [Agent Control Plane](docs/agent-control-plane.md)
 - [Codex workflows](docs/codex-workflows.md)
 - [Reviewable automation workflows](docs/agent-workflows.md)
 - [Threat model](docs/threat-model.md)

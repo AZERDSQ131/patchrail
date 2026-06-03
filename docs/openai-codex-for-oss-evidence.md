@@ -25,6 +25,7 @@ Current public evidence is local and preparatory:
 - Issue triage: launch issue queue created for fixture and docs work
 - Release automation: pending release-prep PR
 - CI triage: public CI is green, and the read-only triage workflow is installed for failed CI runs
+- Agent control plane: experimental local SQLite queue added for human-gated maintainer work items
 
 PatchRail's intended Codex usage is bounded to maintainer-approved work:
 
@@ -40,6 +41,7 @@ Last verified: 2026-06-03.
 - Tests: `uv run --extra dev pytest -q` -> 13 passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
 - CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 20/20 fixtures passed.
+- Queue demo: `uv run --extra dev patchrail queue --db /tmp/patchrail-demo.sqlite init` and `patchrail queue add/list/approve/export` run locally with no write actions.
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
 - Public CI: <https://github.com/patchrail/patchrail/actions/runs/26848519896> -> success.

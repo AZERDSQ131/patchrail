@@ -9,6 +9,16 @@ from typing import Any
 
 from patchrail import __version__
 from patchrail.ci import classify_ci_log, redact_ci_log
+from patchrail.queue import (
+    DEFAULT_QUEUE_PATH,
+    add_work_item,
+    approve_work_item,
+    export_work_items,
+    init_queue,
+    list_work_items,
+    reject_work_item,
+    show_work_item,
+)
 
 
 def _read_log(path: Path | None) -> str:
@@ -91,6 +101,10 @@ def _write_or_print(text: str, out: Path | None) -> None:
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(text, encoding="utf-8")
     print(text, end="")
+
+
+def _json_dump(payload: Any) -> str:
+    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
 
 
 def _load_schema(name: str) -> str:
@@ -176,6 +190,143 @@ def _doctor(args: argparse.Namespace) -> int:
         text = _render_doctor_text(result)
     _write_or_print(text, args.out)
     return 0 if result["status"] == "ok" else 1
+
+
+def _queue_db(args: argparse.Namespace) -> Path:
+    return Path(args.db) if args.db else DEFAULT_QUEUE_PATH
+
+
+def _render_queue_items_text(items: list[dict[str, Any]]) -> str:
+    if not items:
+        return "No work items.\n"
+    lines = []
+    for item in items:
+        lines.append(f"{item['id']} [{item['approval_state']}] {item['kind']}: {item['title']}")
+    return "\n".join(lines) + "\n"
+
+
+def _render_queue_item_markdown(item: dict[str, Any]) -> str:
+    lines = [
+        "# PatchRail Queue Item",
+        "",
+        f"- ID: `{item['id']}`",
+        f"- Kind: `{item['kind']}`",
+        f"- Title: {item['title']}",
+        f"- Source: `{item['source']}`",
+        f"- Status: `{item['status']}`",
+        f"- Approval state: `{item['approval_state']}`",
+        f"- Write actions allowed: `{item['write_actions_allowed']}`",
+        f"- Created: `{item['created_at']}`",
+        f"- Updated: `{item['updated_at']}`",
+    ]
+    if item.get("decision_note"):
+        lines.append(f"- Decision note: {item['decision_note']}")
+    lines.extend(
+        [
+            "",
+            "## Safety",
+            "",
+            "Queue items are local records. PatchRail does not execute write actions, "
+            "post comments, open pull requests, or contact third-party repositories from this command.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _render_queue_export_jsonl(payload: dict[str, Any]) -> str:
+    return "".join(json.dumps(item, sort_keys=True) + "\n" for item in payload["work_items"])
+
+
+def _queue_init(args: argparse.Namespace) -> int:
+    payload = init_queue(_queue_db(args))
+    _write_or_print(_json_dump(payload), args.out)
+    return 0
+
+
+def _queue_add(args: argparse.Namespace) -> int:
+    item_payload: dict[str, Any] = {}
+    if args.payload_json:
+        item_payload = json.loads(args.payload_json)
+    item = add_work_item(
+        db_path=_queue_db(args),
+        kind=args.kind,
+        title=args.title,
+        source=args.source,
+        payload=item_payload,
+    ).to_dict()
+    _write_or_print(_json_dump(item), args.out)
+    return 0
+
+
+def _queue_list(args: argparse.Namespace) -> int:
+    items = [
+        item.to_dict()
+        for item in list_work_items(
+            db_path=_queue_db(args),
+            status=args.status,
+            approval_state=args.approval_state,
+        )
+    ]
+    if args.format == "json":
+        text = _json_dump({"schema_version": "patchrail.queue.v1", "work_items": items})
+    else:
+        text = _render_queue_items_text(items)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _queue_show(args: argparse.Namespace) -> int:
+    try:
+        item = show_work_item(db_path=_queue_db(args), item_id=args.item_id).to_dict()
+    except KeyError:
+        print(f"Unknown work item: {args.item_id}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(item)
+    elif args.format == "markdown":
+        text = _render_queue_item_markdown(item)
+    else:
+        text = _render_queue_items_text([item])
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _queue_approve(args: argparse.Namespace) -> int:
+    try:
+        item = approve_work_item(
+            db_path=_queue_db(args),
+            item_id=args.item_id,
+            decision_note=args.note,
+        ).to_dict()
+    except KeyError:
+        print(f"Unknown work item: {args.item_id}", file=sys.stderr)
+        return 1
+    _write_or_print(_json_dump(item), args.out)
+    return 0
+
+
+def _queue_reject(args: argparse.Namespace) -> int:
+    try:
+        item = reject_work_item(
+            db_path=_queue_db(args),
+            item_id=args.item_id,
+            decision_note=args.note,
+        ).to_dict()
+    except KeyError:
+        print(f"Unknown work item: {args.item_id}", file=sys.stderr)
+        return 1
+    _write_or_print(_json_dump(item), args.out)
+    return 0
+
+
+def _queue_export(args: argparse.Namespace) -> int:
+    payload = export_work_items(db_path=_queue_db(args))
+    if args.format == "jsonl":
+        text = _render_queue_export_jsonl(payload)
+    else:
+        text = _json_dump(payload)
+    _write_or_print(text, args.out)
+    return 0
 
 
 def _ci_explain(args: argparse.Namespace) -> int:
@@ -417,6 +568,88 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     doctor.add_argument("--out", type=Path, help="Optional output path.")
     doctor.set_defaults(func=_doctor)
+
+    queue = subparsers.add_parser(
+        "queue",
+        help="Manage a local SQLite queue for reviewable maintainer work.",
+    )
+    queue.add_argument(
+        "--db",
+        type=Path,
+        default=DEFAULT_QUEUE_PATH,
+        help="SQLite queue path. Defaults to .patchrail/queue.sqlite.",
+    )
+    queue_subparsers = queue.add_subparsers(dest="queue_command", required=True)
+
+    queue_init = queue_subparsers.add_parser("init", help="Initialize the local queue database.")
+    queue_init.add_argument("--out", type=Path, help="Optional output path.")
+    queue_init.set_defaults(func=_queue_init)
+
+    queue_add = queue_subparsers.add_parser("add", help="Add a local work item.")
+    queue_add.add_argument("--kind", required=True, help="Work item kind, for example ci_failure.")
+    queue_add.add_argument("--title", required=True, help="Human-readable work item title.")
+    queue_add.add_argument("--source", default="manual", help="Source identifier or URL.")
+    queue_add.add_argument("--payload-json", help="Optional JSON payload for local context.")
+    queue_add.add_argument("--out", type=Path, help="Optional output path.")
+    queue_add.set_defaults(func=_queue_add)
+
+    queue_list = queue_subparsers.add_parser("list", help="List local work items.")
+    queue_list.add_argument(
+        "--approval-state",
+        choices=["pending", "approved", "rejected"],
+        help="Filter by human approval state.",
+    )
+    queue_list.add_argument("--status", help="Filter by local item status.")
+    queue_list.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="Output format.",
+    )
+    queue_list.add_argument("--out", type=Path, help="Optional output path.")
+    queue_list.set_defaults(func=_queue_list)
+
+    queue_show = queue_subparsers.add_parser("show", help="Show one local work item.")
+    queue_show.add_argument("item_id")
+    queue_show.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    queue_show.add_argument("--out", type=Path, help="Optional output path.")
+    queue_show.set_defaults(func=_queue_show)
+
+    queue_approve = queue_subparsers.add_parser(
+        "approve",
+        help="Mark a local work item approved by a human maintainer.",
+    )
+    queue_approve.add_argument("item_id")
+    queue_approve.add_argument("--note", help="Decision note to keep in the local audit trail.")
+    queue_approve.add_argument("--out", type=Path, help="Optional output path.")
+    queue_approve.set_defaults(func=_queue_approve)
+
+    queue_reject = queue_subparsers.add_parser(
+        "reject",
+        help="Mark a local work item rejected by a human maintainer.",
+    )
+    queue_reject.add_argument("item_id")
+    queue_reject.add_argument("--note", help="Decision note to keep in the local audit trail.")
+    queue_reject.add_argument("--out", type=Path, help="Optional output path.")
+    queue_reject.set_defaults(func=_queue_reject)
+
+    queue_export = queue_subparsers.add_parser(
+        "export",
+        help="Export local queue items for audit or handoff.",
+    )
+    queue_export.add_argument(
+        "--format",
+        choices=["json", "jsonl"],
+        default="jsonl",
+        help="Output format.",
+    )
+    queue_export.add_argument("--out", type=Path, help="Optional output path.")
+    queue_export.set_defaults(func=_queue_export)
 
     return parser
 

@@ -16,4 +16,9 @@ The bundled [GitHub Actions CI triage workflow](github-action.md) follows the
 same boundary: it uploads local PatchRail reports as artifacts and does not
 comment, open pull requests, push commits, or call external models.
 
+The experimental [Agent Control Plane](agent-control-plane.md) adds the next
+step: a local SQLite queue where CI reports and maintainer tasks can be recorded
+with pending, approved, or rejected human decisions before any external action
+is considered.
+
 Repository-specific agent instructions should follow [AGENTS.md](../AGENTS.md).
