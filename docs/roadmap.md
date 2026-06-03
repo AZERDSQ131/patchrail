@@ -18,6 +18,8 @@
 - Expanded Node and TypeScript drift fixtures toward 28 total benchmark cases.
 - Expanded Python dependency-resolution fixtures to reach 40 total benchmark cases.
 - GitHub Actions report artifact example.
+- Reproducible `patchrail-ci-triage` artifact example with Markdown, JSON,
+  benchmark and doctor outputs.
 - Classifier fixture contribution flow.
 
 ## v0.3

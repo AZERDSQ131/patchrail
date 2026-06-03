@@ -14,6 +14,18 @@ The workflow lives at `.github/workflows/ci-triage.yml`.
 - Produces Markdown and JSON reports under `patchrail-report/`.
 - Uploads those reports as a GitHub Actions artifact.
 
+Example artifact contents live in
+[`examples/github-action`](../examples/github-action/README.md). The uploaded
+artifact is named `patchrail-ci-triage` and contains:
+
+```text
+patchrail-ci-triage/
+|-- ci-report.md
+|-- ci-result.json
+|-- doctor.json
+`-- fixture-benchmark.json
+```
+
 ## What It Does Not Do
 
 - It does not comment on issues or pull requests.
@@ -54,4 +66,14 @@ Local equivalent:
 uv run patchrail ci explain --redact --log examples/ci-triage/dependency-failure.log --format markdown
 uv run patchrail ci classify --redact --log examples/ci-triage/dependency-failure.log --format json
 uv run patchrail ci benchmark examples/ci-triage --format json
+```
+
+To reproduce the artifact locally:
+
+```bash
+mkdir -p patchrail-report
+uv run patchrail ci explain --redact --log examples/ci-triage/dependency-failure.log --format markdown --out patchrail-report/ci-report.md
+uv run patchrail ci classify --redact --log examples/ci-triage/dependency-failure.log --format json --out patchrail-report/ci-result.json
+uv run patchrail ci benchmark examples/ci-triage --format json --out patchrail-report/fixture-benchmark.json
+uv run patchrail doctor --format json --out patchrail-report/doctor.json
 ```

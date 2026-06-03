@@ -56,6 +56,10 @@ Last verified: 2026-06-03.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
 - Public CI: <https://github.com/patchrail/patchrail/actions/workflows/ci.yml> runs tests, lint, benchmark and package smoke on every push to `main`.
 - Public triage workflow: <https://github.com/patchrail/patchrail/actions/runs/26862165709> -> skipped because the triggering CI run succeeded.
+- GitHub Actions artifact example:
+  [`examples/github-action`](../examples/github-action/README.md) documents the
+  read-only `patchrail-ci-triage` artifact with `ci-report.md`,
+  `ci-result.json`, `fixture-benchmark.json`, and `doctor.json`.
 
 ## Public Launch Issues
 

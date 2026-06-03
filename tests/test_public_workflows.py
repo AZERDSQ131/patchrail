@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 
@@ -28,6 +29,45 @@ def test_github_action_docs_preserve_safety_boundary() -> None:
     assert "does not call external models" in docs
     assert "contents: read" in docs
     assert "actions: read" in docs
+    assert "patchrail-ci-triage" in docs
+    assert "examples/github-action" in docs
+
+
+def test_github_action_artifact_example_is_report_only_and_sanitized() -> None:
+    artifact_dir = ROOT / "examples" / "github-action" / "patchrail-ci-triage-artifact"
+    readme = (ROOT / "examples" / "github-action" / "README.md").read_text(encoding="utf-8")
+    report = (artifact_dir / "ci-report.md").read_text(encoding="utf-8")
+    result = json.loads((artifact_dir / "ci-result.json").read_text(encoding="utf-8"))
+    benchmark = json.loads((artifact_dir / "fixture-benchmark.json").read_text(encoding="utf-8"))
+    doctor = json.loads((artifact_dir / "doctor.json").read_text(encoding="utf-8"))
+
+    assert "patchrail-ci-triage" in readme
+    assert "does not comment on issues or pull requests" in readme
+    assert "does not open pull requests" in readme
+    assert "does not call external models" in readme
+
+    assert "PatchRail classified this log locally" in report
+    assert "did not create a pull request" in report
+    assert result["failure_class"] == "python_dependency_resolution"
+    assert result["requirements"]["billing_required"] is False
+    assert result["requirements"]["external_model_required"] is False
+    assert benchmark["total_cases"] == 40
+    assert benchmark["failed"] == 0
+    assert doctor["status"] == "ok"
+    assert doctor["requirements"]["github_write_permission_required"] is False
+
+    serialized = "\n".join(
+        [
+            readme,
+            report,
+            json.dumps(result),
+            json.dumps(benchmark),
+            json.dumps(doctor),
+        ]
+    )
+    assert "/Volumes/" not in serialized
+    assert "/Users/" not in serialized
+    assert "/home/runner/" not in serialized
 
 
 def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
