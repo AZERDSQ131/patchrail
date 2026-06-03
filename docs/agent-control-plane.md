@@ -57,6 +57,10 @@ Export the local audit trail:
 patchrail queue export --format jsonl > patchrail-queue.jsonl
 ```
 
+For a complete local demo that starts from a CI report and ends with an
+approved queue export, see
+[`examples/local-agent-queue`](../examples/local-agent-queue/README.md).
+
 ## Custom Database Path
 
 By default PatchRail stores the queue in `.patchrail/queue.sqlite` in the current
@@ -88,4 +92,4 @@ The current queue is enough for local demos and release evidence:
 - export work items.
 
 Future work will add richer audit events, CI-report imports, and an end-to-end
-demo that links `patchrail ci explain` to a queued repair proposal.
+demo importer that links `patchrail ci explain` to a queued repair proposal.

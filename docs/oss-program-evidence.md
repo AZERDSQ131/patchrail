@@ -40,6 +40,10 @@ Last verified: 2026-06-03.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
 - CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 40/40 fixtures passed.
 - Queue demo: `uv run --extra dev patchrail queue --db /tmp/patchrail-demo.sqlite init` and `patchrail queue add/list/approve/export` run locally with no write actions.
+- Agent Control Plane demo:
+  [`examples/local-agent-queue`](../examples/local-agent-queue/README.md)
+  links `ci explain` to `queue add`, `queue approve`, and `queue export`
+  using only local files and SQLite.
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
 - Public CI: <https://github.com/patchrail/patchrail/actions/workflows/ci.yml> runs tests, lint, benchmark and package smoke on every push to `main`.
@@ -52,6 +56,7 @@ Last verified: 2026-06-03.
 - <https://github.com/patchrail/patchrail/issues/3> - document the contributor path for sanitized CI fixtures.
 - <https://github.com/patchrail/patchrail/issues/4> - create the first release-prep evidence checklist.
 - <https://github.com/patchrail/patchrail/issues/5> - review GitHub Actions Node 24 compatibility before the runner default changes.
+- <https://github.com/patchrail/patchrail/issues/6> - add Agent Control Plane demo flow.
 
 ## Evidence To Add Before Applying
 
