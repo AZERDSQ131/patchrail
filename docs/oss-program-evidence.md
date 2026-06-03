@@ -15,7 +15,7 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public CI fixtures: 20 sanitized synthetic fixtures in the local benchmark
-- Public issue queue: 4 launch issues for fixtures, contribution docs, and release-prep evidence
+- Public issue queue: 5 launch issues for fixtures, contribution docs, release-prep evidence, and CI maintenance
 
 ## Maintenance Workflows
 
@@ -45,6 +45,7 @@ Last verified: 2026-06-03.
 - <https://github.com/patchrail/patchrail/issues/2> - add Node and TypeScript CI drift fixtures.
 - <https://github.com/patchrail/patchrail/issues/3> - document the contributor path for sanitized CI fixtures.
 - <https://github.com/patchrail/patchrail/issues/4> - create the first release-prep evidence checklist.
+- <https://github.com/patchrail/patchrail/issues/5> - review GitHub Actions Node 24 compatibility before the runner default changes.
 
 ## Evidence To Add Before Applying
 
