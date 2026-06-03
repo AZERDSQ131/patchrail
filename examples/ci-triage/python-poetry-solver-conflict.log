@@ -1,0 +1,4 @@
+Run poetry install --no-root
+SolverProblemError
+Because demo-service depends on api-client (^4.0) and worker-plugin depends on api-client (<4.0), version solving failed.
+So, because demo-project depends on both demo-service and worker-plugin, version solving failed.

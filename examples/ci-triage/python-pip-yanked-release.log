@@ -1,0 +1,4 @@
+Run python -m pip install -r requirements.txt
+WARNING: Ignoring version 1.8.0 of data-normalizer since it has been yanked
+ERROR: Could not find a version that satisfies the requirement data-normalizer==1.8.0
+ERROR: No matching distribution found for data-normalizer==1.8.0

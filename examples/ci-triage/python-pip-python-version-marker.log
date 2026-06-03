@@ -1,0 +1,4 @@
+Run python -m pip install -r requirements.txt
+ERROR: Ignored the following versions that require a different python version: 2.1.0 Requires-Python >=3.12
+ERROR: Could not find a version that satisfies the requirement async-widget==2.1.0
+ERROR: No matching distribution found for async-widget==2.1.0

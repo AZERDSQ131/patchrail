@@ -11,7 +11,7 @@ access, repository write permissions, billing, or an external model call.
 
 ## Current Coverage
 
-The fixture zoo currently contains 28 cases across these root-cause families:
+The fixture zoo currently contains 40 cases across these root-cause families:
 
 - `github_actions_workflow`
 - `go_test_failure`
@@ -25,6 +25,12 @@ The fixture zoo currently contains 28 cases across these root-cause families:
 Node and TypeScript coverage includes lockfile drift, peer dependency conflicts,
 immutable install drift, import/type drift, JSX prop mismatches, route parameter
 type narrowing and schema drift.
+
+Python dependency-resolution coverage includes missing distributions,
+conflicting constraints, Python version markers, yanked releases, Poetry solver
+conflicts, pip-tools conflicts, uv resolution failures, extras conflicts, tox
+constraint drift, build dependency misses, prerelease ranges and platform wheel
+selectors.
 
 Run the benchmark:
 

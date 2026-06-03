@@ -1,0 +1,7 @@
+Run tox -e py311
+Run python -m pip install -c constraints.txt -r requirements.txt
+ERROR: Cannot install -r requirements.txt (line 4) because these package versions have conflicting dependencies.
+The conflict is caused by:
+    api-client 5.2.0 depends on http-core>=4
+    constraints.txt pins http-core==3.9.0
+ERROR: ResolutionImpossible
