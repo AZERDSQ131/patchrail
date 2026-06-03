@@ -23,7 +23,8 @@ Current public evidence is local and preparatory:
 
 - PR review: pending public PR history
 - Issue triage: launch issue queue created for fixture and docs work
-- Release automation: pending release-prep PR
+- Release automation: first release-prep checklist is documented in
+  [release-process.md](release-process.md); public PR history is pending
 - CI triage: public CI is green, and the read-only triage workflow is installed for failed CI runs
 - Agent control plane: experimental local SQLite queue added for human-gated maintainer work items
 
@@ -38,14 +39,19 @@ PatchRail's intended Codex usage is bounded to maintainer-approved work:
 
 Last verified: 2026-06-03.
 
-- Tests: `uv run --extra dev pytest -q` -> 13 passed.
+- Release-prep checklist: [docs/release-process.md](release-process.md) now
+  requires test, lint, benchmark, doctor, build, wheel smoke, safety, privacy,
+  and public CI evidence before any publish step.
+- Manual gates: release tags, PyPI publish, GitHub releases, public
+  announcements, and external applications remain explicit maintainer actions.
+- Tests: `uv run --extra dev pytest -q` -> 16 passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
 - CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 20/20 fixtures passed.
 - Queue demo: `uv run --extra dev patchrail queue --db /tmp/patchrail-demo.sqlite init` and `patchrail queue add/list/approve/export` run locally with no write actions.
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
-- Public CI: <https://github.com/patchrail/patchrail/actions/runs/26848519896> -> success.
-- Public triage workflow: <https://github.com/patchrail/patchrail/actions/runs/26848553404> -> skipped because the triggering CI run succeeded.
+- Public CI: <https://github.com/patchrail/patchrail/actions/runs/26862152371> -> success.
+- Public triage workflow: <https://github.com/patchrail/patchrail/actions/runs/26862165709> -> skipped because the triggering CI run succeeded.
 
 ## Public Launch Issues
 

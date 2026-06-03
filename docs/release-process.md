@@ -2,26 +2,78 @@
 
 PatchRail uses semantic versioning while the public API stabilizes.
 
-## Before Release
+This process is a release-prep workflow. It collects evidence for a maintainer to
+review before tagging or publishing. It does not publish to PyPI, create tags, or
+announce a release.
 
-- All tests pass.
-- Lint and format checks pass.
-- README quickstart works from a clean checkout.
-- Changelog is updated.
-- Version is updated in `pyproject.toml`.
-- Fixtures and expected output are updated when classifier logic changes.
-- Security and ethics docs are reviewed when workflows change.
+## v0.1.0 Release-Prep Evidence Checklist
 
-## Local Checks
+Use this checklist before preparing the first public package release.
+
+### 1. Repository State
+
+- [ ] Working tree is clean before release-prep starts:
+
+```bash
+git status --short
+```
+
+- [ ] Version in `pyproject.toml` matches the intended release version.
+- [ ] `README.md`, `docs/quickstart.md`, and this release process describe the
+  same install and smoke-test commands.
+- [ ] `CHANGELOG.md` or release notes draft records user-visible changes.
+
+### 2. Local Test Evidence
+
+- [ ] Unit and CLI tests pass:
 
 ```bash
 uv run --extra dev pytest -q
+```
+
+- [ ] Lint and format checks pass:
+
+```bash
 uv run --extra dev ruff check .
 uv run --extra dev ruff format --check .
+```
+
+- [ ] CI fixture benchmark passes and records total fixtures:
+
+```bash
 uv run --extra dev patchrail ci benchmark examples/ci-triage --format json
+```
+
+- [ ] Safety doctor passes locally:
+
+```bash
+uv run --extra dev patchrail doctor --format json
+```
+
+- [ ] Quickstart fixture still renders a maintainer-readable report:
+
+```bash
+uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log --format text
+```
+
+### 3. Package Artifact Evidence
+
+- [ ] Build the source distribution and wheel:
+
+```bash
 uv run --extra dev python -m build
+```
+
+- [ ] Validate distribution metadata:
+
+```bash
 uv run --extra dev twine check dist/*
-python -m venv .pkg-smoke
+```
+
+- [ ] Install the wheel into a fresh virtual environment and run a smoke test:
+
+```bash
+python3 -m venv .pkg-smoke
 . .pkg-smoke/bin/activate
 python -m pip install --upgrade pip
 python -m pip install dist/*.whl
@@ -30,10 +82,80 @@ patchrail ci explain --log examples/ci-triage/dependency-failure.log --format te
 deactivate
 ```
 
-## Manual Publish Gate
+- [ ] Remove local transient build artifacts after capturing evidence, using the
+  maintainer's normal cleanup tool.
 
-Publishing is a maintainer action. Do not publish packages, create tags or push
-release commits from an automated workflow without explicit maintainer approval.
+### 4. Safety And Privacy Evidence
+
+- [ ] No raw private logs, credentials, tokens, personal contact data, or local
+  machine paths were added.
+- [ ] Fixtures are sanitized and synthetic or intentionally redacted.
+- [ ] No workflow introduces third-party repository write automation.
+- [ ] No command claims funded issues, submits pull requests, posts comments, or
+  sends outreach.
+- [ ] Any new network access is documented, opt-in, and off by default.
+- [ ] Safety docs still link from `README.md`: `ETHICS.md`, `SECURITY.md`, and
+  `docs/threat-model.md`.
+
+Suggested review commands:
+
+```bash
+git diff --check
+git status --short
+git grep -n -E 'BEGIN (RSA|OPENSSH|PRIVATE) KEY|ghp_|github_pat_|sk-[A-Za-z0-9]|AKIA[0-9A-Z]{16}|xox[baprs]-|Bearer [A-Za-z0-9._-]+' -- . ':!docs/release-process.md' || true
+git grep -n -E '/Users/|/Volumes/|C:\\\\Users\\\\|@[^[:space:]]+\\.[^[:space:]]+' -- . ':!docs/release-process.md' || true
+```
+
+If a command reports a match, inspect it manually. Test fixtures and redaction
+patterns may intentionally contain fake tokens or placeholder emails.
+
+### 5. Public CI Evidence
+
+- [ ] Push release-prep changes to the repo branch.
+- [ ] Confirm the GitHub Actions `CI` workflow passed.
+- [ ] Confirm the package smoke job passed.
+- [ ] Record the CI run URL in `docs/openai-codex-for-oss-evidence.md`.
+
+### 6. Manual Publish Gate
+
+These actions are manual maintainer gates and are not part of automated
+release-prep:
+
+- [ ] Create or push a release tag.
+- [ ] Publish to PyPI.
+- [ ] Create a GitHub release.
+- [ ] Announce the release publicly.
+- [ ] Apply to external programs with placeholder metrics.
+
+## Minimum Local Checks
+
+```bash
+uv run --extra dev pytest -q
+uv run --extra dev ruff check .
+uv run --extra dev ruff format --check .
+uv run --extra dev patchrail ci benchmark examples/ci-triage --format json
+uv run --extra dev python -m build
+uv run --extra dev twine check dist/*
+python3 -m venv .pkg-smoke
+. .pkg-smoke/bin/activate
+python -m pip install --upgrade pip
+python -m pip install dist/*.whl
+patchrail doctor --format json
+patchrail ci explain --log examples/ci-triage/dependency-failure.log --format text
+deactivate
+```
+
+## Release-Prep Prompt
+
+Use this prompt when preparing a release-prep PR:
+
+```text
+Prepare PatchRail release evidence for vX.Y.Z. Check the changelog, version,
+README quickstart, docs links, CI fixture benchmark, package build, wheel smoke
+test, and safety/privacy checklist. Do not publish, tag, announce, or submit any
+external application. Return a checklist with commands run, results, artifact
+names, CI URLs, and remaining manual gates.
+```
 
 ## After Release
 
