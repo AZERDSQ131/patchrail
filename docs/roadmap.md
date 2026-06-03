@@ -7,7 +7,7 @@
 - Local redaction helper for shared logs.
 - Fixture-backed tests.
 - Local fixture benchmark command.
-- Initial 20-fixture CI failure zoo.
+- Initial 40-fixture CI failure zoo.
 - Safety, ethics, and security documentation.
 - Release-prep evidence checklist for tests, lint, benchmark, doctor, package
   artifacts, safety review, and manual publish gates.

@@ -19,12 +19,15 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Software Development :: Build Tools",
   "Topic :: Software Development :: Quality Assurance",
 ]
 
 [project.urls]
 Homepage = "https://github.com/patchrail/patchrail"
+Documentation = "https://github.com/patchrail/patchrail/tree/main/docs"
+Changelog = "https://github.com/patchrail/patchrail/blob/main/CHANGELOG.md"
 Issues = "https://github.com/patchrail/patchrail/issues"
 
 [project.scripts]

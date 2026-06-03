@@ -49,8 +49,9 @@ Last verified: 2026-06-03.
   and public CI evidence before any publish step.
 - Manual gates: release tags, PyPI publish, GitHub releases, public
   announcements, and external applications remain explicit maintainer actions.
-- Tests: `uv run --extra dev pytest -q` -> 16 passed.
+- Tests: `uv run --extra dev pytest -q` -> 26 passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
+- Format: `uv run --extra dev ruff format --check .` -> 14 files already formatted.
 - CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 40/40 fixtures passed.
 - Queue demo: `uv run --extra dev patchrail queue --db /tmp/patchrail-demo.sqlite init` and `patchrail queue add/list/approve/export` run locally with no write actions.
 - Agent Control Plane demo:
@@ -69,7 +70,8 @@ Last verified: 2026-06-03.
   the plan.
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
-- Public CI: <https://github.com/patchrail/patchrail/actions/workflows/ci.yml> runs tests, lint, benchmark and package smoke on every push to `main`.
+- Wheel smoke: installed `dist/patchrail-0.1.0-py3-none-any.whl` in a fresh `.pkg-smoke` virtual environment, then ran `patchrail doctor --format json` and `patchrail ci explain --log examples/ci-triage/dependency-failure.log --format text`.
+- Public CI: <https://github.com/patchrail/patchrail/actions/workflows/ci.yml> runs tests, lint, benchmark and package smoke on every push to `main`; the test matrix covers Python 3.11, 3.12, and 3.13.
 - Public triage workflow: <https://github.com/patchrail/patchrail/actions/runs/26862165709> -> skipped because the triggering CI run succeeded.
 - GitHub Actions artifact example:
   [`examples/github-action`](../examples/github-action/README.md) documents the
@@ -93,6 +95,7 @@ Last verified: 2026-06-03.
 - <https://github.com/patchrail/patchrail/issues/8> - import CI result JSON into the local queue.
 - <https://github.com/patchrail/patchrail/issues/9> - export queue audit events for Agent Control Plane.
 - <https://github.com/patchrail/patchrail/issues/10> - add proposal records for the local Agent Control Plane.
+- <https://github.com/patchrail/patchrail/issues/11> - add read-only funded issue scout.
 
 ## Safety Posture
 
