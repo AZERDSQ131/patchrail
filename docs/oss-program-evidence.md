@@ -9,11 +9,13 @@ Pablo Guillén is the primary maintainer of PatchRail.
 
 ## Usage Signals
 
-- GitHub stars: pending public launch
-- Monthly PyPI downloads: pending public launch
+- Repository: <https://github.com/patchrail/patchrail>
+- GitHub stars: 0 on 2026-06-03, immediately after public launch
+- Monthly PyPI downloads: pending first PyPI release
 - External repositories using PatchRail: pending pilots
-- External contributors: pending public launch
+- External contributors: pending external contributions
 - Public CI fixtures: 20 sanitized synthetic fixtures in the local benchmark
+- Public issue queue: 4 launch issues for fixtures, contribution docs, and release-prep evidence
 
 ## Maintenance Workflows
 
@@ -27,13 +29,22 @@ PatchRail's public safety posture is local-first and human-approved:
 
 ## Local Release Evidence
 
-Last verified: 2026-06-02.
+Last verified: 2026-06-03.
 
 - Tests: `uv run --extra dev pytest -q` -> 13 passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
 - CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 20/20 fixtures passed.
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
+- Public CI: <https://github.com/patchrail/patchrail/actions/runs/26848519896> -> success.
+- Public triage workflow: <https://github.com/patchrail/patchrail/actions/runs/26848553404> -> skipped because the triggering CI run succeeded.
+
+## Public Launch Issues
+
+- <https://github.com/patchrail/patchrail/issues/1> - add more Python dependency-resolution CI fixtures.
+- <https://github.com/patchrail/patchrail/issues/2> - add Node and TypeScript CI drift fixtures.
+- <https://github.com/patchrail/patchrail/issues/3> - document the contributor path for sanitized CI fixtures.
+- <https://github.com/patchrail/patchrail/issues/4> - create the first release-prep evidence checklist.
 
 ## Evidence To Add Before Applying
 
