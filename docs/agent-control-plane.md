@@ -10,9 +10,10 @@ The queue is local-first:
 - new work items start with `approval_state=pending`;
 - approving an item records a maintainer decision but does not execute a write
   action;
+- proposal records link a work item to a reviewable patch plan before handoff;
 - export is JSON or JSONL for audit, handoff, or demos;
 - audit events are local, append-only SQLite records for queue add, approve,
-  reject, and export decisions;
+  reject, proposal, and export decisions;
 - no command posts comments, opens pull requests, contacts third-party repos,
   claims funding, or calls an external model.
 
@@ -58,6 +59,26 @@ Inspect one item:
 patchrail queue show prq_example --format markdown
 ```
 
+Create a local proposal record for maintainer review:
+
+```bash
+patchrail queue proposal add \
+  --item-id prq_example \
+  --title "Pin compatible dependency range" \
+  --summary "Adjust dependency constraints and re-run the affected CI matrix." \
+  --patch-plan "1. Reproduce the failure.
+2. Update dependency bounds.
+3. Re-run the failing CI matrix." \
+  --risk-level low
+```
+
+Inspect and approve the proposal:
+
+```bash
+patchrail queue proposal show prp_example --format markdown
+patchrail queue proposal approve prp_example --note "Plan reviewed locally."
+```
+
 Record a maintainer decision:
 
 ```bash
@@ -93,6 +114,10 @@ means a maintainer reviewed the local item. It does not grant GitHub write
 permissions, push commits, open a pull request, post a comment, or contact
 anyone.
 
+Proposal approval is equally bounded. `patchrail queue proposal approve` records
+that a maintainer accepted a local patch plan for handoff. It does not execute
+the plan or authorize repository writes.
+
 That boundary is the product value: maintainers can structure work for coding
 agents while keeping write actions explicit, reviewable, and human-approved.
 
@@ -104,8 +129,7 @@ The current queue is enough for local demos and release evidence:
 - add work items manually or from `patchrail.ci_result.v1` JSON;
 - list and show items;
 - approve or reject items;
-- export work items.
-- export audit events for item creation, maintainer decisions, and handoffs.
-
-Future work will add proposal records that link a queued CI failure to a
-reviewed patch plan.
+- add, list, show, approve, and reject local proposal records;
+- export work items;
+- export audit events for item creation, proposals, maintainer decisions, and
+  handoffs.

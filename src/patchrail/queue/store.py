@@ -62,6 +62,34 @@ class AuditEvent:
         }
 
 
+@dataclass(frozen=True)
+class ProposalRecord:
+    id: str
+    work_item_id: str
+    title: str
+    summary: str
+    patch_plan: str
+    risk_level: str
+    approval_state: str
+    created_at: str
+    updated_at: str
+    decision_note: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "work_item_id": self.work_item_id,
+            "title": self.title,
+            "summary": self.summary,
+            "patch_plan": self.patch_plan,
+            "risk_level": self.risk_level,
+            "approval_state": self.approval_state,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "decision_note": self.decision_note,
+        }
+
+
 def _now() -> str:
     return datetime.now(tz=UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -114,6 +142,23 @@ def init_queue(db_path: Path = DEFAULT_QUEUE_PATH) -> dict[str, Any]:
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS proposals (
+              id TEXT PRIMARY KEY,
+              work_item_id TEXT NOT NULL,
+              title TEXT NOT NULL,
+              summary TEXT NOT NULL,
+              patch_plan TEXT NOT NULL,
+              risk_level TEXT NOT NULL,
+              approval_state TEXT NOT NULL,
+              created_at TEXT NOT NULL,
+              updated_at TEXT NOT NULL,
+              decision_note TEXT,
+              FOREIGN KEY(work_item_id) REFERENCES work_items(id)
+            )
+            """
+        )
+        conn.execute(
+            """
             INSERT INTO metadata(key, value)
             VALUES('schema_version', ?)
             ON CONFLICT(key) DO UPDATE SET value=excluded.value
@@ -151,6 +196,21 @@ def _row_to_audit_event(row: sqlite3.Row) -> AuditEvent:
         event_type=str(row["event_type"]),
         work_item_id=row["work_item_id"],
         payload=json.loads(str(row["payload_json"])),
+    )
+
+
+def _row_to_proposal(row: sqlite3.Row) -> ProposalRecord:
+    return ProposalRecord(
+        id=str(row["id"]),
+        work_item_id=str(row["work_item_id"]),
+        title=str(row["title"]),
+        summary=str(row["summary"]),
+        patch_plan=str(row["patch_plan"]),
+        risk_level=str(row["risk_level"]),
+        approval_state=str(row["approval_state"]),
+        created_at=str(row["created_at"]),
+        updated_at=str(row["updated_at"]),
+        decision_note=row["decision_note"],
     )
 
 
@@ -304,6 +364,151 @@ def reject_work_item(
     return _set_approval_state(
         db_path=db_path,
         item_id=item_id,
+        approval_state="rejected",
+        decision_note=decision_note,
+    )
+
+
+def add_proposal(
+    *,
+    db_path: Path = DEFAULT_QUEUE_PATH,
+    work_item_id: str,
+    title: str,
+    summary: str,
+    patch_plan: str,
+    risk_level: str = "medium",
+) -> ProposalRecord:
+    init_queue(db_path)
+    show_work_item(db_path=db_path, item_id=work_item_id)
+    proposal_id = f"prp_{uuid4().hex[:12]}"
+    ts = _now()
+    with _connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO proposals(
+              id, work_item_id, title, summary, patch_plan, risk_level,
+              approval_state, created_at, updated_at
+            )
+            VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                proposal_id,
+                work_item_id,
+                title,
+                summary,
+                patch_plan,
+                risk_level,
+                "pending",
+                ts,
+                ts,
+            ),
+        )
+        _write_audit_event(
+            conn,
+            event_type="proposal_added",
+            work_item_id=work_item_id,
+            payload={
+                "proposal_id": proposal_id,
+                "risk_level": risk_level,
+                "approval_state": "pending",
+            },
+        )
+    return show_proposal(db_path=db_path, proposal_id=proposal_id)
+
+
+def list_proposals(
+    *,
+    db_path: Path = DEFAULT_QUEUE_PATH,
+    work_item_id: str | None = None,
+    approval_state: str | None = None,
+) -> list[ProposalRecord]:
+    init_queue(db_path)
+    clauses: list[str] = []
+    values: list[str] = []
+    if work_item_id:
+        clauses.append("work_item_id = ?")
+        values.append(work_item_id)
+    if approval_state:
+        if approval_state not in VALID_APPROVAL_STATES:
+            raise ValueError(f"unknown approval state: {approval_state}")
+        clauses.append("approval_state = ?")
+        values.append(approval_state)
+    where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    with _connect(db_path) as conn:
+        rows = conn.execute(
+            f"SELECT * FROM proposals {where} ORDER BY created_at DESC, id DESC",
+            values,
+        ).fetchall()
+    return [_row_to_proposal(row) for row in rows]
+
+
+def show_proposal(*, db_path: Path = DEFAULT_QUEUE_PATH, proposal_id: str) -> ProposalRecord:
+    init_queue(db_path)
+    with _connect(db_path) as conn:
+        row = conn.execute("SELECT * FROM proposals WHERE id = ?", (proposal_id,)).fetchone()
+    if row is None:
+        raise KeyError(proposal_id)
+    return _row_to_proposal(row)
+
+
+def _set_proposal_approval_state(
+    *,
+    db_path: Path,
+    proposal_id: str,
+    approval_state: str,
+    decision_note: str | None,
+) -> ProposalRecord:
+    if approval_state not in VALID_APPROVAL_STATES:
+        raise ValueError(f"unknown approval state: {approval_state}")
+    init_queue(db_path)
+    ts = _now()
+    with _connect(db_path) as conn:
+        current = conn.execute(
+            "SELECT id, work_item_id FROM proposals WHERE id = ?",
+            (proposal_id,),
+        ).fetchone()
+        if current is None:
+            raise KeyError(proposal_id)
+        conn.execute(
+            """
+            UPDATE proposals
+            SET approval_state = ?, decision_note = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (approval_state, decision_note, ts, proposal_id),
+        )
+        _write_audit_event(
+            conn,
+            event_type=f"proposal_{approval_state}",
+            work_item_id=str(current["work_item_id"]),
+            payload={"proposal_id": proposal_id, "decision_note": decision_note},
+        )
+    return show_proposal(db_path=db_path, proposal_id=proposal_id)
+
+
+def approve_proposal(
+    *,
+    db_path: Path = DEFAULT_QUEUE_PATH,
+    proposal_id: str,
+    decision_note: str | None = None,
+) -> ProposalRecord:
+    return _set_proposal_approval_state(
+        db_path=db_path,
+        proposal_id=proposal_id,
+        approval_state="approved",
+        decision_note=decision_note,
+    )
+
+
+def reject_proposal(
+    *,
+    db_path: Path = DEFAULT_QUEUE_PATH,
+    proposal_id: str,
+    decision_note: str | None = None,
+) -> ProposalRecord:
+    return _set_proposal_approval_state(
+        db_path=db_path,
+        proposal_id=proposal_id,
         approval_state="rejected",
         decision_note=decision_note,
     )

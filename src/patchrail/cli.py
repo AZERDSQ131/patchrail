@@ -11,13 +11,18 @@ from patchrail import __version__
 from patchrail.ci import classify_ci_log, redact_ci_log
 from patchrail.queue import (
     DEFAULT_QUEUE_PATH,
+    add_proposal,
     add_work_item,
+    approve_proposal,
     approve_work_item,
     export_audit_events,
     export_work_items,
     init_queue,
+    list_proposals,
     list_work_items,
+    reject_proposal,
     reject_work_item,
+    show_proposal,
     show_work_item,
 )
 
@@ -270,6 +275,54 @@ def _render_queue_audit_text(events: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_proposals_text(proposals: list[dict[str, Any]]) -> str:
+    if not proposals:
+        return "No proposals.\n"
+    lines = []
+    for proposal in proposals:
+        lines.append(
+            f"{proposal['id']} [{proposal['approval_state']}] "
+            f"{proposal['risk_level']} {proposal['title']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_proposal_markdown(proposal: dict[str, Any]) -> str:
+    lines = [
+        "# PatchRail Proposal",
+        "",
+        f"- ID: `{proposal['id']}`",
+        f"- Work item: `{proposal['work_item_id']}`",
+        f"- Title: {proposal['title']}",
+        f"- Risk level: `{proposal['risk_level']}`",
+        f"- Approval state: `{proposal['approval_state']}`",
+        f"- Created: `{proposal['created_at']}`",
+        f"- Updated: `{proposal['updated_at']}`",
+        "",
+        "## Summary",
+        "",
+        proposal["summary"],
+        "",
+        "## Patch Plan",
+        "",
+        proposal["patch_plan"],
+    ]
+    if proposal.get("decision_note"):
+        lines.extend(["", "## Decision Note", "", proposal["decision_note"]])
+    lines.extend(
+        [
+            "",
+            "## Safety",
+            "",
+            (
+                "This proposal is a local review record. Approval records maintainer intent; "
+                "it does not push commits, open pull requests, post comments, or contact repositories."
+            ),
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _queue_init(args: argparse.Namespace) -> int:
     payload = init_queue(_queue_db(args))
     _write_or_print(_json_dump(payload), args.out)
@@ -392,6 +445,88 @@ def _queue_audit(args: argparse.Namespace) -> int:
     else:
         text = _render_queue_audit_text(payload["audit_events"])
     _write_or_print(text, args.out)
+    return 0
+
+
+def _queue_proposal_add(args: argparse.Namespace) -> int:
+    try:
+        proposal = add_proposal(
+            db_path=_queue_db(args),
+            work_item_id=args.item_id,
+            title=args.title,
+            summary=args.summary,
+            patch_plan=args.patch_plan,
+            risk_level=args.risk_level,
+        ).to_dict()
+    except KeyError:
+        print(f"Unknown work item: {args.item_id}", file=sys.stderr)
+        return 1
+    _write_or_print(_json_dump(proposal), args.out)
+    return 0
+
+
+def _queue_proposal_list(args: argparse.Namespace) -> int:
+    try:
+        proposals = [
+            proposal.to_dict()
+            for proposal in list_proposals(
+                db_path=_queue_db(args),
+                work_item_id=args.item_id,
+                approval_state=args.approval_state,
+            )
+        ]
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump({"schema_version": "patchrail.queue.v1", "proposals": proposals})
+    else:
+        text = _render_proposals_text(proposals)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _queue_proposal_show(args: argparse.Namespace) -> int:
+    try:
+        proposal = show_proposal(db_path=_queue_db(args), proposal_id=args.proposal_id).to_dict()
+    except KeyError:
+        print(f"Unknown proposal: {args.proposal_id}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(proposal)
+    elif args.format == "markdown":
+        text = _render_proposal_markdown(proposal)
+    else:
+        text = _render_proposals_text([proposal])
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _queue_proposal_approve(args: argparse.Namespace) -> int:
+    try:
+        proposal = approve_proposal(
+            db_path=_queue_db(args),
+            proposal_id=args.proposal_id,
+            decision_note=args.note,
+        ).to_dict()
+    except KeyError:
+        print(f"Unknown proposal: {args.proposal_id}", file=sys.stderr)
+        return 1
+    _write_or_print(_json_dump(proposal), args.out)
+    return 0
+
+
+def _queue_proposal_reject(args: argparse.Namespace) -> int:
+    try:
+        proposal = reject_proposal(
+            db_path=_queue_db(args),
+            proposal_id=args.proposal_id,
+            decision_note=args.note,
+        ).to_dict()
+    except KeyError:
+        print(f"Unknown proposal: {args.proposal_id}", file=sys.stderr)
+        return 1
+    _write_or_print(_json_dump(proposal), args.out)
     return 0
 
 
@@ -738,6 +873,77 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     queue_audit.add_argument("--out", type=Path, help="Optional output path.")
     queue_audit.set_defaults(func=_queue_audit)
+
+    queue_proposal = queue_subparsers.add_parser(
+        "proposal",
+        help="Manage local patch proposal records linked to queue items.",
+    )
+    proposal_subparsers = queue_proposal.add_subparsers(
+        dest="proposal_command",
+        required=True,
+    )
+
+    proposal_add = proposal_subparsers.add_parser(
+        "add",
+        help="Add a local proposal for one work item.",
+    )
+    proposal_add.add_argument("--item-id", required=True, help="Work item ID to link.")
+    proposal_add.add_argument("--title", required=True, help="Human-readable proposal title.")
+    proposal_add.add_argument("--summary", required=True, help="Short maintainer-facing summary.")
+    proposal_add.add_argument("--patch-plan", required=True, help="Reviewable local patch plan.")
+    proposal_add.add_argument(
+        "--risk-level",
+        choices=["low", "medium", "high"],
+        default="medium",
+        help="Maintainer review risk level.",
+    )
+    proposal_add.add_argument("--out", type=Path, help="Optional output path.")
+    proposal_add.set_defaults(func=_queue_proposal_add)
+
+    proposal_list = proposal_subparsers.add_parser("list", help="List local proposals.")
+    proposal_list.add_argument("--item-id", help="Only show proposals for one work item.")
+    proposal_list.add_argument(
+        "--approval-state",
+        choices=["pending", "approved", "rejected"],
+        help="Filter by proposal approval state.",
+    )
+    proposal_list.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="Output format.",
+    )
+    proposal_list.add_argument("--out", type=Path, help="Optional output path.")
+    proposal_list.set_defaults(func=_queue_proposal_list)
+
+    proposal_show = proposal_subparsers.add_parser("show", help="Show one local proposal.")
+    proposal_show.add_argument("proposal_id")
+    proposal_show.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    proposal_show.add_argument("--out", type=Path, help="Optional output path.")
+    proposal_show.set_defaults(func=_queue_proposal_show)
+
+    proposal_approve = proposal_subparsers.add_parser(
+        "approve",
+        help="Mark a local proposal approved by a human maintainer.",
+    )
+    proposal_approve.add_argument("proposal_id")
+    proposal_approve.add_argument("--note", help="Decision note to keep in the audit trail.")
+    proposal_approve.add_argument("--out", type=Path, help="Optional output path.")
+    proposal_approve.set_defaults(func=_queue_proposal_approve)
+
+    proposal_reject = proposal_subparsers.add_parser(
+        "reject",
+        help="Mark a local proposal rejected by a human maintainer.",
+    )
+    proposal_reject.add_argument("proposal_id")
+    proposal_reject.add_argument("--note", help="Decision note to keep in the audit trail.")
+    proposal_reject.add_argument("--out", type=Path, help="Optional output path.")
+    proposal_reject.set_defaults(func=_queue_proposal_reject)
 
     return parser
 

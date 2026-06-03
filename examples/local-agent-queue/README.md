@@ -1,9 +1,9 @@
 # Local Agent Control Plane Demo
 
-This demo turns a local CI report into a reviewable queue item, records a human
-approval decision, and exports the local audit trail. It does not create pull
-requests, post comments, contact repositories, call external models, require
-billing, or use network access.
+This demo turns a local CI report into a reviewable queue item, records a local
+patch proposal, captures human approval decisions, and exports the local audit
+trail. It does not create pull requests, post comments, contact repositories,
+call external models, require billing, or use network access.
 
 Run it from the repository root:
 
@@ -34,8 +34,28 @@ patchrail queue --db .patchrail-demo/queue.sqlite show "$ITEM_ID" \
   --format markdown \
   --out .patchrail-demo/item.md
 
+patchrail queue --db .patchrail-demo/queue.sqlite proposal add \
+  --item-id "$ITEM_ID" \
+  --title "Pin compatible dependency range" \
+  --summary "Adjust dependency constraints and re-run the affected CI matrix." \
+  --patch-plan "1. Reproduce the dependency install failure.
+2. Update the conflicting dependency range.
+3. Re-run the failing Python CI matrix." \
+  --risk-level low \
+  --out .patchrail-demo/proposal.json
+
+PROPOSAL_ID=$(python3 -c 'import json; print(json.load(open(".patchrail-demo/proposal.json"))["id"])')
+
+patchrail queue --db .patchrail-demo/queue.sqlite proposal show "$PROPOSAL_ID" \
+  --format markdown \
+  --out .patchrail-demo/proposal.md
+
+patchrail queue --db .patchrail-demo/queue.sqlite proposal approve "$PROPOSAL_ID" \
+  --note "Maintainer approved the local patch plan." \
+  --out .patchrail-demo/proposal-approved.json
+
 patchrail queue --db .patchrail-demo/queue.sqlite approve "$ITEM_ID" \
-  --note "Maintainer reviewed the local CI evidence." \
+  --note "Maintainer reviewed the local CI evidence and approved handoff." \
   --out .patchrail-demo/approved.json
 
 patchrail queue --db .patchrail-demo/queue.sqlite export \
@@ -53,10 +73,13 @@ Expected local artifacts:
 - `.patchrail-demo/ci-result.json`: the machine-readable CI result.
 - `.patchrail-demo/item.json`: the pending work item.
 - `.patchrail-demo/item.md`: a human-readable queue item.
+- `.patchrail-demo/proposal.json`: the pending patch proposal.
+- `.patchrail-demo/proposal.md`: a human-readable proposal record.
+- `.patchrail-demo/proposal-approved.json`: the local proposal approval decision.
 - `.patchrail-demo/approved.json`: the approval decision.
 - `.patchrail-demo/queue.jsonl`: the exported work items.
 - `.patchrail-demo/audit-events.jsonl`: the append-only local event trail for
-  add, approve, and export decisions.
+  add, proposal, approve, and export decisions.
 
 Check the safety boundary:
 
@@ -66,20 +89,25 @@ import json
 from pathlib import Path
 
 item = json.loads(Path(".patchrail-demo/approved.json").read_text())
+proposal = json.loads(Path(".patchrail-demo/proposal-approved.json").read_text())
 assert item["approval_state"] == "approved"
 assert item["write_actions_allowed"] is False
 assert item["payload"]["failure_class"] == "python_dependency_resolution"
 assert item["payload"]["ci_result"]["schema_version"] == "patchrail.ci_result.v1"
+assert proposal["approval_state"] == "approved"
+assert proposal["risk_level"] == "low"
 
 events = [json.loads(line) for line in Path(".patchrail-demo/audit-events.jsonl").read_text().splitlines()]
 assert [event["event_type"] for event in events] == [
     "work_item_added",
+    "proposal_added",
+    "proposal_approved",
     "work_item_approved",
     "work_items_exported",
 ]
 PY
 ```
 
-Approval means a maintainer reviewed the local evidence. It does not grant
-GitHub write permissions, open a pull request, post a comment, or execute any
-agent action.
+Approval means a maintainer reviewed the local evidence and local patch plan.
+It does not grant GitHub write permissions, open a pull request, post a comment,
+or execute any agent action.

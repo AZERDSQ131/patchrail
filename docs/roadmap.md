@@ -30,6 +30,8 @@
 - CI report to queue-item demo.
 - Direct `ci-result.json` import into pending local queue items.
 - Local audit event export for add, approve, reject, and handoff decisions.
+- Local proposal records for reviewable patch plans linked to queue items.
+- Proposal approval/rejection audit events without granting write permission.
 
 ## v0.4
 

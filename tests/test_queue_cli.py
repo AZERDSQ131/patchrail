@@ -195,6 +195,169 @@ class PatchRailQueueTests(unittest.TestCase):
                 False,
             )
 
+    def test_queue_proposal_flow_records_reviewable_patch_plan(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "queue.sqlite"
+            add_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "add",
+                    "--kind",
+                    "ci_failure",
+                    "--title",
+                    "Review dependency failure",
+                    "--payload-json",
+                    '{"report": "ci-result.json"}',
+                ]
+            )
+            self.assertEqual(add_proc.returncode, 0, add_proc.stderr)
+            item = json.loads(add_proc.stdout)
+
+            proposal_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "proposal",
+                    "add",
+                    "--item-id",
+                    item["id"],
+                    "--title",
+                    "Pin compatible dependency range",
+                    "--summary",
+                    "Adjust the dependency range and re-run the failing CI matrix.",
+                    "--patch-plan",
+                    "1. Reproduce install failure.\n2. Update dependency bounds.\n3. Run tests.",
+                    "--risk-level",
+                    "low",
+                ]
+            )
+            self.assertEqual(proposal_proc.returncode, 0, proposal_proc.stderr)
+            proposal = json.loads(proposal_proc.stdout)
+            self.assertEqual(proposal["work_item_id"], item["id"])
+            self.assertEqual(proposal["approval_state"], "pending")
+            self.assertEqual(proposal["risk_level"], "low")
+
+            list_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "proposal",
+                    "list",
+                    "--item-id",
+                    item["id"],
+                    "--format",
+                    "json",
+                ]
+            )
+            self.assertEqual(list_proc.returncode, 0, list_proc.stderr)
+            listed = json.loads(list_proc.stdout)
+            self.assertEqual([entry["id"] for entry in listed["proposals"]], [proposal["id"]])
+
+            show_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "proposal",
+                    "show",
+                    proposal["id"],
+                    "--format",
+                    "markdown",
+                ]
+            )
+            self.assertEqual(show_proc.returncode, 0, show_proc.stderr)
+            self.assertIn("## Patch Plan", show_proc.stdout)
+            self.assertIn("does not push commits", show_proc.stdout)
+
+            approve_proposal_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "proposal",
+                    "approve",
+                    proposal["id"],
+                    "--note",
+                    "Maintainer approved the local plan only.",
+                ]
+            )
+            self.assertEqual(approve_proposal_proc.returncode, 0, approve_proposal_proc.stderr)
+            approved_proposal = json.loads(approve_proposal_proc.stdout)
+            self.assertEqual(approved_proposal["approval_state"], "approved")
+            self.assertIn("local plan", approved_proposal["decision_note"])
+
+            approve_item_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "approve",
+                    item["id"],
+                    "--note",
+                    "Maintainer approved handoff after reviewing proposal.",
+                ]
+            )
+            self.assertEqual(approve_item_proc.returncode, 0, approve_item_proc.stderr)
+            approved_item = json.loads(approve_item_proc.stdout)
+            self.assertEqual(approved_item["approval_state"], "approved")
+            self.assertEqual(approved_item["write_actions_allowed"], False)
+
+            audit_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "audit",
+                    "--item-id",
+                    item["id"],
+                    "--format",
+                    "json",
+                ]
+            )
+            self.assertEqual(audit_proc.returncode, 0, audit_proc.stderr)
+            audit = json.loads(audit_proc.stdout)
+            self.assertEqual(
+                [event["event_type"] for event in audit["audit_events"]],
+                [
+                    "work_item_added",
+                    "proposal_added",
+                    "proposal_approved",
+                    "work_item_approved",
+                ],
+            )
+            self.assertEqual(
+                audit["audit_events"][1]["payload"]["proposal_id"],
+                proposal["id"],
+            )
+
+    def test_queue_proposal_add_requires_existing_work_item(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "queue.sqlite"
+            proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "proposal",
+                    "add",
+                    "--item-id",
+                    "prq_missing",
+                    "--title",
+                    "Missing item proposal",
+                    "--summary",
+                    "Cannot link to a missing item.",
+                    "--patch-plan",
+                    "Do nothing.",
+                ]
+            )
+
+            self.assertEqual(proc.returncode, 1)
+            self.assertIn("Unknown work item: prq_missing", proc.stderr)
+
     def test_queue_add_requires_manual_kind_and_title_without_import(self) -> None:
         proc = run_patchrail(["queue", "add", "--payload-json", "{}"])
 

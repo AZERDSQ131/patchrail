@@ -28,7 +28,8 @@ Current public evidence is local and preparatory:
 - Release automation: first release-prep checklist is documented in
   [release-process.md](release-process.md); public PR history is pending
 - CI triage: public CI is green, and the read-only triage workflow is installed for failed CI runs
-- Agent control plane: experimental local SQLite queue added for human-gated maintainer work items
+- Agent control plane: experimental local SQLite queue added for human-gated
+  maintainer work items and reviewable proposal records
 
 PatchRail's intended Codex usage is bounded to maintainer-approved work:
 
@@ -60,6 +61,10 @@ Last verified: 2026-06-03.
 - Queue audit trail: `patchrail queue audit --format jsonl` exports local
   `work_item_added`, `work_item_approved`, `work_item_rejected`, and
   `work_items_exported` events without granting GitHub write permissions.
+- Proposal records: `patchrail queue proposal add/show/approve/reject` links a
+  queued CI failure to a local patch plan and records `proposal_added`,
+  `proposal_approved`, and `proposal_rejected` audit events without executing
+  the plan.
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
 - Public CI: <https://github.com/patchrail/patchrail/actions/workflows/ci.yml> runs tests, lint, benchmark and package smoke on every push to `main`.
@@ -80,6 +85,7 @@ Last verified: 2026-06-03.
 - <https://github.com/patchrail/patchrail/issues/7> - add GitHub Actions triage artifact example.
 - <https://github.com/patchrail/patchrail/issues/8> - import CI result JSON into the local queue.
 - <https://github.com/patchrail/patchrail/issues/9> - export queue audit events for Agent Control Plane.
+- <https://github.com/patchrail/patchrail/issues/10> - add proposal records for the local Agent Control Plane.
 
 ## Safety Posture
 
