@@ -117,6 +117,58 @@ class PatchRailQueueTests(unittest.TestCase):
             self.assertEqual(rejected["status"], "rejected")
             self.assertIn("Needs more evidence", rejected["decision_note"])
 
+    def test_queue_add_from_ci_result_keeps_import_local_and_pending(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "queue.sqlite"
+            ci_result = Path(tmpdir) / "ci-result.json"
+            classify_proc = run_patchrail(
+                [
+                    "ci",
+                    "classify",
+                    "--log",
+                    "examples/ci-triage/dependency-failure.log",
+                    "--format",
+                    "json",
+                    "--out",
+                    str(ci_result),
+                ]
+            )
+            self.assertEqual(classify_proc.returncode, 0, classify_proc.stderr)
+
+            add_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "add",
+                    "--from-ci-result",
+                    str(ci_result),
+                ]
+            )
+
+            self.assertEqual(add_proc.returncode, 0, add_proc.stderr)
+            added = json.loads(add_proc.stdout)
+            self.assertEqual(added["kind"], "ci_failure")
+            self.assertEqual(added["title"], "Review python_dependency_resolution CI failure")
+            self.assertEqual(added["source"], str(ci_result))
+            self.assertEqual(added["approval_state"], "pending")
+            self.assertEqual(added["write_actions_allowed"], False)
+            self.assertEqual(added["payload"]["failure_class"], "python_dependency_resolution")
+            self.assertEqual(
+                added["payload"]["ci_result"]["schema_version"],
+                "patchrail.ci_result.v1",
+            )
+            self.assertEqual(
+                added["payload"]["ci_result"]["requirements"]["external_model_required"],
+                False,
+            )
+
+    def test_queue_add_requires_manual_kind_and_title_without_import(self) -> None:
+        proc = run_patchrail(["queue", "add", "--payload-json", "{}"])
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("requires --kind and --title", proc.stderr)
+
     def test_queue_show_unknown_item_fails_cleanly(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             db = Path(tmpdir) / "queue.sqlite"

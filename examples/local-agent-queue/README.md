@@ -15,14 +15,17 @@ patchrail ci explain \
   --format markdown \
   --out .patchrail-demo/ci-report.md
 
+patchrail ci classify \
+  --log examples/ci-triage/dependency-failure.log \
+  --format json \
+  --out .patchrail-demo/ci-result.json
+
 patchrail queue --db .patchrail-demo/queue.sqlite init \
   --out .patchrail-demo/init.json
 
 patchrail queue --db .patchrail-demo/queue.sqlite add \
-  --kind ci_failure \
-  --title "Review Python dependency resolution failure" \
-  --source .patchrail-demo/ci-report.md \
-  --payload-json '{"report": ".patchrail-demo/ci-report.md", "failure_class": "python_dependency_resolution"}' \
+  --from-ci-result .patchrail-demo/ci-result.json \
+  --payload-json '{"markdown_report": ".patchrail-demo/ci-report.md"}' \
   --out .patchrail-demo/item.json
 
 ITEM_ID=$(python3 -c 'import json; print(json.load(open(".patchrail-demo/item.json"))["id"])')
@@ -43,6 +46,7 @@ patchrail queue --db .patchrail-demo/queue.sqlite export \
 Expected local artifacts:
 
 - `.patchrail-demo/ci-report.md`: the local CI explanation.
+- `.patchrail-demo/ci-result.json`: the machine-readable CI result.
 - `.patchrail-demo/item.json`: the pending work item.
 - `.patchrail-demo/item.md`: a human-readable queue item.
 - `.patchrail-demo/approved.json`: the approval decision.
@@ -59,6 +63,7 @@ item = json.loads(Path(".patchrail-demo/approved.json").read_text())
 assert item["approval_state"] == "approved"
 assert item["write_actions_allowed"] is False
 assert item["payload"]["failure_class"] == "python_dependency_resolution"
+assert item["payload"]["ci_result"]["schema_version"] == "patchrail.ci_result.v1"
 PY
 ```
 

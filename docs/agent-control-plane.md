@@ -25,6 +25,18 @@ patchrail queue init
 Add a work item from a CI report:
 
 ```bash
+patchrail ci classify \
+  --log examples/ci-triage/dependency-failure.log \
+  --format json \
+  --out patchrail-ci-result.json
+
+patchrail queue add \
+  --from-ci-result patchrail-ci-result.json
+```
+
+Manual work items are still supported:
+
+```bash
 patchrail queue add \
   --kind ci_failure \
   --title "Investigate failing dependency install" \
@@ -86,10 +98,10 @@ agents while keeping write actions explicit, reviewable, and human-approved.
 The current queue is enough for local demos and release evidence:
 
 - initialize SQLite;
-- add work items;
+- add work items manually or from `patchrail.ci_result.v1` JSON;
 - list and show items;
 - approve or reject items;
 - export work items.
 
-Future work will add richer audit events, CI-report imports, and an end-to-end
-demo importer that links `patchrail ci explain` to a queued repair proposal.
+Future work will add richer audit events and proposal records that link a
+queued CI failure to a reviewed patch plan.

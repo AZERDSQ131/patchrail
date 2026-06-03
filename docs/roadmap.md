@@ -28,6 +28,7 @@
 - Human approval states for local decisions.
 - Exportable audit log.
 - CI report to queue-item demo.
+- Direct `ci-result.json` import into pending local queue items.
 
 ## v0.4
 

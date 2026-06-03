@@ -52,6 +52,9 @@ Last verified: 2026-06-03.
   [`examples/local-agent-queue`](../examples/local-agent-queue/README.md)
   links `ci explain` to `queue add`, `queue approve`, and `queue export`
   using only local files and SQLite.
+- CI result importer: `patchrail queue add --from-ci-result ci-result.json`
+  turns the read-only CI artifact JSON into a pending local queue item while
+  keeping `write_actions_allowed=false`.
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
 - Public CI: <https://github.com/patchrail/patchrail/actions/workflows/ci.yml> runs tests, lint, benchmark and package smoke on every push to `main`.

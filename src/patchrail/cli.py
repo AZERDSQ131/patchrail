@@ -196,6 +196,24 @@ def _queue_db(args: argparse.Namespace) -> Path:
     return Path(args.db) if args.db else DEFAULT_QUEUE_PATH
 
 
+def _queue_payload_from_ci_result(path: Path) -> tuple[str, str, str, dict[str, Any]]:
+    ci_result = json.loads(path.read_text(encoding="utf-8"))
+    if ci_result.get("schema_version") != "patchrail.ci_result.v1":
+        raise ValueError("CI result must use schema_version patchrail.ci_result.v1")
+
+    failure_class = str(ci_result.get("failure_class") or "unknown")
+    likely_subsystem = str(ci_result.get("likely_subsystem") or "unknown subsystem")
+    title = f"Review {failure_class} CI failure"
+    payload = {
+        "ci_result": ci_result,
+        "failure_class": failure_class,
+        "likely_subsystem": likely_subsystem,
+        "minimal_repair_strategy": ci_result.get("minimal_repair_strategy"),
+        "report_source": str(path),
+    }
+    return "ci_failure", title, str(path), payload
+
+
 def _render_queue_items_text(items: list[dict[str, Any]]) -> str:
     if not items:
         return "No work items.\n"
@@ -245,13 +263,34 @@ def _queue_init(args: argparse.Namespace) -> int:
 
 def _queue_add(args: argparse.Namespace) -> int:
     item_payload: dict[str, Any] = {}
+    kind = args.kind
+    title = args.title
+    source = args.source
+    if args.from_ci_result:
+        try:
+            imported_kind, imported_title, imported_source, item_payload = (
+                _queue_payload_from_ci_result(args.from_ci_result)
+            )
+        except (json.JSONDecodeError, ValueError) as exc:
+            print(f"Invalid CI result: {exc}", file=sys.stderr)
+            return 1
+        kind = kind or imported_kind
+        title = title or imported_title
+        source = source if source != "manual" else imported_source
     if args.payload_json:
-        item_payload = json.loads(args.payload_json)
+        extra_payload = json.loads(args.payload_json)
+        item_payload = {**item_payload, **extra_payload}
+    if not kind or not title:
+        print(
+            "queue add requires --kind and --title unless --from-ci-result is provided",
+            file=sys.stderr,
+        )
+        return 1
     item = add_work_item(
         db_path=_queue_db(args),
-        kind=args.kind,
-        title=args.title,
-        source=args.source,
+        kind=kind,
+        title=title,
+        source=source,
         payload=item_payload,
     ).to_dict()
     _write_or_print(_json_dump(item), args.out)
@@ -586,10 +625,15 @@ def _build_parser() -> argparse.ArgumentParser:
     queue_init.set_defaults(func=_queue_init)
 
     queue_add = queue_subparsers.add_parser("add", help="Add a local work item.")
-    queue_add.add_argument("--kind", required=True, help="Work item kind, for example ci_failure.")
-    queue_add.add_argument("--title", required=True, help="Human-readable work item title.")
+    queue_add.add_argument("--kind", help="Work item kind, for example ci_failure.")
+    queue_add.add_argument("--title", help="Human-readable work item title.")
     queue_add.add_argument("--source", default="manual", help="Source identifier or URL.")
     queue_add.add_argument("--payload-json", help="Optional JSON payload for local context.")
+    queue_add.add_argument(
+        "--from-ci-result",
+        type=Path,
+        help="Import a local patchrail.ci_result.v1 JSON file as a pending ci_failure item.",
+    )
     queue_add.add_argument("--out", type=Path, help="Optional output path.")
     queue_add.set_defaults(func=_queue_add)
 
