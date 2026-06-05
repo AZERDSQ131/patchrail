@@ -42,10 +42,10 @@ That pre-PyPI smoke test prints:
 PatchRail classified this log locally. It did not create a pull request, post a comment, claim funding, or send data to an external service.
 ```
 
-If you already downloaded a release wheel, install that local artifact instead:
+Or install the v0.1.0 release wheel directly from GitHub Releases:
 
 ```bash
-python -m pip install dist/patchrail-0.1.0-py3-none-any.whl
+python -m pip install https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl
 patchrail --help
 ```
 

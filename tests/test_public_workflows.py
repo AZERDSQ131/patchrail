@@ -96,7 +96,10 @@ def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
         assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in text, path
         assert "patchrail ci explain" in text, path
         assert "FAILED tests/test_app.py::test_ok" in text, path
-        assert "python -m pip install dist/patchrail-0.1.0" in text, path
+        assert (
+            "python -m pip install https://github.com/patchrail/patchrail/releases/download/v0.1.0/"
+            "patchrail-0.1.0-py3-none-any.whl"
+        ) in text, path
         assert "pipx install patchrail" in text, path
         assert "That pre-PyPI smoke test prints" in text, path
 

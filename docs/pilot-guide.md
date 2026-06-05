@@ -26,10 +26,12 @@ not modify code.
 
 ## Run A Local Pilot
 
-Install PatchRail:
+Install PatchRail. PyPI publishing is pending, so do not use
+`pipx install patchrail` yet:
 
 ```bash
-pipx install patchrail
+uvx --from git+https://github.com/patchrail/patchrail patchrail --help
+python -m pip install https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl
 ```
 
 Check the local safety posture:

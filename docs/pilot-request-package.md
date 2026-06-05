@@ -33,10 +33,12 @@ Use this when a maintainer wants to run a first read-only trial:
 ````markdown
 Run a local PatchRail pilot on one failed CI log:
 
-1. Install PatchRail:
+1. Install PatchRail. PyPI publishing is pending, so do not use
+   `pipx install patchrail` yet:
 
    ```bash
-   pipx install patchrail
+   uvx --from git+https://github.com/patchrail/patchrail patchrail --help
+   python -m pip install https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl
    ```
 
 2. Check the safety posture:
