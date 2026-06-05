@@ -73,6 +73,45 @@ def test_github_actions_runtime_review_keeps_workflows_node24_ready() -> None:
     assert "`actions/upload-artifact` | `v7.0.1` | `node24` | No" in docs
 
 
+def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
+    proc = subprocess.run(
+        [sys.executable, "-m", "patchrail", "ci", "explain"],
+        input=("python -m pytest -q\nFAILED tests/test_app.py::test_ok - AssertionError\n"),
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    real_stdin_demo = proc.stdout
+
+    surfaces = {
+        "README.md": (ROOT / "README.md").read_text(encoding="utf-8"),
+        "docs/quickstart.md": (ROOT / "docs" / "quickstart.md").read_text(encoding="utf-8"),
+    }
+
+    for path, text in surfaces.items():
+        assert "PyPI publishing is pending" in text, path
+        assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in text, path
+        assert "patchrail ci explain" in text, path
+        assert "FAILED tests/test_app.py::test_ok" in text, path
+        assert "python -m pip install dist/patchrail-0.1.0" in text, path
+        assert "pipx install patchrail" in text, path
+        assert "That pre-PyPI smoke test prints" in text, path
+
+        for expected_line in (
+            "- Root cause: `python_test_failure`",
+            "- Confidence: `0.89`",
+            "- Subsystem: Python tests",
+            "- Reproduce: `python -m pytest -q`",
+            "- `FAILED .*::`",
+            "PatchRail classified this log locally.",
+        ):
+            assert expected_line in real_stdin_demo
+            assert expected_line in text, f"{path}: {expected_line}"
+
+
 def test_evidence_snapshot_summarizes_public_oss_signals_without_write_actions() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "patchrail", "evidence", "snapshot", "--format", "json"],

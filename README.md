@@ -11,13 +11,45 @@ maintainers stay in control.
 
 ## Quickstart
 
-Install the CLI:
+PyPI publishing is pending, so do not use `pipx install patchrail` yet. Until
+the package is on PyPI, run the public GitHub source directly:
 
 ```bash
-pipx install patchrail
+uvx --from git+https://github.com/patchrail/patchrail patchrail --help
+printf 'python -m pytest -q\nFAILED tests/test_app.py::test_ok - AssertionError\n' \
+  | uvx --from git+https://github.com/patchrail/patchrail patchrail ci explain
 ```
 
-Run the local safety check and classify a failed CI log:
+That pre-PyPI smoke test prints:
+
+```markdown
+# PatchRail CI Report
+
+- Root cause: `python_test_failure`
+- Confidence: `0.89`
+- Subsystem: Python tests
+- Reproduce: `python -m pytest -q`
+- Suggested action: Reproduce the failing test, patch the narrow behavior drift, and rerun the focused pytest node before broad test runs.
+
+## Evidence signals
+
+- `\bpytest\b`
+- `FAILED .*::`
+- `AssertionError`
+
+## Safety
+
+PatchRail classified this log locally. It did not create a pull request, post a comment, claim funding, or send data to an external service.
+```
+
+If you already downloaded a release wheel, install that local artifact instead:
+
+```bash
+python -m pip install dist/patchrail-0.1.0-py3-none-any.whl
+patchrail --help
+```
+
+After installation, run the local safety check and classify a failed CI log:
 
 ```bash
 patchrail doctor
