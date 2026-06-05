@@ -13,6 +13,14 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - GitHub stars: 0 on 2026-06-03, immediately after public launch
 - Monthly PyPI downloads: pending first PyPI release
 - GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.0>
+- Pre-PyPI install path: README and quickstart say "PyPI publishing is pending"
+  and provide `uvx --from git+https://github.com/patchrail/patchrail patchrail`
+  so reviewers do not hit a package-index 404 before PyPI is published.
+- Current public CI run:
+  <https://github.com/patchrail/patchrail/actions/runs/27046093338> completed
+  successfully for commit `52eecf710f869796b62a3bc875f3a8f73c48f98d`, including
+  Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
+  package-smoke, and the OSS evidence snapshot job.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public metrics tracker: [docs/metrics.md](metrics.md) records current public
@@ -61,6 +69,16 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - Completed owned-repo pilot issue:
   [#68](https://github.com/patchrail/patchrail/issues/68) records the first
   consent-only pilot outcome on PatchRail's own public repository
+- Upstream maintainer contribution, merged:
+  <https://github.com/jamie8johnson/cqs/pull/1650> fixed a real JSON output
+  regression in a third-party project and was merged on 2026-05-20.
+- Upstream maintainer contribution, open and ready for review:
+  <https://github.com/pypa/twine/pull/1329> adds a focused no-coverage tox
+  environment for local test debugging. Local evidence: `tox -e nocov -- -k
+  'Metadata-Version'` passed with `1 passed, 231 deselected`; the baseline
+  `tox -e py -- -k 'Metadata-Version'` reproduced the coverage-threshold
+  failure that makes focused debugging noisy. External maintainer checks and
+  merge remain controlled by the upstream project.
 
 ## Codex Workflows In Use
 

@@ -603,6 +603,15 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "Human approval gates for write actions" in evidence
     assert "No automatic bounty claiming" in evidence
     assert ".agents/skills/patchrail-ci-triage" in evidence
+    assert "PyPI publishing is pending" in evidence
+    assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27046093338" in evidence
+    assert "52eecf710f869796b62a3bc875f3a8f73c48f98d" in evidence
+    assert "https://github.com/jamie8johnson/cqs/pull/1650" in evidence
+    assert "https://github.com/pypa/twine/pull/1329" in evidence
+    assert "1 passed, 231 deselected" in evidence
+    assert "External maintainer checks and" in evidence
+    assert "merge remain controlled by the upstream project." in evidence
     assert "Public maintenance workflow ledger" in evidence
     assert "public-workflow-ledger.md" in evidence
     assert "formal visible Codex" in evidence
