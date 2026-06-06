@@ -137,11 +137,20 @@ Export the local audit trail:
 ```bash
 patchrail queue export --format jsonl > patchrail-queue.jsonl
 patchrail queue audit --format jsonl > patchrail-audit-events.jsonl
+patchrail queue policy-scan --format markdown
 patchrail queue review --format markdown
 patchrail queue audit-summary --format markdown
 patchrail queue gate-report --format markdown
 patchrail queue bundle --format markdown > patchrail-queue-bundle.md
 ```
+
+`patchrail queue policy-scan` is a read-only pre-handoff brake. It scans local
+work items and proposals for blocked automation signals such as automatic pull
+requests, automatic issue comments, outbound contact, payout/claim language,
+KYC/payment gates, or other external write actions. It exits non-zero while
+matching records remain active and recommends rejecting or skipping those
+records before handoff. Reading the scan records no audit event, permits no
+execution, redacts absolute local paths, and preserves historical queue data.
 
 `patchrail queue review` is the compact maintainer inbox. It groups pending,
 approved, and rejected work items and proposals without exporting full payloads,

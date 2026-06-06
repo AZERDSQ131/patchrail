@@ -188,6 +188,26 @@ local gate events are present. It is read-only, records no audit event, permits
 no execution, redacts local paths, and does not contact GitHub, call external
 models, open pull requests, post comments, or require billing.
 
+## CLI Queue Policy Scan
+
+`patchrail queue policy-scan` emits a read-only pre-handoff policy scan:
+
+```bash
+patchrail queue --db patchrail-pilot.sqlite policy-scan --format markdown
+```
+
+The scan emits `patchrail.queue_policy_scan.v1` and fails closed when active
+work items or proposals contain blocked automation signals: automatic pull
+requests, automatic issue comments, outbound contact, payout/claim language,
+KYC/payment gates, or other external write actions. It reports matching record
+IDs, matched categories, matched terms, and recommended reviewer actions.
+
+The scan does not mutate the queue, append an audit event, execute proposals,
+open pull requests, post comments, contact repositories, call external models,
+require billing, or ask for GitHub write permission. Use `patchrail queue reject`
+or `patchrail queue skip` to keep blocked records visible while preventing
+handoff.
+
 ## CLI Queue Review Inbox
 
 `patchrail queue review` emits a compact local human-review inbox:

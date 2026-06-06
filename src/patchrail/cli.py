@@ -45,6 +45,7 @@ from patchrail.queue.status import (
     queue_audit_summary_payload,
     queue_bundle_payload,
     queue_gate_report_payload,
+    queue_policy_scan_payload,
     queue_review_payload,
     queue_status_payload,
 )
@@ -152,6 +153,7 @@ def _load_schema(name: str) -> str:
         "queue-audit-event": "queue-audit-event.v1.schema.json",
         "queue-audit-summary": "queue-audit-summary.v1.schema.json",
         "queue-gate-report": "queue-gate-report.v1.schema.json",
+        "queue-policy-scan": "queue-policy-scan.v1.schema.json",
         "queue-proposal": "queue-proposal.v1.schema.json",
         "queue-review": "queue-review.v1.schema.json",
         "queue-status": "queue-status.v1.schema.json",
@@ -2537,6 +2539,78 @@ def _render_queue_gate_report_text(payload: dict[str, Any]) -> str:
     )
 
 
+def _render_queue_policy_scan_markdown(payload: dict[str, Any]) -> str:
+    safety = payload["safety"]
+    lines = [
+        "# PatchRail Queue Policy Scan",
+        "",
+        f"- DB: `{payload['db_path']}`",
+        f"- Status: `{payload['status']}`",
+        f"- Blocked records: `{payload['blocked_records_count']}`",
+        f"- Work items scanned: `{payload['scanned_counts']['work_items_total']}`",
+        f"- Proposals scanned: `{payload['scanned_counts']['proposals_total']}`",
+        "",
+        "## Matches",
+        "",
+    ]
+    if payload["matches"]:
+        for match in payload["matches"]:
+            lines.extend(
+                [
+                    f"### {match['record_type']} `{match['id']}`",
+                    "",
+                    f"- Title: {match['title']}",
+                    f"- Matched categories: `{match['matched_categories']}`",
+                    f"- Matched terms: `{match['matched_terms']}`",
+                    f"- Recommended action: `{match['recommended_action']}`",
+                    "",
+                ]
+            )
+    else:
+        lines.extend(["- No policy-blocking queue records found.", ""])
+    lines.extend(
+        [
+            "## Reviewer Actions",
+            "",
+            *[f"- {action}" for action in payload["reviewer_actions"]],
+            "",
+            "## Safety",
+            "",
+            f"- Scan is read-only: `{safety['scan_is_read_only']}`",
+            f"- Scan records audit event: `{safety['scan_records_audit_event']}`",
+            f"- Execution allowed: `{safety['execution_allowed']}`",
+            f"- Local paths redacted: `{safety['local_paths_redacted']}`",
+            f"- Approval records execute actions: `{safety['approval_records_execute_actions']}`",
+            f"- GitHub write permission required: `{safety['github_write_permission_required']}`",
+            f"- Network required: `{safety['network_required']}`",
+            f"- External model required: `{safety['external_model_required']}`",
+            f"- Billing required: `{safety['billing_required']}`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _render_queue_policy_scan_text(payload: dict[str, Any]) -> str:
+    return (
+        "\n".join(
+            [
+                "PatchRail Queue Policy Scan",
+                f"DB: {payload['db_path']}",
+                f"Status: {payload['status']}",
+                f"Blocked records: {payload['blocked_records_count']}",
+                f"Work items scanned: {payload['scanned_counts']['work_items_total']}",
+                f"Proposals scanned: {payload['scanned_counts']['proposals_total']}",
+                f"Reviewer actions: {payload['reviewer_actions']}",
+                "Scan is read-only: True",
+                "Scan records audit event: False",
+                "Execution allowed: False",
+                "Local paths redacted: True",
+            ]
+        )
+        + "\n"
+    )
+
+
 def _render_queue_review_markdown(payload: dict[str, Any]) -> str:
     groups = payload["review_groups"]
     safety = payload["safety"]
@@ -2962,6 +3036,18 @@ def _queue_gate_report(args: argparse.Namespace) -> int:
         text = _render_queue_gate_report_text(payload)
     _write_or_print(text, args.out)
     return 0 if payload["ready_for_reviewer_handoff"] else 1
+
+
+def _queue_policy_scan(args: argparse.Namespace) -> int:
+    payload = queue_policy_scan_payload(_queue_db(args))
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_queue_policy_scan_markdown(payload)
+    else:
+        text = _render_queue_policy_scan_text(payload)
+    _write_or_print(text, args.out)
+    return 0 if payload["status"] == "policy_clear" else 1
 
 
 def _queue_review(args: argparse.Namespace) -> int:
@@ -4243,6 +4329,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "queue-audit-event",
             "queue-audit-summary",
             "queue-gate-report",
+            "queue-policy-scan",
             "queue-proposal",
             "queue-review",
             "queue-status",
@@ -4642,6 +4729,19 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     queue_gate_report.add_argument("--out", type=Path, help="Optional output path.")
     queue_gate_report.set_defaults(func=_queue_gate_report)
+
+    queue_policy_scan = queue_subparsers.add_parser(
+        "policy-scan",
+        help="Fail closed if local queue records contain blocked automation signals.",
+    )
+    queue_policy_scan.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    queue_policy_scan.add_argument("--out", type=Path, help="Optional output path.")
+    queue_policy_scan.set_defaults(func=_queue_policy_scan)
 
     queue_bundle = queue_subparsers.add_parser(
         "bundle",

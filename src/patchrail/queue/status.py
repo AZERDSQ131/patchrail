@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
+import json
 from pathlib import Path
 import re
 from typing import Any
@@ -19,6 +20,7 @@ QUEUE_AUDIT_SUMMARY_SCHEMA_VERSION = "patchrail.queue_audit_summary.v1"
 QUEUE_BUNDLE_SCHEMA_VERSION = "patchrail.queue_bundle.v1"
 QUEUE_GATE_REPORT_SCHEMA_VERSION = "patchrail.queue_gate_report.v1"
 QUEUE_REVIEW_SCHEMA_VERSION = "patchrail.queue_review.v1"
+QUEUE_POLICY_SCAN_SCHEMA_VERSION = "patchrail.queue_policy_scan.v1"
 
 DEFAULT_REQUIRED_AUDIT_EVENTS = [
     "work_item_added",
@@ -43,7 +45,60 @@ SAFE_QUEUE_STATUS = {
     "approval_records_execute_actions": False,
 }
 
-LOCAL_PATH_PATTERN = re.compile(r"(/Volumes|/Users|/home)/[^\s\"'`]+")
+LOCAL_PATH_PATTERN = re.compile(
+    r"(/Volumes|/Users|/home|/tmp|/private/tmp|/var/folders|/private/var)/[^\s\"'`]+"
+)
+
+POLICY_SCAN_RULES = {
+    "automatic_pull_request": [
+        "automatic pr",
+        "automatic pull request",
+        "auto pr",
+        "auto-submit",
+        "auto submit",
+        "open pr automatically",
+        "open pull request automatically",
+    ],
+    "automatic_issue_comment": [
+        "automatic issue comment",
+        "comment automatically",
+        "mass comment",
+        "post a comment",
+        "post comment",
+    ],
+    "outbound_contact": [
+        "contact maintainers",
+        "devrel",
+        "lead",
+        "outbound",
+        "sales",
+        "send email",
+    ],
+    "funding_or_claim": [
+        "bounty",
+        "claim reward",
+        "funding claim",
+        "invoice",
+        "paid pilot",
+        "payment link",
+        "payout",
+        "pricing",
+    ],
+    "identity_or_money_gate": [
+        "bank",
+        "card",
+        "government id",
+        "kyc",
+        "phone",
+        "postal address",
+        "tax form",
+    ],
+    "external_write": [
+        "external repo",
+        "force-push",
+        "third-party",
+    ],
+}
 
 
 def _redact_local_paths(value: Any) -> Any:
@@ -57,6 +112,80 @@ def _redact_local_paths(value: Any) -> Any:
             value,
         )
     return value
+
+
+def _policy_scan_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    return json.dumps(value, sort_keys=True, ensure_ascii=True)
+
+
+def _policy_matches(text: str) -> list[dict[str, str]]:
+    normalized = " ".join(text.lower().replace("_", " ").replace("-", " ").split())
+    matches: list[dict[str, str]] = []
+    for category, terms in POLICY_SCAN_RULES.items():
+        for term in terms:
+            normalized_term = " ".join(term.lower().replace("_", " ").replace("-", " ").split())
+            if normalized_term in normalized:
+                matches.append({"category": category, "term": term})
+    return matches
+
+
+def _policy_scan_work_item(item: dict[str, Any]) -> dict[str, Any] | None:
+    if item["status"] == "skipped" or item["approval_state"] == "rejected":
+        return None
+    haystack = "\n".join(
+        [
+            _policy_scan_text(item.get("kind")),
+            _policy_scan_text(item.get("title")),
+            _policy_scan_text(item.get("source")),
+            _policy_scan_text(item.get("payload")),
+            _policy_scan_text(item.get("decision_note")),
+        ]
+    )
+    matches = _policy_matches(haystack)
+    if not matches:
+        return None
+    return {
+        "record_type": "work_item",
+        "id": item["id"],
+        "title": item["title"],
+        "status": item["status"],
+        "approval_state": item["approval_state"],
+        "source": item["source"],
+        "matched_categories": sorted({match["category"] for match in matches}),
+        "matched_terms": sorted({match["term"] for match in matches}),
+        "recommended_action": "reject_or_skip_before_handoff",
+    }
+
+
+def _policy_scan_proposal(proposal: dict[str, Any]) -> dict[str, Any] | None:
+    if proposal["approval_state"] == "rejected":
+        return None
+    haystack = "\n".join(
+        [
+            _policy_scan_text(proposal.get("title")),
+            _policy_scan_text(proposal.get("summary")),
+            _policy_scan_text(proposal.get("patch_plan")),
+            _policy_scan_text(proposal.get("decision_note")),
+        ]
+    )
+    matches = _policy_matches(haystack)
+    if not matches:
+        return None
+    return {
+        "record_type": "proposal",
+        "id": proposal["id"],
+        "work_item_id": proposal["work_item_id"],
+        "title": proposal["title"],
+        "risk_level": proposal["risk_level"],
+        "approval_state": proposal["approval_state"],
+        "matched_categories": sorted({match["category"] for match in matches}),
+        "matched_terms": sorted({match["term"] for match in matches}),
+        "recommended_action": "reject_before_handoff",
+    }
 
 
 def queue_status_payload(
@@ -373,6 +502,54 @@ def queue_review_payload(db_path: Path = DEFAULT_QUEUE_PATH) -> dict[str, Any]:
             **SAFE_QUEUE_STATUS,
             "review_is_read_only": True,
             "review_records_audit_event": False,
+            "local_paths_redacted": True,
+            "execution_allowed": False,
+        },
+    }
+
+
+def queue_policy_scan_payload(db_path: Path = DEFAULT_QUEUE_PATH) -> dict[str, Any]:
+    status = queue_status_payload(db_path)
+    work_items = _redact_local_paths([item.to_dict() for item in list_work_items(db_path=db_path)])
+    proposals = _redact_local_paths(
+        [proposal.to_dict() for proposal in list_proposals(db_path=db_path)]
+    )
+    matches = [
+        *(match for item in work_items if (match := _policy_scan_work_item(item)) is not None),
+        *(
+            match
+            for proposal in proposals
+            if (match := _policy_scan_proposal(proposal)) is not None
+        ),
+    ]
+    reviewer_actions = (
+        [
+            "Reject or skip matching local records before any handoff.",
+            "Keep historical records visible; do not delete queue data to hide policy drift.",
+        ]
+        if matches
+        else ["No policy-blocking queue records found; continue with gate-report or bundle."]
+    )
+    return {
+        "schema_version": QUEUE_POLICY_SCAN_SCHEMA_VERSION,
+        "queue_schema_version": status["queue_schema_version"],
+        "patchrail_version": __version__,
+        "db_path": _redact_local_paths(str(db_path)),
+        "local_first": True,
+        "status": "blocked_records_present" if matches else "policy_clear",
+        "blocked_records_count": len(matches),
+        "scanned_counts": {
+            "work_items_total": len(work_items),
+            "proposals_total": len(proposals),
+            "audit_events_total": status["counts"]["audit_events_total"],
+        },
+        "policy_categories": sorted(POLICY_SCAN_RULES),
+        "matches": matches,
+        "reviewer_actions": reviewer_actions,
+        "safety": {
+            **SAFE_QUEUE_STATUS,
+            "scan_is_read_only": True,
+            "scan_records_audit_event": False,
             "local_paths_redacted": True,
             "execution_allowed": False,
         },

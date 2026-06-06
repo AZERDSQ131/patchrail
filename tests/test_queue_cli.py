@@ -28,6 +28,8 @@ class PatchRailQueueTests(unittest.TestCase):
                     "payload": {
                         "report": "/Users/pablo/project/report.md",
                         "notes": "runner path /home/runner/work/patchrail/report.json",
+                        "temp": "/tmp/patchrail/queue.sqlite",
+                        "mac_temp": "/var/folders/zz/patchrail/report.md",
                     }
                 }
             ],
@@ -38,10 +40,14 @@ class PatchRailQueueTests(unittest.TestCase):
 
         self.assertEqual(redacted["db_path"], "<local-path>/queue.sqlite")
         self.assertEqual(redacted["work_items"][0]["payload"]["report"], "<local-path>/report.md")
+        self.assertEqual(redacted["work_items"][0]["payload"]["temp"], "<local-path>/queue.sqlite")
+        self.assertEqual(redacted["work_items"][0]["payload"]["mac_temp"], "<local-path>/report.md")
         self.assertIn("<local-path>/report.json", redacted["work_items"][0]["payload"]["notes"])
         self.assertNotIn("/Volumes/", serialized)
         self.assertNotIn("/Users/", serialized)
         self.assertNotIn("/home/", serialized)
+        self.assertNotIn("/tmp/", serialized)
+        self.assertNotIn("/var/folders/", serialized)
 
     def test_queue_schema_command_exposes_public_control_plane_contracts(self) -> None:
         expected_titles = {
@@ -51,6 +57,7 @@ class PatchRailQueueTests(unittest.TestCase):
             "queue-audit-event": "PatchRail Queue Audit Event",
             "queue-audit-summary": "PatchRail Queue Audit Summary",
             "queue-gate-report": "PatchRail Queue Gate Report",
+            "queue-policy-scan": "PatchRail Queue Policy Scan",
             "queue-review": "PatchRail Queue Review Inbox",
         }
         for schema_name, title in expected_titles.items():
@@ -76,6 +83,18 @@ class PatchRailQueueTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     schema["properties"]["safety"]["properties"]["review_records_audit_event"][
+                        "const"
+                    ],
+                    False,
+                )
+            if schema_name == "queue-policy-scan":
+                self.assertIn("blocked_records_count", schema["required"])
+                self.assertEqual(
+                    schema["properties"]["safety"]["properties"]["scan_is_read_only"]["const"],
+                    True,
+                )
+                self.assertEqual(
+                    schema["properties"]["safety"]["properties"]["scan_records_audit_event"][
                         "const"
                     ],
                     False,
@@ -344,6 +363,130 @@ class PatchRailQueueTests(unittest.TestCase):
             self.assertEqual(report["safety"]["execution_allowed"], False)
             self.assertNotIn("work_items", report)
             self.assertNotIn("proposals", report)
+
+    def test_queue_policy_scan_fails_closed_for_blocked_automation_signals(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "queue.sqlite"
+            risky_item_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "add",
+                    "--kind",
+                    "funding_review",
+                    "--title",
+                    "Claim bounty and send outbound maintainer email",
+                    "--source",
+                    "/Users/pablo/private/outbound-plan.json",
+                    "--payload-json",
+                    '{"next": "create payment link and contact maintainers"}',
+                ]
+            )
+            self.assertEqual(risky_item_proc.returncode, 0, risky_item_proc.stderr)
+            risky_item = json.loads(risky_item_proc.stdout)
+
+            proposal_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "proposal",
+                    "add",
+                    "--item-id",
+                    risky_item["id"],
+                    "--title",
+                    "Open PR automatically",
+                    "--summary",
+                    "Skip maintainer review and post comment automatically.",
+                    "--patch-plan",
+                    "1. Generate patch.\n2. Open pull request automatically.\n3. Post a comment.",
+                    "--risk-level",
+                    "high",
+                ]
+            )
+            self.assertEqual(proposal_proc.returncode, 0, proposal_proc.stderr)
+            proposal = json.loads(proposal_proc.stdout)
+
+            audit_before = json.loads(
+                run_patchrail(["queue", "--db", str(db), "audit", "--format", "json"]).stdout
+            )
+            scan_proc = run_patchrail(["queue", "--db", str(db), "policy-scan", "--format", "json"])
+
+            self.assertEqual(scan_proc.returncode, 1)
+            scan = json.loads(scan_proc.stdout)
+            self.assertEqual(scan["schema_version"], "patchrail.queue_policy_scan.v1")
+            self.assertEqual(scan["status"], "blocked_records_present")
+            self.assertEqual(scan["blocked_records_count"], 2)
+            self.assertEqual(scan["safety"]["scan_is_read_only"], True)
+            self.assertEqual(scan["safety"]["scan_records_audit_event"], False)
+            self.assertEqual(scan["safety"]["execution_allowed"], False)
+            self.assertNotIn("/Users/", scan_proc.stdout)
+            categories = {
+                category for match in scan["matches"] for category in match["matched_categories"]
+            }
+            self.assertIn("funding_or_claim", categories)
+            self.assertIn("outbound_contact", categories)
+            self.assertIn("automatic_pull_request", categories)
+            self.assertIn("automatic_issue_comment", categories)
+            self.assertIn(
+                "Reject or skip matching local records before any handoff.",
+                scan["reviewer_actions"],
+            )
+
+            markdown_proc = run_patchrail(
+                ["queue", "--db", str(db), "policy-scan", "--format", "markdown"]
+            )
+            self.assertEqual(markdown_proc.returncode, 1)
+            self.assertIn("# PatchRail Queue Policy Scan", markdown_proc.stdout)
+            self.assertIn("Blocked records: `2`", markdown_proc.stdout)
+            self.assertIn("Scan records audit event: `False`", markdown_proc.stdout)
+            self.assertIn("Execution allowed: `False`", markdown_proc.stdout)
+            self.assertNotIn("/Users/", markdown_proc.stdout)
+
+            audit_after = json.loads(
+                run_patchrail(["queue", "--db", str(db), "audit", "--format", "json"]).stdout
+            )
+            self.assertEqual(audit_after["audit_events"], audit_before["audit_events"])
+
+            self.assertEqual(
+                run_patchrail(
+                    [
+                        "queue",
+                        "--db",
+                        str(db),
+                        "proposal",
+                        "reject",
+                        proposal["id"],
+                        "--note",
+                        "Rejected before handoff: blocked automation signal.",
+                    ]
+                ).returncode,
+                0,
+            )
+            self.assertEqual(
+                run_patchrail(
+                    [
+                        "queue",
+                        "--db",
+                        str(db),
+                        "skip",
+                        risky_item["id"],
+                        "--reason",
+                        "no money goal, OSS-only #3217",
+                    ]
+                ).returncode,
+                0,
+            )
+
+            clear_proc = run_patchrail(
+                ["queue", "--db", str(db), "policy-scan", "--format", "json"]
+            )
+            self.assertEqual(clear_proc.returncode, 0, clear_proc.stderr)
+            clear = json.loads(clear_proc.stdout)
+            self.assertEqual(clear["status"], "policy_clear")
+            self.assertEqual(clear["blocked_records_count"], 0)
+            self.assertEqual(clear["matches"], [])
 
     def test_queue_status_summarizes_local_control_plane_without_write_permissions(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
