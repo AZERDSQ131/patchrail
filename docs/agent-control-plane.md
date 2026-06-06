@@ -156,9 +156,13 @@ execution, redacts absolute local paths, and preserves historical queue data.
 approved, and rejected work items and proposals without exporting full payloads,
 patch plans, or audit history. Work items include only compact review metadata
 and payload key names, so a maintainer can decide what needs attention before
-opening the fuller item, proposal, gate report, or bundle. The command is
-read-only, redacts absolute local paths, records no audit event, permits no
-execution, and exits non-zero while pending work items or proposals remain.
+opening the fuller item, proposal, gate report, or bundle. Its
+`handoff_checklist` gives reviewers the next local commands to run: approve,
+reject, or skip pending work items; approve or reject pending proposals; or,
+when no decisions remain, run `policy-scan`, `gate-report`, and `bundle` for
+the final read-only handoff packet. The command is read-only, redacts absolute
+local paths, records no audit event, permits no execution, and exits non-zero
+while pending work items or proposals remain.
 
 `patchrail queue audit-summary` turns the append-only audit trail into a
 release-checkable gate summary. By default it expects the full local demo

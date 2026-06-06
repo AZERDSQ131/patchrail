@@ -77,6 +77,11 @@ class PatchRailQueueTests(unittest.TestCase):
                 )
             if schema_name == "queue-review":
                 self.assertIn("review_groups", schema["required"])
+                self.assertIn("handoff_checklist", schema["required"])
+                self.assertEqual(
+                    schema["properties"]["handoff_checklist"]["items"]["$ref"],
+                    "#/$defs/handoff_step",
+                )
                 self.assertEqual(
                     schema["properties"]["safety"]["properties"]["review_is_read_only"]["const"],
                     True,
@@ -632,6 +637,28 @@ class PatchRailQueueTests(unittest.TestCase):
             )
             self.assertEqual(len(review["review_groups"]["pending_proposals"]), 1)
             self.assertIn("Review pending work items", review["reviewer_actions"][0])
+            pending_commands = [step["command"] for step in review["handoff_checklist"]]
+            self.assertIn(
+                "patchrail queue --db <queue.sqlite> approve <work-item-id>",
+                pending_commands,
+            )
+            self.assertIn(
+                "patchrail queue --db <queue.sqlite> reject <work-item-id>",
+                pending_commands,
+            )
+            self.assertIn(
+                "patchrail queue --db <queue.sqlite> skip <work-item-id> --reason "
+                '"no money goal, OSS-only #3217"',
+                pending_commands,
+            )
+            self.assertIn(
+                "patchrail queue --db <queue.sqlite> proposal approve <proposal-id>",
+                pending_commands,
+            )
+            self.assertIn(
+                "patchrail queue --db <queue.sqlite> proposal reject <proposal-id>",
+                pending_commands,
+            )
             self.assertEqual(review["safety"]["review_is_read_only"], True)
             self.assertEqual(review["safety"]["review_records_audit_event"], False)
             self.assertEqual(review["safety"]["execution_allowed"], False)
@@ -645,6 +672,15 @@ class PatchRailQueueTests(unittest.TestCase):
             self.assertEqual(markdown_proc.returncode, 1)
             self.assertIn("# PatchRail Queue Review Inbox", markdown_proc.stdout)
             self.assertIn("Pending decisions: `2`", markdown_proc.stdout)
+            self.assertIn("## Handoff Checklist", markdown_proc.stdout)
+            self.assertIn(
+                "patchrail queue --db <queue.sqlite> approve <work-item-id>",
+                markdown_proc.stdout,
+            )
+            self.assertIn(
+                "patchrail queue --db <queue.sqlite> proposal approve <proposal-id>",
+                markdown_proc.stdout,
+            )
             self.assertIn("## Pending Work Items", markdown_proc.stdout)
             self.assertIn("Review is read-only: `True`", markdown_proc.stdout)
             self.assertIn("Review records audit event: `False`", markdown_proc.stdout)
@@ -680,6 +716,15 @@ class PatchRailQueueTests(unittest.TestCase):
             self.assertEqual(clear["pending_decisions"], 0)
             self.assertEqual(len(clear["review_groups"]["approved_work_items"]), 1)
             self.assertEqual(len(clear["review_groups"]["approved_proposals"]), 1)
+            clear_commands = [step["command"] for step in clear["handoff_checklist"]]
+            self.assertEqual(
+                clear_commands,
+                [
+                    "patchrail queue --db <queue.sqlite> policy-scan --format markdown",
+                    "patchrail queue --db <queue.sqlite> gate-report --format markdown",
+                    "patchrail queue --db <queue.sqlite> bundle --format markdown",
+                ],
+            )
 
     def test_queue_bundle_exports_read_only_handoff_packet(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

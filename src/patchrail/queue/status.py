@@ -441,6 +441,77 @@ def _compact_proposal(proposal: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _queue_review_handoff_checklist(
+    *,
+    pending_work_items: list[dict[str, Any]],
+    pending_proposals: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    checklist: list[dict[str, str]] = []
+    if pending_work_items:
+        checklist.extend(
+            [
+                {
+                    "state": "pending_work_items",
+                    "command": "patchrail queue --db <queue.sqlite> approve <work-item-id>",
+                    "purpose": "Approve a reviewed local work item without enabling execution.",
+                },
+                {
+                    "state": "pending_work_items",
+                    "command": "patchrail queue --db <queue.sqlite> reject <work-item-id>",
+                    "purpose": "Reject a local work item that should not move forward.",
+                },
+                {
+                    "state": "pending_work_items",
+                    "command": (
+                        "patchrail queue --db <queue.sqlite> skip <work-item-id> "
+                        '--reason "no money goal, OSS-only #3217"'
+                    ),
+                    "purpose": "Skip retired or out-of-scope work while preserving history.",
+                },
+            ]
+        )
+    if pending_proposals:
+        checklist.extend(
+            [
+                {
+                    "state": "pending_proposals",
+                    "command": (
+                        "patchrail queue --db <queue.sqlite> proposal approve <proposal-id>"
+                    ),
+                    "purpose": "Approve a reviewed local patch plan for maintainer handoff.",
+                },
+                {
+                    "state": "pending_proposals",
+                    "command": (
+                        "patchrail queue --db <queue.sqlite> proposal reject <proposal-id>"
+                    ),
+                    "purpose": "Reject a patch plan that is risky, stale, or out of scope.",
+                },
+            ]
+        )
+    if not checklist:
+        checklist.extend(
+            [
+                {
+                    "state": "clear_for_handoff",
+                    "command": "patchrail queue --db <queue.sqlite> policy-scan --format markdown",
+                    "purpose": "Confirm no active policy-blocking records remain before handoff.",
+                },
+                {
+                    "state": "clear_for_handoff",
+                    "command": "patchrail queue --db <queue.sqlite> gate-report --format markdown",
+                    "purpose": "Verify human gates and required local audit evidence.",
+                },
+                {
+                    "state": "clear_for_handoff",
+                    "command": "patchrail queue --db <queue.sqlite> bundle --format markdown",
+                    "purpose": "Generate the read-only reviewer handoff packet.",
+                },
+            ]
+        )
+    return checklist
+
+
 def queue_review_payload(db_path: Path = DEFAULT_QUEUE_PATH) -> dict[str, Any]:
     status = queue_status_payload(db_path)
     work_items = _redact_local_paths([item.to_dict() for item in list_work_items(db_path=db_path)])
@@ -479,6 +550,10 @@ def queue_review_payload(db_path: Path = DEFAULT_QUEUE_PATH) -> dict[str, Any]:
         reviewer_actions.append("Review pending proposals, then approve or reject each local plan.")
     if not reviewer_actions:
         reviewer_actions.append("No pending decisions remain; inspect gate-report or bundle next.")
+    handoff_checklist = _queue_review_handoff_checklist(
+        pending_work_items=pending_work_items,
+        pending_proposals=pending_proposals,
+    )
     return {
         "schema_version": QUEUE_REVIEW_SCHEMA_VERSION,
         "queue_schema_version": status["queue_schema_version"],
@@ -498,6 +573,7 @@ def queue_review_payload(db_path: Path = DEFAULT_QUEUE_PATH) -> dict[str, Any]:
             "rejected_proposals": rejected_proposals,
         },
         "reviewer_actions": reviewer_actions,
+        "handoff_checklist": handoff_checklist,
         "safety": {
             **SAFE_QUEUE_STATUS,
             "review_is_read_only": True,

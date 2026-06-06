@@ -16,6 +16,7 @@
     "counts",
     "review_groups",
     "reviewer_actions",
+    "handoff_checklist",
     "safety"
   ],
   "properties": {
@@ -95,6 +96,11 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "handoff_checklist": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/handoff_step" }
     },
     "safety": {
       "type": "object",
@@ -184,6 +190,25 @@
         },
         "decision_note": {
           "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "handoff_step": {
+      "type": "object",
+      "required": ["state", "command", "purpose"],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["pending_work_items", "pending_proposals", "clear_for_handoff"]
+        },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "additionalProperties": false

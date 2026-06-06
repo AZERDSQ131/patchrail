@@ -2626,6 +2626,10 @@ def _render_queue_review_markdown(payload: dict[str, Any]) -> str:
         "",
     ]
     lines.extend(f"- {action}" for action in payload["reviewer_actions"])
+    lines.extend(["", "## Handoff Checklist", ""])
+    for step in payload["handoff_checklist"]:
+        lines.append(f"- `{step['state']}`: `{step['command']}`")
+        lines.append(f"  - Purpose: {step['purpose']}")
     sections = [
         ("Pending Work Items", "pending_work_items", "work_item"),
         ("Pending Proposals", "pending_proposals", "proposal"),
@@ -2687,6 +2691,7 @@ def _render_queue_review_text(payload: dict[str, Any]) -> str:
                 f"Pending decisions: {payload['pending_decisions']}",
                 f"Work items: {counts['work_items_total']}",
                 f"Proposals: {counts['proposals_total']}",
+                f"Handoff checklist: {payload['handoff_checklist']}",
                 "Review is read-only: True",
                 "Review records audit event: False",
                 "Execution allowed: False",

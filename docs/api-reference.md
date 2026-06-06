@@ -221,10 +221,13 @@ and rejected work items and proposals, and reports reviewer next actions with
 the same local-first safety boundary as the rest of the Agent Control Plane. It
 does not export full payloads, patch plans, or audit history; work item entries
 include compact metadata plus payload key names so maintainers can decide what
-to inspect next. It exits non-zero while pending work items or proposals remain,
-redacts absolute local paths, records no audit event, permits no execution, and
-does not contact GitHub, call external models, open pull requests, post
-comments, or require billing.
+to inspect next. The JSON also includes `handoff_checklist`: pending queues list
+the local approve/reject/skip commands reviewers can run next, while clear
+queues list the final `policy-scan`, `gate-report`, and `bundle` commands for a
+read-only handoff packet. It exits non-zero while pending work items or
+proposals remain, redacts absolute local paths, records no audit event, permits
+no execution, and does not contact GitHub, call external models, open pull
+requests, post comments, or require billing.
 
 ## CLI Queue Skip
 
