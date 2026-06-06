@@ -215,6 +215,37 @@ def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
             assert expected_line in text, f"{path}: {expected_line}"
 
 
+def test_versioned_demo_output_matches_real_cli_output() -> None:
+    proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "patchrail",
+            "ci",
+            "explain",
+            "--log",
+            "examples/ci-triage/dependency-failure.log",
+            "--format",
+            "markdown",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    demo = (ROOT / "examples" / "ci-triage" / "demo-output.md").read_text(encoding="utf-8")
+
+    assert (
+        "uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown"
+        in demo
+    )
+    assert proc.stdout.strip() in demo
+    assert "- Root cause: `python_dependency_resolution`" in demo
+    assert "PatchRail classified this log locally." in demo
+
+
 def test_evidence_snapshot_summarizes_public_oss_signals_without_write_actions() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "patchrail", "evidence", "snapshot", "--format", "json"],

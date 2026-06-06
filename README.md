@@ -63,6 +63,10 @@ uv run --extra dev patchrail doctor
 uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log
 ```
 
+The versioned demo output is in
+[examples/ci-triage/demo-output.md](examples/ci-triage/demo-output.md), generated
+from the same bundled fixture and kept in sync by tests.
+
 Example output:
 
 ```markdown

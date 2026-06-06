@@ -76,5 +76,9 @@ uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-fail
 uv run --extra dev patchrail ci benchmark examples/ci-triage --format markdown
 ```
 
+The same fixture has a versioned real-output demo at
+[examples/ci-triage/demo-output.md](../examples/ci-triage/demo-output.md). Tests
+compare that file with the CLI output so reviewers can trust it is not stale.
+
 PatchRail v0.1 does not create pull requests, comments, funded issue claims, or
 remote uploads. The command reads a local log file and writes a local report.
