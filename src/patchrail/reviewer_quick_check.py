@@ -51,6 +51,7 @@ def _write_artifacts(
 ) -> list[str]:
     out_dir.mkdir(parents=True, exist_ok=True)
     artifacts = {
+        "README.md": _reviewer_packet_readme(),
         "ci-triage-demo.md": ci_report,
         "control-plane-evidence.md": control_plane_text,
         "control-plane-evidence.json": control_plane_json,
@@ -75,6 +76,38 @@ def _write_artifacts(
         encoding="utf-8",
     )
     return ["reviewer-quick-check.md", *sorted(artifacts), "manifest.json"]
+
+
+def _reviewer_packet_readme() -> str:
+    return """
+# PatchRail Reviewer Packet
+
+This directory is a local, reviewer-facing evidence bundle generated from a
+checked-out PatchRail source tree.
+
+## Review Order
+
+1. `reviewer-quick-check.md` - human-readable walkthrough of the local smoke
+   test, CI triage demo, Agent Control Plane evidence, fail-closed application
+   gate, and application dossier contract.
+2. `ci-triage-demo.md` - real local CI Janitor output for the bundled fixture.
+3. `control-plane-evidence.md` and `control-plane-evidence.json` - local queue
+   handoff evidence with human gates complete and execution disabled.
+4. `application-gate.txt` - expected fail-closed result until public evidence
+   is real.
+5. `application-dossier.txt` and `application-dossier.json` - local draft
+   dossier; it does not submit any external form.
+6. `manifest.json` plus the schema files - offline validation contract.
+
+## Safety Boundary
+
+- Network required: `False`
+- Write action required: `False`
+- Application form submission performed: `False`
+- PyPI publish performed: `False`
+- Third-party pull request, issue comment, or funded-issue claim performed:
+  `False`
+"""
 
 
 def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> str:

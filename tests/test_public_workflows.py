@@ -341,6 +341,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert "- Artifact packet generated: `True`" in proc.stdout
 
         expected_files = {
+            "README.md",
             "reviewer-quick-check.md",
             "ci-triage-demo.md",
             "control-plane-evidence.md",
@@ -373,6 +374,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
             "application_form_submission_performed": False,
             "artifacts": [
                 "reviewer-quick-check.md",
+                "README.md",
                 "application-dossier.json",
                 "application-dossier.schema.json",
                 "application-dossier.txt",
@@ -416,6 +418,22 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert control_plane["safety"]["bundle_reviewer_execution_allowed"] is False
         assert control_plane["safety"]["bundle_reviewer_human_gates_complete"] is True
 
+        packet_readme = (out_dir / "README.md").read_text(encoding="utf-8")
+        assert "# PatchRail Reviewer Packet" in packet_readme
+        assert "## Review Order" in packet_readme
+        assert "`reviewer-quick-check.md`" in packet_readme
+        assert "`control-plane-evidence.md` and `control-plane-evidence.json`" in packet_readme
+        assert "- Network required: `False`" in packet_readme
+        assert "- Write action required: `False`" in packet_readme
+        assert "- Application form submission performed: `False`" in packet_readme
+        assert "- PyPI publish performed: `False`" in packet_readme
+        assert "Third-party pull request, issue comment, or funded-issue claim performed" in (
+            packet_readme
+        )
+        assert "/Volumes/" not in packet_readme
+        assert "/Users/" not in packet_readme
+        assert "/home/" not in packet_readme
+
         packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
         assert "Status: draft_only_do_not_submit" in packet
         assert "Status: `local_demo_ready`" in packet
@@ -454,6 +472,7 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
         assert "patchrail.reviewer_quick_check_artifacts.v1" in proc.stdout
 
         expected_files = {
+            "README.md",
             "reviewer-quick-check.md",
             "ci-triage-demo.md",
             "control-plane-evidence.md",
@@ -510,6 +529,7 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
         in combined_evidence
     )
     assert "reviewer-quick-check-artifacts.schema.json" in combined_evidence
+    assert "README.md" in combined_evidence
     assert "control-plane-evidence.json" in combined_evidence
     assert "control-plane-evidence.md" in combined_evidence
     assert "own manifest schema for offline validation" in normalized_evidence
