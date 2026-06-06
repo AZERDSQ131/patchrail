@@ -13,6 +13,13 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - GitHub stars: 0 on 2026-06-03, immediately after public launch
 - Monthly PyPI downloads: pending first PyPI release
 - GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.0>
+- Pre-PyPI install verification, 2026-06-06: README and quickstart say do not
+  use `pipx install patchrail` yet until PyPI publish, and the public GitHub
+  route was tested from a clean temporary OpenClaw workspace with
+  `uvx --from git+https://github.com/patchrail/patchrail patchrail --help`.
+  The README stdin smoke returned `Root cause: python_test_failure`; direct
+  install of the v0.1.0 GitHub Releases wheel in a fresh virtual environment
+  also ran `patchrail --help` successfully.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public metrics tracker: [docs/metrics.md](metrics.md) records current public

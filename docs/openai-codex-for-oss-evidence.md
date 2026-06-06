@@ -16,6 +16,13 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - Pre-PyPI install path: README and quickstart say "PyPI publishing is pending"
   and provide `uvx --from git+https://github.com/patchrail/patchrail patchrail`
   so reviewers do not hit a package-index 404 before PyPI is published.
+- Pre-PyPI install verification, 2026-06-06: from a clean temporary OpenClaw
+  workspace, `uvx --from git+https://github.com/patchrail/patchrail patchrail --help`
+  installed and ran from public commit `87106e60c8c7ae630b079d8fac66c1531cce7ea6`;
+  the stdin smoke in README returned `Root cause: python_test_failure`; and a
+  fresh virtual environment installed
+  `https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl`
+  and ran `patchrail --help` successfully.
 - Recent successful public CI run:
   <https://github.com/patchrail/patchrail/actions/runs/27048944685> completed
   successfully for commit `8372405fe46ee8b4cfdfd50bdee5b59bcf8c3d1e`, including

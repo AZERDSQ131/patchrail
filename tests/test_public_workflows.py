@@ -173,6 +173,28 @@ def test_pipx_install_mentions_stay_marked_as_pre_pypi_unavailable() -> None:
     assert unsafe_mentions == []
 
 
+def test_pre_pypi_install_verification_is_recorded_without_pypi_claims() -> None:
+    evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(encoding="utf-8")
+    program_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
+    combined = "\n".join([evidence, program_evidence])
+    normalized = " ".join(combined.split())
+
+    assert "Pre-PyPI install verification, 2026-06-06" in evidence
+    assert "Pre-PyPI install verification, 2026-06-06" in program_evidence
+    assert "clean temporary OpenClaw workspace" in normalized
+    assert "clean `/tmp` context" not in combined
+    assert "5d335368476b9c8739c01ffc16ba74d18d10b259" not in combined
+    assert "uvx --from git+https://github.com/patchrail/patchrail patchrail --help" in normalized
+    assert "87106e60c8c7ae630b079d8fac66c1531cce7ea6" in evidence
+    assert "Root cause: python_test_failure" in combined
+    assert (
+        "https://github.com/patchrail/patchrail/releases/download/v0.1.0/"
+        "patchrail-0.1.0-py3-none-any.whl"
+    ) in combined
+    assert "Monthly PyPI downloads: pending first PyPI release" in combined
+    assert "do not use `pipx install patchrail` yet until PyPI publish" in normalized
+
+
 def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "patchrail", "ci", "explain"],
