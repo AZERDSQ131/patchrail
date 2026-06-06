@@ -105,6 +105,8 @@ class PatchRailCITests(unittest.TestCase):
                     self.assertIn("README.md", artifacts)
                     self.assertIn("reviewer-quick-check.md", artifacts)
                     self.assertIn("application-dossier.json", artifacts)
+                    self.assertIn("release-readiness.json", artifacts)
+                    self.assertIn("release-readiness.md", artifacts)
                     self.assertIn("reviewer-quick-check-artifacts.schema.json", artifacts)
                 else:
                     requirements = schema["properties"]["requirements"]["properties"]

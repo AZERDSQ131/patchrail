@@ -120,7 +120,9 @@ boundary for
 generated packets declare no network, write action, public publish, or
 application submission, include the Agent Control Plane reviewer handoff audit
 as `control-plane-evidence.md/json`, include `README.md` as the review order
-index, and include their own manifest schema for offline validation.
+index, include release-readiness build/twine/wheel-smoke evidence as
+`release-readiness.md/json` with PyPI publish and release tagging still behind
+manual gates, and include their own manifest schema for offline validation.
 Contract phrase: no network, write action, public publish,
 or application submission. Short contract: no network, write action, public publish, or application submission.
 The compatibility script

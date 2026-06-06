@@ -37,10 +37,66 @@ def _display_path(path: Path, *, root: Path) -> str:
         return path.name
 
 
+def _release_readiness_markdown(payload: dict[str, object]) -> str:
+    checks = payload["checks"]
+    safety = payload["safety"]
+    if not isinstance(checks, dict) or not isinstance(safety, dict):
+        raise ValueError("release readiness payload must include checks and safety objects")
+
+    lines = [
+        "# PatchRail Release Readiness",
+        "",
+        f"- Schema: `{payload['schema_version']}`",
+        f"- Version: `{payload['version']}`",
+        f"- Published to PyPI: `{payload['published']}`",
+        f"- Build: `{checks['build']}`",
+        f"- Twine check: `{checks['twine_check']}`",
+        f"- Wheel smoke: `{checks['wheel_smoke']}`",
+        f"- Doctor status: `{checks['doctor_status']}`",
+        f"- Fixture smoke class: `{checks['fixture_failure_class']}`",
+        "",
+        "## Artifacts",
+        "",
+    ]
+    artifacts = payload["artifacts"]
+    if not isinstance(artifacts, list):
+        raise ValueError("release readiness payload must include an artifacts list")
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            raise ValueError("release readiness artifacts must be objects")
+        lines.append(
+            f"- `{artifact['file']}`: sha256 `{artifact['sha256']}`, {artifact['size_bytes']} bytes"
+        )
+
+    lines.extend(
+        [
+            "",
+            "## Safety",
+            "",
+            f"- Local-first: `{safety['local_first']}`",
+            f"- Created release tag: `{safety['created_release_tag']}`",
+            f"- Announced publicly: `{safety['announced_publicly']}`",
+            f"- Contacted third parties: `{safety['contacted_third_parties']}`",
+            f"- GitHub write permission required: `{safety['github_write_permission_required']}`",
+            f"- External model required: `{safety['external_model_required']}`",
+            "",
+            "## Manual Gates Remaining",
+            "",
+        ]
+    )
+    gates = payload["manual_gates_remaining"]
+    if not isinstance(gates, list):
+        raise ValueError("release readiness payload must include manual gates")
+    lines.extend(f"- {gate}" for gate in gates)
+    return "\n".join(lines) + "\n"
+
+
 def _write_artifacts(
     out_dir: Path,
     *,
     ci_report: str,
+    release_readiness_text: str,
+    release_readiness_json: str,
     control_plane_text: str,
     control_plane_json: str,
     gate_text: str,
@@ -53,6 +109,8 @@ def _write_artifacts(
     artifacts = {
         "README.md": _reviewer_packet_readme(),
         "ci-triage-demo.md": ci_report,
+        "release-readiness.md": release_readiness_text,
+        "release-readiness.json": release_readiness_json,
         "control-plane-evidence.md": control_plane_text,
         "control-plane-evidence.json": control_plane_json,
         "application-gate.txt": gate_text,
@@ -91,13 +149,16 @@ checked-out PatchRail source tree.
    test, CI triage demo, Agent Control Plane evidence, fail-closed application
    gate, and application dossier contract.
 2. `ci-triage-demo.md` - real local CI Janitor output for the bundled fixture.
-3. `control-plane-evidence.md` and `control-plane-evidence.json` - local queue
+3. `release-readiness.md` and `release-readiness.json` - local build,
+   `twine check`, wheel smoke, and manual publish gates. They do not publish to
+   PyPI or create a release tag.
+4. `control-plane-evidence.md` and `control-plane-evidence.json` - local queue
    handoff evidence with human gates complete and execution disabled.
-4. `application-gate.txt` - expected fail-closed result until public evidence
+5. `application-gate.txt` - expected fail-closed result until public evidence
    is real.
-5. `application-dossier.txt` and `application-dossier.json` - local draft
+6. `application-dossier.txt` and `application-dossier.json` - local draft
    dossier; it does not submit any external form.
-6. `manifest.json` plus the schema files - offline validation contract.
+7. `manifest.json` plus the schema files - offline validation contract.
 
 ## Safety Boundary
 
@@ -123,6 +184,11 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
         ],
         root=root,
     )
+    release_readiness_json = _run_patchrail(
+        ["evidence", "release-readiness", "--clean-dist", "--format", "json"],
+        root=root,
+    )
+    release_readiness_text = _release_readiness_markdown(json.loads(release_readiness_json.stdout))
     control_plane = _run_patchrail(
         ["evidence", "control-plane", "--format", "markdown"],
         root=root,
@@ -166,20 +232,28 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
         "",
         _fenced("markdown", ci_report.stdout),
         "",
-        "## 3. Agent Control Plane Evidence",
+        "## 3. Release Readiness Evidence",
+        "",
+        "This local evidence builds and smoke-tests release artifacts, but leaves",
+        "PyPI publish, release tagging, public announcements, and external program",
+        "submission behind manual gates.",
+        "",
+        _fenced("markdown", release_readiness_text),
+        "",
+        "## 4. Agent Control Plane Evidence",
         "",
         "The local queue demo must be ready for reviewer handoff, exercise human",
         "approval gates, and keep execution disabled.",
         "",
         _fenced("markdown", control_plane.stdout),
         "",
-        "## 4. Application Gate",
+        "## 5. Application Gate",
         "",
         "The gate is expected to fail closed until public evidence is real.",
         "",
         _fenced("text", gate.stdout),
         "",
-        "## 5. Application Dossier Contract",
+        "## 6. Application Dossier Contract",
         "",
         "The dossier is a local draft artifact. It does not submit the external",
         "application and keeps maintainer tap required.",
@@ -200,6 +274,8 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
         written_artifacts = _write_artifacts(
             out_dir,
             ci_report=ci_report.stdout,
+            release_readiness_text=release_readiness_text,
+            release_readiness_json=release_readiness_json.stdout,
             control_plane_text=control_plane.stdout,
             control_plane_json=control_plane_json.stdout,
             gate_text=gate.stdout,
@@ -210,7 +286,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
         )
         lines.extend(
             [
-                "## 6. Artifact Packet",
+                "## 7. Artifact Packet",
                 "",
                 f"Output directory: `{_display_path(out_dir, root=root)}`",
                 "",
@@ -224,6 +300,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
             "## Result",
             "",
             "- Reviewer demo generated: `True`",
+            "- Release readiness evidence generated: `True`",
             "- Agent Control Plane evidence generated: `True`",
             "- Application dossier generated: `True`",
             "- Application dossier schema available: `True`",

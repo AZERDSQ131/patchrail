@@ -30,7 +30,7 @@
     },
     "artifacts": {
       "type": "array",
-      "minItems": 10,
+      "minItems": 12,
       "uniqueItems": true,
       "contains": {
         "const": "reviewer-quick-check.md"
@@ -46,6 +46,8 @@
           "ci-triage-demo.md",
           "control-plane-evidence.json",
           "control-plane-evidence.md",
+          "release-readiness.json",
+          "release-readiness.md",
           "reviewer-quick-check-artifacts.schema.json"
         ]
       }

@@ -299,10 +299,15 @@ def test_reviewer_quick_check_script_outputs_local_demo_and_fail_closed_gate() -
     assert "# PatchRail Reviewer Quick Check" in output
     assert "## 1. Local Doctor" in output
     assert "## 2. CI Triage Demo" in output
-    assert "## 3. Agent Control Plane Evidence" in output
-    assert "## 4. Application Gate" in output
-    assert "## 5. Application Dossier Contract" in output
+    assert "## 3. Release Readiness Evidence" in output
+    assert "## 4. Agent Control Plane Evidence" in output
+    assert "## 5. Application Gate" in output
+    assert "## 6. Application Dossier Contract" in output
     assert "- Root cause: `python_dependency_resolution`" in output
+    assert "# PatchRail Release Readiness" in output
+    assert "- Published to PyPI: `False`" in output
+    assert "- Created release tag: `False`" in output
+    assert "- Release readiness evidence generated: `True`" in output
     assert "Status: `local_demo_ready`" in output
     assert "- Bundle reviewer status: `ready_for_reviewer_handoff`" in output
     assert "- Bundle reviewer execution allowed: `False`" in output
@@ -337,13 +342,15 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         )
 
         assert proc.returncode == 0, proc.stderr
-        assert "## 6. Artifact Packet" in proc.stdout
+        assert "## 7. Artifact Packet" in proc.stdout
         assert "- Artifact packet generated: `True`" in proc.stdout
 
         expected_files = {
             "README.md",
             "reviewer-quick-check.md",
             "ci-triage-demo.md",
+            "release-readiness.md",
+            "release-readiness.json",
             "control-plane-evidence.md",
             "control-plane-evidence.json",
             "application-gate.txt",
@@ -382,6 +389,8 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
                 "ci-triage-demo.md",
                 "control-plane-evidence.json",
                 "control-plane-evidence.md",
+                "release-readiness.json",
+                "release-readiness.md",
                 "reviewer-quick-check-artifacts.schema.json",
             ],
         }
@@ -417,11 +426,22 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert control_plane["signals"]["bundle_reviewer_status"] == "ready_for_reviewer_handoff"
         assert control_plane["safety"]["bundle_reviewer_execution_allowed"] is False
         assert control_plane["safety"]["bundle_reviewer_human_gates_complete"] is True
+        release_readiness = json.loads(
+            (out_dir / "release-readiness.json").read_text(encoding="utf-8")
+        )
+        assert release_readiness["schema_version"] == "patchrail.release_readiness.v1"
+        assert release_readiness["published"] is False
+        assert release_readiness["checks"]["build"] == "passed"
+        assert release_readiness["checks"]["twine_check"] == "passed"
+        assert release_readiness["checks"]["wheel_smoke"] == "passed"
+        assert release_readiness["safety"]["published_to_pypi"] is False
+        assert release_readiness["safety"]["created_release_tag"] is False
 
         packet_readme = (out_dir / "README.md").read_text(encoding="utf-8")
         assert "# PatchRail Reviewer Packet" in packet_readme
         assert "## Review Order" in packet_readme
         assert "`reviewer-quick-check.md`" in packet_readme
+        assert "`release-readiness.md` and `release-readiness.json`" in packet_readme
         assert "`control-plane-evidence.md` and `control-plane-evidence.json`" in packet_readme
         assert "- Network required: `False`" in packet_readme
         assert "- Write action required: `False`" in packet_readme
@@ -437,6 +457,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
         assert "Status: draft_only_do_not_submit" in packet
         assert "Status: `local_demo_ready`" in packet
+        assert "Published to PyPI: `False`" in packet
         assert "patchrail.application_dossier.v1" in packet
         assert "patchrail.reviewer_quick_check_artifacts.v1" in packet
         assert "/Volumes/" not in packet
@@ -465,8 +486,9 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
 
         assert proc.returncode == 0, proc.stderr
         assert "# PatchRail Reviewer Quick Check" in proc.stdout
-        assert "## 6. Artifact Packet" in proc.stdout
+        assert "## 7. Artifact Packet" in proc.stdout
         assert "- Artifact packet generated: `True`" in proc.stdout
+        assert "- Release readiness evidence generated: `True`" in proc.stdout
         assert "- Agent Control Plane evidence generated: `True`" in proc.stdout
         assert "patchrail.application_dossier.v1" in proc.stdout
         assert "patchrail.reviewer_quick_check_artifacts.v1" in proc.stdout
@@ -475,6 +497,8 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
             "README.md",
             "reviewer-quick-check.md",
             "ci-triage-demo.md",
+            "release-readiness.md",
+            "release-readiness.json",
             "control-plane-evidence.md",
             "control-plane-evidence.json",
             "application-gate.txt",
@@ -495,6 +519,7 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
         packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
         assert "Status: draft_only_do_not_submit" in packet
         assert "ready_for_reviewer_handoff" in packet
+        assert "Published to PyPI: `False`" in packet
         assert "/Volumes/" not in packet
         assert "/Users/" not in packet
         assert "/home/" not in packet
@@ -532,6 +557,8 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
     assert "README.md" in combined_evidence
     assert "control-plane-evidence.json" in combined_evidence
     assert "control-plane-evidence.md" in combined_evidence
+    assert "release-readiness.json" in combined_evidence
+    assert "release-readiness.md" in combined_evidence
     assert "own manifest schema for offline validation" in normalized_evidence
     assert mirrored_schema == packaged_schema
 
@@ -1161,6 +1188,8 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     for artifact_name in (
         "reviewer-quick-check.md",
         "ci-triage-demo.md",
+        "release-readiness.md",
+        "release-readiness.json",
         "application-gate.txt",
         "application-dossier.txt",
         "application-dossier.json",

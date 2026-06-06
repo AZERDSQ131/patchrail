@@ -37,10 +37,13 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `application-dossier.txt`, `application-dossier.json`,
   `application-dossier.schema.json`, `control-plane-evidence.md`,
   `control-plane-evidence.json`,
+  `release-readiness.md`, `release-readiness.json`,
   `reviewer-quick-check-artifacts.schema.json`, and `manifest.json`. The packet includes a reviewer
   index, `doctor`,
-  the real CI triage demo, the Agent Control Plane reviewer handoff audit, the
-  fail-closed application gate, the local application dossier contract/schema,
+  the real CI triage demo, local release-readiness build/twine/wheel-smoke
+  evidence with PyPI publish and release tagging left behind manual gates, the
+  Agent Control Plane reviewer handoff audit, the fail-closed application gate,
+  the local application dossier contract/schema,
   and its own manifest schema for offline
   validation. Its manifest contract is available with
   `patchrail schema reviewer-quick-check-artifacts`. It performs no network
