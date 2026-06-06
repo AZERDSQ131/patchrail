@@ -679,8 +679,8 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "PyPI publishing is pending" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
     assert "Recent successful public CI run" in evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27047427488" in evidence
-    assert "f5d10101863502c91b9eac296787bc9089bcbdbe" in evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27047480411" in evidence
+    assert "1cc70c72e258e7b1750d00553640649e09f5501c" in evidence
     assert "https://github.com/jamie8johnson/cqs/pull/1650" in evidence
     assert "https://github.com/pypa/twine/pull/1329" in evidence
     assert "1 passed, 231 deselected" in evidence
@@ -729,7 +729,10 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
         "Fixture hygiene gate: `patchrail ci fixture-check examples/ci-triage --format json`"
         in oss_program_evidence
     )
-    assert "Tests: `uv run --extra dev pytest -q` -> 55 passed." in oss_program_evidence
+    assert (
+        "Tests: `uv run --extra dev pytest -q` -> 73 passed, 4 subtests passed."
+        in oss_program_evidence
+    )
     assert (
         "Fixture hygiene: `uv run --extra dev patchrail ci fixture-check "
         "examples/ci-triage --format json` -> 138 / 138 fixtures passed."

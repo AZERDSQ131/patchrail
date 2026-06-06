@@ -98,7 +98,7 @@ PatchRail's public safety posture is local-first and human-approved:
 
 ## Local Release Evidence
 
-Last verified: 2026-06-03.
+Last verified: 2026-06-06.
 
 - Release-prep checklist: [docs/release-process.md](release-process.md) requires
   test, lint, benchmark, doctor, build, wheel smoke, safety, privacy, and public
@@ -116,7 +116,7 @@ Last verified: 2026-06-03.
   bump, tag, PyPI publish, announcement, or external application.
 - Manual gates: PyPI publish, public announcements, and external applications
   remain explicit maintainer actions.
-- Tests: `uv run --extra dev pytest -q` -> 55 passed.
+- Tests: `uv run --extra dev pytest -q` -> 73 passed, 4 subtests passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
 - Format: `uv run --extra dev ruff format --check .` -> 21 files already formatted.
 - Fixture hygiene: `uv run --extra dev patchrail ci fixture-check examples/ci-triage --format json` -> 138 / 138 fixtures passed.

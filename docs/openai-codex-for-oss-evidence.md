@@ -17,8 +17,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   and provide `uvx --from git+https://github.com/patchrail/patchrail patchrail`
   so reviewers do not hit a package-index 404 before PyPI is published.
 - Recent successful public CI run:
-  <https://github.com/patchrail/patchrail/actions/runs/27047427488> completed
-  successfully for commit `f5d10101863502c91b9eac296787bc9089bcbdbe`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27047480411> completed
+  successfully for commit `1cc70c72e258e7b1750d00553640649e09f5501c`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job.
 - External repositories using PatchRail: pending pilots
@@ -120,7 +120,7 @@ PatchRail's intended Codex usage is bounded to maintainer-approved work:
 
 ## Local Release Evidence
 
-Last verified: 2026-06-03.
+Last verified: 2026-06-06.
 
 - Release-prep checklist: [docs/release-process.md](release-process.md) now
   requires test, lint, benchmark, doctor, build, wheel smoke, safety, privacy,
@@ -147,7 +147,7 @@ Last verified: 2026-06-03.
   sdist/wheel assets.
 - Manual gates: PyPI publish, public announcements, and external applications
   remain explicit maintainer actions.
-- Tests after the shared queue status contract: `uv run --extra dev pytest -q` -> 55 passed.
+- Tests after the reviewer-facing evidence guardrails: `uv run --extra dev pytest -q` -> 73 passed, 4 subtests passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
 - Format after the shared queue status contract: `uv run --extra dev ruff format --check .` -> 21 files already formatted.
 - CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 138 / 138 fixtures passed.
