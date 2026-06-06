@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+CI_TRIAGE_LOG_PATH_RE = re.compile(r"examples/ci-triage/[A-Za-z0-9_.-]+\.log")
 
 
 def _local_markdown_link_target(markdown_file: Path, raw_target: str) -> Path | None:
@@ -121,6 +122,28 @@ def test_reviewer_facing_markdown_links_resolve_locally() -> None:
                 missing_links.append(f"{relative_markdown}: {raw_target}")
 
     assert missing_links == []
+
+
+def test_reviewer_facing_ci_fixture_paths_resolve_with_expected_metadata() -> None:
+    missing_fixtures: list[str] = []
+    missing_expected_metadata: list[str] = []
+
+    for markdown_file in _markdown_files_with_reviewer_facing_links():
+        text = markdown_file.read_text(encoding="utf-8")
+        for raw_path in sorted(set(CI_TRIAGE_LOG_PATH_RE.findall(text))):
+            fixture_path = ROOT / raw_path
+            if not fixture_path.exists():
+                missing_fixtures.append(f"{markdown_file.relative_to(ROOT)}: {raw_path}")
+                continue
+
+            expected_path = fixture_path.with_suffix(".expected.json")
+            if not expected_path.exists():
+                missing_expected_metadata.append(
+                    f"{markdown_file.relative_to(ROOT)}: {expected_path.relative_to(ROOT)}"
+                )
+
+    assert missing_fixtures == []
+    assert missing_expected_metadata == []
 
 
 def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
