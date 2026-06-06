@@ -354,6 +354,18 @@ checked-out PatchRail source tree.
    dossier; it does not submit any external form.
 8. `manifest.json` plus the schema files - offline validation contract.
 
+## Integrity Check
+
+After copying or downloading this directory, verify it before review:
+
+```bash
+patchrail evidence verify-reviewer-packet patchrail-reviewer-packet --format markdown
+```
+
+The verifier recomputes every listed artifact's byte size and SHA-256 digest,
+rejects extra files, and exits non-zero if the packet has been tampered with or
+drifted from its manifest.
+
 ## Safety Boundary
 
 - Network required: `False`

@@ -231,6 +231,7 @@ def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
     }
 
     for path, text in surfaces.items():
+        normalized_text = " ".join(text.split())
         assert "PyPI publishing is pending" in text, path
         assert GITHUB_SOURCE_COMMAND in text, path
         assert "patchrail ci explain" in text, path
@@ -242,6 +243,14 @@ def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
         assert "No install is required to inspect the current behavior." in text, path
         assert "tests compare that file against the command output to prevent drift" in text, path
         assert "uv run --extra dev python scripts/reviewer_quick_check.py" in text, path
+        assert (
+            "uv run --extra dev patchrail evidence verify-reviewer-packet "
+            "patchrail-reviewer-packet --format markdown" in text
+        ), path
+        assert (
+            "recomputes every listed artifact's byte size and SHA-256 digest" in normalized_text
+        ), path
+        assert "exits non-zero if the packet has been tampered with" in normalized_text, path
 
         for expected_line in (
             "- Root cause: `python_test_failure`",
@@ -486,6 +495,11 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert "`release-readiness.md` and `release-readiness.json`" in packet_readme
         assert "`control-plane-evidence.md` and `control-plane-evidence.json`" in packet_readme
         assert "`http-api-evidence.md` and `http-api-evidence.json`" in packet_readme
+        assert "## Integrity Check" in packet_readme
+        assert "patchrail evidence verify-reviewer-packet patchrail-reviewer-packet" in (
+            packet_readme
+        )
+        assert "recomputes every listed artifact's byte size and SHA-256 digest" in packet_readme
         assert "- Network required: `False`" in packet_readme
         assert "- Write action required: `False`" in packet_readme
         assert "- Application form submission performed: `False`" in packet_readme

@@ -22,7 +22,12 @@ For a single local reviewer smoke test from a source checkout, run:
 ```bash
 uv run --extra dev python scripts/reviewer_quick_check.py
 uv run --extra dev patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet
+uv run --extra dev patchrail evidence verify-reviewer-packet patchrail-reviewer-packet --format markdown
 ```
+
+The reviewer packet verifier recomputes every listed artifact's byte size and
+SHA-256 digest, rejects extra files, and exits non-zero if the packet has been
+tampered with or drifted from its manifest.
 
 PyPI publishing is pending, so do not use `pipx install patchrail` yet. Until
 the package is on PyPI, run the public GitHub source directly:
