@@ -301,8 +301,9 @@ def test_reviewer_quick_check_script_outputs_local_demo_and_fail_closed_gate() -
     assert "## 2. CI Triage Demo" in output
     assert "## 3. Release Readiness Evidence" in output
     assert "## 4. Agent Control Plane Evidence" in output
-    assert "## 5. Application Gate" in output
-    assert "## 6. Application Dossier Contract" in output
+    assert "## 5. HTTP API Evidence" in output
+    assert "## 6. Application Gate" in output
+    assert "## 7. Application Dossier Contract" in output
     assert "- Root cause: `python_dependency_resolution`" in output
     assert "# PatchRail Release Readiness" in output
     assert "- Published to PyPI: `False`" in output
@@ -311,6 +312,9 @@ def test_reviewer_quick_check_script_outputs_local_demo_and_fail_closed_gate() -
     assert "Status: `local_demo_ready`" in output
     assert "- Bundle reviewer status: `ready_for_reviewer_handoff`" in output
     assert "- Bundle reviewer execution allowed: `False`" in output
+    assert "Status: `local_http_api_ready`" in output
+    assert "- Human gate write actions unlocked: `False`" in output
+    assert "- HTTP API evidence generated: `True`" in output
     assert "Status: not_ready" in output
     assert "Decision: do_not_apply_yet" in output
     assert "Status: draft_only_do_not_submit" in output
@@ -342,7 +346,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         )
 
         assert proc.returncode == 0, proc.stderr
-        assert "## 7. Artifact Packet" in proc.stdout
+        assert "## 8. Artifact Packet" in proc.stdout
         assert "- Artifact packet generated: `True`" in proc.stdout
 
         expected_files = {
@@ -353,6 +357,8 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
             "release-readiness.json",
             "control-plane-evidence.md",
             "control-plane-evidence.json",
+            "http-api-evidence.md",
+            "http-api-evidence.json",
             "application-gate.txt",
             "application-dossier.txt",
             "application-dossier.json",
@@ -389,6 +395,8 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
                 "ci-triage-demo.md",
                 "control-plane-evidence.json",
                 "control-plane-evidence.md",
+                "http-api-evidence.json",
+                "http-api-evidence.md",
                 "release-readiness.json",
                 "release-readiness.md",
                 "reviewer-quick-check-artifacts.schema.json",
@@ -426,6 +434,16 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert control_plane["signals"]["bundle_reviewer_status"] == "ready_for_reviewer_handoff"
         assert control_plane["safety"]["bundle_reviewer_execution_allowed"] is False
         assert control_plane["safety"]["bundle_reviewer_human_gates_complete"] is True
+        http_api = json.loads((out_dir / "http-api-evidence.json").read_text(encoding="utf-8"))
+        assert http_api["schema_version"] == "patchrail.http_api_evidence.v1"
+        assert http_api["status"] == "local_http_api_ready"
+        assert http_api["server"]["bind_host"] == "127.0.0.1"
+        assert http_api["artifact_presence"]["required_endpoints_present"] is True
+        assert http_api["artifact_presence"]["required_events_present"] is True
+        assert http_api["signals"]["human_gate_status"] == "no_pending_decisions"
+        assert http_api["safety"]["bind_host_local_only"] is True
+        assert http_api["safety"]["human_gate_write_actions_unlocked"] is False
+        assert http_api["safety"]["approval_records_execute_actions"] is False
         release_readiness = json.loads(
             (out_dir / "release-readiness.json").read_text(encoding="utf-8")
         )
@@ -443,6 +461,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert "`reviewer-quick-check.md`" in packet_readme
         assert "`release-readiness.md` and `release-readiness.json`" in packet_readme
         assert "`control-plane-evidence.md` and `control-plane-evidence.json`" in packet_readme
+        assert "`http-api-evidence.md` and `http-api-evidence.json`" in packet_readme
         assert "- Network required: `False`" in packet_readme
         assert "- Write action required: `False`" in packet_readme
         assert "- Application form submission performed: `False`" in packet_readme
@@ -457,6 +476,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
         assert "Status: draft_only_do_not_submit" in packet
         assert "Status: `local_demo_ready`" in packet
+        assert "Status: `local_http_api_ready`" in packet
         assert "Published to PyPI: `False`" in packet
         assert "patchrail.application_dossier.v1" in packet
         assert "patchrail.reviewer_quick_check_artifacts.v1" in packet
@@ -486,10 +506,11 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
 
         assert proc.returncode == 0, proc.stderr
         assert "# PatchRail Reviewer Quick Check" in proc.stdout
-        assert "## 7. Artifact Packet" in proc.stdout
+        assert "## 8. Artifact Packet" in proc.stdout
         assert "- Artifact packet generated: `True`" in proc.stdout
         assert "- Release readiness evidence generated: `True`" in proc.stdout
         assert "- Agent Control Plane evidence generated: `True`" in proc.stdout
+        assert "- HTTP API evidence generated: `True`" in proc.stdout
         assert "patchrail.application_dossier.v1" in proc.stdout
         assert "patchrail.reviewer_quick_check_artifacts.v1" in proc.stdout
 
@@ -501,6 +522,8 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
             "release-readiness.json",
             "control-plane-evidence.md",
             "control-plane-evidence.json",
+            "http-api-evidence.md",
+            "http-api-evidence.json",
             "application-gate.txt",
             "application-dossier.txt",
             "application-dossier.json",
@@ -519,6 +542,7 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
         packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
         assert "Status: draft_only_do_not_submit" in packet
         assert "ready_for_reviewer_handoff" in packet
+        assert "local_http_api_ready" in packet
         assert "Published to PyPI: `False`" in packet
         assert "/Volumes/" not in packet
         assert "/Users/" not in packet
@@ -557,6 +581,8 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
     assert "README.md" in combined_evidence
     assert "control-plane-evidence.json" in combined_evidence
     assert "control-plane-evidence.md" in combined_evidence
+    assert "http-api-evidence.json" in combined_evidence
+    assert "http-api-evidence.md" in combined_evidence
     assert "release-readiness.json" in combined_evidence
     assert "release-readiness.md" in combined_evidence
     assert "own manifest schema for offline validation" in normalized_evidence

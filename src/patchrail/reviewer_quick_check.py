@@ -99,6 +99,8 @@ def _write_artifacts(
     release_readiness_json: str,
     control_plane_text: str,
     control_plane_json: str,
+    http_api_text: str,
+    http_api_json: str,
     gate_text: str,
     dossier_text: str,
     dossier_json: str,
@@ -113,6 +115,8 @@ def _write_artifacts(
         "release-readiness.json": release_readiness_json,
         "control-plane-evidence.md": control_plane_text,
         "control-plane-evidence.json": control_plane_json,
+        "http-api-evidence.md": http_api_text,
+        "http-api-evidence.json": http_api_json,
         "application-gate.txt": gate_text,
         "application-dossier.txt": dossier_text,
         "application-dossier.json": dossier_json,
@@ -154,11 +158,13 @@ checked-out PatchRail source tree.
    PyPI or create a release tag.
 4. `control-plane-evidence.md` and `control-plane-evidence.json` - local queue
    handoff evidence with human gates complete and execution disabled.
-5. `application-gate.txt` - expected fail-closed result until public evidence
+5. `http-api-evidence.md` and `http-api-evidence.json` - ephemeral
+   `127.0.0.1` HTTP API smoke evidence with endpoints and human gates checked.
+6. `application-gate.txt` - expected fail-closed result until public evidence
    is real.
-6. `application-dossier.txt` and `application-dossier.json` - local draft
+7. `application-dossier.txt` and `application-dossier.json` - local draft
    dossier; it does not submit any external form.
-7. `manifest.json` plus the schema files - offline validation contract.
+8. `manifest.json` plus the schema files - offline validation contract.
 
 ## Safety Boundary
 
@@ -195,6 +201,14 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
     )
     control_plane_json = _run_patchrail(
         ["evidence", "control-plane", "--format", "json"],
+        root=root,
+    )
+    http_api = _run_patchrail(
+        ["evidence", "http-api", "--format", "markdown"],
+        root=root,
+    )
+    http_api_json = _run_patchrail(
+        ["evidence", "http-api", "--format", "json"],
         root=root,
     )
     gate = _run_patchrail(
@@ -247,13 +261,21 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
         "",
         _fenced("markdown", control_plane.stdout),
         "",
-        "## 5. Application Gate",
+        "## 5. HTTP API Evidence",
+        "",
+        "The local HTTP smoke starts an ephemeral loopback server, exercises the",
+        "public endpoints, records approval/rejection decisions, and confirms",
+        "that write actions remain locked.",
+        "",
+        _fenced("markdown", http_api.stdout),
+        "",
+        "## 6. Application Gate",
         "",
         "The gate is expected to fail closed until public evidence is real.",
         "",
         _fenced("text", gate.stdout),
         "",
-        "## 6. Application Dossier Contract",
+        "## 7. Application Dossier Contract",
         "",
         "The dossier is a local draft artifact. It does not submit the external",
         "application and keeps maintainer tap required.",
@@ -278,6 +300,8 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
             release_readiness_json=release_readiness_json.stdout,
             control_plane_text=control_plane.stdout,
             control_plane_json=control_plane_json.stdout,
+            http_api_text=http_api.stdout,
+            http_api_json=http_api_json.stdout,
             gate_text=gate.stdout,
             dossier_text=dossier.stdout,
             dossier_json=dossier_json.stdout,
@@ -286,7 +310,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
         )
         lines.extend(
             [
-                "## 7. Artifact Packet",
+                "## 8. Artifact Packet",
                 "",
                 f"Output directory: `{_display_path(out_dir, root=root)}`",
                 "",
@@ -302,6 +326,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
             "- Reviewer demo generated: `True`",
             "- Release readiness evidence generated: `True`",
             "- Agent Control Plane evidence generated: `True`",
+            "- HTTP API evidence generated: `True`",
             "- Application dossier generated: `True`",
             "- Application dossier schema available: `True`",
             "- Reviewer packet manifest schema available: `True`",
