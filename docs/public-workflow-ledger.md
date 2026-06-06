@@ -101,6 +101,7 @@ counted as issue-to-PR cycles, external adoption, or formal Codex review.
 | Queue gate report reviewer handoff | [`1c6afad`](https://github.com/patchrail/patchrail/commit/1c6afad4f5e33a05e6e62187a93fe767f1134102) | [CI run 27058004014](https://github.com/patchrail/patchrail/actions/runs/27058004014) | Agent Control Plane gate report |
 | Reviewer packet artifact index | [`c5688d3`](https://github.com/patchrail/patchrail/commit/c5688d38f3d9ac6960591516ca0b407c07f3fcaf) | [CI run 27058341998](https://github.com/patchrail/patchrail/actions/runs/27058341998) | offline reviewer packet integrity |
 | Public evidence brand-only scrub | [`3338122`](https://github.com/patchrail/patchrail/commit/33381221dfcc752f1629e798ae567f325202acbd) | [CI run 27058837138](https://github.com/patchrail/patchrail/actions/runs/27058837138) | public evidence brand boundary |
+| Public workflow evidence ledger refresh | [`7af5fbc`](https://github.com/patchrail/patchrail/commit/7af5fbc01add0cfb95e7d9775b61d4f9deaef853) | [CI run 27059149472](https://github.com/patchrail/patchrail/actions/runs/27059149472) | public evidence ledger freshness |
 
 ## How To Read This Ledger
 

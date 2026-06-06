@@ -74,8 +74,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   tests, benchmark, and package smoke pass. This is project-health evidence
   only; it does not count as external adoption or PyPI download evidence.
 - Latest public CI evidence, 2026-06-06:
-  <https://github.com/patchrail/patchrail/actions/runs/27058837138> completed
-  successfully for commit `33381221dfcc752f1629e798ae567f325202acbd`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27059149472> completed
+  successfully for commit `7af5fbc01add0cfb95e7d9775b61d4f9deaef853`, including
   Python 3.11/3.12/3.13 tests, package smoke, fixture benchmark, and the
   `patchrail-oss-evidence` artifact.
 - Adopter list: [ADOPTERS.md](../ADOPTERS.md) is permission-only and currently
