@@ -126,7 +126,7 @@ def _write_artifacts(
     }
     for name, content in artifacts.items():
         (out_dir / name).write_text(content.strip() + "\n", encoding="utf-8")
-    return ["reviewer-quick-check.md", *sorted(artifacts)]
+    return sorted(artifacts)
 
 
 def _artifact_detail(path: Path) -> dict[str, object]:
@@ -136,6 +136,65 @@ def _artifact_detail(path: Path) -> dict[str, object]:
         "size_bytes": len(data),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+
+
+def _artifact_purpose(name: str) -> str:
+    purposes = {
+        "README.md": "review order, integrity command, and safety boundary",
+        "reviewer-quick-check.md": "single-file walkthrough of local reviewer evidence",
+        "ci-triage-demo.md": "real CI Janitor output for the bundled fixture",
+        "release-readiness.md": "human-readable local build and publish-gate evidence",
+        "release-readiness.json": "structured local build and publish-gate evidence",
+        "control-plane-evidence.md": "human-readable Agent Control Plane handoff evidence",
+        "control-plane-evidence.json": "structured Agent Control Plane handoff evidence",
+        "http-api-evidence.md": "human-readable loopback HTTP API smoke evidence",
+        "http-api-evidence.json": "structured loopback HTTP API smoke evidence",
+        "application-gate.txt": "fail-closed application readiness gate output",
+        "application-dossier.txt": "human-readable draft-only application dossier",
+        "application-dossier.json": "structured draft-only application dossier",
+        "application-dossier.schema.json": "schema for the draft-only application dossier",
+        "reviewer-quick-check-artifacts.schema.json": "schema for this reviewer packet manifest",
+    }
+    return purposes.get(name, "reviewer packet artifact")
+
+
+def _write_artifact_index(out_dir: Path, artifact_names: list[str]) -> None:
+    details = [_artifact_detail(out_dir / name) for name in artifact_names]
+    lines = [
+        "# PatchRail Reviewer Packet Artifact Index",
+        "",
+        "This index lists the reviewer-facing packet artifacts in the suggested",
+        "inspection order. It is generated locally and does not perform network,",
+        "write, publish, pull request, comment, funded-issue, or application-submit",
+        "actions.",
+        "",
+        "## Artifacts",
+        "",
+        "| Artifact | Purpose | Size | SHA-256 |",
+        "| --- | --- | ---: | --- |",
+    ]
+    for detail in details:
+        path = str(detail["path"])
+        lines.append(
+            f"| `{path}` | {_artifact_purpose(path)} | {detail['size_bytes']} | "
+            f"`{detail['sha256']}` |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Safety Boundary",
+            "",
+            "- Network required: `False`",
+            "- Write action required: `False`",
+            "- Application form submission performed: `False`",
+            "- PyPI publish performed: `False`",
+            "- Third-party pull request, issue comment, or funded-issue claim performed: `False`",
+            "",
+            "`manifest.json` includes this index's own byte size and SHA-256 digest for",
+            "offline integrity verification.",
+        ]
+    )
+    (out_dir / "artifact-index.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _write_manifest(out_dir: Path, artifact_names: list[str]) -> None:
@@ -493,7 +552,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
     ]
     written_artifacts: list[str] = []
     if out_dir:
-        written_artifacts = _write_artifacts(
+        base_artifacts = _write_artifacts(
             out_dir,
             ci_report=ci_report.stdout,
             release_readiness_text=release_readiness_text,
@@ -508,6 +567,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
             dossier_schema=dossier_schema.stdout,
             reviewer_packet_schema=reviewer_packet_schema.stdout,
         )
+        written_artifacts = ["reviewer-quick-check.md", "artifact-index.md", *base_artifacts]
         lines.extend(
             [
                 "## 8. Artifact Packet",
@@ -539,6 +599,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
     final_output = "\n".join(lines)
     if out_dir:
         (out_dir / "reviewer-quick-check.md").write_text(final_output + "\n", encoding="utf-8")
+        _write_artifact_index(out_dir, ["reviewer-quick-check.md", *base_artifacts])
         _write_manifest(out_dir, written_artifacts)
     return final_output + "\n"
 

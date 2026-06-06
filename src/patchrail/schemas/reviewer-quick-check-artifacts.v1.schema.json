@@ -31,7 +31,7 @@
     },
     "artifacts": {
       "type": "array",
-      "minItems": 14,
+      "minItems": 15,
       "uniqueItems": true,
       "contains": {
         "const": "reviewer-quick-check.md"
@@ -39,6 +39,7 @@
       "items": {
         "enum": [
           "README.md",
+          "artifact-index.md",
           "reviewer-quick-check.md",
           "application-dossier.json",
           "application-dossier.schema.json",
@@ -57,7 +58,7 @@
     },
     "artifact_details": {
       "type": "array",
-      "minItems": 14,
+      "minItems": 15,
       "description": "Offline integrity details for each reviewer packet artifact. Each path must also appear in artifacts.",
       "items": {
         "type": "object",
@@ -70,6 +71,7 @@
           "path": {
             "enum": [
               "README.md",
+              "artifact-index.md",
               "reviewer-quick-check.md",
               "application-dossier.json",
               "application-dossier.schema.json",

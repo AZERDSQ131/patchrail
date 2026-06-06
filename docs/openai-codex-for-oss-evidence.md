@@ -38,14 +38,14 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `uv run --extra dev patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet`
   emits a local Markdown packet through the packaged CLI and writes
   reviewer-facing artifacts:
-  `README.md`, `reviewer-quick-check.md`, `ci-triage-demo.md`, `application-gate.txt`,
+  `README.md`, `artifact-index.md`, `reviewer-quick-check.md`, `ci-triage-demo.md`, `application-gate.txt`,
   `application-dossier.txt`, `application-dossier.json`,
   `application-dossier.schema.json`, `control-plane-evidence.md`,
   `control-plane-evidence.json`,
   `http-api-evidence.md`, `http-api-evidence.json`,
   `release-readiness.md`, `release-readiness.json`,
   `reviewer-quick-check-artifacts.schema.json`, and `manifest.json`. The packet includes a reviewer
-  index, `doctor`,
+  README, an artifact index with byte sizes and SHA-256 digests, `doctor`,
   the real CI triage demo, local release-readiness build/twine/wheel-smoke
   evidence with PyPI publish and release tagging left behind manual gates, the
   Agent Control Plane reviewer handoff audit, ephemeral `127.0.0.1` HTTP API

@@ -122,8 +122,10 @@ boundary for
 `patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet`:
 generated packets declare no network, write action, public publish, or
 application submission, include the Agent Control Plane reviewer handoff audit
-as `control-plane-evidence.md/json`, include `README.md` as the review order
-index, include release-readiness build/twine/wheel-smoke evidence as
+as `control-plane-evidence.md/json`, include `README.md` as the review order,
+include `artifact-index.md` as a reviewer-facing file map with byte sizes and
+SHA-256 digests for each review artifact, include release-readiness
+build/twine/wheel-smoke evidence as
 `release-readiness.md/json` with PyPI publish and release tagging still behind
 manual gates, include ephemeral loopback HTTP API smoke evidence as
 `http-api-evidence.md/json`, and include their own manifest schema for offline

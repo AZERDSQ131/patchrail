@@ -361,6 +361,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
 
         expected_files = {
             "README.md",
+            "artifact-index.md",
             "reviewer-quick-check.md",
             "ci-triage-demo.md",
             "release-readiness.md",
@@ -391,6 +392,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
 
         expected_artifacts = [
             "reviewer-quick-check.md",
+            "artifact-index.md",
             "README.md",
             "application-dossier.json",
             "application-dossier.schema.json",
@@ -489,6 +491,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert release_readiness["safety"]["created_release_tag"] is False
 
         packet_readme = (out_dir / "README.md").read_text(encoding="utf-8")
+        artifact_index = (out_dir / "artifact-index.md").read_text(encoding="utf-8")
         assert "# PatchRail Reviewer Packet" in packet_readme
         assert "## Review Order" in packet_readme
         assert "`reviewer-quick-check.md`" in packet_readme
@@ -507,6 +510,18 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert "Third-party pull request, issue comment, or funded-issue claim performed" in (
             packet_readme
         )
+        assert "# PatchRail Reviewer Packet Artifact Index" in artifact_index
+        assert "| Artifact | Purpose | Size | SHA-256 |" in artifact_index
+        assert "`reviewer-quick-check.md`" in artifact_index
+        assert "`ci-triage-demo.md`" in artifact_index
+        assert "`manifest.json` includes this index's own byte size and SHA-256 digest" in (
+            artifact_index
+        )
+        assert "- Network required: `False`" in artifact_index
+        assert "- Write action required: `False`" in artifact_index
+        assert "/Volumes/" not in artifact_index
+        assert "/Users/" not in artifact_index
+        assert "/home/" not in artifact_index
         assert "/Volumes/" not in packet_readme
         assert "/Users/" not in packet_readme
         assert "/home/" not in packet_readme
@@ -554,6 +569,7 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
 
         expected_files = {
             "README.md",
+            "artifact-index.md",
             "reviewer-quick-check.md",
             "ci-triage-demo.md",
             "release-readiness.md",
@@ -606,9 +622,9 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
         assert verified["schema_version"] == "patchrail.reviewer_packet_integrity.v1"
         assert verified["status"] == "verified"
         assert verified["counts"] == {
-            "artifact_count": 14,
-            "detail_count": 14,
-            "verified_artifact_count": 14,
+            "artifact_count": 15,
+            "detail_count": 15,
+            "verified_artifact_count": 15,
         }
         assert verified["checks"] == {
             "manifest_readable": True,
@@ -709,6 +725,7 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
         in combined_evidence
     )
     assert "reviewer-quick-check-artifacts.schema.json" in combined_evidence
+    assert "artifact-index.md" in combined_evidence
     assert "README.md" in combined_evidence
     assert "control-plane-evidence.json" in combined_evidence
     assert "control-plane-evidence.md" in combined_evidence
