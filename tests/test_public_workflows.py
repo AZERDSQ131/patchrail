@@ -1391,8 +1391,8 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "PyPI publishing is pending" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
     assert "Recent successful public CI run" in evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27056611410" in evidence
-    assert "0bc0142d22ae73c1efebf93b084245e633fe7596" in evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27058837138" in evidence
+    assert "33381221dfcc752f1629e798ae567f325202acbd" in evidence
     assert "patchrail-oss-evidence" in evidence
     assert "Agent Control Plane evidence" in evidence
     assert "reviewer-facing local queue bundle" in evidence
@@ -1472,13 +1472,50 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "[#87](https://github.com/patchrail/patchrail/pull/87)" in workflow_ledger
     assert "[#94](https://github.com/patchrail/patchrail/pull/94)" in workflow_ledger
     assert "[#102](https://github.com/patchrail/patchrail/pull/102)" in workflow_ledger
+    assert "As of 2026-06-06:" in workflow_ledger
+    assert "Direct Maintainer Commit Evidence" in workflow_ledger
+    assert "direct maintainer commits: tracked separately below" in workflow_ledger
+    assert (
+        "[`1c6afad`](https://github.com/patchrail/patchrail/commit/1c6afad4f5e33a05e6e62187a93fe767f1134102)"
+        in workflow_ledger
+    )
+    assert (
+        "[CI run 27058004014](https://github.com/patchrail/patchrail/actions/runs/27058004014)"
+        in workflow_ledger
+    )
+    assert (
+        "[`c5688d3`](https://github.com/patchrail/patchrail/commit/c5688d38f3d9ac6960591516ca0b407c07f3fcaf)"
+        in workflow_ledger
+    )
+    assert (
+        "[CI run 27058341998](https://github.com/patchrail/patchrail/actions/runs/27058341998)"
+        in workflow_ledger
+    )
+    assert (
+        "[`3338122`](https://github.com/patchrail/patchrail/commit/33381221dfcc752f1629e798ae567f325202acbd)"
+        in workflow_ledger
+    )
+    assert (
+        "[CI run 27058837138](https://github.com/patchrail/patchrail/actions/runs/27058837138)"
+        in workflow_ledger
+    )
+    normalized_workflow_ledger = " ".join(workflow_ledger.split())
+    assert (
+        "not counted as issue-to-PR cycles, external adoption, or formal Codex review"
+        in normalized_workflow_ledger
+    )
+    assert "Latest public CI evidence, 2026-06-06" in oss_program_evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27058837138" in (
+        oss_program_evidence
+    )
+    assert "33381221dfcc752f1629e798ae567f325202acbd" in oss_program_evidence
     assert "patchrail evidence review-packet --format markdown" in workflow_ledger
     assert (
         "Fixture hygiene gate: `patchrail ci fixture-check examples/ci-triage --format json`"
         in oss_program_evidence
     )
     assert (
-        "Tests: `uv run --extra dev pytest -q` -> 84 passed, 6 subtests passed."
+        "Tests: `uv run --extra dev pytest -q` -> 86 passed, 6 subtests passed."
         in oss_program_evidence
     )
     assert (
@@ -1520,7 +1557,8 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "[#43](https://github.com/patchrail/patchrail/pull/43)" in workflow_ledger
     assert "external adopters: pending consent-only pilots" in workflow_ledger
     assert "formal Codex review examples: pending visible review links" in workflow_ledger
-    assert "This is not a substitute for external adoption" in workflow_ledger
+    assert "Direct maintainer commits are useful freshness evidence" in workflow_ledger
+    assert "not a substitute for external adoption" in normalized_workflow_ledger
     for release_page in [
         ROOT / "docs" / "release-v0.2.0-evidence.md",
         ROOT / "docs" / "release-v0.3.0-evidence.md",

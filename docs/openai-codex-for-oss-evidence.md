@@ -24,8 +24,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl`
   and ran `patchrail --help` successfully.
 - Recent successful public CI run:
-  <https://github.com/patchrail/patchrail/actions/runs/27056611410> completed
-  successfully for commit `0bc0142d22ae73c1efebf93b084245e633fe7596`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27058837138> completed
+  successfully for commit `33381221dfcc752f1629e798ae567f325202acbd`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job. The uploaded
   `patchrail-oss-evidence` artifact includes the general snapshot, Agent
@@ -138,7 +138,12 @@ Current public evidence is local, owned-repository, and preparatory:
   [#84](https://github.com/patchrail/patchrail/pull/84), and
   [#85](https://github.com/patchrail/patchrail/pull/85), with the current
   ledger extended through [#102](https://github.com/patchrail/patchrail/pull/102);
-  all listed focused maintainer PRs were merged with public CI success.
+  all listed focused maintainer PRs were merged with public CI success. The
+  ledger also tracks recent direct maintainer commits with public CI, including
+  [`3338122`](https://github.com/patchrail/patchrail/commit/33381221dfcc752f1629e798ae567f325202acbd)
+  and [CI run 27058837138](https://github.com/patchrail/patchrail/actions/runs/27058837138),
+  while keeping them separate from issue-to-PR cycles, external adoption, and
+  formal review claims.
 - Issue triage: public own-repo issues are tracked in
   [public-workflow-ledger.md](public-workflow-ledger.md), including CI fixture,
   Agent Control Plane, security-boundary, and pilot-feedback work
@@ -194,7 +199,7 @@ Last verified: 2026-06-06.
   sdist/wheel assets.
 - Manual gates: PyPI publish, public announcements, and external applications
   remain explicit maintainer actions.
-- Tests after the upstream-accounting dossier guardrail: `uv run --extra dev pytest -q` -> 84 passed, 6 subtests passed.
+- Tests after the latest public evidence scrub: `uv run --extra dev pytest -q` -> 86 passed, 6 subtests passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
 - Format after the upstream-accounting dossier guardrail: `uv run --extra dev ruff format --check .` -> 24 files already formatted.
 - CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 143 / 143 fixtures passed.

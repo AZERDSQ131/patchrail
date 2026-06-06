@@ -73,6 +73,11 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `local-agent-queue/bundle.json`, and `local-agent-queue/bundle.md` after
   tests, benchmark, and package smoke pass. This is project-health evidence
   only; it does not count as external adoption or PyPI download evidence.
+- Latest public CI evidence, 2026-06-06:
+  <https://github.com/patchrail/patchrail/actions/runs/27058837138> completed
+  successfully for commit `33381221dfcc752f1629e798ae567f325202acbd`, including
+  Python 3.11/3.12/3.13 tests, package smoke, fixture benchmark, and the
+  `patchrail-oss-evidence` artifact.
 - Adopter list: [ADOPTERS.md](../ADOPTERS.md) is permission-only and currently
   has no public external adopters listed
 - Public CI fixtures: 143 sanitized synthetic fixtures in the local benchmark
@@ -95,7 +100,9 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - Public maintenance workflow ledger:
   [docs/public-workflow-ledger.md](public-workflow-ledger.md) links owned-repo
   issues to focused pull requests and tracks focused maintainer PR evidence
-  without claiming external adoption
+  without claiming external adoption. It now also tracks direct maintainer
+  commits with green public CI separately from issue-to-PR cycles, external
+  adoption, and formal review claims.
 - Public review packet:
   `patchrail evidence review-packet --format markdown` parses the workflow
   ledger into an owned-repo issue-to-PR and focused-maintainer-PR packet without
@@ -161,7 +168,7 @@ Last verified: 2026-06-06.
   bump, tag, PyPI publish, announcement, or external application.
 - Manual gates: PyPI publish, public announcements, and external applications
   remain explicit maintainer actions.
-- Tests: `uv run --extra dev pytest -q` -> 84 passed, 6 subtests passed.
+- Tests: `uv run --extra dev pytest -q` -> 86 passed, 6 subtests passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
 - Format: `uv run --extra dev ruff format --check .` -> 24 files already formatted.
 - Fixture hygiene: `uv run --extra dev patchrail ci fixture-check examples/ci-triage --format json` -> 143 / 143 fixtures passed.

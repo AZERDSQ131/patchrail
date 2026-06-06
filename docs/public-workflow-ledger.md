@@ -14,7 +14,7 @@ reviewable issues, pull requests, tests, and CI evidence.
 
 ## Current Evidence Boundary
 
-As of 2026-06-03:
+As of 2026-06-06:
 
 - repository: <https://github.com/patchrail/patchrail>;
 - public GitHub release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.0>;
@@ -22,6 +22,8 @@ As of 2026-06-03:
 - external adopters: pending consent-only pilots;
 - PyPI publication: pending maintainer credential gate;
 - formal Codex review examples: pending visible review links.
+- direct maintainer commits: tracked separately below when they carry public CI
+  evidence but are not issue-to-PR cycles or formal review links.
 
 ## Review And Triage Boundary
 
@@ -88,6 +90,18 @@ count as issue-to-PR cycles because no public issue was linked by the PR.
 | HTTP API human gate evidence | [#101](https://github.com/patchrail/patchrail/pull/101) | [CI run 26910720452](https://github.com/patchrail/patchrail/actions/runs/26910720452) | local API human-gate evidence |
 | Application evidence gate | [#102](https://github.com/patchrail/patchrail/pull/102) | [CI run 26911478559](https://github.com/patchrail/patchrail/actions/runs/26911478559) | fail-closed application readiness evidence |
 
+## Direct Maintainer Commit Evidence
+
+The rows below are public, owned-repository commits with green CI. They are
+useful reviewer-facing maintenance evidence, but they are intentionally not
+counted as issue-to-PR cycles, external adoption, or formal Codex review.
+
+| Area | Commit | Public CI evidence | Evidence type |
+| --- | --- | --- | --- |
+| Queue gate report reviewer handoff | [`1c6afad`](https://github.com/patchrail/patchrail/commit/1c6afad4f5e33a05e6e62187a93fe767f1134102) | [CI run 27058004014](https://github.com/patchrail/patchrail/actions/runs/27058004014) | Agent Control Plane gate report |
+| Reviewer packet artifact index | [`c5688d3`](https://github.com/patchrail/patchrail/commit/c5688d38f3d9ac6960591516ca0b407c07f3fcaf) | [CI run 27058341998](https://github.com/patchrail/patchrail/actions/runs/27058341998) | offline reviewer packet integrity |
+| Public evidence brand-only scrub | [`3338122`](https://github.com/patchrail/patchrail/commit/33381221dfcc752f1629e798ae567f325202acbd) | [CI run 27058837138](https://github.com/patchrail/patchrail/actions/runs/27058837138) | public evidence brand boundary |
+
 ## How To Read This Ledger
 
 These links demonstrate that PatchRail can run a disciplined maintenance loop:
@@ -98,9 +112,10 @@ These links demonstrate that PatchRail can run a disciplined maintenance loop:
 4. Verify through local tests and GitHub Actions.
 5. Update public evidence only with facts that are already linkable.
 
-This is not a substitute for external adoption. Before applying to external
-support programs, PatchRail still needs permissioned pilots, real download
-metrics, and visible examples of formal review/triage workflows where applicable.
+Direct maintainer commits are useful freshness evidence, but they are not a
+substitute for external adoption. Before applying to external support programs,
+PatchRail still needs permissioned pilots, real download metrics, and visible
+examples of formal review/triage workflows where applicable.
 
 ## Local Review Packet
 
