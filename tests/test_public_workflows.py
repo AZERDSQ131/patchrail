@@ -632,6 +632,7 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
             "schema_version_expected": True,
             "generated_from_expected": True,
             "artifacts_match_details": True,
+            "regular_artifact_files": True,
             "all_hashes_match": True,
             "all_sizes_match": True,
             "no_extra_files": True,
@@ -696,6 +697,57 @@ def test_verify_reviewer_packet_fails_on_tampered_artifact() -> None:
         assert verify_proc.returncode == 1
         assert "Status: failed" in verify_proc.stdout
         assert "Mismatch: ci-triage-demo.md" in verify_proc.stdout
+
+
+def test_verify_reviewer_packet_fails_on_symlinked_artifact() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out_dir = Path(tmpdir) / "reviewer-packet"
+        generate_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "reviewer-packet",
+                "--out-dir",
+                str(out_dir),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert generate_proc.returncode == 0, generate_proc.stderr
+
+        target = out_dir / "ci-triage-demo.md"
+        target.unlink()
+        target.symlink_to(out_dir / "reviewer-quick-check.md")
+
+        verify_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "verify-reviewer-packet",
+                str(out_dir),
+                "--format",
+                "json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        assert verify_proc.returncode == 1
+        verified = json.loads(verify_proc.stdout)
+        assert verified["status"] == "failed"
+        assert verified["checks"]["regular_artifact_files"] is False
+        assert "artifact must not be a symlink: ci-triage-demo.md" in verified["errors"]
+        assert "ci-triage-demo.md" not in {
+            artifact["path"] for artifact in verified["verified_artifacts"]
+        }
 
 
 def test_verify_reviewer_packet_fails_on_tampered_manifest_contract() -> None:

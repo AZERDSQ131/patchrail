@@ -15,8 +15,9 @@ uv run --extra dev patchrail evidence verify-reviewer-packet patchrail-reviewer-
 ```
 
 The reviewer packet verifier recomputes every listed artifact's byte size and
-SHA-256 digest, rejects extra files, and exits non-zero if the packet has been
-tampered with or drifted from its manifest.
+SHA-256 digest, rejects symlinked or non-file artifacts, rejects extra files,
+and exits non-zero if the packet has been tampered with or drifted from its
+manifest.
 
 PyPI publishing is pending, so `pipx install patchrail` will not work yet. Until
 the package is published there, run the public GitHub source directly:

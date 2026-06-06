@@ -240,6 +240,7 @@ def _failed_integrity_payload(
             "schema_version_expected": False,
             "generated_from_expected": False,
             "artifacts_match_details": False,
+            "regular_artifact_files": False,
             "all_hashes_match": False,
             "all_sizes_match": False,
             "no_extra_files": False,
@@ -327,6 +328,7 @@ def verify_reviewer_packet(packet_dir: Path) -> dict[str, object]:
     missing_artifacts: list[str] = []
     hash_mismatch = False
     size_mismatch = False
+    regular_artifact_files = True
     for artifact in manifest_artifacts:
         if Path(artifact).is_absolute() or "/" in artifact or "\\" in artifact:
             errors.append(f"artifact path must be a local file name: {artifact}")
@@ -335,6 +337,14 @@ def verify_reviewer_packet(packet_dir: Path) -> dict[str, object]:
         detail = details_by_path.get(artifact)
         if not artifact_path.exists():
             missing_artifacts.append(artifact)
+            continue
+        if artifact_path.is_symlink():
+            regular_artifact_files = False
+            errors.append(f"artifact must not be a symlink: {artifact}")
+            continue
+        if not artifact_path.is_file():
+            regular_artifact_files = False
+            errors.append(f"artifact must be a regular file: {artifact}")
             continue
         actual = _artifact_detail(artifact_path)
         if detail is None:
@@ -360,7 +370,7 @@ def verify_reviewer_packet(packet_dir: Path) -> dict[str, object]:
     extra_files = sorted(
         path.name
         for path in packet_dir.iterdir()
-        if path.is_file() and path.name != "manifest.json" and path.name not in manifest_artifacts
+        if path.name != "manifest.json" and path.name not in manifest_artifacts
     )
     safety_flags_pass = (
         manifest.get("network_required") is False
@@ -375,6 +385,7 @@ def verify_reviewer_packet(packet_dir: Path) -> dict[str, object]:
         "schema_version_expected": schema_version_expected,
         "generated_from_expected": generated_from_expected,
         "artifacts_match_details": not missing_details and not extra_details,
+        "regular_artifact_files": regular_artifact_files and not missing_artifacts,
         "all_hashes_match": not hash_mismatch and not missing_artifacts,
         "all_sizes_match": not size_mismatch and not missing_artifacts,
         "no_extra_files": not extra_files,
@@ -443,8 +454,8 @@ patchrail evidence verify-reviewer-packet patchrail-reviewer-packet --format mar
 ```
 
 The verifier recomputes every listed artifact's byte size and SHA-256 digest,
-rejects extra files, and exits non-zero if the packet has been tampered with or
-drifted from its manifest.
+rejects symlinked or non-file artifacts, rejects extra files, and exits
+non-zero if the packet has been tampered with or drifted from its manifest.
 
 ## Safety Boundary
 
