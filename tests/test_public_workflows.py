@@ -313,8 +313,66 @@ def test_reviewer_quick_check_script_outputs_local_demo_and_fail_closed_gate() -
     assert "- Application form submission performed: `False`" in output
     assert "- Application dossier generated: `True`" in output
     assert "- Application dossier schema available: `True`" in output
+    assert "- Artifact packet generated: `False`" in output
     assert "publish to PyPI" in output
     assert "create pull requests" in output
+
+
+def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out_dir = Path(tmpdir) / "reviewer-packet"
+        proc = subprocess.run(
+            [sys.executable, "scripts/reviewer_quick_check.py", "--out-dir", str(out_dir)],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        assert proc.returncode == 0, proc.stderr
+        assert "## 5. Artifact Packet" in proc.stdout
+        assert "- Artifact packet generated: `True`" in proc.stdout
+
+        expected_files = {
+            "reviewer-quick-check.md",
+            "ci-triage-demo.md",
+            "application-gate.txt",
+            "application-dossier.txt",
+            "application-dossier.json",
+            "application-dossier.schema.json",
+            "manifest.json",
+        }
+        assert {path.name for path in out_dir.iterdir()} == expected_files
+
+        manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest == {
+            "schema_version": "patchrail.reviewer_quick_check_artifacts.v1",
+            "generated_from": "local_checkout",
+            "network_required": False,
+            "write_action_required": False,
+            "application_form_submission_performed": False,
+            "artifacts": [
+                "reviewer-quick-check.md",
+                "application-dossier.json",
+                "application-dossier.schema.json",
+                "application-dossier.txt",
+                "application-gate.txt",
+                "ci-triage-demo.md",
+            ],
+        }
+
+        dossier = json.loads((out_dir / "application-dossier.json").read_text(encoding="utf-8"))
+        assert dossier["schema_version"] == "patchrail.application_dossier.v1"
+        assert dossier["status"] == "draft_only_do_not_submit"
+        assert dossier["submission_policy"]["agent_may_submit"] is False
+        assert dossier["submission_policy"]["maintainer_tap_required"] is True
+
+        packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
+        assert "Status: draft_only_do_not_submit" in packet
+        assert "patchrail.application_dossier.v1" in packet
+        assert "/Volumes/" not in packet
+        assert "/Users/" not in packet
+        assert "/home/" not in packet
 
 
 def test_evidence_snapshot_summarizes_public_oss_signals_without_write_actions() -> None:
@@ -1591,10 +1649,13 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert payload["reviewer_quick_checks"] == [
         {
             "name": "single-command local reviewer check",
-            "command": "uv run --extra dev python scripts/reviewer_quick_check.py",
+            "command": (
+                "uv run --extra dev python scripts/reviewer_quick_check.py "
+                "--out-dir patchrail-reviewer-packet"
+            ),
             "expected": (
-                "local Markdown packet with doctor, CI demo, fail-closed application gate, "
-                "and application dossier contract"
+                "local Markdown and JSON packet with doctor, CI demo, fail-closed "
+                "application gate, and application dossier contract"
             ),
             "network_required": False,
             "write_action_required": False,
