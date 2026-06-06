@@ -16,9 +16,9 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - Pre-PyPI install path: README and quickstart say "PyPI publishing is pending"
   and provide `uvx --from git+https://github.com/patchrail/patchrail patchrail`
   so reviewers do not hit a package-index 404 before PyPI is published.
-- Current public CI run:
-  <https://github.com/patchrail/patchrail/actions/runs/27047215785> completed
-  successfully for commit `3b63a1c115278cefde73fbc5df47f383d79f9eea`, including
+- Recent successful public CI run:
+  <https://github.com/patchrail/patchrail/actions/runs/27047427488> completed
+  successfully for commit `f5d10101863502c91b9eac296787bc9089bcbdbe`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job.
 - External repositories using PatchRail: pending pilots
