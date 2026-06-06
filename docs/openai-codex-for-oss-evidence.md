@@ -24,8 +24,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl`
   and ran `patchrail --help` successfully.
 - Recent successful public CI run:
-  <https://github.com/patchrail/patchrail/actions/runs/27051130637> completed
-  successfully for commit `523bc5a5a5cd244bc59c71ccdee46b83735b14d5`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27054051978> completed
+  successfully for commit `8087c04c80dab966d3bf1c9c816b89b5876b9f83`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job. The uploaded
   `patchrail-oss-evidence` artifact includes the general snapshot, Agent
@@ -39,8 +39,9 @@ Pablo Guillén is the primary maintainer of PatchRail.
   emits a local Markdown packet through the packaged CLI and writes
   reviewer-facing artifacts:
   `reviewer-quick-check.md`, `ci-triage-demo.md`, `application-gate.txt`,
-  `application-dossier.json`, `application-dossier.schema.json`, and
-  `reviewer-quick-check-artifacts.schema.json`. The packet includes `doctor`,
+  `application-dossier.txt`, `application-dossier.json`,
+  `application-dossier.schema.json`,
+  `reviewer-quick-check-artifacts.schema.json`, and `manifest.json`. The packet includes `doctor`,
   the real CI triage demo, the fail-closed application gate, the local
   application dossier contract/schema, and its own manifest schema for offline
   validation. Its manifest contract is available with
