@@ -1390,9 +1390,9 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert ".agents/skills/patchrail-ci-triage" in evidence
     assert "PyPI publishing is pending" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
-    assert "Recent successful public CI run" in evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27059633468" in evidence
-    assert "054e0349a785081ebf976875ac3adc8b0caaf1ab" in evidence
+    assert "Verified public CI evidence snapshot, 2026-06-06" in evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27059930584" in evidence
+    assert "de5f333daee03d0449fa85ee83ca00235aaf56f0" in evidence
     assert "patchrail-oss-evidence" in evidence
     assert "Agent Control Plane evidence" in evidence
     assert "reviewer-facing local queue bundle" in evidence
@@ -1515,16 +1515,24 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
         "[CI run 27059633468](https://github.com/patchrail/patchrail/actions/runs/27059633468)"
         in workflow_ledger
     )
+    assert (
+        "[`de5f333`](https://github.com/patchrail/patchrail/commit/de5f333daee03d0449fa85ee83ca00235aaf56f0)"
+        in workflow_ledger
+    )
+    assert (
+        "[CI run 27059930584](https://github.com/patchrail/patchrail/actions/runs/27059930584)"
+        in workflow_ledger
+    )
     normalized_workflow_ledger = " ".join(workflow_ledger.split())
     assert (
         "not counted as issue-to-PR cycles, external adoption, or formal Codex review"
         in normalized_workflow_ledger
     )
-    assert "Latest public CI evidence, 2026-06-06" in oss_program_evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27059633468" in (
+    assert "Verified public CI evidence snapshot, 2026-06-06" in oss_program_evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27059930584" in (
         oss_program_evidence
     )
-    assert "054e0349a785081ebf976875ac3adc8b0caaf1ab" in oss_program_evidence
+    assert "de5f333daee03d0449fa85ee83ca00235aaf56f0" in oss_program_evidence
     assert "patchrail evidence review-packet --format markdown" in workflow_ledger
     assert (
         "Fixture hygiene gate: `patchrail ci fixture-check examples/ci-triage --format json`"

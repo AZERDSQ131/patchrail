@@ -10,7 +10,7 @@ from pathlib import Path
 RUN_URL_RE = re.compile(r"^https://github\.com/patchrail/patchrail/actions/runs/(\d+)$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 DOCS_BLOCK_RE = re.compile(
-    r"- Recent successful public CI run:\n"
+    r"- Verified public CI evidence snapshot, 2026-06-06:\n"
     r"  <https://github\.com/patchrail/patchrail/actions/runs/\d+> completed\n"
     r"  successfully for commit `[0-9a-f]{40}`, including\n"
     r"  Python 3\.11/3\.12/3\.13 tests, fixture benchmark, CLI smoke,\n"
@@ -29,7 +29,7 @@ TEST_PAIR_RE = re.compile(
 def _build_docs_block(run_url: str, commit: str) -> str:
     return "\n".join(
         [
-            "- Recent successful public CI run:",
+            "- Verified public CI evidence snapshot, 2026-06-06:",
             f"  <{run_url}> completed",
             f"  successfully for commit `{commit}`, including",
             "  Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,",

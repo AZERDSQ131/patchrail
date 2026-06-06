@@ -73,9 +73,9 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `local-agent-queue/bundle.json`, and `local-agent-queue/bundle.md` after
   tests, benchmark, and package smoke pass. This is project-health evidence
   only; it does not count as external adoption or PyPI download evidence.
-- Latest public CI evidence, 2026-06-06:
-  <https://github.com/patchrail/patchrail/actions/runs/27059633468> completed
-  successfully for commit `054e0349a785081ebf976875ac3adc8b0caaf1ab`, including
+- Verified public CI evidence snapshot, 2026-06-06:
+  <https://github.com/patchrail/patchrail/actions/runs/27059930584> completed
+  successfully for commit `de5f333daee03d0449fa85ee83ca00235aaf56f0`, including
   Python 3.11/3.12/3.13 tests, package smoke, fixture benchmark, and the
   `patchrail-oss-evidence` artifact.
 - Adopter list: [ADOPTERS.md](../ADOPTERS.md) is permission-only and currently
