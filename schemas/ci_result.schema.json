@@ -28,7 +28,14 @@
         "typescript_typecheck",
         "javascript_lint",
         "github_actions_workflow",
+        "security_scan_failure",
+        "dotnet_build_failure",
+        "java_build_failure",
+        "docker_build_failure",
+        "browser_test_failure",
         "rust_test_failure",
+        "ruby_bundle_failure",
+        "php_composer_failure",
         "go_test_failure"
       ]
     },

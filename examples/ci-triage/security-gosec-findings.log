@@ -1,0 +1,7 @@
+Run gosec ./...
+Results:
+[G401] Use of weak cryptographic primitive
+Severity: HIGH
+Confidence: HIGH
+gosec found issues in 1 files
+Error: Process completed with exit code 1.

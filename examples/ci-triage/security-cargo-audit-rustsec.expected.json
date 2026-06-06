@@ -1,0 +1,4 @@
+{
+  "failure_class": "security_scan_failure",
+  "minimum_confidence": 0.8
+}

@@ -1,0 +1,8 @@
+Run npm audit --audit-level=high
+npm audit report
+package-a  <1.2.3
+Severity: critical
+High severity vulnerability found in transitive dependency
+CVE-2026-10001
+npm audit found 1 critical severity vulnerability
+Error: Process completed with exit code 1.

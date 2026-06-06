@@ -49,6 +49,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("dotnet_build_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("docker_build_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("browser_test_failure", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("security_scan_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("ruby_bundle_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("php_composer_failure", schema["properties"]["failure_class"]["enum"])
         self.assertEqual(
@@ -133,7 +134,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], "patchrail.doctor.v1")
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["local_first"], True)
-        self.assertEqual(payload["checks"]["ci_fixture_count"], 148)
+        self.assertEqual(payload["checks"]["ci_fixture_count"], 153)
         self.assertEqual(payload["checks"]["ci_result_schema_available"], True)
         self.assertEqual(payload["requirements"]["billing_required"], False)
         self.assertEqual(payload["requirements"]["external_model_required"], False)
@@ -160,8 +161,8 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["schema_version"], "patchrail.ci_benchmark.v1")
-        self.assertEqual(payload["total_cases"], 148)
-        self.assertEqual(payload["passed"], 148)
+        self.assertEqual(payload["total_cases"], 153)
+        self.assertEqual(payload["passed"], 153)
         self.assertEqual(payload["failed"], 0)
         self.assertEqual(payload["accuracy"]["top_1"], 1.0)
         self.assertEqual(payload["coverage_gate"]["min_cases_per_class"], 0)
@@ -184,6 +185,7 @@ class PatchRailCITests(unittest.TestCase):
                 "python_test_failure": {"failed": 0, "passed": 9, "total_cases": 9},
                 "ruby_bundle_failure": {"failed": 0, "passed": 8, "total_cases": 8},
                 "rust_test_failure": {"failed": 0, "passed": 10, "total_cases": 10},
+                "security_scan_failure": {"failed": 0, "passed": 5, "total_cases": 5},
                 "typescript_typecheck": {"failed": 0, "passed": 19, "total_cases": 19},
             },
         )
@@ -204,6 +206,7 @@ class PatchRailCITests(unittest.TestCase):
                 "python_test_failure",
                 "ruby_bundle_failure",
                 "rust_test_failure",
+                "security_scan_failure",
                 "typescript_typecheck",
             },
         )
@@ -230,8 +233,8 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(json_proc.returncode, 0, json_proc.stderr)
         payload = json.loads(json_proc.stdout)
         self.assertEqual(payload["schema_version"], "patchrail.ci_benchmark.v1")
-        self.assertEqual(payload["total_cases"], 148)
-        self.assertEqual(payload["passed"], 148)
+        self.assertEqual(payload["total_cases"], 153)
+        self.assertEqual(payload["passed"], 153)
         self.assertEqual(payload["failed"], 0)
         self.assertEqual(payload["accuracy"]["top_1"], 1.0)
         self.assertEqual(payload["coverage_gate"]["passed"], True)
@@ -258,7 +261,7 @@ class PatchRailCITests(unittest.TestCase):
 
         self.assertEqual(markdown_proc.returncode, 0, markdown_proc.stderr)
         self.assertIn("# PatchRail CI Benchmark", markdown_proc.stdout)
-        self.assertIn("- Total cases: `148`", markdown_proc.stdout)
+        self.assertIn("- Total cases: `153`", markdown_proc.stdout)
         self.assertIn("- Coverage gate passed: `True`", markdown_proc.stdout)
         self.assertIn("## Class summary", markdown_proc.stdout)
         self.assertNotIn("## Cases", markdown_proc.stdout)

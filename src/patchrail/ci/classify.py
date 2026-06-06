@@ -110,6 +110,35 @@ RULES: list[dict[str, Any]] = [
         ),
     },
     {
+        "failure_class": "security_scan_failure",
+        "likely_subsystem": "Security scanner or dependency audit",
+        "patterns": [
+            r"\bnpm audit\b",
+            r"\bpip-audit\b",
+            r"\bcargo audit\b",
+            r"\btrivy\b",
+            r"\bgosec\b",
+            r"\bsnyk\b",
+            r"\bsemgrep\b",
+            r"\bbandit\b",
+            r"CRITICAL: Vulnerability",
+            r"Found known vulnerabilities",
+            r"Vulnerabilities found",
+            r"High severity vulnerability",
+            r"\bCVE-\d{4}-\d{4,}\b",
+            r"\bGHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}\b",
+            r"\bRUSTSEC-\d{4}-\d{4}\b",
+            r"Severity:\s+(?:HIGH|CRITICAL)",
+            r"Scan failed",
+            r"gosec found issues",
+        ],
+        "reproduction_command": "rerun the failing security scan locally",
+        "minimal_repair_strategy": (
+            "Confirm the vulnerable package or finding, upgrade or patch the narrow affected "
+            "dependency/configuration, and rerun the same scanner before broad CI."
+        ),
+    },
+    {
         "failure_class": "dotnet_build_failure",
         "likely_subsystem": ".NET restore, build, or test lifecycle",
         "patterns": [

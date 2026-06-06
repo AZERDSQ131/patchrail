@@ -11,7 +11,7 @@ access, repository write permissions, billing, or an external model call.
 
 ## Current Coverage
 
-The fixture zoo currently contains 148 cases across these root-cause families:
+The fixture zoo currently contains 153 cases across these root-cause families:
 
 - `github_actions_workflow`
 - `docker_build_failure`
@@ -26,6 +26,7 @@ The fixture zoo currently contains 148 cases across these root-cause families:
 - `python_test_failure`
 - `ruby_bundle_failure`
 - `rust_test_failure`
+- `security_scan_failure`
 - `typescript_typecheck`
 
 Node and TypeScript coverage includes lockfile drift, peer dependency conflicts,
@@ -63,6 +64,9 @@ test signals local to the fixture text.
 The current set also includes additional Go, Rust, JavaScript lint, GitHub
 Actions workflow, and Python test variants so the benchmark crosses the v0.2
 100-fixture bar without needing external logs or private repository data.
+Security scan coverage includes npm audit, pip-audit, cargo audit, Trivy, and
+gosec failures. These fixtures classify scanner findings as maintainer CI work
+without sending logs to a model or performing automatic remediation.
 
 Run the benchmark:
 
@@ -92,7 +96,7 @@ passing cases.
 Current aggregate snapshot:
 
 - Top-1 fixture accuracy: `1.0`.
-- Root-cause families covered: `14`.
+- Root-cause families covered: `15`.
 - Coverage gate: `--min-cases-per-class 5` passes across every covered family.
 - Largest families: `python_dependency_resolution` (`27` cases),
   `node_dependency_install` (`19` cases), and `typescript_typecheck`

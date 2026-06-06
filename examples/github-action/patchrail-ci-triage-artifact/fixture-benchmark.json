@@ -1166,6 +1166,51 @@
     },
     {
       "actual_confidence": 0.89,
+      "actual_failure_class": "security_scan_failure",
+      "expected_failure_class": "security_scan_failure",
+      "expected_minimum_confidence": 0.8,
+      "log": "security-cargo-audit-rustsec.log",
+      "mismatches": [],
+      "passed": true
+    },
+    {
+      "actual_confidence": 0.89,
+      "actual_failure_class": "security_scan_failure",
+      "expected_failure_class": "security_scan_failure",
+      "expected_minimum_confidence": 0.8,
+      "log": "security-gosec-findings.log",
+      "mismatches": [],
+      "passed": true
+    },
+    {
+      "actual_confidence": 0.95,
+      "actual_failure_class": "security_scan_failure",
+      "expected_failure_class": "security_scan_failure",
+      "expected_minimum_confidence": 0.8,
+      "log": "security-npm-audit-critical.log",
+      "mismatches": [],
+      "passed": true
+    },
+    {
+      "actual_confidence": 0.89,
+      "actual_failure_class": "security_scan_failure",
+      "expected_failure_class": "security_scan_failure",
+      "expected_minimum_confidence": 0.8,
+      "log": "security-pip-audit-vulnerability.log",
+      "mismatches": [],
+      "passed": true
+    },
+    {
+      "actual_confidence": 0.95,
+      "actual_failure_class": "security_scan_failure",
+      "expected_failure_class": "security_scan_failure",
+      "expected_minimum_confidence": 0.8,
+      "log": "security-trivy-container-critical.log",
+      "mismatches": [],
+      "passed": true
+    },
+    {
+      "actual_confidence": 0.89,
       "actual_failure_class": "typescript_typecheck",
       "expected_failure_class": "typescript_typecheck",
       "expected_minimum_confidence": 0.7,
@@ -1402,6 +1447,11 @@
       "passed": 10,
       "total_cases": 10
     },
+    "security_scan_failure": {
+      "failed": 0,
+      "passed": 5,
+      "total_cases": 5
+    },
     "typescript_typecheck": {
       "failed": 0,
       "passed": 19,
@@ -1414,7 +1464,7 @@
     "passed": true
   },
   "failed": 0,
-  "passed": 148,
+  "passed": 153,
   "requirements": {
     "billing_required": false,
     "external_model_required": false,
@@ -1422,5 +1472,5 @@
   },
   "root": "examples/ci-triage",
   "schema_version": "patchrail.ci_benchmark.v1",
-  "total_cases": 148
+  "total_cases": 153
 }

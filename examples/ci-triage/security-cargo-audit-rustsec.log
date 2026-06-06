@@ -1,0 +1,9 @@
+Run cargo audit --deny warnings
+Found known vulnerabilities in the Rust dependency graph
+Crate:     crate-c
+Version:   0.8.1
+Warning:   unsound parsing issue
+ID:        RUSTSEC-2026-0001
+URL:       https://rustsec.org/advisories/RUSTSEC-2026-0001
+cargo audit found vulnerabilities
+Error: Process completed with exit code 1.

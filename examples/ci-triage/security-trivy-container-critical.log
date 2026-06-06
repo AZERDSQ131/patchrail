@@ -1,0 +1,7 @@
+Run trivy image --severity HIGH,CRITICAL example-app:ci
+CRITICAL: Vulnerability found in package-d
+CVE-2026-20002
+Fixed Version: 4.5.6
+Total: 1 (HIGH: 0, CRITICAL: 1)
+Scan failed because vulnerabilities exceeded the configured threshold
+Error: Process completed with exit code 1.
