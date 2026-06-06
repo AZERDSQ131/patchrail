@@ -117,6 +117,14 @@ patchrail queue --db .patchrail-demo/queue.sqlite audit-summary \
   --format json \
   --out .patchrail-demo/audit-summary.json
 
+patchrail queue --db .patchrail-demo/queue.sqlite gate-report \
+  --format json \
+  --out .patchrail-demo/gate-report.json
+
+patchrail queue --db .patchrail-demo/queue.sqlite gate-report \
+  --format markdown \
+  --out .patchrail-demo/gate-report.md
+
 patchrail queue --db .patchrail-demo/queue.sqlite bundle \
   --format json \
   --out .patchrail-demo/bundle.json
@@ -166,6 +174,10 @@ Expected local artifacts:
   add, proposal, approve, and export decisions.
 - `.patchrail-demo/audit-summary.json`: the local gate summary proving the
   required approval, rejection, proposal, and export events were exercised.
+- `.patchrail-demo/gate-report.json`: a short reviewer-facing readiness report
+  that omits full queue records and proves no pending decisions remain.
+- `.patchrail-demo/gate-report.md`: the same gate report rendered for quick
+  reviewer inspection.
 - `.patchrail-demo/bundle.json`: the read-only handoff packet with status,
   audit coverage, queue records, proposals, a reviewer summary, and local-path
   redaction.
@@ -206,6 +218,14 @@ audit_summary = json.loads(Path(".patchrail-demo/audit-summary.json").read_text(
 assert audit_summary["status"] == "human_gates_exercised"
 assert audit_summary["missing_required_events"] == []
 assert audit_summary["safety"]["approval_records_execute_actions"] is False
+gate_report = json.loads(Path(".patchrail-demo/gate-report.json").read_text())
+assert gate_report["status"] == "ready_for_reviewer_handoff"
+assert gate_report["ready_for_reviewer_handoff"] is True
+assert gate_report["pending_decisions"] == 0
+assert gate_report["missing_required_events"] == []
+assert gate_report["safety"]["report_is_read_only"] is True
+assert gate_report["safety"]["report_records_audit_event"] is False
+assert gate_report["safety"]["execution_allowed"] is False
 bundle = json.loads(Path(".patchrail-demo/bundle.json").read_text())
 assert bundle["status"] == "ready_for_handoff"
 assert bundle["remaining_gate_gaps"] == []

@@ -64,6 +64,7 @@ patchrail schema queue-work-item
 patchrail schema queue-proposal
 patchrail schema queue-audit-event
 patchrail schema queue-audit-summary
+patchrail schema queue-gate-report
 ```
 
 CI Janitor, benchmark, and consent-only pilot outputs are versioned too:
@@ -92,6 +93,7 @@ consumers:
 - `src/patchrail/schemas/queue-proposal.v1.schema.json`
 - `src/patchrail/schemas/queue-audit-event.v1.schema.json`
 - `src/patchrail/schemas/queue-audit-summary.v1.schema.json`
+- `src/patchrail/schemas/queue-gate-report.v1.schema.json`
 - `src/patchrail/schemas/queue-status.v1.schema.json`
 
 Queue schema mirrors also remain available at the repository root for consumers
@@ -101,6 +103,7 @@ that read schemas without installing the package:
 - `schemas/queue_proposal.schema.json`
 - `schemas/queue_audit_event.schema.json`
 - `schemas/queue_audit_summary.schema.json`
+- `schemas/queue_gate_report.schema.json`
 - `schemas/queue_status.schema.json`
 - `schemas/application_dossier.schema.json`
 - `schemas/reviewer_quick_check_artifacts.schema.json`
@@ -163,6 +166,23 @@ failed audit summary is still local evidence: it reports the missing event
 types without contacting GitHub, calling external models, opening pull requests,
 posting comments, or requiring billing.
 
+## CLI Queue Gate Report
+
+`patchrail queue gate-report` emits a short reviewer-facing readiness report
+without exporting full work item, proposal, or audit records:
+
+```bash
+patchrail queue --db patchrail-pilot.sqlite gate-report --format markdown
+```
+
+The report emits `patchrail.queue_gate_report.v1`, combines queue status with
+audit-summary gate coverage, and reports pending decisions, missing required
+events, decision counts, reviewer next actions, and safety flags. It exits
+successfully only when no reviewer decisions remain pending and all required
+local gate events are present. It is read-only, records no audit event, permits
+no execution, redacts local paths, and does not contact GitHub, call external
+models, open pull requests, post comments, or require billing.
+
 ## CLI Queue Skip
 
 `patchrail queue skip` records that a work item should stay in history but must
@@ -215,7 +235,7 @@ patchrail evidence http-api --format markdown
 It validates `examples/local-agent-queue/demo-summary.expected.json`, confirms
 the required audit events and artifacts are present, and reports whether the
 human approval, proposal approval, and risky-proposal rejection gates were
-exercised. It also verifies that the bundle reviewer summary is ready for
+exercised. It also verifies that the gate report and bundle reviewer summary are ready for
 handoff, leaves no pending decisions, and does not allow execution. It is a
 local release guardrail: it does not bind a server, contact GitHub, call
 external models, require billing, or grant repository write permission.

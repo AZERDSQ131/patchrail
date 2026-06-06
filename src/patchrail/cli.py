@@ -44,6 +44,7 @@ from patchrail.queue.server import make_queue_api_handler, serve_queue_api
 from patchrail.queue.status import (
     queue_audit_summary_payload,
     queue_bundle_payload,
+    queue_gate_report_payload,
     queue_status_payload,
 )
 
@@ -149,6 +150,7 @@ def _load_schema(name: str) -> str:
         "ci-result": "ci-result.v1.schema.json",
         "queue-audit-event": "queue-audit-event.v1.schema.json",
         "queue-audit-summary": "queue-audit-summary.v1.schema.json",
+        "queue-gate-report": "queue-gate-report.v1.schema.json",
         "queue-proposal": "queue-proposal.v1.schema.json",
         "queue-status": "queue-status.v1.schema.json",
         "queue-work-item": "queue-work-item.v1.schema.json",
@@ -1577,6 +1579,8 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
         "queue.jsonl",
         "audit-events.jsonl",
         "audit-summary.json",
+        "gate-report.json",
+        "gate-report.md",
         "bundle.json",
         "bundle.md",
     ]
@@ -1601,6 +1605,13 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
     item_approved = summary.get("item_approval_state") == "approved"
     audit_summary_ready = summary.get("audit_summary_status") == "human_gates_exercised"
     audit_summary_missing_events = list(summary.get("audit_summary_missing_required_events") or [])
+    gate_report_ready = summary.get("gate_report_status") == "ready_for_reviewer_handoff"
+    gate_report_ready_flag = summary.get("gate_report_ready_for_reviewer_handoff") is True
+    gate_report_pending_decisions = summary.get("gate_report_pending_decisions")
+    gate_report_missing_events = list(summary.get("gate_report_missing_required_events") or [])
+    gate_report_read_only = summary.get("gate_report_is_read_only") is True
+    gate_report_does_not_record = summary.get("gate_report_records_audit_event") is False
+    gate_report_execution_allowed = summary.get("gate_report_execution_allowed")
     bundle_ready = summary.get("bundle_status") == "ready_for_handoff"
     bundle_read_only = summary.get("bundle_is_read_only") is True
     bundle_does_not_record = summary.get("bundle_records_audit_event") is False
@@ -1628,6 +1639,20 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
         safety_gaps.append("audit_summary_human_gates_exercised")
     if audit_summary_missing_events:
         safety_gaps.append("audit_summary_missing_required_events")
+    if not gate_report_ready:
+        safety_gaps.append("gate_report_ready_for_reviewer_handoff")
+    if not gate_report_ready_flag:
+        safety_gaps.append("gate_report_ready_flag_true")
+    if gate_report_pending_decisions != 0:
+        safety_gaps.append("gate_report_no_pending_decisions")
+    if gate_report_missing_events:
+        safety_gaps.append("gate_report_missing_required_events")
+    if not gate_report_read_only:
+        safety_gaps.append("gate_report_read_only")
+    if not gate_report_does_not_record:
+        safety_gaps.append("gate_report_does_not_record_audit_event")
+    if gate_report_execution_allowed is not False:
+        safety_gaps.append("gate_report_execution_disallowed")
     if not bundle_ready:
         safety_gaps.append("bundle_ready_for_handoff")
     if not bundle_read_only:
@@ -1665,6 +1690,9 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
             "rejected_item_approval_state": summary.get("rejected_item_approval_state"),
             "rejected_proposal_approval_state": summary.get("rejected_proposal_approval_state"),
             "audit_summary_status": summary.get("audit_summary_status"),
+            "gate_report_status": summary.get("gate_report_status"),
+            "gate_report_pending_decisions": gate_report_pending_decisions,
+            "gate_report_missing_required_events": gate_report_missing_events,
             "bundle_status": summary.get("bundle_status"),
             "bundle_remaining_gate_gaps": bundle_remaining_gaps,
             "bundle_reviewer_status": summary.get("bundle_reviewer_status"),
@@ -1678,6 +1706,10 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
             "proposal_approval_gate_exercised": proposal_approved,
             "risky_proposal_rejection_exercised": proposal_rejected,
             "audit_summary_human_gates_exercised": audit_summary_ready,
+            "gate_report_ready_for_reviewer_handoff": gate_report_ready_flag,
+            "gate_report_is_read_only": gate_report_read_only,
+            "gate_report_records_audit_event": summary.get("gate_report_records_audit_event"),
+            "gate_report_execution_allowed": gate_report_execution_allowed,
             "github_write_permission_required": False,
             "external_model_required": False,
             "billing_required": False,
@@ -1696,6 +1728,7 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
             "missing_artifacts": missing_artifacts,
             "missing_source_files": missing_source_files,
             "audit_summary_missing_required_events": audit_summary_missing_events,
+            "gate_report_missing_required_events": gate_report_missing_events,
             "safety_gaps": safety_gaps,
         },
         "remaining_evidence_gaps": [
@@ -1722,6 +1755,9 @@ def _render_control_plane_evidence_markdown(payload: dict[str, Any]) -> str:
         f"- Proposal approval state: `{signals['proposal_approval_state']}`",
         f"- Risky proposal rejection state: `{signals['rejected_proposal_approval_state']}`",
         f"- Audit summary status: `{signals['audit_summary_status']}`",
+        f"- Gate report status: `{signals['gate_report_status']}`",
+        f"- Gate report pending decisions: `{signals['gate_report_pending_decisions']}`",
+        f"- Gate report missing events: `{signals['gate_report_missing_required_events']}`",
         f"- Bundle status: `{signals['bundle_status']}`",
         f"- Bundle remaining gate gaps: `{signals['bundle_remaining_gate_gaps']}`",
         f"- Bundle reviewer status: `{signals['bundle_reviewer_status']}`",
@@ -1736,6 +1772,10 @@ def _render_control_plane_evidence_markdown(payload: dict[str, Any]) -> str:
         f"- Proposal approval gate exercised: `{safety['proposal_approval_gate_exercised']}`",
         f"- Risky proposal rejection exercised: `{safety['risky_proposal_rejection_exercised']}`",
         f"- Audit summary human gates exercised: `{safety['audit_summary_human_gates_exercised']}`",
+        f"- Gate report ready for reviewer handoff: `{safety['gate_report_ready_for_reviewer_handoff']}`",
+        f"- Gate report is read-only: `{safety['gate_report_is_read_only']}`",
+        f"- Gate report records audit event: `{safety['gate_report_records_audit_event']}`",
+        f"- Gate report execution allowed: `{safety['gate_report_execution_allowed']}`",
         f"- GitHub write permission required: `{safety['github_write_permission_required']}`",
         f"- External model required: `{safety['external_model_required']}`",
         f"- Billing required: `{safety['billing_required']}`",
@@ -2432,6 +2472,69 @@ def _render_queue_bundle_text(payload: dict[str, Any]) -> str:
     )
 
 
+def _render_queue_gate_report_markdown(payload: dict[str, Any]) -> str:
+    decisions = payload["decision_counts"]
+    safety = payload["safety"]
+    lines = [
+        "# PatchRail Queue Gate Report",
+        "",
+        f"- DB: `{payload['db_path']}`",
+        f"- Status: `{payload['status']}`",
+        f"- Ready for reviewer handoff: `{payload['ready_for_reviewer_handoff']}`",
+        f"- Pending decisions: `{payload['pending_decisions']}`",
+        "",
+        "## Decision Counts",
+        "",
+    ]
+    for name, count in decisions.items():
+        lines.append(f"- `{name}`: `{count}`")
+    lines.extend(["", "## Missing Required Events", ""])
+    if payload["missing_required_events"]:
+        lines.extend(f"- `{event}`" for event in payload["missing_required_events"])
+    else:
+        lines.append("- None.")
+    lines.extend(["", "## Reviewer Actions", ""])
+    lines.extend(f"- {action}" for action in payload["reviewer_actions"])
+    lines.extend(
+        [
+            "",
+            "## Safety",
+            "",
+            f"- Report is read-only: `{safety['report_is_read_only']}`",
+            f"- Report records audit event: `{safety['report_records_audit_event']}`",
+            f"- Execution allowed: `{safety['execution_allowed']}`",
+            f"- Local paths redacted: `{safety['local_paths_redacted']}`",
+            f"- Approval records execute actions: `{safety['approval_records_execute_actions']}`",
+            f"- GitHub write permission required: `{safety['github_write_permission_required']}`",
+            f"- Network required: `{safety['network_required']}`",
+            f"- External model required: `{safety['external_model_required']}`",
+            f"- Billing required: `{safety['billing_required']}`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _render_queue_gate_report_text(payload: dict[str, Any]) -> str:
+    return (
+        "\n".join(
+            [
+                "PatchRail Queue Gate Report",
+                f"DB: {payload['db_path']}",
+                f"Status: {payload['status']}",
+                f"Ready for reviewer handoff: {payload['ready_for_reviewer_handoff']}",
+                f"Pending decisions: {payload['pending_decisions']}",
+                f"Missing required events: {payload['missing_required_events']}",
+                f"Reviewer actions: {payload['reviewer_actions']}",
+                "Report is read-only: True",
+                "Report records audit event: False",
+                "Execution allowed: False",
+                "Local paths redacted: True",
+            ]
+        )
+        + "\n"
+    )
+
+
 def _render_queue_status_text(payload: dict[str, Any]) -> str:
     counts = payload["counts"]
     gate_summary = payload["human_gate_summary"]
@@ -2756,6 +2859,21 @@ def _queue_bundle(args: argparse.Namespace) -> int:
         text = _render_queue_bundle_text(payload)
     _write_or_print(text, args.out)
     return 0 if payload["status"] == "ready_for_handoff" else 1
+
+
+def _queue_gate_report(args: argparse.Namespace) -> int:
+    payload = queue_gate_report_payload(
+        _queue_db(args),
+        required_events=args.require_event,
+    )
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_queue_gate_report_markdown(payload)
+    else:
+        text = _render_queue_gate_report_text(payload)
+    _write_or_print(text, args.out)
+    return 0 if payload["ready_for_reviewer_handoff"] else 1
 
 
 def _queue_status(args: argparse.Namespace) -> int:
@@ -4024,6 +4142,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "ci-result",
             "queue-audit-event",
             "queue-audit-summary",
+            "queue-gate-report",
             "queue-proposal",
             "queue-status",
             "queue-work-item",
@@ -4388,6 +4507,27 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     queue_audit_summary.add_argument("--out", type=Path, help="Optional output path.")
     queue_audit_summary.set_defaults(func=_queue_audit_summary)
+
+    queue_gate_report = queue_subparsers.add_parser(
+        "gate-report",
+        help="Summarize reviewer handoff readiness without exporting queue records.",
+    )
+    queue_gate_report.add_argument(
+        "--require-event",
+        action="append",
+        help=(
+            "Audit event type required for ready status. May be repeated. Defaults to the "
+            "full local demo gate sequence."
+        ),
+    )
+    queue_gate_report.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="text",
+        help="Output format.",
+    )
+    queue_gate_report.add_argument("--out", type=Path, help="Optional output path.")
+    queue_gate_report.set_defaults(func=_queue_gate_report)
 
     queue_bundle = queue_subparsers.add_parser(
         "bundle",

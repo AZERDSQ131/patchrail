@@ -29,6 +29,8 @@ ARTIFACTS = [
     "queue.jsonl",
     "audit-events.jsonl",
     "audit-summary.json",
+    "gate-report.json",
+    "gate-report.md",
     "bundle.json",
     "bundle.md",
 ]
@@ -111,6 +113,8 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
     queue_jsonl = output / "queue.jsonl"
     audit_jsonl = output / "audit-events.jsonl"
     audit_summary_json = output / "audit-summary.json"
+    gate_report_json = output / "gate-report.json"
+    gate_report_md = output / "gate-report.md"
     bundle_json = output / "bundle.json"
     bundle_md = output / "bundle.md"
     summary_json = output / "summary.json"
@@ -363,6 +367,32 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
     )
     _run_patchrail(
         root,
+        [
+            "queue",
+            "--db",
+            str(db),
+            "gate-report",
+            "--format",
+            "json",
+            "--out",
+            str(gate_report_json),
+        ],
+    )
+    _run_patchrail(
+        root,
+        [
+            "queue",
+            "--db",
+            str(db),
+            "gate-report",
+            "--format",
+            "markdown",
+            "--out",
+            str(gate_report_md),
+        ],
+    )
+    _run_patchrail(
+        root,
         ["queue", "--db", str(db), "bundle", "--format", "json", "--out", str(bundle_json)],
     )
     _run_patchrail(
@@ -377,6 +407,7 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
     rejected_proposal = _json_file(proposal_rejected_json)
     queue_before_decisions = _json_file(queue_before_decisions_json)
     audit_summary = _json_file(audit_summary_json)
+    gate_report = _json_file(gate_report_json)
     bundle = _json_file(bundle_json)
     events = [json.loads(line) for line in audit_jsonl.read_text(encoding="utf-8").splitlines()]
 
@@ -397,6 +428,13 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
         "audit_summary_status": audit_summary["status"],
         "audit_summary_missing_required_events": audit_summary["missing_required_events"],
         "audit_summary_gates": audit_summary["gates"],
+        "gate_report_status": gate_report["status"],
+        "gate_report_ready_for_reviewer_handoff": gate_report["ready_for_reviewer_handoff"],
+        "gate_report_pending_decisions": gate_report["pending_decisions"],
+        "gate_report_missing_required_events": gate_report["missing_required_events"],
+        "gate_report_is_read_only": gate_report["safety"]["report_is_read_only"],
+        "gate_report_records_audit_event": gate_report["safety"]["report_records_audit_event"],
+        "gate_report_execution_allowed": gate_report["safety"]["execution_allowed"],
         "bundle_status": bundle["status"],
         "bundle_remaining_gate_gaps": bundle["remaining_gate_gaps"],
         "bundle_reviewer_status": bundle["reviewer_summary"]["status"],
@@ -423,6 +461,20 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
         raise AssertionError("Audit summary did not verify the local gate sequence.")
     if summary["audit_summary_missing_required_events"]:
         raise AssertionError("Audit summary must not miss required gate events.")
+    if summary["gate_report_status"] != "ready_for_reviewer_handoff":
+        raise AssertionError("Gate report must be ready after local human gates are exercised.")
+    if not summary["gate_report_ready_for_reviewer_handoff"]:
+        raise AssertionError("Gate report must mark the handoff reviewer-ready.")
+    if summary["gate_report_pending_decisions"] != 0:
+        raise AssertionError("Gate report must not leave pending reviewer decisions.")
+    if summary["gate_report_missing_required_events"]:
+        raise AssertionError("Gate report must not miss required gate events.")
+    if not summary["gate_report_is_read_only"]:
+        raise AssertionError("Gate report must remain read-only.")
+    if summary["gate_report_records_audit_event"]:
+        raise AssertionError("Reading the gate report must not append audit events.")
+    if summary["gate_report_execution_allowed"]:
+        raise AssertionError("Gate report must not allow execution.")
     if summary["bundle_status"] != "ready_for_handoff":
         raise AssertionError("Bundle must be ready for handoff after gate events.")
     if summary["bundle_remaining_gate_gaps"]:

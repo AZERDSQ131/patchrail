@@ -138,6 +138,7 @@ Export the local audit trail:
 patchrail queue export --format jsonl > patchrail-queue.jsonl
 patchrail queue audit --format jsonl > patchrail-audit-events.jsonl
 patchrail queue audit-summary --format markdown
+patchrail queue gate-report --format markdown
 patchrail queue bundle --format markdown > patchrail-queue-bundle.md
 ```
 
@@ -148,6 +149,14 @@ rejection, work item approval, work item rejection, and queue export. It exits
 successfully only when the required events are present. The command is read-only
 against the local SQLite queue: it does not create a new audit event, execute a
 proposal, open a pull request, post a comment, or contact a repository.
+
+`patchrail queue gate-report` is the short reviewer-facing readiness check. It
+combines queue status and audit-summary coverage without exporting the full
+work items, proposals, or audit events. It reports pending decisions, missing
+required events, decision counts, reviewer actions, and the safety boundary. It
+is read-only, records no audit event, permits no execution, and exits non-zero
+until all required local gate events are present and no decisions remain
+pending.
 
 `patchrail queue bundle` emits a read-only handoff packet from the same SQLite
 database. The bundle includes queue status, audit-summary gate coverage, work
@@ -162,8 +171,11 @@ post a comment, or contact a repository.
 
 The runnable demo in
 [`examples/local-agent-queue`](../examples/local-agent-queue/README.md) writes
-both `.patchrail-demo/bundle.json` and `.patchrail-demo/bundle.md`. Its stable
-summary records `bundle_status=ready_for_handoff`,
+`.patchrail-demo/gate-report.json`, `.patchrail-demo/gate-report.md`,
+`.patchrail-demo/bundle.json`, and `.patchrail-demo/bundle.md`. Its stable
+summary records `gate_report_status=ready_for_reviewer_handoff`,
+`gate_report_pending_decisions=0`, `gate_report_execution_allowed=false`,
+`bundle_status=ready_for_handoff`,
 `bundle_is_read_only=true`, `bundle_records_audit_event=false`, and
 `bundle_local_paths_redacted=true`. The Markdown bundle starts with a reviewer
 checklist for the local CI evidence, proposal decisions, audit summary, and
@@ -259,4 +271,5 @@ The current queue is enough for local demos and release evidence:
 - export audit events for item creation, proposals, maintainer decisions, and
   handoffs;
 - summarize local audit events into a release-checkable human-gate report;
+- emit a short read-only gate report for reviewer handoff readiness;
 - emit a read-only queue bundle for maintainer handoff and release evidence.

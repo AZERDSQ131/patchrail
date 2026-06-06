@@ -30,6 +30,9 @@ candidate evidence covers:
 - Shared `patchrail.queue_audit_summary.v1` contract for
   `patchrail queue audit-summary` and
   `patchrail schema queue-audit-summary`.
+- Shared `patchrail.queue_gate_report.v1` contract for
+  `patchrail queue gate-report` and
+  `patchrail schema queue-gate-report`.
 - Read-only `patchrail.queue_bundle.v1` handoff packet from
   `patchrail queue bundle`, including status, gate coverage, queue records,
   proposals, audit events, reviewer checklist, and safety metadata without
@@ -52,8 +55,10 @@ uv run --extra dev patchrail schema queue-work-item
 uv run --extra dev patchrail schema queue-proposal
 uv run --extra dev patchrail schema queue-audit-event
 uv run --extra dev patchrail schema queue-audit-summary
+uv run --extra dev patchrail schema queue-gate-report
 uv run --extra dev patchrail schema queue-status
 uv run --extra dev patchrail queue --db .patchrail-queue-demo/queue.sqlite audit-summary --format markdown
+uv run --extra dev patchrail queue --db .patchrail-queue-demo/queue.sqlite gate-report --format markdown
 uv run --extra dev patchrail queue --db .patchrail-queue-demo/queue.sqlite bundle --format markdown
 uv run --extra dev patchrail evidence control-plane --format markdown
 uv run --extra dev patchrail evidence http-api --format markdown
@@ -78,7 +83,12 @@ Current evidence snapshot from 2026-06-03:
 - The same demo writes `audit-summary.json`; `patchrail queue audit-summary`
   reports `human_gates_exercised` only after required approval, rejection,
   proposal, and export events are present.
-- The demo also writes `bundle.json` and `bundle.md`; `patchrail queue bundle`
+- The demo also writes `gate-report.json`, `gate-report.md`, `bundle.json`,
+  and `bundle.md`; `patchrail queue gate-report` reports
+  `ready_for_reviewer_handoff`, stays read-only, records no audit event, omits
+  full queue records, and reports `execution_allowed=false` once all local gate
+  events are exercised.
+- `patchrail queue bundle`
   reports `ready_for_handoff`, stays read-only, records no audit event while
   reading, redacts local paths, and exposes `reviewer_summary.status` as
   `ready_for_reviewer_handoff`.
@@ -94,6 +104,7 @@ Current evidence snapshot from 2026-06-03:
 - The main CI `oss-evidence-snapshot` job uploads the same Control Plane
   evidence as `control-plane-evidence.json`, `control-plane-evidence.md`, and
   the reviewer-facing `local-agent-queue/summary.json`,
+  `local-agent-queue/gate-report.json`, `local-agent-queue/gate-report.md`,
   `local-agent-queue/bundle.json`, and `local-agent-queue/bundle.md` inside the
   `patchrail-oss-evidence` artifact after tests and package smoke pass.
 - `patchrail evidence http-api --format markdown` starts an ephemeral
@@ -131,6 +142,7 @@ Recent owned-repo public PR evidence:
 - Queue proposal schema: [schemas/queue_proposal.schema.json](../schemas/queue_proposal.schema.json)
 - Queue audit event schema: [schemas/queue_audit_event.schema.json](../schemas/queue_audit_event.schema.json)
 - Queue audit summary schema: [schemas/queue_audit_summary.schema.json](../schemas/queue_audit_summary.schema.json)
+- Queue gate report schema: [schemas/queue_gate_report.schema.json](../schemas/queue_gate_report.schema.json)
 - Public workflow ledger: [docs/public-workflow-ledger.md](public-workflow-ledger.md)
 - OSS evidence tracker: [docs/oss-program-evidence.md](oss-program-evidence.md)
 

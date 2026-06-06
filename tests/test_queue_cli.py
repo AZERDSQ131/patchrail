@@ -50,6 +50,7 @@ class PatchRailQueueTests(unittest.TestCase):
             "queue-proposal": "PatchRail Queue Proposal",
             "queue-audit-event": "PatchRail Queue Audit Event",
             "queue-audit-summary": "PatchRail Queue Audit Summary",
+            "queue-gate-report": "PatchRail Queue Gate Report",
         }
         for schema_name, title in expected_titles.items():
             proc = run_patchrail(["schema", schema_name])
@@ -292,6 +293,45 @@ class PatchRailQueueTests(unittest.TestCase):
             self.assertEqual(summary["safety"]["github_write_permission_required"], False)
             self.assertEqual(summary["safety"]["network_required"], False)
 
+    def test_queue_gate_report_flags_pending_review_without_exporting_records(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "queue.sqlite"
+            add_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "add",
+                    "--kind",
+                    "ci_failure",
+                    "--title",
+                    "Review failing dependency install",
+                ]
+            )
+            self.assertEqual(add_proc.returncode, 0, add_proc.stderr)
+
+            report_proc = run_patchrail(
+                ["queue", "--db", str(db), "gate-report", "--format", "json"]
+            )
+
+            self.assertEqual(report_proc.returncode, 1)
+            report = json.loads(report_proc.stdout)
+            self.assertEqual(report["schema_version"], "patchrail.queue_gate_report.v1")
+            self.assertEqual(report["status"], "needs_reviewer_decisions")
+            self.assertEqual(report["ready_for_reviewer_handoff"], False)
+            self.assertEqual(report["pending_decisions"], 1)
+            self.assertEqual(report["decision_counts"]["pending_work_items"], 1)
+            self.assertIn("proposal_added", report["missing_required_events"])
+            self.assertIn(
+                "Review or reject all pending work items and proposals.",
+                report["reviewer_actions"],
+            )
+            self.assertEqual(report["safety"]["report_is_read_only"], True)
+            self.assertEqual(report["safety"]["report_records_audit_event"], False)
+            self.assertEqual(report["safety"]["execution_allowed"], False)
+            self.assertNotIn("work_items", report)
+            self.assertNotIn("proposals", report)
+
     def test_queue_status_summarizes_local_control_plane_without_write_permissions(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             db = Path(tmpdir) / "queue.sqlite"
@@ -491,6 +531,38 @@ class PatchRailQueueTests(unittest.TestCase):
             )
             self.assertEqual(audit_before_proc.returncode, 0, audit_before_proc.stderr)
             audit_before = json.loads(audit_before_proc.stdout)
+
+            gate_report_proc = run_patchrail(
+                ["queue", "--db", str(db), "gate-report", "--format", "json"]
+            )
+            self.assertEqual(gate_report_proc.returncode, 0, gate_report_proc.stderr)
+            gate_report = json.loads(gate_report_proc.stdout)
+            self.assertEqual(gate_report["schema_version"], "patchrail.queue_gate_report.v1")
+            self.assertEqual(gate_report["status"], "ready_for_reviewer_handoff")
+            self.assertEqual(gate_report["ready_for_reviewer_handoff"], True)
+            self.assertEqual(gate_report["pending_decisions"], 0)
+            self.assertEqual(gate_report["missing_required_events"], [])
+            self.assertEqual(gate_report["decision_counts"]["approved_work_items"], 1)
+            self.assertEqual(gate_report["decision_counts"]["rejected_work_items"], 1)
+            self.assertEqual(gate_report["decision_counts"]["approved_proposals"], 1)
+            self.assertEqual(gate_report["decision_counts"]["rejected_proposals"], 1)
+            self.assertEqual(gate_report["safety"]["report_is_read_only"], True)
+            self.assertEqual(gate_report["safety"]["report_records_audit_event"], False)
+            self.assertEqual(gate_report["safety"]["execution_allowed"], False)
+
+            gate_report_markdown_proc = run_patchrail(
+                ["queue", "--db", str(db), "gate-report", "--format", "markdown"]
+            )
+            self.assertEqual(
+                gate_report_markdown_proc.returncode, 0, gate_report_markdown_proc.stderr
+            )
+            self.assertIn("# PatchRail Queue Gate Report", gate_report_markdown_proc.stdout)
+            self.assertIn(
+                "Ready for reviewer handoff: `True`",
+                gate_report_markdown_proc.stdout,
+            )
+            self.assertIn("Report records audit event: `False`", gate_report_markdown_proc.stdout)
+            self.assertIn("Execution allowed: `False`", gate_report_markdown_proc.stdout)
 
             bundle_proc = run_patchrail(["queue", "--db", str(db), "bundle", "--format", "json"])
             self.assertEqual(bundle_proc.returncode, 0, bundle_proc.stderr)

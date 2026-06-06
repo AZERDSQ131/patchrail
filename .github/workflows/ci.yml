@@ -86,6 +86,8 @@ jobs:
           uv run python examples/local-agent-queue/run_demo.py --output .patchrail-ci-local-agent-queue --force
           mkdir -p patchrail-oss-evidence/local-agent-queue
           cp .patchrail-ci-local-agent-queue/summary.json patchrail-oss-evidence/local-agent-queue/summary.json
+          cp .patchrail-ci-local-agent-queue/gate-report.json patchrail-oss-evidence/local-agent-queue/gate-report.json
+          cp .patchrail-ci-local-agent-queue/gate-report.md patchrail-oss-evidence/local-agent-queue/gate-report.md
           cp .patchrail-ci-local-agent-queue/bundle.json patchrail-oss-evidence/local-agent-queue/bundle.json
           cp .patchrail-ci-local-agent-queue/bundle.md patchrail-oss-evidence/local-agent-queue/bundle.md
       - name: Upload OSS evidence snapshot

@@ -822,6 +822,14 @@ def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
         in workflow
     )
     assert (
+        "cp .patchrail-ci-local-agent-queue/gate-report.json patchrail-oss-evidence/local-agent-queue/gate-report.json"
+        in workflow
+    )
+    assert (
+        "cp .patchrail-ci-local-agent-queue/gate-report.md patchrail-oss-evidence/local-agent-queue/gate-report.md"
+        in workflow
+    )
+    assert (
         "cp .patchrail-ci-local-agent-queue/bundle.json patchrail-oss-evidence/local-agent-queue/bundle.json"
         in workflow
     )
@@ -838,6 +846,8 @@ def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
     assert "reviewer-packet/" in docs
     assert "patchrail evidence reviewer-packet --out-dir" in docs
     assert "local-agent-queue/summary.json" in docs
+    assert "local-agent-queue/gate-report.json" in docs
+    assert "local-agent-queue/gate-report.md" in docs
     assert "local-agent-queue/bundle.json" in docs
     assert "local-agent-queue/bundle.md" in docs
     assert "does not count as external adoption or PyPI download evidence" in docs
@@ -1020,7 +1030,7 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert payload["generated_from"] == "local_checkout"
     assert payload["summary_file"] == "examples/local-agent-queue/demo-summary.expected.json"
     assert payload["status"] == "local_demo_ready"
-    assert payload["signals"]["artifact_count"] == 21
+    assert payload["signals"]["artifact_count"] == 23
     assert payload["signals"]["audit_event_count"] == 9
     assert payload["signals"]["source_failure_class"] == "python_dependency_resolution"
     assert payload["signals"]["item_approval_state"] == "approved"
@@ -1029,6 +1039,9 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert payload["signals"]["rejected_item_approval_state"] == "rejected"
     assert payload["signals"]["rejected_proposal_approval_state"] == "rejected"
     assert payload["signals"]["audit_summary_status"] == "human_gates_exercised"
+    assert payload["signals"]["gate_report_status"] == "ready_for_reviewer_handoff"
+    assert payload["signals"]["gate_report_pending_decisions"] == 0
+    assert payload["signals"]["gate_report_missing_required_events"] == []
     assert payload["signals"]["bundle_status"] == "ready_for_handoff"
     assert payload["signals"]["bundle_remaining_gate_gaps"] == []
     assert payload["safety"]["local_first"] is True
@@ -1038,6 +1051,10 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert payload["safety"]["proposal_approval_gate_exercised"] is True
     assert payload["safety"]["risky_proposal_rejection_exercised"] is True
     assert payload["safety"]["audit_summary_human_gates_exercised"] is True
+    assert payload["safety"]["gate_report_ready_for_reviewer_handoff"] is True
+    assert payload["safety"]["gate_report_is_read_only"] is True
+    assert payload["safety"]["gate_report_records_audit_event"] is False
+    assert payload["safety"]["gate_report_execution_allowed"] is False
     assert payload["safety"]["github_write_permission_required"] is False
     assert payload["safety"]["external_model_required"] is False
     assert payload["safety"]["billing_required"] is False
@@ -1052,6 +1069,7 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert payload["artifact_presence"]["missing_artifacts"] == []
     assert payload["artifact_presence"]["missing_source_files"] == []
     assert payload["artifact_presence"]["audit_summary_missing_required_events"] == []
+    assert payload["artifact_presence"]["gate_report_missing_required_events"] == []
     assert payload["artifact_presence"]["safety_gaps"] == []
     assert (
         "permissioned external maintainer control-plane demo"
@@ -1073,6 +1091,10 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert "Bundle is read-only: `True`" in markdown_proc.stdout
     assert "Bundle records audit event: `False`" in markdown_proc.stdout
     assert "Bundle local paths redacted: `True`" in markdown_proc.stdout
+    assert "Gate report ready for reviewer handoff: `True`" in markdown_proc.stdout
+    assert "Gate report is read-only: `True`" in markdown_proc.stdout
+    assert "Gate report records audit event: `False`" in markdown_proc.stdout
+    assert "Gate report execution allowed: `False`" in markdown_proc.stdout
     assert "Bundle reviewer status: `ready_for_reviewer_handoff`" in markdown_proc.stdout
     assert "Bundle reviewer pending decisions: `0`" in markdown_proc.stdout
     assert "Bundle reviewer human gates complete: `True`" in markdown_proc.stdout
@@ -1088,6 +1110,7 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     )
     assert "patchrail evidence control-plane --format markdown" in docs
     assert "patchrail evidence http-api --format markdown" in docs
+    assert "patchrail queue gate-report --format markdown" in docs
     assert "patchrail queue bundle --format markdown" in docs
     assert "reviewer summary" in docs
     assert "ready_for_reviewer_handoff" in docs
@@ -1500,9 +1523,11 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "write actions remain locked" in api_reference
     assert "patchrail schema queue-work-item" in api_reference
     assert "patchrail schema queue-audit-summary" in api_reference
+    assert "patchrail schema queue-gate-report" in api_reference
     assert "patchrail schema application-dossier" in api_reference
     assert "schemas/queue_work_item.schema.json" in api_reference
     assert "schemas/queue_audit_summary.schema.json" in api_reference
+    assert "schemas/queue_gate_report.schema.json" in api_reference
     assert "schemas/application_dossier.schema.json" in api_reference
     assert "agent_may_submit=false" in api_reference
     assert "## CLI Audit Summary" in api_reference
@@ -1510,6 +1535,11 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
         api_reference
     )
     assert "patchrail.queue_audit_summary.v1" in api_reference
+    assert "## CLI Queue Gate Report" in api_reference
+    assert "patchrail queue --db patchrail-pilot.sqlite gate-report --format markdown" in (
+        api_reference
+    )
+    assert "patchrail.queue_gate_report.v1" in api_reference
     assert "## CLI Queue Bundle" in api_reference
     assert "patchrail queue --db patchrail-pilot.sqlite bundle --format markdown" in api_reference
     assert "patchrail.queue_bundle.v1" in api_reference
@@ -1812,6 +1842,8 @@ def test_local_agent_queue_demo_runs_end_to_end_with_stable_summary() -> None:
         rejected_proposal_markdown = (Path(tmpdir) / "proposal-rejected.md").read_text(
             encoding="utf-8"
         )
+        gate_report = json.loads((Path(tmpdir) / "gate-report.json").read_text(encoding="utf-8"))
+        gate_report_markdown = (Path(tmpdir) / "gate-report.md").read_text(encoding="utf-8")
         bundle = json.loads((Path(tmpdir) / "bundle.json").read_text(encoding="utf-8"))
         bundle_markdown = (Path(tmpdir) / "bundle.md").read_text(encoding="utf-8")
         events = [
@@ -1837,6 +1869,20 @@ def test_local_agent_queue_demo_runs_end_to_end_with_stable_summary() -> None:
         assert rejected_proposal["risk_level"] == "high"
         assert "Open a pull request immediately" in rejected_proposal_markdown
         assert "does not push commits" in rejected_proposal_markdown
+        assert gate_report["status"] == "ready_for_reviewer_handoff"
+        assert gate_report["ready_for_reviewer_handoff"] is True
+        assert gate_report["pending_decisions"] == 0
+        assert gate_report["missing_required_events"] == []
+        assert gate_report["safety"]["report_is_read_only"] is True
+        assert gate_report["safety"]["report_records_audit_event"] is False
+        assert gate_report["safety"]["execution_allowed"] is False
+        assert "/Volumes/" not in json.dumps(gate_report)
+        assert "/Users/" not in json.dumps(gate_report)
+        assert "/home/" not in json.dumps(gate_report)
+        assert "# PatchRail Queue Gate Report" in gate_report_markdown
+        assert "Ready for reviewer handoff: `True`" in gate_report_markdown
+        assert "Report records audit event: `False`" in gate_report_markdown
+        assert "Execution allowed: `False`" in gate_report_markdown
         assert bundle["status"] == "ready_for_handoff"
         assert bundle["remaining_gate_gaps"] == []
         assert bundle["safety"]["bundle_is_read_only"] is True

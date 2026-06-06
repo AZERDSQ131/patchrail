@@ -17,6 +17,7 @@ from patchrail.queue.store import (
 QUEUE_STATUS_SCHEMA_VERSION = "patchrail.queue_status.v1"
 QUEUE_AUDIT_SUMMARY_SCHEMA_VERSION = "patchrail.queue_audit_summary.v1"
 QUEUE_BUNDLE_SCHEMA_VERSION = "patchrail.queue_bundle.v1"
+QUEUE_GATE_REPORT_SCHEMA_VERSION = "patchrail.queue_gate_report.v1"
 
 DEFAULT_REQUIRED_AUDIT_EVENTS = [
     "work_item_added",
@@ -230,4 +231,55 @@ def queue_bundle_payload(
             "local_paths_redacted": True,
         },
         "remaining_gate_gaps": remaining_gate_gaps,
+    }
+
+
+def queue_gate_report_payload(
+    db_path: Path = DEFAULT_QUEUE_PATH,
+    *,
+    required_events: list[str] | None = None,
+) -> dict[str, Any]:
+    status = _redact_local_paths(queue_status_payload(db_path))
+    audit_summary = _redact_local_paths(
+        queue_audit_summary_payload(db_path, required_events=required_events)
+    )
+    gate_summary = status["human_gate_summary"]
+    missing_required_events = audit_summary["missing_required_events"]
+    pending_decisions = gate_summary["total_pending_decisions"]
+    ready = pending_decisions == 0 and not missing_required_events
+    reviewer_actions: list[str] = []
+    if pending_decisions:
+        reviewer_actions.append("Review or reject all pending work items and proposals.")
+    if missing_required_events:
+        reviewer_actions.append("Exercise the missing local human-gate audit events.")
+    if not reviewer_actions:
+        reviewer_actions.append("Inspect the queue bundle before any separate write action.")
+    return {
+        "schema_version": QUEUE_GATE_REPORT_SCHEMA_VERSION,
+        "queue_schema_version": status["queue_schema_version"],
+        "patchrail_version": __version__,
+        "db_path": _redact_local_paths(str(db_path)),
+        "local_first": True,
+        "status": "ready_for_reviewer_handoff" if ready else "needs_reviewer_decisions",
+        "ready_for_reviewer_handoff": ready,
+        "pending_decisions": pending_decisions,
+        "missing_required_events": missing_required_events,
+        "decision_counts": {
+            "pending_work_items": gate_summary["pending_work_items"],
+            "pending_proposals": gate_summary["pending_proposals"],
+            "approved_work_items": gate_summary["approved_work_items"],
+            "rejected_work_items": gate_summary["rejected_work_items"],
+            "approved_proposals": gate_summary["approved_proposals"],
+            "rejected_proposals": gate_summary["rejected_proposals"],
+        },
+        "audit_counts": audit_summary["counts"],
+        "gates": audit_summary["gates"],
+        "reviewer_actions": reviewer_actions,
+        "safety": {
+            **SAFE_QUEUE_STATUS,
+            "report_is_read_only": True,
+            "report_records_audit_event": False,
+            "local_paths_redacted": True,
+            "execution_allowed": False,
+        },
     }
