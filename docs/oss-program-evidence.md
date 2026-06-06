@@ -150,9 +150,9 @@ Last verified: 2026-06-06.
   bump, tag, PyPI publish, announcement, or external application.
 - Manual gates: PyPI publish, public announcements, and external applications
   remain explicit maintainer actions.
-- Tests: `uv run --extra dev pytest -q` -> 75 passed, 4 subtests passed.
+- Tests: `uv run --extra dev pytest -q` -> 84 passed, 6 subtests passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
-- Format: `uv run --extra dev ruff format --check .` -> 21 files already formatted.
+- Format: `uv run --extra dev ruff format --check .` -> 24 files already formatted.
 - Fixture hygiene: `uv run --extra dev patchrail ci fixture-check examples/ci-triage --format json` -> 143 / 143 fixtures passed.
 - CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 143 / 143 fixtures passed, top-1 fixture accuracy 1.0, and 14 root-cause families covered.
 - Consent-only pilot metrics: `uv run --extra dev patchrail ci pilot-metrics examples/pilot-outcome/*.summary.json --format json` separates owned-repo public mentions from external repository mentions so `patchrail/*` outcomes are not counted as external adopters.

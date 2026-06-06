@@ -1186,7 +1186,7 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
         in oss_program_evidence
     )
     assert (
-        "Tests: `uv run --extra dev pytest -q` -> 75 passed, 4 subtests passed."
+        "Tests: `uv run --extra dev pytest -q` -> 84 passed, 6 subtests passed."
         in oss_program_evidence
     )
     assert (

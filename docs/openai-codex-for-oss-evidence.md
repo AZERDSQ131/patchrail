@@ -184,9 +184,9 @@ Last verified: 2026-06-06.
   sdist/wheel assets.
 - Manual gates: PyPI publish, public announcements, and external applications
   remain explicit maintainer actions.
-- Tests after the reviewer-facing evidence guardrails: `uv run --extra dev pytest -q` -> 75 passed, 4 subtests passed.
+- Tests after the upstream-accounting dossier guardrail: `uv run --extra dev pytest -q` -> 84 passed, 6 subtests passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
-- Format after the shared queue status contract: `uv run --extra dev ruff format --check .` -> 21 files already formatted.
+- Format after the upstream-accounting dossier guardrail: `uv run --extra dev ruff format --check .` -> 24 files already formatted.
 - CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 143 / 143 fixtures passed.
 - Consent-only pilot metrics: `uv run --extra dev patchrail ci pilot-metrics examples/pilot-outcome/*.summary.json --format json` separates owned-repo public mentions from external repository mentions so `patchrail/*` outcomes are not counted as external adopters.
 - Queue demo: `uv run --extra dev patchrail queue --db /tmp/patchrail-demo.sqlite init` and `patchrail queue add/list/approve/export` run locally with no write actions.
