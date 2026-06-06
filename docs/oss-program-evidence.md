@@ -31,7 +31,9 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - Application gate:
   `patchrail evidence application-gate --format markdown` fails closed until
   PyPI telemetry, permissioned external evidence, and visible review links are
-  real rather than placeholder-derived
+  real rather than placeholder-derived. It separates blocked dependencies from
+  safe local work, so `not_ready` means "do not apply yet" rather than "stop
+  maintaining the project."
 - Agent Control Plane evidence audit:
   `patchrail evidence control-plane --format markdown` verifies the checked-in
   local queue demo summary, required audit events, required artifacts, human
@@ -227,7 +229,9 @@ Last verified: 2026-06-06.
 - Application gate: `uv run --extra dev patchrail evidence application-gate --format json`
   currently returns `not_ready` and `do_not_apply_yet` because PyPI telemetry,
   permissioned external adopters, and formal visible review links are still
-  missing.
+  missing. The payload includes `blocked_dependencies` with the human/external
+  owner of each blocker plus `safe_local_work_while_blocked` for continued
+  local roadmap work.
 
 ## Public Launch Issues
 

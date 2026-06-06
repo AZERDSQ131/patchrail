@@ -971,6 +971,29 @@ def _application_gate_payload(root: Path) -> dict[str, Any]:
         "no_placeholder_metrics_in_application_copy": "placeholder metrics in application copy",
     }
     blockers = [reason for key, reason in blocker_map.items() if not checks[key]]
+    blocked_dependencies = [
+        {
+            "blocker": "first PyPI publish and download telemetry",
+            "owner": "maintainer_human_gate",
+            "required_evidence": "PyPI Trusted Publisher or package-index credentials plus real download telemetry",
+            "safe_local_alternative": "keep release-readiness, wheel smoke, and pre-PyPI install documentation green",
+        },
+        {
+            "blocker": "permissioned external maintainer pilots or adopters",
+            "owner": "external_maintainer_permission",
+            "required_evidence": "a maintainer-approved public pilot summary or adopter listing",
+            "safe_local_alternative": "improve consent-only pilot docs, redaction, and fixture contribution paths",
+        },
+        {
+            "blocker": "formal visible review links",
+            "owner": "public_review_artifact",
+            "required_evidence": "public review or triage links that are real and attributable without placeholder claims",
+            "safe_local_alternative": "continue owned-repo issue-to-PR cycles and review-packet evidence",
+        },
+    ]
+    active_blocked_dependencies = [
+        item for item in blocked_dependencies if item["blocker"] in blockers
+    ]
     ready = not blockers and all(checks.values())
     return {
         "schema_version": "patchrail.application_gate.v1",
@@ -990,11 +1013,18 @@ def _application_gate_payload(root: Path) -> dict[str, Any]:
             "focused_maintainer_prs": review_triage["focused_maintainer_prs"],
         },
         "blockers": blockers,
+        "blocked_dependencies": active_blocked_dependencies,
         "safe_next_actions": [
             "publish to PyPI only after maintainer package-index credentials are configured",
             "record permissioned external maintainer pilots before counting adopter evidence",
             "add formal visible review links only when public review artifacts exist",
             "keep application copy blocked while any metric is pending or placeholder-derived",
+        ],
+        "safe_local_work_while_blocked": [
+            "extend CI Failure Zoo fixtures and benchmark guardrails",
+            "improve Agent Control Plane queue, approval, and audit evidence",
+            "keep README, quickstart, release-readiness, and application-gate docs honest",
+            "prepare upstream contributions only when a real bug or maintenance improvement exists",
         ],
         "safety": {
             "local_first": True,
@@ -1027,8 +1057,23 @@ def _render_application_gate_markdown(payload: dict[str, Any]) -> str:
         lines.extend(f"- {blocker}" for blocker in payload["blockers"])
     else:
         lines.append("- none")
+    lines.extend(["", "## Blocked Dependencies", ""])
+    if payload["blocked_dependencies"]:
+        for item in payload["blocked_dependencies"]:
+            lines.extend(
+                [
+                    f"- `{item['blocker']}`",
+                    f"  - Owner: `{item['owner']}`",
+                    f"  - Required evidence: {item['required_evidence']}",
+                    f"  - Safe local alternative: {item['safe_local_alternative']}",
+                ]
+            )
+    else:
+        lines.append("- none")
     lines.extend(["", "## Safe Next Actions", ""])
     lines.extend(f"- {action}" for action in payload["safe_next_actions"])
+    lines.extend(["", "## Safe Local Work While Blocked", ""])
+    lines.extend(f"- {action}" for action in payload["safe_local_work_while_blocked"])
     return "\n".join(lines) + "\n"
 
 

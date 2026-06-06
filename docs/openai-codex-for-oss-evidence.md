@@ -61,7 +61,10 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - Application gate:
   `patchrail evidence application-gate --format markdown` fails closed until
   PyPI telemetry, permissioned external evidence, and visible review links are
-  real rather than placeholder-derived
+  real rather than placeholder-derived. When blocked, it labels each dependency
+  by owner (`maintainer_human_gate`, `external_maintainer_permission`, or
+  `public_review_artifact`) and lists safe local work that can continue without
+  fabricating metrics or taking external write actions.
 - Pilot pack command: `patchrail ci pilot-pack` creates a local redacted review
   bundle with a manifest, report, result JSON, and no raw log copy
 - Pilot summary command: `patchrail ci pilot-summary` turns a reviewed pack into
@@ -260,7 +263,10 @@ Last verified: 2026-06-06.
   `uv run --extra dev patchrail evidence application-gate --format json`
   currently returns `not_ready` and `do_not_apply_yet`; it keeps the external
   application blocked while PyPI telemetry, permissioned external adopters, and
-  formal visible review links remain missing.
+  formal visible review links remain missing. The JSON also reports
+  `blocked_dependencies` and `safe_local_work_while_blocked` so the lane can
+  keep improving CI fixtures, Agent Control Plane evidence, honest docs, and
+  real upstream contributions instead of idling.
 
 ## Public Launch Issues
 

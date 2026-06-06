@@ -407,6 +407,42 @@ def test_application_gate_fails_closed_until_public_evidence_is_real() -> None:
     assert "first PyPI publish and download telemetry" in payload["blockers"]
     assert "permissioned external maintainer pilots or adopters" in payload["blockers"]
     assert "formal visible review links" in payload["blockers"]
+    assert payload["blocked_dependencies"] == [
+        {
+            "blocker": "first PyPI publish and download telemetry",
+            "owner": "maintainer_human_gate",
+            "required_evidence": (
+                "PyPI Trusted Publisher or package-index credentials plus real download telemetry"
+            ),
+            "safe_local_alternative": (
+                "keep release-readiness, wheel smoke, and pre-PyPI install documentation green"
+            ),
+        },
+        {
+            "blocker": "permissioned external maintainer pilots or adopters",
+            "owner": "external_maintainer_permission",
+            "required_evidence": ("a maintainer-approved public pilot summary or adopter listing"),
+            "safe_local_alternative": (
+                "improve consent-only pilot docs, redaction, and fixture contribution paths"
+            ),
+        },
+        {
+            "blocker": "formal visible review links",
+            "owner": "public_review_artifact",
+            "required_evidence": (
+                "public review or triage links that are real and attributable without placeholder claims"
+            ),
+            "safe_local_alternative": (
+                "continue owned-repo issue-to-PR cycles and review-packet evidence"
+            ),
+        },
+    ]
+    assert payload["safe_local_work_while_blocked"] == [
+        "extend CI Failure Zoo fixtures and benchmark guardrails",
+        "improve Agent Control Plane queue, approval, and audit evidence",
+        "keep README, quickstart, release-readiness, and application-gate docs honest",
+        "prepare upstream contributions only when a real bug or maintenance improvement exists",
+    ]
     assert payload["signals"]["ci_fixtures"] == 138
     assert payload["signals"]["public_external_adopters"] == 0
     assert payload["signals"]["owned_repo_issue_pr_cycles"] == 20
@@ -437,7 +473,15 @@ def test_application_gate_fails_closed_until_public_evidence_is_real() -> None:
     assert markdown_proc.returncode == 1, markdown_proc.stdout
     assert "# PatchRail Application Gate" in markdown_proc.stdout
     assert "- Decision: `do_not_apply_yet`" in markdown_proc.stdout
+    assert "## Blocked Dependencies" in markdown_proc.stdout
+    assert "- Owner: `maintainer_human_gate`" in markdown_proc.stdout
+    assert "- Owner: `external_maintainer_permission`" in markdown_proc.stdout
+    assert "- Owner: `public_review_artifact`" in markdown_proc.stdout
     assert "keep application copy blocked while any metric is pending" in markdown_proc.stdout
+    assert "## Safe Local Work While Blocked" in markdown_proc.stdout
+    assert "improve Agent Control Plane queue, approval, and audit evidence" in (
+        markdown_proc.stdout
+    )
 
 
 def test_control_plane_evidence_audits_local_demo_without_write_actions() -> None:
@@ -778,6 +822,11 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "Public maintenance workflow ledger" in evidence
     assert "public-workflow-ledger.md" in evidence
     assert "formal visible Codex" in evidence
+    assert "blocked_dependencies" in evidence
+    assert "safe_local_work_while_blocked" in evidence
+    assert "maintainer_human_gate" in evidence
+    assert "external_maintainer_permission" in evidence
+    assert "public_review_artifact" in evidence
     assert "#61 -> #62" in evidence
     assert "#59 -> #60" in evidence
     assert "Consent-only pilot outcome example" in evidence
@@ -790,6 +839,12 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "owned-repo issue-to-PR cycles" in oss_program_evidence
     assert "patchrail evidence review-packet --format markdown" in oss_program_evidence
     assert "patchrail evidence review-packet --format json" in oss_program_evidence
+    assert "not_ready" in oss_program_evidence
+    assert "does not apply yet" not in oss_program_evidence
+    assert "do_not_apply_yet" in oss_program_evidence
+    assert 'not_ready` means "do not apply yet" rather than "stop' in (oss_program_evidence)
+    assert "blocked_dependencies" in oss_program_evidence
+    assert "safe_local_work_while_blocked" in oss_program_evidence
     assert "#61 -> #62" in oss_program_evidence
     assert "#59 -> #60" in oss_program_evidence
     assert "Consent-only pilot outcome example" in oss_program_evidence
