@@ -41,6 +41,8 @@ def _write_artifacts(
     out_dir: Path,
     *,
     ci_report: str,
+    control_plane_text: str,
+    control_plane_json: str,
     gate_text: str,
     dossier_text: str,
     dossier_json: str,
@@ -50,6 +52,8 @@ def _write_artifacts(
     out_dir.mkdir(parents=True, exist_ok=True)
     artifacts = {
         "ci-triage-demo.md": ci_report,
+        "control-plane-evidence.md": control_plane_text,
+        "control-plane-evidence.json": control_plane_json,
         "application-gate.txt": gate_text,
         "application-dossier.txt": dossier_text,
         "application-dossier.json": dossier_json,
@@ -84,6 +88,14 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
             "--format",
             "markdown",
         ],
+        root=root,
+    )
+    control_plane = _run_patchrail(
+        ["evidence", "control-plane", "--format", "markdown"],
+        root=root,
+    )
+    control_plane_json = _run_patchrail(
+        ["evidence", "control-plane", "--format", "json"],
         root=root,
     )
     gate = _run_patchrail(
@@ -121,13 +133,20 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
         "",
         _fenced("markdown", ci_report.stdout),
         "",
-        "## 3. Application Gate",
+        "## 3. Agent Control Plane Evidence",
+        "",
+        "The local queue demo must be ready for reviewer handoff, exercise human",
+        "approval gates, and keep execution disabled.",
+        "",
+        _fenced("markdown", control_plane.stdout),
+        "",
+        "## 4. Application Gate",
         "",
         "The gate is expected to fail closed until public evidence is real.",
         "",
         _fenced("text", gate.stdout),
         "",
-        "## 4. Application Dossier Contract",
+        "## 5. Application Dossier Contract",
         "",
         "The dossier is a local draft artifact. It does not submit the external",
         "application and keeps maintainer tap required.",
@@ -148,6 +167,8 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
         written_artifacts = _write_artifacts(
             out_dir,
             ci_report=ci_report.stdout,
+            control_plane_text=control_plane.stdout,
+            control_plane_json=control_plane_json.stdout,
             gate_text=gate.stdout,
             dossier_text=dossier.stdout,
             dossier_json=dossier_json.stdout,
@@ -156,7 +177,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
         )
         lines.extend(
             [
-                "## 5. Artifact Packet",
+                "## 6. Artifact Packet",
                 "",
                 f"Output directory: `{_display_path(out_dir, root=root)}`",
                 "",
@@ -170,6 +191,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
             "## Result",
             "",
             "- Reviewer demo generated: `True`",
+            "- Agent Control Plane evidence generated: `True`",
             "- Application dossier generated: `True`",
             "- Application dossier schema available: `True`",
             "- Reviewer packet manifest schema available: `True`",

@@ -118,8 +118,10 @@ The reviewer quick-check artifact schema preserves the same local reviewer
 boundary for
 `patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet`:
 generated packets declare no network, write action, public publish, or
-application submission, and include their own manifest schema for offline
-validation. Contract phrase: no network, write action, public publish, or application submission.
+application submission, include the Agent Control Plane reviewer handoff audit
+as `control-plane-evidence.md/json`, and include their own manifest schema for
+offline validation. Contract phrase: no network, write action, public publish,
+or application submission. Short contract: no network, write action, public publish, or application submission.
 The compatibility script
 `scripts/reviewer_quick_check.py --out-dir` calls the same packaged
 implementation.

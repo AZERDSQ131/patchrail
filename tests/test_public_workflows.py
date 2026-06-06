@@ -299,9 +299,13 @@ def test_reviewer_quick_check_script_outputs_local_demo_and_fail_closed_gate() -
     assert "# PatchRail Reviewer Quick Check" in output
     assert "## 1. Local Doctor" in output
     assert "## 2. CI Triage Demo" in output
-    assert "## 3. Application Gate" in output
-    assert "## 4. Application Dossier Contract" in output
+    assert "## 3. Agent Control Plane Evidence" in output
+    assert "## 4. Application Gate" in output
+    assert "## 5. Application Dossier Contract" in output
     assert "- Root cause: `python_dependency_resolution`" in output
+    assert "Status: `local_demo_ready`" in output
+    assert "- Bundle reviewer status: `ready_for_reviewer_handoff`" in output
+    assert "- Bundle reviewer execution allowed: `False`" in output
     assert "Status: not_ready" in output
     assert "Decision: do_not_apply_yet" in output
     assert "Status: draft_only_do_not_submit" in output
@@ -312,6 +316,7 @@ def test_reviewer_quick_check_script_outputs_local_demo_and_fail_closed_gate() -
     assert "- Network required: `False`" in output
     assert "- Write action required: `False`" in output
     assert "- Application form submission performed: `False`" in output
+    assert "- Agent Control Plane evidence generated: `True`" in output
     assert "- Application dossier generated: `True`" in output
     assert "- Application dossier schema available: `True`" in output
     assert "- Reviewer packet manifest schema available: `True`" in output
@@ -332,12 +337,14 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         )
 
         assert proc.returncode == 0, proc.stderr
-        assert "## 5. Artifact Packet" in proc.stdout
+        assert "## 6. Artifact Packet" in proc.stdout
         assert "- Artifact packet generated: `True`" in proc.stdout
 
         expected_files = {
             "reviewer-quick-check.md",
             "ci-triage-demo.md",
+            "control-plane-evidence.md",
+            "control-plane-evidence.json",
             "application-gate.txt",
             "application-dossier.txt",
             "application-dossier.json",
@@ -371,6 +378,8 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
                 "application-dossier.txt",
                 "application-gate.txt",
                 "ci-triage-demo.md",
+                "control-plane-evidence.json",
+                "control-plane-evidence.md",
                 "reviewer-quick-check-artifacts.schema.json",
             ],
         }
@@ -398,9 +407,18 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert dossier["status"] == "draft_only_do_not_submit"
         assert dossier["submission_policy"]["agent_may_submit"] is False
         assert dossier["submission_policy"]["maintainer_tap_required"] is True
+        control_plane = json.loads(
+            (out_dir / "control-plane-evidence.json").read_text(encoding="utf-8")
+        )
+        assert control_plane["schema_version"] == "patchrail.control_plane_evidence.v1"
+        assert control_plane["status"] == "local_demo_ready"
+        assert control_plane["signals"]["bundle_reviewer_status"] == "ready_for_reviewer_handoff"
+        assert control_plane["safety"]["bundle_reviewer_execution_allowed"] is False
+        assert control_plane["safety"]["bundle_reviewer_human_gates_complete"] is True
 
         packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
         assert "Status: draft_only_do_not_submit" in packet
+        assert "Status: `local_demo_ready`" in packet
         assert "patchrail.application_dossier.v1" in packet
         assert "patchrail.reviewer_quick_check_artifacts.v1" in packet
         assert "/Volumes/" not in packet
@@ -429,14 +447,17 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
 
         assert proc.returncode == 0, proc.stderr
         assert "# PatchRail Reviewer Quick Check" in proc.stdout
-        assert "## 5. Artifact Packet" in proc.stdout
+        assert "## 6. Artifact Packet" in proc.stdout
         assert "- Artifact packet generated: `True`" in proc.stdout
+        assert "- Agent Control Plane evidence generated: `True`" in proc.stdout
         assert "patchrail.application_dossier.v1" in proc.stdout
         assert "patchrail.reviewer_quick_check_artifacts.v1" in proc.stdout
 
         expected_files = {
             "reviewer-quick-check.md",
             "ci-triage-demo.md",
+            "control-plane-evidence.md",
+            "control-plane-evidence.json",
             "application-gate.txt",
             "application-dossier.txt",
             "application-dossier.json",
@@ -454,6 +475,7 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
 
         packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
         assert "Status: draft_only_do_not_submit" in packet
+        assert "ready_for_reviewer_handoff" in packet
         assert "/Volumes/" not in packet
         assert "/Users/" not in packet
         assert "/home/" not in packet
@@ -488,6 +510,8 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
         in combined_evidence
     )
     assert "reviewer-quick-check-artifacts.schema.json" in combined_evidence
+    assert "control-plane-evidence.json" in combined_evidence
+    assert "control-plane-evidence.md" in combined_evidence
     assert "own manifest schema for offline validation" in normalized_evidence
     assert mirrored_schema == packaged_schema
 
@@ -1121,6 +1145,8 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
         "application-dossier.txt",
         "application-dossier.json",
         "application-dossier.schema.json",
+        "control-plane-evidence.md",
+        "control-plane-evidence.json",
         "reviewer-quick-check-artifacts.schema.json",
         "manifest.json",
     ):

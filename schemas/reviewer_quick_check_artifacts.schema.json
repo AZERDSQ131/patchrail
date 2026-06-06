@@ -30,7 +30,7 @@
     },
     "artifacts": {
       "type": "array",
-      "minItems": 7,
+      "minItems": 9,
       "uniqueItems": true,
       "contains": {
         "const": "reviewer-quick-check.md"
@@ -43,6 +43,8 @@
           "application-dossier.txt",
           "application-gate.txt",
           "ci-triage-demo.md",
+          "control-plane-evidence.json",
+          "control-plane-evidence.md",
           "reviewer-quick-check-artifacts.schema.json"
         ]
       }
