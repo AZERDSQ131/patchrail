@@ -308,11 +308,13 @@ def test_reviewer_quick_check_script_outputs_local_demo_and_fail_closed_gate() -
     assert "Maintainer tap required: True" in output
     assert "Agent may submit: False" in output
     assert "patchrail.application_dossier.v1" in output
+    assert "patchrail.reviewer_quick_check_artifacts.v1" in output
     assert "- Network required: `False`" in output
     assert "- Write action required: `False`" in output
     assert "- Application form submission performed: `False`" in output
     assert "- Application dossier generated: `True`" in output
     assert "- Application dossier schema available: `True`" in output
+    assert "- Reviewer packet manifest schema available: `True`" in output
     assert "- Artifact packet generated: `False`" in output
     assert "publish to PyPI" in output
     assert "create pull requests" in output
@@ -340,6 +342,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
             "application-dossier.txt",
             "application-dossier.json",
             "application-dossier.schema.json",
+            "reviewer-quick-check-artifacts.schema.json",
             "manifest.json",
         }
         assert {path.name for path in out_dir.iterdir()} == expected_files
@@ -368,6 +371,7 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
                 "application-dossier.txt",
                 "application-gate.txt",
                 "ci-triage-demo.md",
+                "reviewer-quick-check-artifacts.schema.json",
             ],
         }
         assert schema["properties"]["schema_version"]["const"] == manifest["schema_version"]
@@ -382,6 +386,12 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
             is manifest["application_form_submission_performed"]
         )
         assert set(manifest["artifacts"]) <= set(schema["properties"]["artifacts"]["items"]["enum"])
+        assert (
+            json.loads(
+                (out_dir / "reviewer-quick-check-artifacts.schema.json").read_text(encoding="utf-8")
+            )
+            == schema
+        )
 
         dossier = json.loads((out_dir / "application-dossier.json").read_text(encoding="utf-8"))
         assert dossier["schema_version"] == "patchrail.application_dossier.v1"
@@ -392,9 +402,38 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
         assert "Status: draft_only_do_not_submit" in packet
         assert "patchrail.application_dossier.v1" in packet
+        assert "patchrail.reviewer_quick_check_artifacts.v1" in packet
         assert "/Volumes/" not in packet
         assert "/Users/" not in packet
         assert "/home/" not in packet
+
+
+def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
+    api_reference = (ROOT / "docs" / "api-reference.md").read_text(encoding="utf-8")
+    oss_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
+    codex_evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(
+        encoding="utf-8"
+    )
+    combined_evidence = "\n".join([oss_evidence, codex_evidence])
+    normalized_evidence = " ".join(combined_evidence.split())
+    packaged_schema = json.loads(
+        (
+            ROOT / "src" / "patchrail" / "schemas" / "reviewer-quick-check-artifacts.v1.schema.json"
+        ).read_text(encoding="utf-8")
+    )
+    mirrored_schema = json.loads(
+        (ROOT / "schemas" / "reviewer_quick_check_artifacts.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert "patchrail schema reviewer-quick-check-artifacts" in api_reference
+    assert "src/patchrail/schemas/reviewer-quick-check-artifacts.v1.schema.json" in api_reference
+    assert "schemas/reviewer_quick_check_artifacts.schema.json" in api_reference
+    assert "no network, write action, public publish, or application submission" in api_reference
+    assert "reviewer-quick-check-artifacts.schema.json" in combined_evidence
+    assert "own manifest schema for offline validation" in normalized_evidence
+    assert mirrored_schema == packaged_schema
 
 
 def test_evidence_snapshot_summarizes_public_oss_signals_without_write_actions() -> None:

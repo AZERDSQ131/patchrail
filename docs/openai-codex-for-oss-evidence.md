@@ -38,12 +38,14 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `uv run --extra dev python scripts/reviewer_quick_check.py --out-dir patchrail-reviewer-packet`
   emits a local Markdown packet and writes reviewer-facing artifacts:
   `reviewer-quick-check.md`, `ci-triage-demo.md`, `application-gate.txt`,
-  `application-dossier.json`, and `application-dossier.schema.json`. The packet
-  includes `doctor`, the real CI triage demo, the fail-closed application gate,
-  and the local application dossier contract/schema. Its manifest contract is
-  available with `patchrail schema reviewer-quick-check-artifacts`. It requires
-  no network, write permissions, PyPI publish, public comments, pull requests,
-  funded issue claims, or application submit.
+  `application-dossier.json`, `application-dossier.schema.json`, and
+  `reviewer-quick-check-artifacts.schema.json`. The packet includes `doctor`,
+  the real CI triage demo, the fail-closed application gate, the local
+  application dossier contract/schema, and its own manifest schema for offline
+  validation. Its manifest contract is available with
+  `patchrail schema reviewer-quick-check-artifacts`. It requires no network,
+  write permissions, PyPI publish, public comments, pull requests, funded issue
+  claims, or application submit.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public metrics tracker: [docs/metrics.md](metrics.md) records current public

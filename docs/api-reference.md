@@ -75,6 +75,7 @@ patchrail schema ci-fixture-check
 patchrail schema ci-pilot-summary
 patchrail schema ci-pilot-metrics
 patchrail schema application-dossier
+patchrail schema reviewer-quick-check-artifacts
 ```
 
 The same schema files are mirrored in `src/patchrail/schemas/` for package
@@ -86,6 +87,7 @@ consumers:
 - `src/patchrail/schemas/ci-pilot-summary.v1.schema.json`
 - `src/patchrail/schemas/ci-pilot-metrics.v1.schema.json`
 - `src/patchrail/schemas/application-dossier.v1.schema.json`
+- `src/patchrail/schemas/reviewer-quick-check-artifacts.v1.schema.json`
 - `src/patchrail/schemas/queue-work-item.v1.schema.json`
 - `src/patchrail/schemas/queue-proposal.v1.schema.json`
 - `src/patchrail/schemas/queue-audit-event.v1.schema.json`
@@ -101,6 +103,7 @@ that read schemas without installing the package:
 - `schemas/queue_audit_summary.schema.json`
 - `schemas/queue_status.schema.json`
 - `schemas/application_dossier.schema.json`
+- `schemas/reviewer_quick_check_artifacts.schema.json`
 
 The schemas preserve the human-approval boundary: work items require
 `write_actions_allowed=false`, proposals are local patch-plan records, and audit
@@ -111,6 +114,10 @@ unapproved external adopter counting is required by those outputs.
 The application dossier schema preserves the external-program boundary:
 `agent_may_submit=false`, maintainer tap is required, placeholder metrics are
 forbidden, and third-party write actions remain disabled.
+The reviewer quick-check artifact schema preserves the same local reviewer
+boundary for `scripts/reviewer_quick_check.py --out-dir`: generated packets
+declare no network, write action, public publish, or application submission, and
+include their own manifest schema for offline validation.
 
 ## CLI Audit Summary
 

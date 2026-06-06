@@ -49,6 +49,7 @@ def _write_artifacts(
     dossier_text: str,
     dossier_json: str,
     dossier_schema: str,
+    reviewer_packet_schema: str,
 ) -> list[str]:
     out_dir.mkdir(parents=True, exist_ok=True)
     artifacts = {
@@ -57,6 +58,7 @@ def _write_artifacts(
         "application-dossier.txt": dossier_text,
         "application-dossier.json": dossier_json,
         "application-dossier.schema.json": dossier_schema,
+        "reviewer-quick-check-artifacts.schema.json": reviewer_packet_schema,
     }
     for name, content in artifacts.items():
         (out_dir / name).write_text(content.strip() + "\n", encoding="utf-8")
@@ -101,6 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     dossier = _run_patchrail(["evidence", "application-dossier", "--format", "text"])
     dossier_json = _run_patchrail(["evidence", "application-dossier", "--format", "json"])
     dossier_schema = _run_patchrail(["schema", "application-dossier"])
+    reviewer_packet_schema = _run_patchrail(["schema", "reviewer-quick-check-artifacts"])
 
     lines = [
         "# PatchRail Reviewer Quick Check",
@@ -142,6 +145,10 @@ def main(argv: list[str] | None = None) -> int:
         "",
         _fenced("json", dossier_schema.stdout),
         "",
+        "Reviewer packet manifest schema smoke:",
+        "",
+        _fenced("json", reviewer_packet_schema.stdout),
+        "",
     ]
     written_artifacts: list[str] = []
     if args.out_dir:
@@ -152,6 +159,7 @@ def main(argv: list[str] | None = None) -> int:
             dossier_text=dossier.stdout,
             dossier_json=dossier_json.stdout,
             dossier_schema=dossier_schema.stdout,
+            reviewer_packet_schema=reviewer_packet_schema.stdout,
         )
         lines.extend(
             [
@@ -171,6 +179,7 @@ def main(argv: list[str] | None = None) -> int:
             "- Reviewer demo generated: `True`",
             "- Application dossier generated: `True`",
             "- Application dossier schema available: `True`",
+            "- Reviewer packet manifest schema available: `True`",
             f"- Artifact packet generated: `{'True' if written_artifacts else 'False'}`",
             "- Network required: `False`",
             "- Write action required: `False`",

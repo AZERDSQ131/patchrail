@@ -104,6 +104,7 @@ class PatchRailCITests(unittest.TestCase):
                     artifacts = schema["properties"]["artifacts"]["items"]["enum"]
                     self.assertIn("reviewer-quick-check.md", artifacts)
                     self.assertIn("application-dossier.json", artifacts)
+                    self.assertIn("reviewer-quick-check-artifacts.schema.json", artifacts)
                 else:
                     requirements = schema["properties"]["requirements"]["properties"]
                     self.assertEqual(requirements["billing_required"]["const"], False)
