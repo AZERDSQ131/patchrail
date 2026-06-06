@@ -22,7 +22,7 @@ def run_patchrail(args: list[str]) -> subprocess.CompletedProcess[str]:
 class PatchRailQueueTests(unittest.TestCase):
     def test_queue_status_redaction_masks_local_paths_in_public_payloads(self) -> None:
         payload = {
-            "db_path": "/Volumes/CorsairSSD/OpenClaw/tmp/queue.sqlite",
+            "db_path": "/Volumes/ExternalDrive/PatchRail/tmp/queue.sqlite",
             "work_items": [
                 {
                     "payload": {

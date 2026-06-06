@@ -201,7 +201,8 @@ def test_pre_pypi_install_verification_is_recorded_without_pypi_claims() -> None
 
     assert "Pre-PyPI install verification, 2026-06-06" in evidence
     assert "Pre-PyPI install verification, 2026-06-06" in program_evidence
-    assert "clean temporary OpenClaw workspace" in normalized
+    assert "clean temporary workspace" in normalized
+    assert ("Open" + "Claw") not in combined
     assert "clean `/tmp` context" not in combined
     assert "5d335368476b9c8739c01ffc16ba74d18d10b259" not in combined
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail --help" in normalized
