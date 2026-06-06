@@ -30,8 +30,9 @@ Pablo Guillén is the primary maintainer of PatchRail.
   Agent Control Plane demo, Funded Issue Scout demo, pilot summaries, and
   remaining evidence gaps without network or write actions
 - Reviewer quick check:
-  `uv run --extra dev python scripts/reviewer_quick_check.py --out-dir patchrail-reviewer-packet`
-  emits a local Markdown packet and writes reviewer-facing artifacts:
+  `uv run --extra dev patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet`
+  emits a local Markdown packet through the packaged CLI and writes
+  reviewer-facing artifacts:
   `reviewer-quick-check.md`, `ci-triage-demo.md`, `application-gate.txt`,
   `application-dossier.json`, `application-dossier.schema.json`, and
   `reviewer-quick-check-artifacts.schema.json`. The packet includes `doctor`,
@@ -40,7 +41,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   validation. Its manifest contract is available with
   `patchrail schema reviewer-quick-check-artifacts`. It performs no network
   calls, write actions, public posts, PRs, comments, PyPI publish, or external
-  application submission.
+  application submission. The source-checkout compatibility wrapper remains
+  `uv run --extra dev python scripts/reviewer_quick_check.py --out-dir patchrail-reviewer-packet`.
 - Application gate:
   `patchrail evidence application-gate --format markdown` fails closed until
   PyPI telemetry, permissioned external evidence, and visible review links are

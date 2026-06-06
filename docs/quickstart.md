@@ -10,6 +10,7 @@ For a single local reviewer smoke test from a source checkout, run:
 
 ```bash
 uv run --extra dev python scripts/reviewer_quick_check.py
+uv run --extra dev patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet
 ```
 
 PyPI publishing is pending, so `pipx install patchrail` will not work yet. Until

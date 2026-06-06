@@ -412,6 +412,14 @@ def _evidence_review_packet(args: argparse.Namespace) -> int:
     return 0 if payload["status"] == "owned_repo_review_packet_ready" else 1
 
 
+def _evidence_reviewer_packet(args: argparse.Namespace) -> int:
+    from patchrail.reviewer_quick_check import build_reviewer_quick_check
+
+    text = build_reviewer_quick_check(root=Path("."), out_dir=args.out_dir)
+    print(text, end="")
+    return 0
+
+
 def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
     fixture_root = root / "examples" / "ci-triage"
     log_paths = sorted(fixture_root.glob("*.log")) if fixture_root.exists() else []
@@ -1137,7 +1145,7 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
         {
             "name": "single-command local reviewer check",
             "command": (
-                "uv run --extra dev python scripts/reviewer_quick_check.py "
+                "uv run --extra dev patchrail evidence reviewer-packet "
                 "--out-dir patchrail-reviewer-packet"
             ),
             "expected": (
@@ -1207,6 +1215,7 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
             "patchrail evidence snapshot --format markdown",
             "patchrail evidence roadmap --format markdown",
             "patchrail evidence review-packet --format markdown",
+            "patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet",
             "patchrail evidence application-gate --format markdown",
             "patchrail evidence control-plane --format markdown",
         ],
@@ -4032,6 +4041,17 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     evidence_review_packet.add_argument("--out", type=Path, help="Optional output path.")
     evidence_review_packet.set_defaults(func=_evidence_review_packet)
+
+    evidence_reviewer_packet = evidence_subparsers.add_parser(
+        "reviewer-packet",
+        help="Generate the local reviewer quick-check Markdown/JSON artifact packet.",
+    )
+    evidence_reviewer_packet.add_argument(
+        "--out-dir",
+        type=Path,
+        help="Optional directory for reviewer-facing Markdown/JSON artifacts.",
+    )
+    evidence_reviewer_packet.set_defaults(func=_evidence_reviewer_packet)
 
     evidence_application_gate = evidence_subparsers.add_parser(
         "application-gate",

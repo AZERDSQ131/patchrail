@@ -115,9 +115,14 @@ The application dossier schema preserves the external-program boundary:
 `agent_may_submit=false`, maintainer tap is required, placeholder metrics are
 forbidden, and third-party write actions remain disabled.
 The reviewer quick-check artifact schema preserves the same local reviewer
-boundary for `scripts/reviewer_quick_check.py --out-dir`: generated packets
-declare no network, write action, public publish, or application submission, and
-include their own manifest schema for offline validation.
+boundary for
+`patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet`:
+generated packets declare no network, write action, public publish, or
+application submission, and include their own manifest schema for offline
+validation. Contract phrase: no network, write action, public publish, or application submission.
+The compatibility script
+`scripts/reviewer_quick_check.py --out-dir` calls the same packaged
+implementation.
 
 ## CLI Audit Summary
 

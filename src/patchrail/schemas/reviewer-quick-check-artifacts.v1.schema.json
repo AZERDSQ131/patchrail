@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://patchrail.dev/schemas/reviewer-quick-check-artifacts.v1.schema.json",
   "title": "PatchRail Reviewer Quick Check Artifact Manifest",
-  "description": "Local manifest emitted by scripts/reviewer_quick_check.py --out-dir. The packet is a reviewer-facing local evidence bundle and never performs network, write, publish, or application-submission actions.",
+  "description": "Local manifest emitted by patchrail evidence reviewer-packet --out-dir, with scripts/reviewer_quick_check.py --out-dir as a compatibility wrapper. The packet is a reviewer-facing local evidence bundle and never performs network, write, publish, or application-submission actions.",
   "type": "object",
   "required": [
     "schema_version",

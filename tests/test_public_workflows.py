@@ -408,6 +408,57 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert "/home/" not in packet
 
 
+def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out_dir = Path(tmpdir) / "reviewer-packet"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "reviewer-packet",
+                "--out-dir",
+                str(out_dir),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        assert proc.returncode == 0, proc.stderr
+        assert "# PatchRail Reviewer Quick Check" in proc.stdout
+        assert "## 5. Artifact Packet" in proc.stdout
+        assert "- Artifact packet generated: `True`" in proc.stdout
+        assert "patchrail.application_dossier.v1" in proc.stdout
+        assert "patchrail.reviewer_quick_check_artifacts.v1" in proc.stdout
+
+        expected_files = {
+            "reviewer-quick-check.md",
+            "ci-triage-demo.md",
+            "application-gate.txt",
+            "application-dossier.txt",
+            "application-dossier.json",
+            "application-dossier.schema.json",
+            "reviewer-quick-check-artifacts.schema.json",
+            "manifest.json",
+        }
+        assert {path.name for path in out_dir.iterdir()} == expected_files
+
+        manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+        assert manifest["schema_version"] == "patchrail.reviewer_quick_check_artifacts.v1"
+        assert manifest["network_required"] is False
+        assert manifest["write_action_required"] is False
+        assert manifest["application_form_submission_performed"] is False
+
+        packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
+        assert "Status: draft_only_do_not_submit" in packet
+        assert "/Volumes/" not in packet
+        assert "/Users/" not in packet
+        assert "/home/" not in packet
+
+
 def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
     api_reference = (ROOT / "docs" / "api-reference.md").read_text(encoding="utf-8")
     oss_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
@@ -428,9 +479,14 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
     )
 
     assert "patchrail schema reviewer-quick-check-artifacts" in api_reference
+    assert "patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet" in api_reference
     assert "src/patchrail/schemas/reviewer-quick-check-artifacts.v1.schema.json" in api_reference
     assert "schemas/reviewer_quick_check_artifacts.schema.json" in api_reference
     assert "no network, write action, public publish, or application submission" in api_reference
+    assert (
+        "patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet"
+        in combined_evidence
+    )
     assert "reviewer-quick-check-artifacts.schema.json" in combined_evidence
     assert "own manifest schema for offline validation" in normalized_evidence
     assert mirrored_schema == packaged_schema
@@ -1711,7 +1767,7 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
         {
             "name": "single-command local reviewer check",
             "command": (
-                "uv run --extra dev python scripts/reviewer_quick_check.py "
+                "uv run --extra dev patchrail evidence reviewer-packet "
                 "--out-dir patchrail-reviewer-packet"
             ),
             "expected": (
