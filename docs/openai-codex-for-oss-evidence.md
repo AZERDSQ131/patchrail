@@ -17,10 +17,14 @@ Pablo Guillén is the primary maintainer of PatchRail.
   and provide `uvx --from git+https://github.com/patchrail/patchrail patchrail`
   so reviewers do not hit a package-index 404 before PyPI is published.
 - Recent successful public CI run:
-  <https://github.com/patchrail/patchrail/actions/runs/27047480411> completed
-  successfully for commit `1cc70c72e258e7b1750d00553640649e09f5501c`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27048223792> completed
+  successfully for commit `449653651bb72efb54b7b90e5f47831cbecc046f`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job.
+- Versioned reviewer demo:
+  [examples/ci-triage/demo-output.md](../examples/ci-triage/demo-output.md)
+  is generated from `patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown`
+  and kept in sync with real CLI output by tests.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public metrics tracker: [docs/metrics.md](metrics.md) records current public
