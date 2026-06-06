@@ -16,7 +16,8 @@ DOCS_BLOCK_RE = re.compile(
     r"  Python 3\.11/3\.12/3\.13 tests, fixture benchmark, CLI smoke,\n"
     r"  package-smoke, and the OSS evidence snapshot job\. The uploaded\n"
     r"  `patchrail-oss-evidence` artifact includes the general snapshot, Agent\n"
-    r"  Control Plane evidence, application dossier, and the reviewer-facing local queue bundle\.",
+    r"  Control Plane evidence, application dossier, and the reviewer-facing "
+    r"(?:local queue bundle|local queue bundle plus the full reviewer packet)\.",
     re.MULTILINE,
 )
 TEST_PAIR_RE = re.compile(
@@ -34,7 +35,7 @@ def _build_docs_block(run_url: str, commit: str) -> str:
             "  Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,",
             "  package-smoke, and the OSS evidence snapshot job. The uploaded",
             "  `patchrail-oss-evidence` artifact includes the general snapshot, Agent",
-            "  Control Plane evidence, application dossier, and the reviewer-facing local queue bundle.",
+            "  Control Plane evidence, application dossier, and the reviewer-facing local queue bundle plus the full reviewer packet.",
         ]
     )
 

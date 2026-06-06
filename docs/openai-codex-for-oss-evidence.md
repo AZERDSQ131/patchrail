@@ -56,6 +56,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   write permissions, PyPI publish, public comments, pull requests, funded issue
   claims, or application submit. The source-checkout compatibility wrapper
   remains `uv run --extra dev python scripts/reviewer_quick_check.py --out-dir patchrail-reviewer-packet`.
+  The main CI evidence artifact also includes this packet under
+  `reviewer-packet/` after tests and package smoke pass.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public metrics tracker: [docs/metrics.md](metrics.md) records current public

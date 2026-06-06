@@ -672,6 +672,10 @@ def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
         in workflow
     )
     assert (
+        "uv run patchrail evidence reviewer-packet --out-dir patchrail-oss-evidence/reviewer-packet"
+        in workflow
+    )
+    assert (
         "uv run python examples/local-agent-queue/run_demo.py --output .patchrail-ci-local-agent-queue --force"
         in workflow
     )
@@ -693,6 +697,8 @@ def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
     assert "control-plane-evidence.md" in docs
     assert "application-dossier.json" in docs
     assert "application-dossier.md" in docs
+    assert "reviewer-packet/" in docs
+    assert "patchrail evidence reviewer-packet --out-dir" in docs
     assert "local-agent-queue/summary.json" in docs
     assert "local-agent-queue/bundle.json" in docs
     assert "local-agent-queue/bundle.md" in docs
