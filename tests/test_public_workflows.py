@@ -1103,8 +1103,8 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "PyPI publishing is pending" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
     assert "Recent successful public CI run" in evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27054299265" in evidence
-    assert "3680986490faef968ab902400ffc361fedcb785e" in evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27054439302" in evidence
+    assert "c4fbd859d4d69c00215faf1acec2be5e24e98b03" in evidence
     assert "patchrail-oss-evidence" in evidence
     assert "Agent Control Plane evidence" in evidence
     assert "reviewer-facing local queue bundle" in evidence
@@ -1857,3 +1857,54 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert "maintainer tap" in combined_docs
     assert "_evidence_application_dossier" in cli
     assert "patchrail.application_dossier.v1" in cli
+
+
+def test_ci_evidence_reference_refresh_script_is_local_and_guardrailed() -> None:
+    script = ROOT / "scripts" / "update_ci_evidence_reference.py"
+    release_process = (ROOT / "docs" / "release-process.md").read_text(encoding="utf-8")
+
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--repo",
+            str(ROOT),
+            "--run-url",
+            "https://github.com/patchrail/patchrail/actions/runs/27054439302",
+            "--commit",
+            "c4fbd859d4d69c00215faf1acec2be5e24e98b03",
+            "--dry-run",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    bad_proc = subprocess.run(
+        [
+            sys.executable,
+            str(script),
+            "--repo",
+            str(ROOT),
+            "--run-url",
+            "https://github.com/example/project/actions/runs/1",
+            "--commit",
+            "c4fbd859d4d69c00215faf1acec2be5e24e98b03",
+            "--dry-run",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    assert "validated:" in proc.stdout
+    assert "docs/openai-codex-for-oss-evidence.md" in proc.stdout
+    assert "tests/test_public_workflows.py" in proc.stdout
+    assert bad_proc.returncode == 2
+    assert "patchrail/patchrail GitHub Actions run URL" in bad_proc.stderr
+    assert (
+        "scripts/update_ci_evidence_reference.py --run-url <actions-run-url> --commit <full-sha>"
+        in release_process
+    )

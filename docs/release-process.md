@@ -139,6 +139,8 @@ patterns may intentionally contain fake tokens or placeholder emails.
 - [ ] Confirm the GitHub Actions `CI` workflow passed.
 - [ ] Confirm the package smoke job passed.
 - [ ] Record the CI run URL in `docs/openai-codex-for-oss-evidence.md`.
+- [ ] Refresh the public CI reference and guardrail test with
+  `python scripts/update_ci_evidence_reference.py --run-url <actions-run-url> --commit <full-sha>`.
 
 ### 6. Manual Publish Gate
 
