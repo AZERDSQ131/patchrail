@@ -24,12 +24,12 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl`
   and ran `patchrail --help` successfully.
 - Recent successful public CI run:
-  <https://github.com/patchrail/patchrail/actions/runs/27054439302> completed
-  successfully for commit `c4fbd859d4d69c00215faf1acec2be5e24e98b03`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27056611410> completed
+  successfully for commit `0bc0142d22ae73c1efebf93b084245e633fe7596`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job. The uploaded
   `patchrail-oss-evidence` artifact includes the general snapshot, Agent
-  Control Plane evidence, application dossier, and the reviewer-facing local queue bundle.
+  Control Plane evidence, application dossier, and the reviewer-facing local queue bundle plus the full reviewer packet.
 - Versioned reviewer demo:
   [examples/ci-triage/demo-output.md](../examples/ci-triage/demo-output.md)
   is generated from `patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown`
