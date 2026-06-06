@@ -17,10 +17,11 @@ Pablo Guillén is the primary maintainer of PatchRail.
   use `pipx install patchrail` yet until PyPI publish, and the public GitHub
   route was tested from a clean temporary workspace with
   `uvx --from git+https://github.com/patchrail/patchrail patchrail --help`.
-  The README stdin smoke returned `Root cause: python_test_failure`; direct
-  install of the v0.1.0 GitHub Releases wheel with
+  The README stdin smoke returned `Root cause: python_test_failure`; the
+  v0.1.0 GitHub Releases wheel was installed in a fresh virtual environment
+  with `python3 -m venv .patchrail-wheel-smoke` followed by
   `python -m pip install https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl`
-  in a fresh virtual environment also ran `patchrail --help` successfully.
+  and then ran `patchrail --help` successfully.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public metrics tracker: [docs/metrics.md](metrics.md) records current public

@@ -18,6 +18,7 @@ GITHUB_RELEASE_WHEEL_URL = (
     "https://github.com/patchrail/patchrail/releases/download/v0.1.0/"
     "patchrail-0.1.0-py3-none-any.whl"
 )
+WHEEL_VENV_COMMAND = "python3 -m venv .patchrail-wheel-smoke"
 
 
 def _local_markdown_link_target(markdown_file: Path, raw_target: str) -> Path | None:
@@ -190,6 +191,9 @@ def test_pre_pypi_install_docs_offer_working_source_and_wheel_paths() -> None:
         if GITHUB_SOURCE_COMMAND not in text or GITHUB_RELEASE_WHEEL_URL not in text:
             incomplete_mentions.append(str(markdown_file.relative_to(ROOT)))
 
+        if WHEEL_VENV_COMMAND not in text:
+            incomplete_mentions.append(f"{markdown_file.relative_to(ROOT)} missing wheel venv")
+
     assert incomplete_mentions == []
 
 
@@ -209,6 +213,7 @@ def test_pre_pypi_install_verification_is_recorded_without_pypi_claims() -> None
     assert "87106e60c8c7ae630b079d8fac66c1531cce7ea6" in evidence
     assert "Root cause: python_test_failure" in combined
     assert GITHUB_RELEASE_WHEEL_URL in combined
+    assert WHEEL_VENV_COMMAND in combined
     assert "Monthly PyPI downloads: pending first PyPI release" in combined
     assert "do not use `pipx install patchrail` yet until PyPI publish" in normalized
 
@@ -238,6 +243,7 @@ def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
         assert "patchrail ci explain" in text, path
         assert "FAILED tests/test_app.py::test_ok" in text, path
         assert f"python -m pip install {GITHUB_RELEASE_WHEEL_URL}" in text, path
+        assert WHEEL_VENV_COMMAND in text, path
         assert "pipx install patchrail" in text, path
         assert "That pre-PyPI smoke test prints" in text, path
         assert "10-second reviewer demo" in text, path
