@@ -12,6 +12,11 @@ ROOT = Path(__file__).resolve().parents[1]
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 CI_TRIAGE_LOG_PATH_RE = re.compile(r"examples/ci-triage/[A-Za-z0-9_.-]+\.log")
 PIPX_INSTALL_COMMAND = "pipx install patchrail"
+GITHUB_SOURCE_COMMAND = "uvx --from git+https://github.com/patchrail/patchrail patchrail"
+GITHUB_RELEASE_WHEEL_URL = (
+    "https://github.com/patchrail/patchrail/releases/download/v0.1.0/"
+    "patchrail-0.1.0-py3-none-any.whl"
+)
 
 
 def _local_markdown_link_target(markdown_file: Path, raw_target: str) -> Path | None:
@@ -173,6 +178,20 @@ def test_pipx_install_mentions_stay_marked_as_pre_pypi_unavailable() -> None:
     assert unsafe_mentions == []
 
 
+def test_pre_pypi_install_docs_offer_working_source_and_wheel_paths() -> None:
+    incomplete_mentions: list[str] = []
+
+    for markdown_file in _markdown_files_with_reviewer_facing_links():
+        text = markdown_file.read_text(encoding="utf-8")
+        if PIPX_INSTALL_COMMAND not in text:
+            continue
+
+        if GITHUB_SOURCE_COMMAND not in text or GITHUB_RELEASE_WHEEL_URL not in text:
+            incomplete_mentions.append(str(markdown_file.relative_to(ROOT)))
+
+    assert incomplete_mentions == []
+
+
 def test_pre_pypi_install_verification_is_recorded_without_pypi_claims() -> None:
     evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(encoding="utf-8")
     program_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
@@ -187,10 +206,7 @@ def test_pre_pypi_install_verification_is_recorded_without_pypi_claims() -> None
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail --help" in normalized
     assert "87106e60c8c7ae630b079d8fac66c1531cce7ea6" in evidence
     assert "Root cause: python_test_failure" in combined
-    assert (
-        "https://github.com/patchrail/patchrail/releases/download/v0.1.0/"
-        "patchrail-0.1.0-py3-none-any.whl"
-    ) in combined
+    assert GITHUB_RELEASE_WHEEL_URL in combined
     assert "Monthly PyPI downloads: pending first PyPI release" in combined
     assert "do not use `pipx install patchrail` yet until PyPI publish" in normalized
 
@@ -215,13 +231,10 @@ def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
 
     for path, text in surfaces.items():
         assert "PyPI publishing is pending" in text, path
-        assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in text, path
+        assert GITHUB_SOURCE_COMMAND in text, path
         assert "patchrail ci explain" in text, path
         assert "FAILED tests/test_app.py::test_ok" in text, path
-        assert (
-            "python -m pip install https://github.com/patchrail/patchrail/releases/download/v0.1.0/"
-            "patchrail-0.1.0-py3-none-any.whl"
-        ) in text, path
+        assert f"python -m pip install {GITHUB_RELEASE_WHEEL_URL}" in text, path
         assert "pipx install patchrail" in text, path
         assert "That pre-PyPI smoke test prints" in text, path
         assert "10-second reviewer demo" in text, path
