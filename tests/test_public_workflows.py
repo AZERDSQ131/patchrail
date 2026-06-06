@@ -300,12 +300,19 @@ def test_reviewer_quick_check_script_outputs_local_demo_and_fail_closed_gate() -
     assert "## 1. Local Doctor" in output
     assert "## 2. CI Triage Demo" in output
     assert "## 3. Application Gate" in output
+    assert "## 4. Application Dossier Contract" in output
     assert "- Root cause: `python_dependency_resolution`" in output
     assert "Status: not_ready" in output
     assert "Decision: do_not_apply_yet" in output
+    assert "Status: draft_only_do_not_submit" in output
+    assert "Maintainer tap required: True" in output
+    assert "Agent may submit: False" in output
+    assert "patchrail.application_dossier.v1" in output
     assert "- Network required: `False`" in output
     assert "- Write action required: `False`" in output
     assert "- Application form submission performed: `False`" in output
+    assert "- Application dossier generated: `True`" in output
+    assert "- Application dossier schema available: `True`" in output
     assert "publish to PyPI" in output
     assert "create pull requests" in output
 
@@ -1586,7 +1593,8 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
             "name": "single-command local reviewer check",
             "command": "uv run --extra dev python scripts/reviewer_quick_check.py",
             "expected": (
-                "local Markdown packet with doctor, CI demo, and fail-closed application gate"
+                "local Markdown packet with doctor, CI demo, fail-closed application gate, "
+                "and application dossier contract"
             ),
             "network_required": False,
             "write_action_required": False,

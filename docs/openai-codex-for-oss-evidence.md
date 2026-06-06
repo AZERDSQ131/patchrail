@@ -36,9 +36,10 @@ Pablo Guillén is the primary maintainer of PatchRail.
   and kept in sync with real CLI output by tests.
 - Single-command reviewer check:
   `uv run --extra dev python scripts/reviewer_quick_check.py` emits a local
-  Markdown packet with `doctor`, the real CI triage demo, and the fail-closed
-  application gate. It requires no network, write permissions, PyPI publish,
-  public comments, pull requests, funded issue claims, or application submit.
+  Markdown packet with `doctor`, the real CI triage demo, the fail-closed
+  application gate, and the local application dossier contract/schema. It
+  requires no network, write permissions, PyPI publish, public comments, pull
+  requests, funded issue claims, or application submit.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public metrics tracker: [docs/metrics.md](metrics.md) records current public

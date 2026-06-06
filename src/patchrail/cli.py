@@ -1136,7 +1136,10 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
         {
             "name": "single-command local reviewer check",
             "command": "uv run --extra dev python scripts/reviewer_quick_check.py",
-            "expected": "local Markdown packet with doctor, CI demo, and fail-closed application gate",
+            "expected": (
+                "local Markdown packet with doctor, CI demo, fail-closed application gate, "
+                "and application dossier contract"
+            ),
             "network_required": False,
             "write_action_required": False,
         },

@@ -31,9 +31,10 @@ Pablo Guillén is the primary maintainer of PatchRail.
   remaining evidence gaps without network or write actions
 - Reviewer quick check:
   `uv run --extra dev python scripts/reviewer_quick_check.py` emits a local
-  Markdown packet with `doctor`, the real CI triage demo, and the fail-closed
-  application gate. It performs no network calls, write actions, public posts,
-  PRs, comments, PyPI publish, or external application submission.
+  Markdown packet with `doctor`, the real CI triage demo, the fail-closed
+  application gate, and the local application dossier contract/schema. It
+  performs no network calls, write actions, public posts, PRs, comments, PyPI
+  publish, or external application submission.
 - Application gate:
   `patchrail evidence application-gate --format markdown` fails closed until
   PyPI telemetry, permissioned external evidence, and visible review links are
