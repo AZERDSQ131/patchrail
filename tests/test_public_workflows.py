@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -8,6 +9,39 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+
+
+def _local_markdown_link_target(markdown_file: Path, raw_target: str) -> Path | None:
+    target = raw_target.strip()
+    if not target:
+        return None
+
+    target = target.split()[0].strip("<>")
+    if (
+        target.startswith("#")
+        or target.startswith("http://")
+        or target.startswith("https://")
+        or target.startswith("mailto:")
+        or "://" in target
+    ):
+        return None
+
+    target = target.split("#", 1)[0].split("?", 1)[0]
+    if not target:
+        return None
+
+    return (markdown_file.parent / target).resolve()
+
+
+def _markdown_files_with_reviewer_facing_links() -> list[Path]:
+    return [
+        ROOT / "README.md",
+        *sorted((ROOT / "docs").glob("*.md")),
+        *sorted((ROOT / "examples").glob("*/README.md")),
+        *sorted((ROOT / ".github" / "ISSUE_TEMPLATE").glob("*.md")),
+        ROOT / ".github" / "pull_request_template.md",
+    ]
 
 
 def test_ci_triage_workflow_is_read_only_and_human_reviewed() -> None:
@@ -71,6 +105,22 @@ def test_github_actions_runtime_review_keeps_workflows_node24_ready() -> None:
     assert "`astral-sh/setup-uv` | `v8.1.0` | `node24` | No" in docs
     assert "`actions/download-artifact` | `v8.0.1` | `node24` | No" in docs
     assert "`actions/upload-artifact` | `v7.0.1` | `node24` | No" in docs
+
+
+def test_reviewer_facing_markdown_links_resolve_locally() -> None:
+    missing_links: list[str] = []
+
+    for markdown_file in _markdown_files_with_reviewer_facing_links():
+        text = markdown_file.read_text(encoding="utf-8")
+        for raw_target in MARKDOWN_LINK_RE.findall(text):
+            local_target = _local_markdown_link_target(markdown_file, raw_target)
+            if local_target is None:
+                continue
+            if not local_target.exists():
+                relative_markdown = markdown_file.relative_to(ROOT)
+                missing_links.append(f"{relative_markdown}: {raw_target}")
+
+    assert missing_links == []
 
 
 def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
