@@ -323,6 +323,54 @@ def test_evidence_snapshot_summarizes_public_oss_signals_without_write_actions()
     assert "/home/" not in proc.stdout
 
 
+def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    oss_program_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
+    release_v03 = (ROOT / "docs" / "release-v0.3.0-evidence.md").read_text(encoding="utf-8")
+    docs = "\n".join([oss_program_evidence, release_v03])
+
+    assert (
+        "uv run patchrail evidence snapshot --format json --out patchrail-oss-evidence/evidence-snapshot.json"
+        in workflow
+    )
+    assert (
+        "uv run patchrail evidence snapshot --format markdown --out patchrail-oss-evidence/evidence-snapshot.md"
+        in workflow
+    )
+    assert (
+        "uv run patchrail evidence control-plane --format json --out patchrail-oss-evidence/control-plane-evidence.json"
+        in workflow
+    )
+    assert (
+        "uv run patchrail evidence control-plane --format markdown --out patchrail-oss-evidence/control-plane-evidence.md"
+        in workflow
+    )
+    assert (
+        "uv run python examples/local-agent-queue/run_demo.py --output .patchrail-ci-local-agent-queue --force"
+        in workflow
+    )
+    assert (
+        "cp .patchrail-ci-local-agent-queue/summary.json patchrail-oss-evidence/local-agent-queue/summary.json"
+        in workflow
+    )
+    assert (
+        "cp .patchrail-ci-local-agent-queue/bundle.json patchrail-oss-evidence/local-agent-queue/bundle.json"
+        in workflow
+    )
+    assert (
+        "cp .patchrail-ci-local-agent-queue/bundle.md patchrail-oss-evidence/local-agent-queue/bundle.md"
+        in workflow
+    )
+    assert "if-no-files-found: error" in workflow
+
+    assert "control-plane-evidence.json" in docs
+    assert "control-plane-evidence.md" in docs
+    assert "local-agent-queue/summary.json" in docs
+    assert "local-agent-queue/bundle.json" in docs
+    assert "local-agent-queue/bundle.md" in docs
+    assert "does not count as external adoption or PyPI download evidence" in docs
+
+
 def test_roadmap_audit_tracks_versions_and_weeks_without_external_claims() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "patchrail", "evidence", "roadmap", "--format", "json"],

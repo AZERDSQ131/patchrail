@@ -90,6 +90,11 @@ Current evidence snapshot from 2026-06-03:
   `local_demo_ready` from the checked-in summary when required audit events,
   artifacts, source docs, human approval, proposal approval, risky-proposal
   rejection, and audit-summary gate coverage are all present.
+- The main CI `oss-evidence-snapshot` job uploads the same Control Plane
+  evidence as `control-plane-evidence.json`, `control-plane-evidence.md`, and
+  the reviewer-facing `local-agent-queue/summary.json`,
+  `local-agent-queue/bundle.json`, and `local-agent-queue/bundle.md` inside the
+  `patchrail-oss-evidence` artifact after tests and package smoke pass.
 - `patchrail evidence http-api --format markdown` starts an ephemeral
   `127.0.0.1` server, creates local work items and proposals, approves and
   rejects records, reads `/status`, lists queue/proposal state, exports

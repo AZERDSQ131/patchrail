@@ -78,6 +78,13 @@ jobs:
           mkdir -p patchrail-oss-evidence
           uv run patchrail evidence snapshot --format json --out patchrail-oss-evidence/evidence-snapshot.json
           uv run patchrail evidence snapshot --format markdown --out patchrail-oss-evidence/evidence-snapshot.md
+          uv run patchrail evidence control-plane --format json --out patchrail-oss-evidence/control-plane-evidence.json
+          uv run patchrail evidence control-plane --format markdown --out patchrail-oss-evidence/control-plane-evidence.md
+          uv run python examples/local-agent-queue/run_demo.py --output .patchrail-ci-local-agent-queue --force
+          mkdir -p patchrail-oss-evidence/local-agent-queue
+          cp .patchrail-ci-local-agent-queue/summary.json patchrail-oss-evidence/local-agent-queue/summary.json
+          cp .patchrail-ci-local-agent-queue/bundle.json patchrail-oss-evidence/local-agent-queue/bundle.json
+          cp .patchrail-ci-local-agent-queue/bundle.md patchrail-oss-evidence/local-agent-queue/bundle.md
       - name: Upload OSS evidence snapshot
         uses: actions/upload-artifact@v7.0.1
         with:

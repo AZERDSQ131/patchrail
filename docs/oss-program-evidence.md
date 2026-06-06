@@ -39,9 +39,12 @@ Pablo Guillén is the primary maintainer of PatchRail.
   local queue demo summary, required audit events, required artifacts, human
   approval gates, and risky proposal rejection without network or write actions
 - Public CI artifact: the main CI workflow uploads `patchrail-oss-evidence`
-  with `evidence-snapshot.json` and `evidence-snapshot.md` after tests,
-  benchmark, and package smoke pass. This is project-health evidence only; it
-  does not count as external adoption or PyPI download evidence.
+  with `evidence-snapshot.json`, `evidence-snapshot.md`,
+  `control-plane-evidence.json`, `control-plane-evidence.md`, and the
+  reviewer-facing `local-agent-queue/summary.json`,
+  `local-agent-queue/bundle.json`, and `local-agent-queue/bundle.md` after
+  tests, benchmark, and package smoke pass. This is project-health evidence
+  only; it does not count as external adoption or PyPI download evidence.
 - Adopter list: [ADOPTERS.md](../ADOPTERS.md) is permission-only and currently
   has no public external adopters listed
 - Public CI fixtures: 143 sanitized synthetic fixtures in the local benchmark
