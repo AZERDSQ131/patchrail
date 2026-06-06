@@ -11,6 +11,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 CI_TRIAGE_LOG_PATH_RE = re.compile(r"examples/ci-triage/[A-Za-z0-9_.-]+\.log")
+PIPX_INSTALL_COMMAND = "pipx install patchrail"
 
 
 def _local_markdown_link_target(markdown_file: Path, raw_target: str) -> Path | None:
@@ -43,6 +44,12 @@ def _markdown_files_with_reviewer_facing_links() -> list[Path]:
         *sorted((ROOT / ".github" / "ISSUE_TEMPLATE").glob("*.md")),
         ROOT / ".github" / "pull_request_template.md",
     ]
+
+
+def _line_context(lines: list[str], line_index: int) -> str:
+    start = max(0, line_index - 1)
+    end = min(len(lines), line_index + 2)
+    return " ".join(line.strip().lower() for line in lines[start:end])
 
 
 def test_ci_triage_workflow_is_read_only_and_human_reviewed() -> None:
@@ -144,6 +151,26 @@ def test_reviewer_facing_ci_fixture_paths_resolve_with_expected_metadata() -> No
 
     assert missing_fixtures == []
     assert missing_expected_metadata == []
+
+
+def test_pipx_install_mentions_stay_marked_as_pre_pypi_unavailable() -> None:
+    unsafe_mentions: list[str] = []
+
+    for markdown_file in _markdown_files_with_reviewer_facing_links():
+        lines = markdown_file.read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            if PIPX_INSTALL_COMMAND not in line:
+                continue
+
+            context = _line_context(lines, index)
+            if not (
+                "pypi publishing is pending" in context
+                or "do not use" in context
+                or "will not work yet" in context
+            ):
+                unsafe_mentions.append(f"{markdown_file.relative_to(ROOT)}:{index + 1}")
+
+    assert unsafe_mentions == []
 
 
 def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
