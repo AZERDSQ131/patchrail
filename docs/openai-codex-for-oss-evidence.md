@@ -17,8 +17,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   and provide `uvx --from git+https://github.com/patchrail/patchrail patchrail`
   so reviewers do not hit a package-index 404 before PyPI is published.
 - Recent successful public CI run:
-  <https://github.com/patchrail/patchrail/actions/runs/27048223792> completed
-  successfully for commit `449653651bb72efb54b7b90e5f47831cbecc046f`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27048490076> completed
+  successfully for commit `5d335368476b9c8739c01ffc16ba74d18d10b259`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job.
 - Versioned reviewer demo:
@@ -151,7 +151,7 @@ Last verified: 2026-06-06.
   sdist/wheel assets.
 - Manual gates: PyPI publish, public announcements, and external applications
   remain explicit maintainer actions.
-- Tests after the reviewer-facing evidence guardrails: `uv run --extra dev pytest -q` -> 73 passed, 4 subtests passed.
+- Tests after the reviewer-facing evidence guardrails: `uv run --extra dev pytest -q` -> 75 passed, 4 subtests passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
 - Format after the shared queue status contract: `uv run --extra dev ruff format --check .` -> 21 files already formatted.
 - CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 138 / 138 fixtures passed.
