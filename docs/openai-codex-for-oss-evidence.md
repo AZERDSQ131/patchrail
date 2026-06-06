@@ -51,7 +51,7 @@ Pablo Guillén is the primary maintainer of PatchRail.
   Agent Control Plane reviewer handoff audit, ephemeral `127.0.0.1` HTTP API
   smoke evidence, the fail-closed application gate, the local application dossier contract/schema,
   and its own manifest schema for offline
-  validation. Its manifest contract is available with
+  validation. The manifest includes SHA-256 and byte-size manifest details for offline integrity checks after artifact download. Its manifest contract is available with
   `patchrail schema reviewer-quick-check-artifacts`. It requires no network,
   write permissions, PyPI publish, public comments, pull requests, funded issue
   claims, or application submit. The source-checkout compatibility wrapper

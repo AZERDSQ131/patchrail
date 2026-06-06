@@ -10,7 +10,8 @@
     "network_required",
     "write_action_required",
     "application_form_submission_performed",
-    "artifacts"
+    "artifacts",
+    "artifact_details"
   ],
   "properties": {
     "schema_version": {
@@ -52,6 +53,48 @@
           "release-readiness.md",
           "reviewer-quick-check-artifacts.schema.json"
         ]
+      }
+    },
+    "artifact_details": {
+      "type": "array",
+      "minItems": 14,
+      "description": "Offline integrity details for each reviewer packet artifact. Each path must also appear in artifacts.",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "size_bytes",
+          "sha256"
+        ],
+        "properties": {
+          "path": {
+            "enum": [
+              "README.md",
+              "reviewer-quick-check.md",
+              "application-dossier.json",
+              "application-dossier.schema.json",
+              "application-dossier.txt",
+              "application-gate.txt",
+              "ci-triage-demo.md",
+              "control-plane-evidence.json",
+              "control-plane-evidence.md",
+              "http-api-evidence.json",
+              "http-api-evidence.md",
+              "release-readiness.json",
+              "release-readiness.md",
+              "reviewer-quick-check-artifacts.schema.json"
+            ]
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "additionalProperties": false
       }
     }
   },

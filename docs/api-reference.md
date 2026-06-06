@@ -124,7 +124,9 @@ index, include release-readiness build/twine/wheel-smoke evidence as
 `release-readiness.md/json` with PyPI publish and release tagging still behind
 manual gates, include ephemeral loopback HTTP API smoke evidence as
 `http-api-evidence.md/json`, and include their own manifest schema for offline
-validation.
+validation. The manifest also includes `artifact_details` with each artifact's
+path, byte size, and SHA-256 digest so reviewers can perform offline integrity
+checks after downloading a CI artifact.
 Contract phrase: no network, write action, public publish,
 or application submission. Short contract: no network, write action, public publish, or application submission.
 The compatibility script

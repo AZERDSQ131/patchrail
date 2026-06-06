@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -125,19 +126,32 @@ def _write_artifacts(
     }
     for name, content in artifacts.items():
         (out_dir / name).write_text(content.strip() + "\n", encoding="utf-8")
+    return ["reviewer-quick-check.md", *sorted(artifacts)]
+
+
+def _artifact_detail(path: Path) -> dict[str, object]:
+    data = path.read_bytes()
+    return {
+        "path": path.name,
+        "size_bytes": len(data),
+        "sha256": hashlib.sha256(data).hexdigest(),
+    }
+
+
+def _write_manifest(out_dir: Path, artifact_names: list[str]) -> None:
     manifest = {
         "schema_version": "patchrail.reviewer_quick_check_artifacts.v1",
         "generated_from": "local_checkout",
         "network_required": False,
         "write_action_required": False,
         "application_form_submission_performed": False,
-        "artifacts": ["reviewer-quick-check.md", *sorted(artifacts)],
+        "artifacts": artifact_names,
+        "artifact_details": [_artifact_detail(out_dir / name) for name in artifact_names],
     }
     (out_dir / "manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    return ["reviewer-quick-check.md", *sorted(artifacts), "manifest.json"]
 
 
 def _reviewer_packet_readme() -> str:
@@ -314,7 +328,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
                 "",
                 f"Output directory: `{_display_path(out_dir, root=root)}`",
                 "",
-                *[f"- `{name}`" for name in written_artifacts],
+                *[f"- `{name}`" for name in [*written_artifacts, "manifest.json"]],
                 "",
             ]
         )
@@ -339,6 +353,7 @@ def build_reviewer_quick_check(*, root: Path, out_dir: Path | None = None) -> st
     final_output = "\n".join(lines)
     if out_dir:
         (out_dir / "reviewer-quick-check.md").write_text(final_output + "\n", encoding="utf-8")
+        _write_manifest(out_dir, written_artifacts)
     return final_output + "\n"
 
 

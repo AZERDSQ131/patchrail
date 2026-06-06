@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import subprocess
@@ -379,29 +380,46 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert schema_proc.returncode == 0, schema_proc.stderr
         schema = json.loads(schema_proc.stdout)
 
-        assert manifest == {
+        expected_artifacts = [
+            "reviewer-quick-check.md",
+            "README.md",
+            "application-dossier.json",
+            "application-dossier.schema.json",
+            "application-dossier.txt",
+            "application-gate.txt",
+            "ci-triage-demo.md",
+            "control-plane-evidence.json",
+            "control-plane-evidence.md",
+            "http-api-evidence.json",
+            "http-api-evidence.md",
+            "release-readiness.json",
+            "release-readiness.md",
+            "reviewer-quick-check-artifacts.schema.json",
+        ]
+        assert {
+            key: manifest[key]
+            for key in (
+                "schema_version",
+                "generated_from",
+                "network_required",
+                "write_action_required",
+                "application_form_submission_performed",
+                "artifacts",
+            )
+        } == {
             "schema_version": "patchrail.reviewer_quick_check_artifacts.v1",
             "generated_from": "local_checkout",
             "network_required": False,
             "write_action_required": False,
             "application_form_submission_performed": False,
-            "artifacts": [
-                "reviewer-quick-check.md",
-                "README.md",
-                "application-dossier.json",
-                "application-dossier.schema.json",
-                "application-dossier.txt",
-                "application-gate.txt",
-                "ci-triage-demo.md",
-                "control-plane-evidence.json",
-                "control-plane-evidence.md",
-                "http-api-evidence.json",
-                "http-api-evidence.md",
-                "release-readiness.json",
-                "release-readiness.md",
-                "reviewer-quick-check-artifacts.schema.json",
-            ],
+            "artifacts": expected_artifacts,
         }
+        assert [detail["path"] for detail in manifest["artifact_details"]] == expected_artifacts
+        for detail in manifest["artifact_details"]:
+            artifact_path = out_dir / detail["path"]
+            data = artifact_path.read_bytes()
+            assert detail["size_bytes"] == len(data)
+            assert detail["sha256"] == hashlib.sha256(data).hexdigest()
         assert schema["properties"]["schema_version"]["const"] == manifest["schema_version"]
         assert schema["properties"]["generated_from"]["const"] == manifest["generated_from"]
         assert schema["properties"]["network_required"]["const"] is manifest["network_required"]
@@ -414,6 +432,12 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
             is manifest["application_form_submission_performed"]
         )
         assert set(manifest["artifacts"]) <= set(schema["properties"]["artifacts"]["items"]["enum"])
+        assert set(manifest["artifacts"]) == {
+            detail["path"] for detail in manifest["artifact_details"]
+        }
+        assert set(manifest["artifacts"]) <= {
+            *schema["properties"]["artifact_details"]["items"]["properties"]["path"]["enum"]
+        }
         assert (
             json.loads(
                 (out_dir / "reviewer-quick-check-artifacts.schema.json").read_text(encoding="utf-8")
@@ -538,6 +562,13 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
         assert manifest["network_required"] is False
         assert manifest["write_action_required"] is False
         assert manifest["application_form_submission_performed"] is False
+        assert set(manifest["artifacts"]) == {
+            detail["path"] for detail in manifest["artifact_details"]
+        }
+        for detail in manifest["artifact_details"]:
+            data = (out_dir / detail["path"]).read_bytes()
+            assert detail["size_bytes"] == len(data)
+            assert detail["sha256"] == hashlib.sha256(data).hexdigest()
 
         packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
         assert "Status: draft_only_do_not_submit" in packet
@@ -586,6 +617,10 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
     assert "release-readiness.json" in combined_evidence
     assert "release-readiness.md" in combined_evidence
     assert "own manifest schema for offline validation" in normalized_evidence
+    assert (
+        "SHA-256 and byte-size manifest details for offline integrity checks" in combined_evidence
+    )
+    assert "artifact_details" in api_reference
     assert mirrored_schema == packaged_schema
 
 
