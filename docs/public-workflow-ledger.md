@@ -102,6 +102,7 @@ counted as issue-to-PR cycles, external adoption, or formal Codex review.
 | Reviewer packet artifact index | [`c5688d3`](https://github.com/patchrail/patchrail/commit/c5688d38f3d9ac6960591516ca0b407c07f3fcaf) | [CI run 27058341998](https://github.com/patchrail/patchrail/actions/runs/27058341998) | offline reviewer packet integrity |
 | Public evidence brand-only scrub | [`3338122`](https://github.com/patchrail/patchrail/commit/33381221dfcc752f1629e798ae567f325202acbd) | [CI run 27058837138](https://github.com/patchrail/patchrail/actions/runs/27058837138) | public evidence brand boundary |
 | Public workflow evidence ledger refresh | [`7af5fbc`](https://github.com/patchrail/patchrail/commit/7af5fbc01add0cfb95e7d9775b61d4f9deaef853) | [CI run 27059149472](https://github.com/patchrail/patchrail/actions/runs/27059149472) | public evidence ledger freshness |
+| Latest public CI evidence refresh | [`054e034`](https://github.com/patchrail/patchrail/commit/054e0349a785081ebf976875ac3adc8b0caaf1ab) | [CI run 27059633468](https://github.com/patchrail/patchrail/actions/runs/27059633468) | current reviewer-facing CI artifact reference |
 
 ## How To Read This Ledger
 

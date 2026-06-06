@@ -1391,8 +1391,8 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "PyPI publishing is pending" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
     assert "Recent successful public CI run" in evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27059149472" in evidence
-    assert "7af5fbc01add0cfb95e7d9775b61d4f9deaef853" in evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27059633468" in evidence
+    assert "054e0349a785081ebf976875ac3adc8b0caaf1ab" in evidence
     assert "patchrail-oss-evidence" in evidence
     assert "Agent Control Plane evidence" in evidence
     assert "reviewer-facing local queue bundle" in evidence
@@ -1507,16 +1507,24 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
         "[CI run 27059149472](https://github.com/patchrail/patchrail/actions/runs/27059149472)"
         in workflow_ledger
     )
+    assert (
+        "[`054e034`](https://github.com/patchrail/patchrail/commit/054e0349a785081ebf976875ac3adc8b0caaf1ab)"
+        in workflow_ledger
+    )
+    assert (
+        "[CI run 27059633468](https://github.com/patchrail/patchrail/actions/runs/27059633468)"
+        in workflow_ledger
+    )
     normalized_workflow_ledger = " ".join(workflow_ledger.split())
     assert (
         "not counted as issue-to-PR cycles, external adoption, or formal Codex review"
         in normalized_workflow_ledger
     )
     assert "Latest public CI evidence, 2026-06-06" in oss_program_evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27059149472" in (
+    assert "https://github.com/patchrail/patchrail/actions/runs/27059633468" in (
         oss_program_evidence
     )
-    assert "7af5fbc01add0cfb95e7d9775b61d4f9deaef853" in oss_program_evidence
+    assert "054e0349a785081ebf976875ac3adc8b0caaf1ab" in oss_program_evidence
     assert "patchrail evidence review-packet --format markdown" in workflow_ledger
     assert (
         "Fixture hygiene gate: `patchrail ci fixture-check examples/ci-triage --format json`"

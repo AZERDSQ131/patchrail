@@ -24,8 +24,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl`
   and ran `patchrail --help` successfully.
 - Recent successful public CI run:
-  <https://github.com/patchrail/patchrail/actions/runs/27059149472> completed
-  successfully for commit `7af5fbc01add0cfb95e7d9775b61d4f9deaef853`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27059633468> completed
+  successfully for commit `054e0349a785081ebf976875ac3adc8b0caaf1ab`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job. The uploaded
   `patchrail-oss-evidence` artifact includes the general snapshot, Agent
@@ -144,6 +144,8 @@ Current public evidence is local, owned-repository, and preparatory:
   and [CI run 27058837138](https://github.com/patchrail/patchrail/actions/runs/27058837138),
   plus [`7af5fbc`](https://github.com/patchrail/patchrail/commit/7af5fbc01add0cfb95e7d9775b61d4f9deaef853)
   and [CI run 27059149472](https://github.com/patchrail/patchrail/actions/runs/27059149472),
+  plus [`054e034`](https://github.com/patchrail/patchrail/commit/054e0349a785081ebf976875ac3adc8b0caaf1ab)
+  and [CI run 27059633468](https://github.com/patchrail/patchrail/actions/runs/27059633468),
   while keeping them separate from issue-to-PR cycles, external adoption, and
   formal review claims.
 - Issue triage: public own-repo issues are tracked in
