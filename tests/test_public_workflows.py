@@ -500,7 +500,7 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert payload["generated_from"] == "local_checkout"
     assert payload["summary_file"] == "examples/local-agent-queue/demo-summary.expected.json"
     assert payload["status"] == "local_demo_ready"
-    assert payload["signals"]["artifact_count"] == 19
+    assert payload["signals"]["artifact_count"] == 21
     assert payload["signals"]["audit_event_count"] == 9
     assert payload["signals"]["source_failure_class"] == "python_dependency_resolution"
     assert payload["signals"]["item_approval_state"] == "approved"
@@ -509,6 +509,8 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert payload["signals"]["rejected_item_approval_state"] == "rejected"
     assert payload["signals"]["rejected_proposal_approval_state"] == "rejected"
     assert payload["signals"]["audit_summary_status"] == "human_gates_exercised"
+    assert payload["signals"]["bundle_status"] == "ready_for_handoff"
+    assert payload["signals"]["bundle_remaining_gate_gaps"] == []
     assert payload["safety"]["local_first"] is True
     assert payload["safety"]["write_actions_allowed"] is False
     assert payload["safety"]["rejected_item_write_actions_allowed"] is False
@@ -520,6 +522,9 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert payload["safety"]["external_model_required"] is False
     assert payload["safety"]["billing_required"] is False
     assert payload["safety"]["network_required"] is False
+    assert payload["safety"]["bundle_is_read_only"] is True
+    assert payload["safety"]["bundle_records_audit_event"] is False
+    assert payload["safety"]["bundle_local_paths_redacted"] is True
     assert payload["artifact_presence"]["required_events_present"] is True
     assert payload["artifact_presence"]["required_artifacts_present"] is True
     assert payload["artifact_presence"]["source_files_present"] is True
@@ -535,6 +540,19 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert "/Volumes/" not in proc.stdout
     assert "/Users/" not in proc.stdout
     assert "/home/" not in proc.stdout
+
+    markdown_proc = subprocess.run(
+        [sys.executable, "-m", "patchrail", "evidence", "control-plane", "--format", "markdown"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert markdown_proc.returncode == 0, markdown_proc.stderr
+    assert "Bundle is read-only: `True`" in markdown_proc.stdout
+    assert "Bundle records audit event: `False`" in markdown_proc.stdout
+    assert "Bundle local paths redacted: `True`" in markdown_proc.stdout
 
     agent_control_plane = (ROOT / "docs" / "agent-control-plane.md").read_text(encoding="utf-8")
     api_reference = (ROOT / "docs" / "api-reference.md").read_text(encoding="utf-8")
@@ -1246,6 +1264,8 @@ def test_local_agent_queue_demo_runs_end_to_end_with_stable_summary() -> None:
         rejected_proposal_markdown = (Path(tmpdir) / "proposal-rejected.md").read_text(
             encoding="utf-8"
         )
+        bundle = json.loads((Path(tmpdir) / "bundle.json").read_text(encoding="utf-8"))
+        bundle_markdown = (Path(tmpdir) / "bundle.md").read_text(encoding="utf-8")
         events = [
             json.loads(line)
             for line in (Path(tmpdir) / "audit-events.jsonl")
@@ -1269,6 +1289,16 @@ def test_local_agent_queue_demo_runs_end_to_end_with_stable_summary() -> None:
         assert rejected_proposal["risk_level"] == "high"
         assert "Open a pull request immediately" in rejected_proposal_markdown
         assert "does not push commits" in rejected_proposal_markdown
+        assert bundle["status"] == "ready_for_handoff"
+        assert bundle["remaining_gate_gaps"] == []
+        assert bundle["safety"]["bundle_is_read_only"] is True
+        assert bundle["safety"]["bundle_records_audit_event"] is False
+        assert bundle["safety"]["local_paths_redacted"] is True
+        assert "/Volumes/" not in json.dumps(bundle)
+        assert "/Users/" not in json.dumps(bundle)
+        assert "/home/" not in json.dumps(bundle)
+        assert "# PatchRail Queue Bundle" in bundle_markdown
+        assert "Bundle is read-only: `True`" in bundle_markdown
         assert [event["event_type"] for event in events] == expected["audit_event_types"]
 
 

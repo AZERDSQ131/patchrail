@@ -29,6 +29,8 @@ ARTIFACTS = [
     "queue.jsonl",
     "audit-events.jsonl",
     "audit-summary.json",
+    "bundle.json",
+    "bundle.md",
 ]
 
 
@@ -109,6 +111,8 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
     queue_jsonl = output / "queue.jsonl"
     audit_jsonl = output / "audit-events.jsonl"
     audit_summary_json = output / "audit-summary.json"
+    bundle_json = output / "bundle.json"
+    bundle_md = output / "bundle.md"
     summary_json = output / "summary.json"
 
     fixture_log = Path("examples") / "ci-triage" / "dependency-failure.log"
@@ -357,6 +361,14 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
             str(audit_summary_json),
         ],
     )
+    _run_patchrail(
+        root,
+        ["queue", "--db", str(db), "bundle", "--format", "json", "--out", str(bundle_json)],
+    )
+    _run_patchrail(
+        root,
+        ["queue", "--db", str(db), "bundle", "--format", "markdown", "--out", str(bundle_md)],
+    )
 
     ci_payload = _json_file(ci_result)
     approved_item = _json_file(approved_json)
@@ -365,6 +377,7 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
     rejected_proposal = _json_file(proposal_rejected_json)
     queue_before_decisions = _json_file(queue_before_decisions_json)
     audit_summary = _json_file(audit_summary_json)
+    bundle = _json_file(bundle_json)
     events = [json.loads(line) for line in audit_jsonl.read_text(encoding="utf-8").splitlines()]
 
     summary = {
@@ -384,6 +397,11 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
         "audit_summary_status": audit_summary["status"],
         "audit_summary_missing_required_events": audit_summary["missing_required_events"],
         "audit_summary_gates": audit_summary["gates"],
+        "bundle_status": bundle["status"],
+        "bundle_remaining_gate_gaps": bundle["remaining_gate_gaps"],
+        "bundle_is_read_only": bundle["safety"]["bundle_is_read_only"],
+        "bundle_records_audit_event": bundle["safety"]["bundle_records_audit_event"],
+        "bundle_local_paths_redacted": bundle["safety"]["local_paths_redacted"],
         "artifact_files": ARTIFACTS,
     }
 
@@ -401,6 +419,16 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
         raise AssertionError("Audit summary did not verify the local gate sequence.")
     if summary["audit_summary_missing_required_events"]:
         raise AssertionError("Audit summary must not miss required gate events.")
+    if summary["bundle_status"] != "ready_for_handoff":
+        raise AssertionError("Bundle must be ready for handoff after gate events.")
+    if summary["bundle_remaining_gate_gaps"]:
+        raise AssertionError("Bundle must not report remaining gate gaps.")
+    if not summary["bundle_is_read_only"]:
+        raise AssertionError("Bundle must remain read-only.")
+    if summary["bundle_records_audit_event"]:
+        raise AssertionError("Reading the bundle must not append audit events.")
+    if not summary["bundle_local_paths_redacted"]:
+        raise AssertionError("Bundle must redact local paths.")
 
     summary_json.write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return summary

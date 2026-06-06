@@ -18,7 +18,9 @@
     "approved.json",
     "queue.jsonl",
     "audit-events.jsonl",
-    "audit-summary.json"
+    "audit-summary.json",
+    "bundle.json",
+    "bundle.md"
   ],
   "audit_summary_gates": {
     "proposal_approval_gate_exercised": true,
@@ -30,6 +32,11 @@
   },
   "audit_summary_missing_required_events": [],
   "audit_summary_status": "human_gates_exercised",
+  "bundle_is_read_only": true,
+  "bundle_local_paths_redacted": true,
+  "bundle_records_audit_event": false,
+  "bundle_remaining_gate_gaps": [],
+  "bundle_status": "ready_for_handoff",
   "audit_event_types": [
     "work_item_added",
     "work_item_added",

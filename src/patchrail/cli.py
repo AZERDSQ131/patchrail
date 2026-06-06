@@ -1246,6 +1246,8 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
         "queue.jsonl",
         "audit-events.jsonl",
         "audit-summary.json",
+        "bundle.json",
+        "bundle.md",
     ]
     missing_artifacts = [
         artifact for artifact in required_artifacts if artifact not in artifact_files
@@ -1268,6 +1270,11 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
     item_approved = summary.get("item_approval_state") == "approved"
     audit_summary_ready = summary.get("audit_summary_status") == "human_gates_exercised"
     audit_summary_missing_events = list(summary.get("audit_summary_missing_required_events") or [])
+    bundle_ready = summary.get("bundle_status") == "ready_for_handoff"
+    bundle_read_only = summary.get("bundle_is_read_only") is True
+    bundle_does_not_record = summary.get("bundle_records_audit_event") is False
+    bundle_paths_redacted = summary.get("bundle_local_paths_redacted") is True
+    bundle_remaining_gaps = list(summary.get("bundle_remaining_gate_gaps") or [])
     local_first = summary.get("local_first") is True
     safety_gaps = []
     if not local_first:
@@ -1286,6 +1293,16 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
         safety_gaps.append("audit_summary_human_gates_exercised")
     if audit_summary_missing_events:
         safety_gaps.append("audit_summary_missing_required_events")
+    if not bundle_ready:
+        safety_gaps.append("bundle_ready_for_handoff")
+    if not bundle_read_only:
+        safety_gaps.append("bundle_read_only")
+    if not bundle_does_not_record:
+        safety_gaps.append("bundle_does_not_record_audit_event")
+    if not bundle_paths_redacted:
+        safety_gaps.append("bundle_local_paths_redacted")
+    if bundle_remaining_gaps:
+        safety_gaps.append("bundle_remaining_gate_gaps")
     gaps = [*missing_events, *missing_artifacts, *missing_source_files, *safety_gaps]
     return {
         "schema_version": "patchrail.control_plane_evidence.v1",
@@ -1305,6 +1322,8 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
             "rejected_item_approval_state": summary.get("rejected_item_approval_state"),
             "rejected_proposal_approval_state": summary.get("rejected_proposal_approval_state"),
             "audit_summary_status": summary.get("audit_summary_status"),
+            "bundle_status": summary.get("bundle_status"),
+            "bundle_remaining_gate_gaps": bundle_remaining_gaps,
         },
         "safety": {
             "local_first": local_first,
@@ -1318,6 +1337,9 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
             "external_model_required": False,
             "billing_required": False,
             "network_required": False,
+            "bundle_is_read_only": bundle_read_only,
+            "bundle_records_audit_event": summary.get("bundle_records_audit_event"),
+            "bundle_local_paths_redacted": bundle_paths_redacted,
         },
         "artifact_presence": {
             "required_events_present": missing_events == [],
@@ -1353,6 +1375,8 @@ def _render_control_plane_evidence_markdown(payload: dict[str, Any]) -> str:
         f"- Proposal approval state: `{signals['proposal_approval_state']}`",
         f"- Risky proposal rejection state: `{signals['rejected_proposal_approval_state']}`",
         f"- Audit summary status: `{signals['audit_summary_status']}`",
+        f"- Bundle status: `{signals['bundle_status']}`",
+        f"- Bundle remaining gate gaps: `{signals['bundle_remaining_gate_gaps']}`",
         "",
         "## Safety",
         "",
@@ -1367,6 +1391,9 @@ def _render_control_plane_evidence_markdown(payload: dict[str, Any]) -> str:
         f"- External model required: `{safety['external_model_required']}`",
         f"- Billing required: `{safety['billing_required']}`",
         f"- Network required: `{safety['network_required']}`",
+        f"- Bundle is read-only: `{safety['bundle_is_read_only']}`",
+        f"- Bundle records audit event: `{safety['bundle_records_audit_event']}`",
+        f"- Bundle local paths redacted: `{safety['bundle_local_paths_redacted']}`",
         "",
         "## Artifact Presence",
         "",
@@ -1399,6 +1426,13 @@ def _render_control_plane_evidence_text(payload: dict[str, Any]) -> str:
                 (
                     "Audit summary human gates exercised: "
                     f"{payload['safety']['audit_summary_human_gates_exercised']}"
+                ),
+                f"Bundle status: {signals['bundle_status']}",
+                f"Bundle is read-only: {payload['safety']['bundle_is_read_only']}",
+                (f"Bundle records audit event: {payload['safety']['bundle_records_audit_event']}"),
+                (
+                    "Bundle local paths redacted: "
+                    f"{payload['safety']['bundle_local_paths_redacted']}"
                 ),
             ]
         )

@@ -157,6 +157,14 @@ bundle and leaves the original SQLite records unchanged. Reading the bundle
 does not add an audit event, execute a proposal, open a pull request, post a
 comment, or contact a repository.
 
+The runnable demo in
+[`examples/local-agent-queue`](../examples/local-agent-queue/README.md) writes
+both `.patchrail-demo/bundle.json` and `.patchrail-demo/bundle.md`. Its stable
+summary records `bundle_status=ready_for_handoff`,
+`bundle_is_read_only=true`, `bundle_records_audit_event=false`, and
+`bundle_local_paths_redacted=true`, so reviewers can inspect the handoff without
+starting a server or granting GitHub write permission.
+
 Run the local-only HTTP API:
 
 ```bash

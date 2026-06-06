@@ -78,6 +78,9 @@ Current evidence snapshot from 2026-06-03:
 - The same demo writes `audit-summary.json`; `patchrail queue audit-summary`
   reports `human_gates_exercised` only after required approval, rejection,
   proposal, and export events are present.
+- The demo also writes `bundle.json` and `bundle.md`; `patchrail queue bundle`
+  reports `ready_for_handoff`, stays read-only, records no audit event while
+  reading, and redacts local paths.
 - `patchrail queue bundle --format json` emits a read-only handoff packet with
   work items, proposals, audit events, status, audit summary, safety metadata,
   and `remaining_gate_gaps=[]` once the demo gate sequence is complete. Reading
