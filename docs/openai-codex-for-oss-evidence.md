@@ -17,8 +17,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   and provide `uvx --from git+https://github.com/patchrail/patchrail patchrail`
   so reviewers do not hit a package-index 404 before PyPI is published.
 - Recent successful public CI run:
-  <https://github.com/patchrail/patchrail/actions/runs/27048490076> completed
-  successfully for commit `5d335368476b9c8739c01ffc16ba74d18d10b259`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27048944685> completed
+  successfully for commit `8372405fe46ee8b4cfdfd50bdee5b59bcf8c3d1e`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job.
 - Versioned reviewer demo:
