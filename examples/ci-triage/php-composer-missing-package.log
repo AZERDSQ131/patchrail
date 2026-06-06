@@ -1,0 +1,6 @@
+Run composer install --no-interaction --prefer-dist
+
+Your requirements could not be resolved to an installable set of packages.
+
+Problem 1
+  - Root composer.json requires vendor/missing-package, it could not be found in any version, there may be a typo in the package name.

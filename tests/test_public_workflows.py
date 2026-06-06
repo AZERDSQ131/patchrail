@@ -286,9 +286,9 @@ def test_evidence_snapshot_summarizes_public_oss_signals_without_write_actions()
     assert payload["repository"] == "patchrail/patchrail"
     assert payload["generated_from"] == "local_checkout"
     assert payload["status"] == "needs_more_evidence"
-    assert payload["signals"]["ci_fixtures"] == 138
-    assert payload["signals"]["ci_expected_files"] == 138
-    assert payload["signals"]["ci_benchmark_passed"] == 138
+    assert payload["signals"]["ci_fixtures"] == 143
+    assert payload["signals"]["ci_expected_files"] == 143
+    assert payload["signals"]["ci_benchmark_passed"] == 143
     assert payload["signals"]["ci_benchmark_failed"] == 0
     assert payload["signals"]["public_external_adopters"] == 0
     assert payload["signals"]["pilot_summary_count"] == 1
@@ -345,7 +345,7 @@ def test_roadmap_audit_tracks_versions_and_weeks_without_external_claims() -> No
         "first PyPI publish and clean install verification"
         in (payload["versions"]["v0.1.0"]["gaps"])
     )
-    assert payload["versions"]["v0.2.0"]["signals"]["ci_fixtures"] == 138
+    assert payload["versions"]["v0.2.0"]["signals"]["ci_fixtures"] == 143
     assert payload["versions"]["v0.2.0"]["signals"]["ci_benchmark_failed"] == 0
     assert payload["versions"]["v0.2.0"]["signals"]["read_only_github_action"] is True
     assert payload["versions"]["v0.3.0"]["signals"]["owned_repo_issue_pr_cycles"] == 20
@@ -443,7 +443,7 @@ def test_application_gate_fails_closed_until_public_evidence_is_real() -> None:
         "keep README, quickstart, release-readiness, and application-gate docs honest",
         "prepare upstream contributions only when a real bug or maintenance improvement exists",
     ]
-    assert payload["signals"]["ci_fixtures"] == 138
+    assert payload["signals"]["ci_fixtures"] == 143
     assert payload["signals"]["public_external_adopters"] == 0
     assert payload["signals"]["owned_repo_issue_pr_cycles"] == 20
     assert payload["safety"]["network_required"] is False
@@ -704,22 +704,22 @@ def test_github_action_artifact_example_is_report_only_and_sanitized() -> None:
     assert "PatchRail classified this log locally" in report
     assert "did not create a pull request" in report
     assert "# PatchRail CI Benchmark" in benchmark_summary
-    assert "- Total cases: `138`" in benchmark_summary
+    assert "- Total cases: `143`" in benchmark_summary
     assert "## Class summary" in benchmark_summary
     assert "## Cases" not in benchmark_summary
     assert result["failure_class"] == "python_dependency_resolution"
     assert result["requirements"]["billing_required"] is False
     assert result["requirements"]["external_model_required"] is False
-    assert benchmark["total_cases"] == 138
+    assert benchmark["total_cases"] == 143
     assert benchmark["failed"] == 0
     assert benchmark["accuracy"]["top_1"] == 1.0
     assert benchmark["class_summary"]["python_dependency_resolution"]["total_cases"] == 27
     assert benchmark["class_summary"]["node_dependency_install"]["total_cases"] == 19
     assert benchmark["class_summary"]["typescript_typecheck"]["total_cases"] == 19
     assert benchmark["class_summary"]["ruby_bundle_failure"]["total_cases"] == 8
-    assert benchmark["class_summary"]["java_build_failure"]["total_cases"] == 3
-    assert benchmark["class_summary"]["php_composer_failure"]["total_cases"] == 3
-    assert benchmark["class_summary"]["dotnet_build_failure"]["total_cases"] == 3
+    assert benchmark["class_summary"]["java_build_failure"]["total_cases"] == 4
+    assert benchmark["class_summary"]["php_composer_failure"]["total_cases"] == 4
+    assert benchmark["class_summary"]["dotnet_build_failure"]["total_cases"] == 4
     assert doctor["status"] == "ok"
     assert doctor["requirements"]["github_write_permission_required"] is False
 
@@ -831,7 +831,7 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "#59 -> #60" in evidence
     assert "Consent-only pilot outcome example" in evidence
     assert "examples/pilot-outcome" in evidence
-    assert "Public CI fixtures: 138 sanitized synthetic fixtures" in oss_program_evidence
+    assert "Public CI fixtures: 143 sanitized synthetic fixtures" in oss_program_evidence
     assert "Local evidence snapshot: `patchrail evidence snapshot --format markdown`" in (
         oss_program_evidence
     )
@@ -879,7 +879,7 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     )
     assert (
         "Fixture hygiene: `uv run --extra dev patchrail ci fixture-check "
-        "examples/ci-triage --format json` -> 138 / 138 fixtures passed."
+        "examples/ci-triage --format json` -> 143 / 143 fixtures passed."
     ) in oss_program_evidence
     assert "GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.0>" in (
         oss_program_evidence
@@ -1059,7 +1059,7 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "Owned-repo consent-only pilot outcomes | 1" in metrics
     assert "not an external adopter" in metrics
     assert "Public releases | 1" in metrics
-    assert "Fixture hygiene gate | 138 / 138 passing" in metrics
+    assert "Fixture hygiene gate | 143 / 143 passing" in metrics
     assert "Ruby, PHP, .NET, GitHub Actions, Docker/Compose, browser E2E" in metrics
     assert "Do not use placeholders as evidence" in metrics
     assert "public PRs reviewed with Codex" in metrics
@@ -1352,8 +1352,8 @@ def test_ci_workflow_builds_and_smokes_installable_package() -> None:
     )
     assert "Tests: 54 passed." in release_v02_evidence
     assert "Format: 20 files already formatted." in release_v02_evidence
-    assert "Fixture hygiene: 138 / 138 fixtures passed." in release_v02_evidence
-    assert "Benchmark: 138 total, 138 passed, 0 failed." in release_v02_evidence
+    assert "Fixture hygiene: 143 / 143 fixtures passed." in release_v02_evidence
+    assert "Benchmark: 143 total, 143 passed, 0 failed." in release_v02_evidence
     assert "Top-1 fixture accuracy: 1.0." in release_v02_evidence
     assert "Class coverage: 14 root-cause families." in release_v02_evidence
     assert "Bump `pyproject.toml` from `0.1.0` to `0.2.0`." in release_v02_evidence

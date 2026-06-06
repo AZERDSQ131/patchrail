@@ -2,7 +2,7 @@
 
 ## 0.2.0 - draft
 
-- Prepared the CI Janitor v0.2 evidence bundle around the 138-case fixture zoo,
+- Prepared the CI Janitor v0.2 evidence bundle around the 143-case fixture zoo,
   `fixture-check`, read-only GitHub Actions triage artifact, maintainer pilot
   guide, and public metrics/adopter surfaces.
 - Added .NET/NuGet/C# and xUnit fixture coverage for `dotnet restore`,

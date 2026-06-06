@@ -1,0 +1,6 @@
+Run ./gradlew test --tests example.missing.*
+
+Execution failed for task ':test'.
+> No tests found for given includes: [example.missing.*](--tests filter)
+
+BUILD FAILED in 4s

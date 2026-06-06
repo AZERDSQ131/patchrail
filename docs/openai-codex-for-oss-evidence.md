@@ -38,7 +38,7 @@ Pablo Guillén is the primary maintainer of PatchRail.
   signals without placeholder promotion
 - Adopter list: [ADOPTERS.md](../ADOPTERS.md) is permission-only and currently
   has no public external adopters listed
-- Public CI fixtures: 138 sanitized synthetic fixtures in the local benchmark
+- Public CI fixtures: 143 sanitized synthetic fixtures in the local benchmark
 - Maintainer pilot path: [docs/pilot-guide.md](pilot-guide.md) documents a
   consent-only read-only trial flow for redacted CI logs and optional fixture
   contributions
@@ -145,7 +145,7 @@ Last verified: 2026-06-06.
   review, public CI run, and remaining manual gates.
 - v0.2.0 release-candidate evidence:
   [docs/release-v0.2.0-evidence.md](release-v0.2.0-evidence.md) records the
-  138-fixture CI Janitor benchmark, read-only GitHub Actions artifact, pilot
+  143-fixture CI Janitor benchmark, read-only GitHub Actions artifact, pilot
   guide, metrics tracker, and remaining manual gates.
 - v0.3.0 release-candidate evidence:
   [docs/release-v0.3.0-evidence.md](release-v0.3.0-evidence.md) records the
@@ -164,7 +164,7 @@ Last verified: 2026-06-06.
 - Tests after the reviewer-facing evidence guardrails: `uv run --extra dev pytest -q` -> 75 passed, 4 subtests passed.
 - Lint: `uv run --extra dev ruff check .` -> all checks passed.
 - Format after the shared queue status contract: `uv run --extra dev ruff format --check .` -> 21 files already formatted.
-- CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 138 / 138 fixtures passed.
+- CI benchmark: `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json` -> 143 / 143 fixtures passed.
 - Consent-only pilot metrics: `uv run --extra dev patchrail ci pilot-metrics examples/pilot-outcome/*.summary.json --format json` separates owned-repo public mentions from external repository mentions so `patchrail/*` outcomes are not counted as external adopters.
 - Queue demo: `uv run --extra dev patchrail queue --db /tmp/patchrail-demo.sqlite init` and `patchrail queue add/list/approve/export` run locally with no write actions.
 - Agent Control Plane demo:

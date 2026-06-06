@@ -1,0 +1,5 @@
+Run docker buildx build --platform linux/amd64 .
+
+#7 [internal] load metadata for ghcr.io/example/base:missing
+#7 ERROR: failed to solve: ghcr.io/example/base:missing: manifest for ghcr.io/example/base:missing not found
+ERROR: failed to solve: manifest for ghcr.io/example/base:missing not found

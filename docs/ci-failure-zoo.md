@@ -11,7 +11,7 @@ access, repository write permissions, billing, or an external model call.
 
 ## Current Coverage
 
-The fixture zoo currently contains 138 cases across these root-cause families:
+The fixture zoo currently contains 143 cases across these root-cause families:
 
 - `github_actions_workflow`
 - `docker_build_failure`
@@ -70,7 +70,7 @@ Run the benchmark:
 patchrail ci benchmark examples/ci-triage --format markdown
 patchrail ci benchmark examples/ci-triage --format markdown --summary-only
 patchrail ci benchmark examples/ci-triage --format json
-patchrail ci benchmark examples/ci-triage --format json --summary-only --min-cases-per-class 3
+patchrail ci benchmark examples/ci-triage --format json --summary-only --min-cases-per-class 4
 patchrail ci fixture-check examples/ci-triage --format json
 ```
 
@@ -93,7 +93,7 @@ Current aggregate snapshot:
 
 - Top-1 fixture accuracy: `1.0`.
 - Root-cause families covered: `14`.
-- Coverage gate: `--min-cases-per-class 3` passes across every covered family.
+- Coverage gate: `--min-cases-per-class 4` passes across every covered family.
 - Largest families: `python_dependency_resolution` (`27` cases),
   `node_dependency_install` (`19` cases), and `typescript_typecheck`
   (`19` cases).
