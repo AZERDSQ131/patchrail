@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import re
 import subprocess
@@ -1847,6 +1848,152 @@ def _evidence_control_plane(args: argparse.Namespace) -> int:
         text = _render_control_plane_evidence_markdown(payload)
     else:
         text = _render_control_plane_evidence_text(payload)
+    _write_or_print(text, args.out)
+    return 0 if payload["status"] == "local_demo_ready" else 1
+
+
+def _load_local_agent_queue_demo(root: Path):
+    script = root / "examples" / "local-agent-queue" / "run_demo.py"
+    if not script.exists():
+        raise FileNotFoundError(
+            "examples/local-agent-queue/run_demo.py is required; "
+            "run this command from a PatchRail source checkout."
+        )
+    spec = importlib.util.spec_from_file_location("patchrail_local_agent_queue_demo", script)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load local Agent Control Plane demo from {script}.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    run_demo = getattr(module, "run_demo", None)
+    if run_demo is None:
+        raise RuntimeError("examples/local-agent-queue/run_demo.py does not expose run_demo.")
+    return run_demo
+
+
+def _control_plane_demo_payload(root: Path, out_dir: Path, *, force: bool) -> dict[str, Any]:
+    run_demo = _load_local_agent_queue_demo(root)
+    summary = run_demo(out_dir, force=force)
+    if not isinstance(summary, dict):
+        raise ValueError("local Agent Control Plane demo returned a non-object summary")
+    summary_file = out_dir.resolve() / "summary.json"
+    evidence = _control_plane_evidence_payload(root, summary_file)
+    return {
+        "schema_version": "patchrail.control_plane_demo_run.v1",
+        "patchrail_version": __version__,
+        "repository": "patchrail/patchrail",
+        "generated_from": "local_checkout",
+        "status": evidence["status"],
+        "output_dir": _safe_evidence_path(root, out_dir.resolve()),
+        "summary_file": _safe_evidence_path(root, summary_file),
+        "artifact_files": summary.get("artifact_files", []),
+        "signals": {
+            "source_failure_class": summary.get("source_failure_class"),
+            "audit_event_count": len(summary.get("audit_event_types") or []),
+            "pending_items_before_decisions": summary.get("pending_items_before_decisions"),
+            "gate_report_status": summary.get("gate_report_status"),
+            "gate_report_pending_decisions": summary.get("gate_report_pending_decisions"),
+            "bundle_status": summary.get("bundle_status"),
+            "bundle_reviewer_status": summary.get("bundle_reviewer_status"),
+        },
+        "safety": {
+            "local_first": bool(summary.get("local_first")),
+            "write_actions_allowed": bool(summary.get("write_actions_allowed")),
+            "gate_report_is_read_only": bool(summary.get("gate_report_is_read_only")),
+            "gate_report_records_audit_event": bool(summary.get("gate_report_records_audit_event")),
+            "gate_report_execution_allowed": bool(summary.get("gate_report_execution_allowed")),
+            "bundle_is_read_only": bool(summary.get("bundle_is_read_only")),
+            "bundle_records_audit_event": bool(summary.get("bundle_records_audit_event")),
+            "bundle_local_paths_redacted": bool(summary.get("bundle_local_paths_redacted")),
+            "bundle_reviewer_execution_allowed": bool(
+                summary.get("bundle_reviewer_execution_allowed")
+            ),
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "evidence_status": evidence["status"],
+        "remaining_evidence_gaps": evidence["remaining_evidence_gaps"],
+    }
+
+
+def _render_control_plane_demo_markdown(payload: dict[str, Any]) -> str:
+    signals = payload["signals"]
+    safety = payload["safety"]
+    lines = [
+        "# PatchRail Agent Control Plane Demo Run",
+        "",
+        f"- Repository: `{payload['repository']}`",
+        f"- Status: `{payload['status']}`",
+        f"- Output directory: `{payload['output_dir']}`",
+        f"- Summary file: `{payload['summary_file']}`",
+        f"- Artifact files: `{len(payload['artifact_files'])}`",
+        f"- Source failure class: `{signals['source_failure_class']}`",
+        f"- Audit events: `{signals['audit_event_count']}`",
+        f"- Pending items before decisions: `{signals['pending_items_before_decisions']}`",
+        f"- Gate report status: `{signals['gate_report_status']}`",
+        f"- Gate report pending decisions: `{signals['gate_report_pending_decisions']}`",
+        f"- Bundle status: `{signals['bundle_status']}`",
+        f"- Bundle reviewer status: `{signals['bundle_reviewer_status']}`",
+        "",
+        "## Safety",
+        "",
+        f"- Local-first: `{safety['local_first']}`",
+        f"- Write actions allowed: `{safety['write_actions_allowed']}`",
+        f"- Gate report is read-only: `{safety['gate_report_is_read_only']}`",
+        f"- Gate report records audit event: `{safety['gate_report_records_audit_event']}`",
+        f"- Gate report execution allowed: `{safety['gate_report_execution_allowed']}`",
+        f"- Bundle is read-only: `{safety['bundle_is_read_only']}`",
+        f"- Bundle records audit event: `{safety['bundle_records_audit_event']}`",
+        f"- Bundle local paths redacted: `{safety['bundle_local_paths_redacted']}`",
+        f"- Bundle reviewer execution allowed: `{safety['bundle_reviewer_execution_allowed']}`",
+        f"- Network required: `{safety['network_required']}`",
+        f"- GitHub write permission required: `{safety['github_write_permission_required']}`",
+        f"- External model required: `{safety['external_model_required']}`",
+        f"- Billing required: `{safety['billing_required']}`",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _render_control_plane_demo_text(payload: dict[str, Any]) -> str:
+    signals = payload["signals"]
+    safety = payload["safety"]
+    return (
+        "\n".join(
+            [
+                f"Status: {payload['status']}",
+                f"Output directory: {payload['output_dir']}",
+                f"Summary file: {payload['summary_file']}",
+                f"Artifacts: {len(payload['artifact_files'])}",
+                f"Source failure class: {signals['source_failure_class']}",
+                f"Gate report status: {signals['gate_report_status']}",
+                f"Bundle status: {signals['bundle_status']}",
+                f"Write actions allowed: {safety['write_actions_allowed']}",
+                f"Network required: {safety['network_required']}",
+            ]
+        )
+        + "\n"
+    )
+
+
+def _evidence_control_plane_demo(args: argparse.Namespace) -> int:
+    try:
+        payload = _control_plane_demo_payload(Path("."), args.out_dir, force=args.force)
+    except (
+        AssertionError,
+        FileNotFoundError,
+        json.JSONDecodeError,
+        RuntimeError,
+        ValueError,
+    ) as exc:
+        print(f"Invalid control-plane demo run: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_control_plane_demo_markdown(payload)
+    else:
+        text = _render_control_plane_demo_text(payload)
     _write_or_print(text, args.out)
     return 0 if payload["status"] == "local_demo_ready" else 1
 
@@ -4441,6 +4588,30 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     evidence_control_plane.add_argument("--out", type=Path, help="Optional output path.")
     evidence_control_plane.set_defaults(func=_evidence_control_plane)
+
+    evidence_control_plane_demo = evidence_subparsers.add_parser(
+        "control-plane-demo",
+        help="Run the local Agent Control Plane demo and validate its evidence summary.",
+    )
+    evidence_control_plane_demo.add_argument(
+        "--out-dir",
+        type=Path,
+        default=Path(".patchrail-demo"),
+        help="Directory for generated local demo artifacts. Defaults to .patchrail-demo.",
+    )
+    evidence_control_plane_demo.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite generated demo artifacts in the output directory.",
+    )
+    evidence_control_plane_demo.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    evidence_control_plane_demo.add_argument("--out", type=Path, help="Optional output path.")
+    evidence_control_plane_demo.set_defaults(func=_evidence_control_plane_demo)
 
     evidence_http_api = evidence_subparsers.add_parser(
         "http-api",

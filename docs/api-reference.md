@@ -275,14 +275,23 @@ PatchRail also exposes a local evidence command for the Agent Control Plane
 demo:
 
 ```bash
+patchrail evidence control-plane-demo --out-dir .patchrail-demo --force --format markdown
 patchrail evidence control-plane --format markdown
 patchrail evidence http-api --format markdown
 ```
 
-It validates `examples/local-agent-queue/demo-summary.expected.json`, confirms
-the required audit events and artifacts are present, and reports whether the
-human approval, proposal approval, and risky-proposal rejection gates were
-exercised. It also verifies that the gate report and bundle reviewer summary are ready for
+`patchrail evidence control-plane-demo` runs the checked-in local queue demo
+from a source checkout, writes reviewer artifacts under the selected output
+directory, and validates the resulting `summary.json` with the same evidence
+contract before reporting `local_demo_ready`. It fails closed if the demo cannot
+exercise local approval, risky-proposal rejection, audit-summary, gate-report,
+or bundle contracts.
+
+`patchrail evidence control-plane` validates
+`examples/local-agent-queue/demo-summary.expected.json` by default, confirms the
+required audit events and artifacts are present, and reports whether the human
+approval, proposal approval, and risky-proposal rejection gates were exercised.
+It also verifies that the gate report and bundle reviewer summary are ready for
 handoff, leaves no pending decisions, and does not allow execution. It is a
 local release guardrail: it does not bind a server, contact GitHub, call
 external models, require billing, or grant repository write permission.

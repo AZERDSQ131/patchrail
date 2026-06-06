@@ -204,6 +204,23 @@ checklist for the local CI evidence, proposal decisions, audit summary, and
 safety fields, so reviewers can inspect the handoff without starting a server
 or granting GitHub write permission.
 
+From a source checkout, the installed CLI can generate and validate the same
+local demo artifacts in one command:
+
+```bash
+patchrail evidence control-plane-demo \
+  --out-dir .patchrail-demo \
+  --force \
+  --format markdown \
+  --out .patchrail-demo/demo-run.md
+```
+
+The command fails closed if the checked-in demo cannot exercise the local human
+approval, risky-proposal rejection, audit-summary, gate-report, and bundle
+contracts. It writes `.patchrail-demo/summary.json` plus the reviewer handoff
+artifacts, then validates the summary with
+`patchrail evidence control-plane` before reporting `local_demo_ready`.
+
 Run the local-only HTTP API:
 
 ```bash

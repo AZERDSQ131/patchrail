@@ -940,29 +940,11 @@ def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
         in workflow
     )
     assert (
-        "uv run python examples/local-agent-queue/run_demo.py --output .patchrail-ci-local-agent-queue --force"
+        "uv run patchrail evidence control-plane-demo --out-dir patchrail-oss-evidence/local-agent-queue --force --format markdown --out patchrail-oss-evidence/local-agent-queue/demo-run.md"
         in workflow
     )
-    assert (
-        "cp .patchrail-ci-local-agent-queue/summary.json patchrail-oss-evidence/local-agent-queue/summary.json"
-        in workflow
-    )
-    assert (
-        "cp .patchrail-ci-local-agent-queue/gate-report.json patchrail-oss-evidence/local-agent-queue/gate-report.json"
-        in workflow
-    )
-    assert (
-        "cp .patchrail-ci-local-agent-queue/gate-report.md patchrail-oss-evidence/local-agent-queue/gate-report.md"
-        in workflow
-    )
-    assert (
-        "cp .patchrail-ci-local-agent-queue/bundle.json patchrail-oss-evidence/local-agent-queue/bundle.json"
-        in workflow
-    )
-    assert (
-        "cp .patchrail-ci-local-agent-queue/bundle.md patchrail-oss-evidence/local-agent-queue/bundle.md"
-        in workflow
-    )
+    assert "examples/local-agent-queue/run_demo.py --output" not in workflow
+    assert "cp .patchrail-ci-local-agent-queue/" not in workflow
     assert "if-no-files-found: error" in workflow
 
     assert "control-plane-evidence.json" in docs
@@ -971,6 +953,7 @@ def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
     assert "application-dossier.md" in docs
     assert "reviewer-packet/" in docs
     assert "patchrail evidence reviewer-packet --out-dir" in docs
+    assert "local-agent-queue/demo-run.md" in docs
     assert "local-agent-queue/summary.json" in docs
     assert "local-agent-queue/gate-report.json" in docs
     assert "local-agent-queue/gate-report.md" in docs
@@ -1242,6 +1225,90 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert "ready_for_reviewer_handoff" in docs
     assert "local_demo_ready" in docs
     assert "risky-proposal rejection" in docs
+
+
+def test_control_plane_demo_command_generates_reviewer_artifacts_from_cli() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out_dir = Path(tmpdir) / "local-agent-queue"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "control-plane-demo",
+                "--out-dir",
+                str(out_dir),
+                "--force",
+                "--format",
+                "json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        assert proc.returncode == 0, proc.stderr
+        payload = json.loads(proc.stdout)
+        assert payload["schema_version"] == "patchrail.control_plane_demo_run.v1"
+        assert payload["status"] == "local_demo_ready"
+        assert payload["evidence_status"] == "local_demo_ready"
+        assert payload["repository"] == "patchrail/patchrail"
+        assert payload["generated_from"] == "local_checkout"
+        assert payload["summary_file"].endswith("summary.json")
+        assert payload["signals"]["source_failure_class"] == "python_dependency_resolution"
+        assert payload["signals"]["audit_event_count"] == 9
+        assert payload["signals"]["gate_report_status"] == "ready_for_reviewer_handoff"
+        assert payload["signals"]["gate_report_pending_decisions"] == 0
+        assert payload["signals"]["bundle_status"] == "ready_for_handoff"
+        assert payload["signals"]["bundle_reviewer_status"] == "ready_for_reviewer_handoff"
+        assert payload["safety"]["local_first"] is True
+        assert payload["safety"]["write_actions_allowed"] is False
+        assert payload["safety"]["gate_report_is_read_only"] is True
+        assert payload["safety"]["gate_report_records_audit_event"] is False
+        assert payload["safety"]["gate_report_execution_allowed"] is False
+        assert payload["safety"]["bundle_is_read_only"] is True
+        assert payload["safety"]["bundle_records_audit_event"] is False
+        assert payload["safety"]["bundle_local_paths_redacted"] is True
+        assert payload["safety"]["bundle_reviewer_execution_allowed"] is False
+        assert payload["safety"]["network_required"] is False
+        assert payload["safety"]["github_write_permission_required"] is False
+        assert payload["safety"]["external_model_required"] is False
+        assert payload["safety"]["billing_required"] is False
+        assert "/Volumes/" not in proc.stdout
+        assert "/Users/" not in proc.stdout
+        assert "/home/" not in proc.stdout
+        assert (out_dir / "summary.json").exists()
+        assert (out_dir / "gate-report.json").exists()
+        assert (out_dir / "gate-report.md").exists()
+        assert (out_dir / "bundle.json").exists()
+        assert (out_dir / "bundle.md").exists()
+
+        markdown_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "control-plane-demo",
+                "--out-dir",
+                str(out_dir),
+                "--force",
+                "--format",
+                "markdown",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        assert markdown_proc.returncode == 0, markdown_proc.stderr
+        assert "# PatchRail Agent Control Plane Demo Run" in markdown_proc.stdout
+        assert "- Status: `local_demo_ready`" in markdown_proc.stdout
+        assert "- Write actions allowed: `False`" in markdown_proc.stdout
+        assert "- Bundle local paths redacted: `True`" in markdown_proc.stdout
 
 
 def test_http_api_evidence_smokes_ephemeral_local_server_without_write_actions() -> None:

@@ -12,12 +12,18 @@ For a single local reviewer smoke test from a source checkout, run:
 uv run --extra dev python scripts/reviewer_quick_check.py
 uv run --extra dev patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet
 uv run --extra dev patchrail evidence verify-reviewer-packet patchrail-reviewer-packet --format markdown
+uv run --extra dev patchrail evidence control-plane-demo --out-dir .patchrail-demo --force --format markdown
 ```
 
 The reviewer packet verifier recomputes every listed artifact's byte size and
 SHA-256 digest, rejects symlinked or non-file artifacts, rejects extra files,
 and exits non-zero if the packet has been tampered with or drifted from its
 manifest.
+
+The Control Plane demo command generates a local SQLite queue from the bundled
+CI fixture, records approval and rejection gates, writes the reviewer handoff
+artifacts, and reports `local_demo_ready` without network, billing, external
+models, or GitHub write permission.
 
 PyPI publishing is pending, so `pipx install patchrail` will not work yet. Until
 the package is published there, run the public GitHub source directly:
