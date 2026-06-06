@@ -35,6 +35,9 @@ The Control Plane demo command generates a local SQLite queue from the bundled
 CI fixture, records approval and rejection gates, writes the reviewer handoff
 artifacts, and reports `local_demo_ready` without network, billing, external
 models, or GitHub write permission.
+The versioned no-install transcript is available at
+[examples/control-plane-demo/demo-output.md](examples/control-plane-demo/demo-output.md),
+and tests regenerate it to prevent drift.
 
 PyPI publishing is pending, so do not use `pipx install patchrail` yet. Until
 the package is on PyPI, run the public GitHub source directly:
@@ -173,6 +176,7 @@ See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
 - [Metrics](docs/metrics.md)
 - [GitHub Actions CI triage](docs/github-action.md)
 - [Agent Control Plane](docs/agent-control-plane.md)
+- [Agent Control Plane demo transcript](examples/control-plane-demo/README.md)
 - [API reference](docs/api-reference.md)
 - [Codex workflows](docs/codex-workflows.md)
 - [Reviewable automation workflows](docs/agent-workflows.md)

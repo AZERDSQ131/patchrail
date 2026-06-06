@@ -1317,6 +1317,37 @@ def test_control_plane_demo_command_generates_reviewer_artifacts_from_cli() -> N
         assert "- Bundle local paths redacted: `True`" in markdown_proc.stdout
 
 
+def test_versioned_control_plane_demo_output_matches_cli() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out_dir = Path(tmpdir) / "patchrail-control-plane-demo"
+        proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "control-plane-demo",
+                "--out-dir",
+                str(out_dir),
+                "--force",
+                "--format",
+                "markdown",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+    assert proc.returncode == 0, proc.stderr
+    demo = (ROOT / "examples" / "control-plane-demo" / "demo-output.md").read_text(encoding="utf-8")
+    assert proc.stdout.strip() == demo.strip()
+    assert "- Status: `local_demo_ready`" in demo
+    assert "- Gate report status: `ready_for_reviewer_handoff`" in demo
+    assert "- Bundle reviewer execution allowed: `False`" in demo
+    assert "- Network required: `False`" in demo
+
+
 def test_http_api_evidence_smokes_ephemeral_local_server_without_write_actions() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "patchrail", "evidence", "http-api", "--format", "json"],

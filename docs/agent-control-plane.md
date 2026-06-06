@@ -221,6 +221,12 @@ contracts. It writes `.patchrail-demo/summary.json` plus the reviewer handoff
 artifacts, then validates the summary with
 `patchrail evidence control-plane` before reporting `local_demo_ready`.
 
+For reviewers who want the value signal without installing anything first, the
+same stable Markdown transcript is checked in at
+[`examples/control-plane-demo/demo-output.md`](../examples/control-plane-demo/demo-output.md).
+It shows the SQLite queue handoff, completed human gates, read-only bundle, and
+no-network/no-write safety flags in under 30 lines.
+
 Run the local-only HTTP API:
 
 ```bash
