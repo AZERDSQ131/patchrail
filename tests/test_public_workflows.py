@@ -224,6 +224,9 @@ def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
         ) in text, path
         assert "pipx install patchrail" in text, path
         assert "That pre-PyPI smoke test prints" in text, path
+        assert "10-second reviewer demo" in text, path
+        assert "No install is required to inspect the current behavior." in text, path
+        assert "tests compare that file against the command output to prevent drift" in text, path
 
         for expected_line in (
             "- Root cause: `python_test_failure`",

@@ -11,6 +11,13 @@ maintainers stay in control.
 
 ## Quickstart
 
+### 10-second reviewer demo
+
+No install is required to inspect the current behavior. The versioned demo at
+[examples/ci-triage/demo-output.md](examples/ci-triage/demo-output.md) is real
+CLI output from the bundled `examples/ci-triage/dependency-failure.log` fixture,
+and tests compare that file against the command output to prevent drift.
+
 PyPI publishing is pending, so do not use `pipx install patchrail` yet. Until
 the package is on PyPI, run the public GitHub source directly:
 
@@ -63,9 +70,11 @@ uv run --extra dev patchrail doctor
 uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log
 ```
 
-The versioned demo output is in
-[examples/ci-triage/demo-output.md](examples/ci-triage/demo-output.md), generated
-from the same bundled fixture and kept in sync by tests.
+The same versioned demo can be regenerated locally with:
+
+```bash
+uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown
+```
 
 Example output:
 

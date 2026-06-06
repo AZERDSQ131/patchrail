@@ -1,5 +1,12 @@
 # Quickstart
 
+## 10-second reviewer demo
+
+No install is required to inspect the current behavior. The versioned demo at
+[examples/ci-triage/demo-output.md](../examples/ci-triage/demo-output.md) is real
+CLI output from the bundled `examples/ci-triage/dependency-failure.log` fixture,
+and tests compare that file against the command output to prevent drift.
+
 PyPI publishing is pending, so `pipx install patchrail` will not work yet. Until
 the package is published there, run the public GitHub source directly:
 
@@ -76,9 +83,11 @@ uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-fail
 uv run --extra dev patchrail ci benchmark examples/ci-triage --format markdown
 ```
 
-The same fixture has a versioned real-output demo at
-[examples/ci-triage/demo-output.md](../examples/ci-triage/demo-output.md). Tests
-compare that file with the CLI output so reviewers can trust it is not stale.
+The same fixture has a versioned real-output demo that can be regenerated with:
+
+```bash
+uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown
+```
 
 PatchRail v0.1 does not create pull requests, comments, funded issue claims, or
 remote uploads. The command reads a local log file and writes a local report.
