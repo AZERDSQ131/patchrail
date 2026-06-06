@@ -1604,10 +1604,12 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "patchrail schema queue-work-item" in api_reference
     assert "patchrail schema queue-audit-summary" in api_reference
     assert "patchrail schema queue-gate-report" in api_reference
+    assert "patchrail schema queue-review" in api_reference
     assert "patchrail schema application-dossier" in api_reference
     assert "schemas/queue_work_item.schema.json" in api_reference
     assert "schemas/queue_audit_summary.schema.json" in api_reference
     assert "schemas/queue_gate_report.schema.json" in api_reference
+    assert "schemas/queue_review.schema.json" in api_reference
     assert "schemas/application_dossier.schema.json" in api_reference
     assert "agent_may_submit=false" in api_reference
     assert "## CLI Audit Summary" in api_reference
@@ -1620,6 +1622,9 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
         api_reference
     )
     assert "patchrail.queue_gate_report.v1" in api_reference
+    assert "## CLI Queue Review Inbox" in api_reference
+    assert "patchrail queue --db patchrail-pilot.sqlite review --format markdown" in api_reference
+    assert "patchrail.queue_review.v1" in api_reference
     assert "## CLI Queue Bundle" in api_reference
     assert "patchrail queue --db patchrail-pilot.sqlite bundle --format markdown" in api_reference
     assert "patchrail.queue_bundle.v1" in api_reference

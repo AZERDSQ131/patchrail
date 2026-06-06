@@ -45,6 +45,7 @@ from patchrail.queue.status import (
     queue_audit_summary_payload,
     queue_bundle_payload,
     queue_gate_report_payload,
+    queue_review_payload,
     queue_status_payload,
 )
 
@@ -152,6 +153,7 @@ def _load_schema(name: str) -> str:
         "queue-audit-summary": "queue-audit-summary.v1.schema.json",
         "queue-gate-report": "queue-gate-report.v1.schema.json",
         "queue-proposal": "queue-proposal.v1.schema.json",
+        "queue-review": "queue-review.v1.schema.json",
         "queue-status": "queue-status.v1.schema.json",
         "queue-work-item": "queue-work-item.v1.schema.json",
         "reviewer-quick-check-artifacts": "reviewer-quick-check-artifacts.v1.schema.json",
@@ -2535,6 +2537,92 @@ def _render_queue_gate_report_text(payload: dict[str, Any]) -> str:
     )
 
 
+def _render_queue_review_markdown(payload: dict[str, Any]) -> str:
+    groups = payload["review_groups"]
+    safety = payload["safety"]
+    lines = [
+        "# PatchRail Queue Review Inbox",
+        "",
+        f"- DB: `{payload['db_path']}`",
+        f"- Status: `{payload['status']}`",
+        f"- Ready for reviewer handoff: `{payload['ready_for_reviewer_handoff']}`",
+        f"- Pending decisions: `{payload['pending_decisions']}`",
+        "",
+        "## Reviewer Actions",
+        "",
+    ]
+    lines.extend(f"- {action}" for action in payload["reviewer_actions"])
+    sections = [
+        ("Pending Work Items", "pending_work_items", "work_item"),
+        ("Pending Proposals", "pending_proposals", "proposal"),
+        ("Approved Work Items", "approved_work_items", "work_item"),
+        ("Approved Proposals", "approved_proposals", "proposal"),
+        ("Rejected Work Items", "rejected_work_items", "work_item"),
+        ("Rejected Proposals", "rejected_proposals", "proposal"),
+    ]
+    for title, key, record_type in sections:
+        lines.extend(["", f"## {title}", ""])
+        records = groups[key]
+        if not records:
+            lines.append("- None.")
+            continue
+        for record in records:
+            if record_type == "work_item":
+                lines.append(
+                    f"- `{record['id']}` `{record['approval_state']}` "
+                    f"`{record['kind']}`: {record['title']}"
+                )
+                lines.append(f"  - Source: `{record['source']}`")
+                lines.append(f"  - Write actions allowed: `{record['write_actions_allowed']}`")
+            else:
+                lines.append(
+                    f"- `{record['id']}` `{record['approval_state']}` "
+                    f"`{record['risk_level']}`: {record['title']}"
+                )
+                lines.append(f"  - Work item: `{record['work_item_id']}`")
+            if record.get("decision_note"):
+                lines.append(f"  - Decision note: {record['decision_note']}")
+    lines.extend(
+        [
+            "",
+            "## Safety",
+            "",
+            f"- Review is read-only: `{safety['review_is_read_only']}`",
+            f"- Review records audit event: `{safety['review_records_audit_event']}`",
+            f"- Execution allowed: `{safety['execution_allowed']}`",
+            f"- Local paths redacted: `{safety['local_paths_redacted']}`",
+            f"- Approval records execute actions: `{safety['approval_records_execute_actions']}`",
+            f"- GitHub write permission required: `{safety['github_write_permission_required']}`",
+            f"- Network required: `{safety['network_required']}`",
+            f"- External model required: `{safety['external_model_required']}`",
+            f"- Billing required: `{safety['billing_required']}`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _render_queue_review_text(payload: dict[str, Any]) -> str:
+    counts = payload["counts"]
+    return (
+        "\n".join(
+            [
+                "PatchRail Queue Review Inbox",
+                f"DB: {payload['db_path']}",
+                f"Status: {payload['status']}",
+                f"Ready for reviewer handoff: {payload['ready_for_reviewer_handoff']}",
+                f"Pending decisions: {payload['pending_decisions']}",
+                f"Work items: {counts['work_items_total']}",
+                f"Proposals: {counts['proposals_total']}",
+                "Review is read-only: True",
+                "Review records audit event: False",
+                "Execution allowed: False",
+                "Local paths redacted: True",
+            ]
+        )
+        + "\n"
+    )
+
+
 def _render_queue_status_text(payload: dict[str, Any]) -> str:
     counts = payload["counts"]
     gate_summary = payload["human_gate_summary"]
@@ -2872,6 +2960,18 @@ def _queue_gate_report(args: argparse.Namespace) -> int:
         text = _render_queue_gate_report_markdown(payload)
     else:
         text = _render_queue_gate_report_text(payload)
+    _write_or_print(text, args.out)
+    return 0 if payload["ready_for_reviewer_handoff"] else 1
+
+
+def _queue_review(args: argparse.Namespace) -> int:
+    payload = queue_review_payload(_queue_db(args))
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_queue_review_markdown(payload)
+    else:
+        text = _render_queue_review_text(payload)
     _write_or_print(text, args.out)
     return 0 if payload["ready_for_reviewer_handoff"] else 1
 
@@ -4144,6 +4244,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "queue-audit-summary",
             "queue-gate-report",
             "queue-proposal",
+            "queue-review",
             "queue-status",
             "queue-work-item",
             "reviewer-quick-check-artifacts",
@@ -4377,6 +4478,19 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     queue_status.add_argument("--out", type=Path, help="Optional output path.")
     queue_status.set_defaults(func=_queue_status)
+
+    queue_review = queue_subparsers.add_parser(
+        "review",
+        help="Show the local human review inbox without exporting full queue records.",
+    )
+    queue_review.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    queue_review.add_argument("--out", type=Path, help="Optional output path.")
+    queue_review.set_defaults(func=_queue_review)
 
     queue_add = queue_subparsers.add_parser("add", help="Add a local work item.")
     queue_add.add_argument("--kind", help="Work item kind, for example ci_failure.")

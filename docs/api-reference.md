@@ -65,6 +65,7 @@ patchrail schema queue-proposal
 patchrail schema queue-audit-event
 patchrail schema queue-audit-summary
 patchrail schema queue-gate-report
+patchrail schema queue-review
 ```
 
 CI Janitor, benchmark, and consent-only pilot outputs are versioned too:
@@ -94,6 +95,7 @@ consumers:
 - `src/patchrail/schemas/queue-audit-event.v1.schema.json`
 - `src/patchrail/schemas/queue-audit-summary.v1.schema.json`
 - `src/patchrail/schemas/queue-gate-report.v1.schema.json`
+- `src/patchrail/schemas/queue-review.v1.schema.json`
 - `src/patchrail/schemas/queue-status.v1.schema.json`
 
 Queue schema mirrors also remain available at the repository root for consumers
@@ -104,6 +106,7 @@ that read schemas without installing the package:
 - `schemas/queue_audit_event.schema.json`
 - `schemas/queue_audit_summary.schema.json`
 - `schemas/queue_gate_report.schema.json`
+- `schemas/queue_review.schema.json`
 - `schemas/queue_status.schema.json`
 - `schemas/application_dossier.schema.json`
 - `schemas/reviewer_quick_check_artifacts.schema.json`
@@ -184,6 +187,24 @@ successfully only when no reviewer decisions remain pending and all required
 local gate events are present. It is read-only, records no audit event, permits
 no execution, redacts local paths, and does not contact GitHub, call external
 models, open pull requests, post comments, or require billing.
+
+## CLI Queue Review Inbox
+
+`patchrail queue review` emits a compact local human-review inbox:
+
+```bash
+patchrail queue --db patchrail-pilot.sqlite review --format markdown
+```
+
+The review inbox emits `patchrail.queue_review.v1`, groups pending, approved,
+and rejected work items and proposals, and reports reviewer next actions with
+the same local-first safety boundary as the rest of the Agent Control Plane. It
+does not export full payloads, patch plans, or audit history; work item entries
+include compact metadata plus payload key names so maintainers can decide what
+to inspect next. It exits non-zero while pending work items or proposals remain,
+redacts absolute local paths, records no audit event, permits no execution, and
+does not contact GitHub, call external models, open pull requests, post
+comments, or require billing.
 
 ## CLI Queue Skip
 

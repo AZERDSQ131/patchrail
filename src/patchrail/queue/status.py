@@ -18,6 +18,7 @@ QUEUE_STATUS_SCHEMA_VERSION = "patchrail.queue_status.v1"
 QUEUE_AUDIT_SUMMARY_SCHEMA_VERSION = "patchrail.queue_audit_summary.v1"
 QUEUE_BUNDLE_SCHEMA_VERSION = "patchrail.queue_bundle.v1"
 QUEUE_GATE_REPORT_SCHEMA_VERSION = "patchrail.queue_gate_report.v1"
+QUEUE_REVIEW_SCHEMA_VERSION = "patchrail.queue_review.v1"
 
 DEFAULT_REQUIRED_AUDIT_EVENTS = [
     "work_item_added",
@@ -279,6 +280,99 @@ def queue_gate_report_payload(
             **SAFE_QUEUE_STATUS,
             "report_is_read_only": True,
             "report_records_audit_event": False,
+            "local_paths_redacted": True,
+            "execution_allowed": False,
+        },
+    }
+
+
+def _compact_work_item(item: dict[str, Any]) -> dict[str, Any]:
+    payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+    return {
+        "id": item["id"],
+        "kind": item["kind"],
+        "title": item["title"],
+        "source": item["source"],
+        "status": item["status"],
+        "approval_state": item["approval_state"],
+        "write_actions_allowed": item["write_actions_allowed"],
+        "decision_note": item.get("decision_note"),
+        "payload_keys": sorted(str(key) for key in payload),
+    }
+
+
+def _compact_proposal(proposal: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": proposal["id"],
+        "work_item_id": proposal["work_item_id"],
+        "title": proposal["title"],
+        "risk_level": proposal["risk_level"],
+        "approval_state": proposal["approval_state"],
+        "decision_note": proposal.get("decision_note"),
+    }
+
+
+def queue_review_payload(db_path: Path = DEFAULT_QUEUE_PATH) -> dict[str, Any]:
+    status = queue_status_payload(db_path)
+    work_items = _redact_local_paths([item.to_dict() for item in list_work_items(db_path=db_path)])
+    proposals = _redact_local_paths(
+        [proposal.to_dict() for proposal in list_proposals(db_path=db_path)]
+    )
+    pending_work_items = [
+        _compact_work_item(item) for item in work_items if item["approval_state"] == "pending"
+    ]
+    pending_proposals = [
+        _compact_proposal(proposal)
+        for proposal in proposals
+        if proposal["approval_state"] == "pending"
+    ]
+    approved_work_items = [
+        _compact_work_item(item) for item in work_items if item["approval_state"] == "approved"
+    ]
+    approved_proposals = [
+        _compact_proposal(proposal)
+        for proposal in proposals
+        if proposal["approval_state"] == "approved"
+    ]
+    rejected_work_items = [
+        _compact_work_item(item) for item in work_items if item["approval_state"] == "rejected"
+    ]
+    rejected_proposals = [
+        _compact_proposal(proposal)
+        for proposal in proposals
+        if proposal["approval_state"] == "rejected"
+    ]
+    pending_decisions = len(pending_work_items) + len(pending_proposals)
+    reviewer_actions: list[str] = []
+    if pending_work_items:
+        reviewer_actions.append("Review pending work items, then approve, reject, or skip them.")
+    if pending_proposals:
+        reviewer_actions.append("Review pending proposals, then approve or reject each local plan.")
+    if not reviewer_actions:
+        reviewer_actions.append("No pending decisions remain; inspect gate-report or bundle next.")
+    return {
+        "schema_version": QUEUE_REVIEW_SCHEMA_VERSION,
+        "queue_schema_version": status["queue_schema_version"],
+        "patchrail_version": __version__,
+        "db_path": _redact_local_paths(str(db_path)),
+        "local_first": True,
+        "status": "awaiting_human_review" if pending_decisions else "clear_for_handoff",
+        "ready_for_reviewer_handoff": pending_decisions == 0,
+        "pending_decisions": pending_decisions,
+        "counts": status["counts"],
+        "review_groups": {
+            "pending_work_items": pending_work_items,
+            "pending_proposals": pending_proposals,
+            "approved_work_items": approved_work_items,
+            "approved_proposals": approved_proposals,
+            "rejected_work_items": rejected_work_items,
+            "rejected_proposals": rejected_proposals,
+        },
+        "reviewer_actions": reviewer_actions,
+        "safety": {
+            **SAFE_QUEUE_STATUS,
+            "review_is_read_only": True,
+            "review_records_audit_event": False,
             "local_paths_redacted": True,
             "execution_allowed": False,
         },

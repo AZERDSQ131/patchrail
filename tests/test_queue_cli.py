@@ -51,6 +51,7 @@ class PatchRailQueueTests(unittest.TestCase):
             "queue-audit-event": "PatchRail Queue Audit Event",
             "queue-audit-summary": "PatchRail Queue Audit Summary",
             "queue-gate-report": "PatchRail Queue Gate Report",
+            "queue-review": "PatchRail Queue Review Inbox",
         }
         for schema_name, title in expected_titles.items():
             proc = run_patchrail(["schema", schema_name])
@@ -65,6 +66,18 @@ class PatchRailQueueTests(unittest.TestCase):
                     schema["properties"]["human_gate_summary"]["properties"][
                         "write_actions_unlocked"
                     ]["const"],
+                    False,
+                )
+            if schema_name == "queue-review":
+                self.assertIn("review_groups", schema["required"])
+                self.assertEqual(
+                    schema["properties"]["safety"]["properties"]["review_is_read_only"]["const"],
+                    True,
+                )
+                self.assertEqual(
+                    schema["properties"]["safety"]["properties"]["review_records_audit_event"][
+                        "const"
+                    ],
                     False,
                 )
 
@@ -406,6 +419,124 @@ class PatchRailQueueTests(unittest.TestCase):
             self.assertIn("Total pending decisions: `2`", markdown_proc.stdout)
             self.assertIn("Write actions allowed by default: `False`", markdown_proc.stdout)
             self.assertIn("Approval records execute actions: `False`", markdown_proc.stdout)
+
+    def test_queue_review_inbox_is_read_only_and_flags_pending_decisions(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "queue.sqlite"
+            add_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "add",
+                    "--kind",
+                    "ci_failure",
+                    "--title",
+                    "Review dependency failure",
+                    "--source",
+                    "/Users/pablo/private/ci-result.json",
+                    "--payload-json",
+                    '{"report": "/Volumes/External/private/report.md", "priority": "high"}',
+                ]
+            )
+            self.assertEqual(add_proc.returncode, 0, add_proc.stderr)
+            item = json.loads(add_proc.stdout)
+
+            proposal_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "proposal",
+                    "add",
+                    "--item-id",
+                    item["id"],
+                    "--title",
+                    "Patch dependency range",
+                    "--summary",
+                    "Prepare a local patch plan.",
+                    "--patch-plan",
+                    "1. Reproduce.\n2. Patch.\n3. Test.",
+                    "--risk-level",
+                    "low",
+                ]
+            )
+            self.assertEqual(proposal_proc.returncode, 0, proposal_proc.stderr)
+
+            audit_before = json.loads(
+                run_patchrail(["queue", "--db", str(db), "audit", "--format", "json"]).stdout
+            )
+
+            review_proc = run_patchrail(["queue", "--db", str(db), "review", "--format", "json"])
+
+            self.assertEqual(review_proc.returncode, 1)
+            review = json.loads(review_proc.stdout)
+            self.assertEqual(review["schema_version"], "patchrail.queue_review.v1")
+            self.assertEqual(review["status"], "awaiting_human_review")
+            self.assertEqual(review["ready_for_reviewer_handoff"], False)
+            self.assertEqual(review["pending_decisions"], 2)
+            self.assertEqual(
+                [entry["id"] for entry in review["review_groups"]["pending_work_items"]],
+                [item["id"]],
+            )
+            self.assertEqual(
+                review["review_groups"]["pending_work_items"][0]["source"],
+                "<local-path>/ci-result.json",
+            )
+            self.assertEqual(
+                review["review_groups"]["pending_work_items"][0]["payload_keys"],
+                ["priority", "report"],
+            )
+            self.assertEqual(len(review["review_groups"]["pending_proposals"]), 1)
+            self.assertIn("Review pending work items", review["reviewer_actions"][0])
+            self.assertEqual(review["safety"]["review_is_read_only"], True)
+            self.assertEqual(review["safety"]["review_records_audit_event"], False)
+            self.assertEqual(review["safety"]["execution_allowed"], False)
+            self.assertNotIn("/Volumes/", review_proc.stdout)
+            self.assertNotIn("/Users/", review_proc.stdout)
+            self.assertNotIn("/home/", review_proc.stdout)
+
+            markdown_proc = run_patchrail(
+                ["queue", "--db", str(db), "review", "--format", "markdown"]
+            )
+            self.assertEqual(markdown_proc.returncode, 1)
+            self.assertIn("# PatchRail Queue Review Inbox", markdown_proc.stdout)
+            self.assertIn("Pending decisions: `2`", markdown_proc.stdout)
+            self.assertIn("## Pending Work Items", markdown_proc.stdout)
+            self.assertIn("Review is read-only: `True`", markdown_proc.stdout)
+            self.assertIn("Review records audit event: `False`", markdown_proc.stdout)
+            self.assertIn("Execution allowed: `False`", markdown_proc.stdout)
+
+            audit_after = json.loads(
+                run_patchrail(["queue", "--db", str(db), "audit", "--format", "json"]).stdout
+            )
+            self.assertEqual(audit_after["audit_events"], audit_before["audit_events"])
+
+            self.assertEqual(
+                run_patchrail(
+                    [
+                        "queue",
+                        "--db",
+                        str(db),
+                        "proposal",
+                        "approve",
+                        review["review_groups"]["pending_proposals"][0]["id"],
+                    ]
+                ).returncode,
+                0,
+            )
+            self.assertEqual(
+                run_patchrail(["queue", "--db", str(db), "approve", item["id"]]).returncode,
+                0,
+            )
+
+            clear_proc = run_patchrail(["queue", "--db", str(db), "review", "--format", "json"])
+            self.assertEqual(clear_proc.returncode, 0)
+            clear = json.loads(clear_proc.stdout)
+            self.assertEqual(clear["status"], "clear_for_handoff")
+            self.assertEqual(clear["pending_decisions"], 0)
+            self.assertEqual(len(clear["review_groups"]["approved_work_items"]), 1)
+            self.assertEqual(len(clear["review_groups"]["approved_proposals"]), 1)
 
     def test_queue_bundle_exports_read_only_handoff_packet(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/queue-review.v1.schema.json",
+  "title": "PatchRail Queue Review Inbox",
+  "description": "Compact human-review inbox emitted by patchrail queue review without exporting full queue records.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "queue_schema_version",
+    "patchrail_version",
+    "db_path",
+    "local_first",
+    "status",
+    "ready_for_reviewer_handoff",
+    "pending_decisions",
+    "counts",
+    "review_groups",
+    "reviewer_actions",
+    "safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.queue_review.v1"
+    },
+    "queue_schema_version": {
+      "const": "patchrail.queue.v1"
+    },
+    "patchrail_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "db_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "local_first": {
+      "const": true
+    },
+    "status": {
+      "type": "string",
+      "enum": ["awaiting_human_review", "clear_for_handoff"]
+    },
+    "ready_for_reviewer_handoff": {
+      "type": "boolean"
+    },
+    "pending_decisions": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "counts": {
+      "type": "object"
+    },
+    "review_groups": {
+      "type": "object",
+      "required": [
+        "pending_work_items",
+        "pending_proposals",
+        "approved_work_items",
+        "approved_proposals",
+        "rejected_work_items",
+        "rejected_proposals"
+      ],
+      "properties": {
+        "pending_work_items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/work_item_review" }
+        },
+        "pending_proposals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/proposal_review" }
+        },
+        "approved_work_items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/work_item_review" }
+        },
+        "approved_proposals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/proposal_review" }
+        },
+        "rejected_work_items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/work_item_review" }
+        },
+        "rejected_proposals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/proposal_review" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "reviewer_actions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "safety": {
+      "type": "object",
+      "required": [
+        "write_actions_allowed_by_default",
+        "github_write_permission_required",
+        "network_required",
+        "external_model_required",
+        "billing_required",
+        "approval_records_execute_actions",
+        "review_is_read_only",
+        "review_records_audit_event",
+        "local_paths_redacted",
+        "execution_allowed"
+      ],
+      "properties": {
+        "write_actions_allowed_by_default": { "const": false },
+        "github_write_permission_required": { "const": false },
+        "network_required": { "const": false },
+        "external_model_required": { "const": false },
+        "billing_required": { "const": false },
+        "approval_records_execute_actions": { "const": false },
+        "review_is_read_only": { "const": true },
+        "review_records_audit_event": { "const": false },
+        "local_paths_redacted": { "const": true },
+        "execution_allowed": { "const": false }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "work_item_review": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "title",
+        "source",
+        "status",
+        "approval_state",
+        "write_actions_allowed",
+        "decision_note",
+        "payload_keys"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "status": { "type": "string", "minLength": 1 },
+        "approval_state": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "write_actions_allowed": { "const": false },
+        "decision_note": {
+          "type": ["string", "null"]
+        },
+        "payload_keys": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "proposal_review": {
+      "type": "object",
+      "required": [
+        "id",
+        "work_item_id",
+        "title",
+        "risk_level",
+        "approval_state",
+        "decision_note"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "work_item_id": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "risk_level": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "approval_state": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "decision_note": {
+          "type": ["string", "null"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

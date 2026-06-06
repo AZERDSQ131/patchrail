@@ -137,10 +137,19 @@ Export the local audit trail:
 ```bash
 patchrail queue export --format jsonl > patchrail-queue.jsonl
 patchrail queue audit --format jsonl > patchrail-audit-events.jsonl
+patchrail queue review --format markdown
 patchrail queue audit-summary --format markdown
 patchrail queue gate-report --format markdown
 patchrail queue bundle --format markdown > patchrail-queue-bundle.md
 ```
+
+`patchrail queue review` is the compact maintainer inbox. It groups pending,
+approved, and rejected work items and proposals without exporting full payloads,
+patch plans, or audit history. Work items include only compact review metadata
+and payload key names, so a maintainer can decide what needs attention before
+opening the fuller item, proposal, gate report, or bundle. The command is
+read-only, redacts absolute local paths, records no audit event, permits no
+execution, and exits non-zero while pending work items or proposals remain.
 
 `patchrail queue audit-summary` turns the append-only audit trail into a
 release-checkable gate summary. By default it expects the full local demo
