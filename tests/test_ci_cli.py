@@ -586,6 +586,50 @@ class PatchRailCITests(unittest.TestCase):
             self.assertIn("mac_home_path", payload["cases"][0]["redactions"])
             self.assertIn("possible unredacted sensitive data", payload["cases"][0]["issues"][0])
 
+    def test_ci_fixture_check_flags_registry_tokens_and_windows_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            log = root / "unredacted-windows.log"
+            log.write_text(
+                "npm audit\n"
+                "1 critical severity vulnerability\n"
+                "npm token npm_1234567890abcdefghijklmnopqrst\n"
+                "Path C:\\Users\\runner\\work\\repo\n",
+                encoding="utf-8",
+            )
+            log.with_suffix(".expected.json").write_text(
+                json.dumps({"failure_class": "security_scan_failure", "minimum_confidence": 0.5}),
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "patchrail",
+                    "ci",
+                    "fixture-check",
+                    str(root),
+                    "--format",
+                    "json",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(proc.returncode, 1)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["failed"], 1)
+            self.assertIn("npm_token", payload["cases"][0]["redactions"])
+            self.assertIn("windows_home_path", payload["cases"][0]["redactions"])
+            self.assertTrue(
+                any(
+                    "possible unredacted sensitive data" in issue
+                    for issue in payload["cases"][0]["issues"]
+                )
+            )
+
     def test_ci_explain_defaults_to_markdown_and_states_safety_boundary(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             log = Path(tmpdir) / "failed.log"
@@ -1023,7 +1067,15 @@ class PatchRailCITests(unittest.TestCase):
     def test_redact_command_emits_redacted_text(self) -> None:
         proc = subprocess.run(
             [sys.executable, "-m", "patchrail", "redact"],
-            input="TOKEN=secret-value\nContact maintainer@example.com\nPath /home/runner/work\n",
+            input=(
+                "TOKEN=secret-value\n"
+                "Contact maintainer@example.com\n"
+                "Path /home/runner/work\n"
+                "Windows path C:\\Users\\runner\\work\\repo\n"
+                "GitLab token glpat-1234567890abcdefghijkl\n"
+                "PyPI token pypi-AgEIcHlwaS5vcmcCdGVzdC12YWx1ZQ\n"
+                "npm token npm_1234567890abcdefghijklmnopqrst\n"
+            ),
             text=True,
             capture_output=True,
             check=False,
@@ -1033,8 +1085,15 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("TOKEN=<redacted>", proc.stdout)
         self.assertIn("<email>", proc.stdout)
         self.assertIn("/home/<user>/work", proc.stdout)
+        self.assertIn("C:/Users/<user>\\work\\repo", proc.stdout)
+        self.assertIn("<gitlab-token>", proc.stdout)
+        self.assertIn("<pypi-token>", proc.stdout)
+        self.assertIn("<npm-token>", proc.stdout)
         self.assertNotIn("secret-value", proc.stdout)
         self.assertNotIn("maintainer@example.com", proc.stdout)
+        self.assertNotIn("glpat-1234567890abcdefghijkl", proc.stdout)
+        self.assertNotIn("pypi-AgEIcHlwaS5vcmcCdGVzdC12YWx1ZQ", proc.stdout)
+        self.assertNotIn("npm_1234567890abcdefghijklmnopqrst", proc.stdout)
 
     def test_unknown_log_is_not_repairable(self) -> None:
         result = json.loads(

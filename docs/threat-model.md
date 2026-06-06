@@ -55,9 +55,10 @@ relative artifact references, and creates a pending local work item with
 
 ## Redaction scope
 
-PatchRail v0.1 redacts common GitHub-style tokens, generic secret assignments,
-bearer tokens, API-key-shaped values, email addresses and home-directory paths.
-It is a safety layer, not a guarantee that arbitrary logs are safe to publish.
+PatchRail v0.1 redacts common GitHub/GitLab-style tokens, npm/PyPI registry
+tokens, generic secret assignments, bearer tokens, API-key-shaped values, email
+addresses, and Unix/macOS/Windows home-directory paths. It is a safety layer,
+not a guarantee that arbitrary logs are safe to publish.
 
 ## Future work
 

@@ -8,7 +8,10 @@ from typing import Any
 REDACTION_PATTERNS: list[tuple[str, str, str]] = [
     ("github_token", r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9_]{20,}\b", "<github-token>"),
     ("github_fine_grained_token", r"\bgithub_pat_[A-Za-z0-9_]{20,}\b", "<github-token>"),
+    ("gitlab_token", r"\bglpat-[A-Za-z0-9_-]{20,}\b", "<gitlab-token>"),
     ("api_key", r"\b(?:sk|rk)-[A-Za-z0-9_-]{20,}\b", "<api-key>"),
+    ("npm_token", r"\bnpm_[A-Za-z0-9]{20,}\b", "<npm-token>"),
+    ("pypi_token", r"\bpypi-[A-Za-z0-9_.-]{20,}\b", "<pypi-token>"),
     ("aws_access_key", r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b", "<aws-access-key>"),
     ("stripe_secret_key", r"\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b", "<stripe-secret-key>"),
     ("bearer_token", r"\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b", "Bearer <token>"),
@@ -20,6 +23,7 @@ REDACTION_PATTERNS: list[tuple[str, str, str]] = [
     ("email", r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "<email>"),
     ("unix_home_path", r"/home/[^/\s'\":]+", "/home/<user>"),
     ("mac_home_path", r"/Users/[^/\s'\":]+", "/Users/<user>"),
+    ("windows_home_path", r"\b[A-Z]:[\\/]+Users[\\/]+[^\\/\s'\":]+", "C:/Users/<user>"),
 ]
 
 
