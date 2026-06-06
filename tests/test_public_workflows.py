@@ -678,8 +678,8 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert ".agents/skills/patchrail-ci-triage" in evidence
     assert "PyPI publishing is pending" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27046093338" in evidence
-    assert "52eecf710f869796b62a3bc875f3a8f73c48f98d" in evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27047215785" in evidence
+    assert "3b63a1c115278cefde73fbc5df47f383d79f9eea" in evidence
     assert "https://github.com/jamie8johnson/cqs/pull/1650" in evidence
     assert "https://github.com/pypa/twine/pull/1329" in evidence
     assert "1 passed, 231 deselected" in evidence
