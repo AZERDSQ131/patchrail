@@ -1594,6 +1594,8 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert "patchrail evidence application-dossier --format markdown" in readme
     assert "patchrail evidence application-dossier --format json" in combined_docs
     assert "reviewer_quick_checks" in combined_docs
+    assert "reviewer_quick_checks" in codex_evidence
+    assert "fail-closed application gate" in codex_evidence
     assert "10-second no-install demo" in combined_docs
     assert "pre-PyPI source install smoke" in combined_docs
     assert "agent_may_submit=false" in combined_docs

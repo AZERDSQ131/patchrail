@@ -275,7 +275,10 @@ Last verified: 2026-06-06.
   contributions, application gate blockers, and submission policy into a single
   draft. It does not submit the form, requires no network or GitHub write
   permission, keeps `agent_may_submit=false`, and records maintainer tap as
-  mandatory.
+  mandatory. The JSON includes `reviewer_quick_checks` for the 10-second
+  no-install demo, pre-PyPI source install smoke, fail-closed application gate,
+  and local application dossier, so a reviewer can reproduce the visible value
+  without treating missing PyPI/adopter/review telemetry as already solved.
 
 ## Public Launch Issues
 
