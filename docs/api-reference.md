@@ -74,6 +74,7 @@ patchrail schema ci-benchmark
 patchrail schema ci-fixture-check
 patchrail schema ci-pilot-summary
 patchrail schema ci-pilot-metrics
+patchrail schema application-dossier
 ```
 
 The same schema files are mirrored in `src/patchrail/schemas/` for package
@@ -84,6 +85,7 @@ consumers:
 - `src/patchrail/schemas/ci-fixture-check.v1.schema.json`
 - `src/patchrail/schemas/ci-pilot-summary.v1.schema.json`
 - `src/patchrail/schemas/ci-pilot-metrics.v1.schema.json`
+- `src/patchrail/schemas/application-dossier.v1.schema.json`
 - `src/patchrail/schemas/queue-work-item.v1.schema.json`
 - `src/patchrail/schemas/queue-proposal.v1.schema.json`
 - `src/patchrail/schemas/queue-audit-event.v1.schema.json`
@@ -98,6 +100,7 @@ that read schemas without installing the package:
 - `schemas/queue_audit_event.schema.json`
 - `schemas/queue_audit_summary.schema.json`
 - `schemas/queue_status.schema.json`
+- `schemas/application_dossier.schema.json`
 
 The schemas preserve the human-approval boundary: work items require
 `write_actions_allowed=false`, proposals are local patch-plan records, and audit
@@ -105,6 +108,9 @@ events are local append-only records of queue operations. The CI schemas
 preserve the local-first boundary for benchmark and pilot artifacts: no billing,
 external model, network access, GitHub write permission, raw-log copying, or
 unapproved external adopter counting is required by those outputs.
+The application dossier schema preserves the external-program boundary:
+`agent_may_submit=false`, maintainer tap is required, placeholder metrics are
+forbidden, and third-party write actions remain disabled.
 
 ## CLI Audit Summary
 

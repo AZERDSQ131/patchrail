@@ -252,6 +252,11 @@ Last verified: 2026-06-06.
   and local application dossier. These
   checks keep the application draft useful without fabricating PyPI, adoption,
   or review-link evidence.
+- Application dossier schema: `uv run --extra dev patchrail schema application-dossier`
+  emits `patchrail.application_dossier.v1`, mirrored at
+  `schemas/application_dossier.schema.json`, and locks the draft boundary:
+  maintainer tap required, `agent_may_submit=false`, no placeholder metrics,
+  no money goal, local-first evidence, and no third-party write actions.
 
 ## Public Launch Issues
 

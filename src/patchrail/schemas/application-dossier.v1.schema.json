@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/application-dossier.v1.schema.json",
+  "title": "PatchRail Application Dossier",
+  "description": "Local Codex for Open Source application dossier emitted by patchrail evidence application-dossier --format json. The dossier is a draft artifact and never submits an external form.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "patchrail_version",
+    "repository",
+    "generated_from",
+    "status",
+    "application_gate",
+    "signals",
+    "upstream_contributions",
+    "evidence_commands",
+    "evidence_pages",
+    "reviewer_quick_checks",
+    "roadmap_status",
+    "safe_local_work_while_blocked",
+    "submission_policy",
+    "safety"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.application_dossier.v1"
+    },
+    "patchrail_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repository": {
+      "const": "patchrail/patchrail"
+    },
+    "generated_from": {
+      "const": "local_checkout"
+    },
+    "status": {
+      "enum": ["draft_only_do_not_submit", "ready_for_maintainer_review"]
+    },
+    "application_gate": {
+      "type": "object",
+      "required": ["status", "decision", "blockers", "blocked_dependencies"],
+      "properties": {
+        "status": {
+          "enum": ["not_ready", "ready_to_apply"]
+        },
+        "decision": {
+          "enum": ["do_not_apply_yet", "ready_for_maintainer_tap"]
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "blocked_dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "blocker",
+              "owner",
+              "required_evidence",
+              "safe_local_alternative"
+            ],
+            "properties": {
+              "blocker": {
+                "type": "string",
+                "minLength": 1
+              },
+              "owner": {
+                "type": "string",
+                "minLength": 1
+              },
+              "required_evidence": {
+                "type": "string",
+                "minLength": 1
+              },
+              "safe_local_alternative": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "signals": {
+      "type": "object",
+      "required": [
+        "ci_fixtures",
+        "ci_benchmark_failed",
+        "public_release_count",
+        "public_external_adopters",
+        "pilot_summary_count",
+        "owned_repo_issue_pr_cycles",
+        "focused_maintainer_prs",
+        "upstream_contribution_count"
+      ],
+      "properties": {
+        "ci_fixtures": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ci_benchmark_failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "public_release_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "public_external_adopters": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pilot_summary_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "owned_repo_issue_pr_cycles": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "focused_maintainer_prs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "upstream_contribution_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "upstream_contributions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["project", "url", "status", "evidence"],
+        "properties": {
+          "project": {
+            "type": "string",
+            "minLength": 1
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https://github\\.com/"
+          },
+          "status": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidence": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "evidence_commands": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "evidence_pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "reviewer_quick_checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "command",
+          "expected",
+          "network_required",
+          "write_action_required"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected": {
+            "type": "string",
+            "minLength": 1
+          },
+          "network_required": {
+            "type": "boolean"
+          },
+          "write_action_required": {
+            "const": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "roadmap_status": {
+      "type": "string",
+      "minLength": 1
+    },
+    "safe_local_work_while_blocked": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "submission_policy": {
+      "type": "object",
+      "required": [
+        "maintainer_tap_required",
+        "agent_may_submit",
+        "form_submission_allowed_by_gate",
+        "no_placeholder_metrics",
+        "no_money_goal"
+      ],
+      "properties": {
+        "maintainer_tap_required": {
+          "const": true
+        },
+        "agent_may_submit": {
+          "const": false
+        },
+        "form_submission_allowed_by_gate": {
+          "type": "boolean"
+        },
+        "no_placeholder_metrics": {
+          "const": true
+        },
+        "no_money_goal": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "safety": {
+      "type": "object",
+      "required": [
+        "local_first",
+        "network_required",
+        "github_write_permission_required",
+        "external_model_required",
+        "billing_required",
+        "third_party_write_actions_allowed",
+        "application_form_write_action"
+      ],
+      "properties": {
+        "local_first": {
+          "const": true
+        },
+        "network_required": {
+          "const": false
+        },
+        "github_write_permission_required": {
+          "const": false
+        },
+        "external_model_required": {
+          "const": false
+        },
+        "billing_required": {
+          "const": false
+        },
+        "third_party_write_actions_allowed": {
+          "const": false
+        },
+        "application_form_write_action": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

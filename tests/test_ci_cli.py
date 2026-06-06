@@ -61,6 +61,7 @@ class PatchRailCITests(unittest.TestCase):
 
     def test_schema_command_emits_ci_benchmark_and_pilot_contracts(self) -> None:
         expected_versions = {
+            "application-dossier": "patchrail.application_dossier.v1",
             "ci-benchmark": "patchrail.ci_benchmark.v1",
             "ci-fixture-check": "patchrail.ci_fixture_check.v1",
             "ci-pilot-summary": "patchrail.ci_pilot_summary.v1",
@@ -79,14 +80,25 @@ class PatchRailCITests(unittest.TestCase):
                 self.assertEqual(proc.returncode, 0, proc.stderr)
                 schema = json.loads(proc.stdout)
                 self.assertEqual(schema["properties"]["schema_version"]["const"], schema_version)
-                requirements = schema["properties"]["requirements"]["properties"]
-                self.assertEqual(requirements["billing_required"]["const"], False)
-                self.assertEqual(requirements["external_model_required"]["const"], False)
-                self.assertEqual(requirements["network_required"]["const"], False)
-                if "github_write_permission_required" in requirements:
-                    self.assertEqual(
-                        requirements["github_write_permission_required"]["const"], False
-                    )
+                if schema_name == "application-dossier":
+                    submission = schema["properties"]["submission_policy"]["properties"]
+                    safety = schema["properties"]["safety"]["properties"]
+                    self.assertEqual(submission["maintainer_tap_required"]["const"], True)
+                    self.assertEqual(submission["agent_may_submit"]["const"], False)
+                    self.assertEqual(submission["no_placeholder_metrics"]["const"], True)
+                    self.assertEqual(submission["no_money_goal"]["const"], True)
+                    self.assertEqual(safety["local_first"]["const"], True)
+                    self.assertEqual(safety["billing_required"]["const"], False)
+                    self.assertEqual(safety["third_party_write_actions_allowed"]["const"], False)
+                else:
+                    requirements = schema["properties"]["requirements"]["properties"]
+                    self.assertEqual(requirements["billing_required"]["const"], False)
+                    self.assertEqual(requirements["external_model_required"]["const"], False)
+                    self.assertEqual(requirements["network_required"]["const"], False)
+                    if "github_write_permission_required" in requirements:
+                        self.assertEqual(
+                            requirements["github_write_permission_required"]["const"], False
+                        )
 
     def test_doctor_reports_local_first_requirements(self) -> None:
         proc = subprocess.run(

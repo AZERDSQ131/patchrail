@@ -141,6 +141,7 @@ def _display_path(path: Path) -> str:
 
 def _load_schema(name: str) -> str:
     schema_files = {
+        "application-dossier": "application-dossier.v1.schema.json",
         "ci-benchmark": "ci-benchmark.v1.schema.json",
         "ci-fixture-check": "ci-fixture-check.v1.schema.json",
         "ci-pilot-metrics": "ci-pilot-metrics.v1.schema.json",
@@ -3885,6 +3886,7 @@ def _build_parser() -> argparse.ArgumentParser:
     schema.add_argument(
         "schema",
         choices=[
+            "application-dossier",
             "ci-benchmark",
             "ci-fixture-check",
             "ci-pilot-metrics",

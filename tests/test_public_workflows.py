@@ -1042,8 +1042,11 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "write actions remain locked" in api_reference
     assert "patchrail schema queue-work-item" in api_reference
     assert "patchrail schema queue-audit-summary" in api_reference
+    assert "patchrail schema application-dossier" in api_reference
     assert "schemas/queue_work_item.schema.json" in api_reference
     assert "schemas/queue_audit_summary.schema.json" in api_reference
+    assert "schemas/application_dossier.schema.json" in api_reference
+    assert "agent_may_submit=false" in api_reference
     assert "## CLI Audit Summary" in api_reference
     assert "patchrail queue --db patchrail-pilot.sqlite audit-summary --format markdown" in (
         api_reference
@@ -1631,8 +1634,11 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert "patchrail evidence application-dossier --format json" in combined_docs
     assert "reviewer_quick_checks" in combined_docs
     assert "scripts/reviewer_quick_check.py" in combined_docs
+    assert "patchrail schema application-dossier" in combined_docs
+    assert "schemas/application_dossier.schema.json" in combined_docs
     assert "Single-command reviewer check" in combined_docs
     assert "reviewer_quick_checks" in codex_evidence
+    assert "patchrail.application_dossier.v1" in codex_evidence
     assert "fail-closed application gate" in codex_evidence
     assert "10-second no-install demo" in combined_docs
     assert "pre-PyPI source install smoke" in combined_docs

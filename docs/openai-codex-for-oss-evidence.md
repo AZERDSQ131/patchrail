@@ -285,6 +285,13 @@ Last verified: 2026-06-06.
   smoke, fail-closed application gate, and local application dossier, so a
   reviewer can reproduce the visible value without treating missing
   PyPI/adopter/review telemetry as already solved.
+- Application dossier schema:
+  `uv run --extra dev patchrail schema application-dossier` emits the
+  `patchrail.application_dossier.v1` contract. The schema is also mirrored at
+  `schemas/application_dossier.schema.json` and makes the external-program
+  boundary machine-readable: maintainer tap required, `agent_may_submit=false`,
+  no placeholder metrics, no money goal, local-first evidence, and no
+  third-party write actions.
 
 ## Public Launch Issues
 
