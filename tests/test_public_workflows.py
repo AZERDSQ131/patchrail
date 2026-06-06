@@ -762,8 +762,8 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "PyPI publishing is pending" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
     assert "Recent successful public CI run" in evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27048944685" in evidence
-    assert "8372405fe46ee8b4cfdfd50bdee5b59bcf8c3d1e" in evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27050055017" in evidence
+    assert "745542a2e1783bdbd8306e7a3c6ebe4f3a8a108d" in evidence
     assert "Versioned reviewer demo" in evidence
     assert "examples/ci-triage/demo-output.md" in evidence
     assert (

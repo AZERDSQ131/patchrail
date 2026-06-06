@@ -24,8 +24,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl`
   and ran `patchrail --help` successfully.
 - Recent successful public CI run:
-  <https://github.com/patchrail/patchrail/actions/runs/27048944685> completed
-  successfully for commit `8372405fe46ee8b4cfdfd50bdee5b59bcf8c3d1e`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27050055017> completed
+  successfully for commit `745542a2e1783bdbd8306e7a3c6ebe4f3a8a108d`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job.
 - Versioned reviewer demo:
