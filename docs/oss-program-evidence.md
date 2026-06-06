@@ -40,8 +40,9 @@ Pablo Guillén is the primary maintainer of PatchRail.
   approval gates, and risky proposal rejection without network or write actions
 - Public CI artifact: the main CI workflow uploads `patchrail-oss-evidence`
   with `evidence-snapshot.json`, `evidence-snapshot.md`,
-  `control-plane-evidence.json`, `control-plane-evidence.md`, and the
-  reviewer-facing `local-agent-queue/summary.json`,
+  `control-plane-evidence.json`, `control-plane-evidence.md`,
+  `application-dossier.json`, `application-dossier.md`, and the reviewer-facing
+  `local-agent-queue/summary.json`,
   `local-agent-queue/bundle.json`, and `local-agent-queue/bundle.md` after
   tests, benchmark, and package smoke pass. This is project-health evidence
   only; it does not count as external adoption or PyPI download evidence.
@@ -235,6 +236,12 @@ Last verified: 2026-06-06.
   missing. The payload includes `blocked_dependencies` with the human/external
   owner of each blocker plus `safe_local_work_while_blocked` for continued
   local roadmap work.
+- Application dossier: `uv run --extra dev patchrail evidence application-dossier --format json`
+  compiles the local evidence snapshot, roadmap status, review packet,
+  recorded upstream contributions, blocked dependencies, and submission policy
+  into one reviewer-facing draft. It requires no network or write permissions,
+  keeps `agent_may_submit=false`, and records that maintainer tap is required
+  before any external form submission.
 
 ## Public Launch Issues
 

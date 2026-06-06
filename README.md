@@ -132,6 +132,7 @@ uv run --extra dev ruff check .
 uv run --extra dev patchrail ci benchmark examples/ci-triage --format json
 uv run --extra dev patchrail evidence snapshot --format markdown
 uv run --extra dev patchrail evidence application-gate --format markdown
+uv run --extra dev patchrail evidence application-dossier --format markdown
 uv run --extra dev patchrail evidence release-readiness --clean-dist --format markdown
 ```
 
@@ -203,10 +204,14 @@ Before drafting an external program application, run the fail-closed gate:
 
 ```bash
 uv run --extra dev patchrail evidence application-gate --format markdown
+uv run --extra dev patchrail evidence application-dossier --format markdown
 ```
 
 The gate exits non-zero until PyPI telemetry, permissioned external evidence,
 and visible review links are real rather than placeholder-derived.
+The dossier command compiles local evidence, upstream contribution links,
+blocked dependencies, and the submission policy, but it does not submit the
+application and keeps maintainer tap required.
 
 ## License
 

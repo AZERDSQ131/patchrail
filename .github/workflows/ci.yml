@@ -80,6 +80,8 @@ jobs:
           uv run patchrail evidence snapshot --format markdown --out patchrail-oss-evidence/evidence-snapshot.md
           uv run patchrail evidence control-plane --format json --out patchrail-oss-evidence/control-plane-evidence.json
           uv run patchrail evidence control-plane --format markdown --out patchrail-oss-evidence/control-plane-evidence.md
+          uv run patchrail evidence application-dossier --format json --out patchrail-oss-evidence/application-dossier.json
+          uv run patchrail evidence application-dossier --format markdown --out patchrail-oss-evidence/application-dossier.md
           uv run python examples/local-agent-queue/run_demo.py --output .patchrail-ci-local-agent-queue --force
           mkdir -p patchrail-oss-evidence/local-agent-queue
           cp .patchrail-ci-local-agent-queue/summary.json patchrail-oss-evidence/local-agent-queue/summary.json

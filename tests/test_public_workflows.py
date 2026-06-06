@@ -346,6 +346,14 @@ def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
         in workflow
     )
     assert (
+        "uv run patchrail evidence application-dossier --format json --out patchrail-oss-evidence/application-dossier.json"
+        in workflow
+    )
+    assert (
+        "uv run patchrail evidence application-dossier --format markdown --out patchrail-oss-evidence/application-dossier.md"
+        in workflow
+    )
+    assert (
         "uv run python examples/local-agent-queue/run_demo.py --output .patchrail-ci-local-agent-queue --force"
         in workflow
     )
@@ -365,6 +373,8 @@ def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
 
     assert "control-plane-evidence.json" in docs
     assert "control-plane-evidence.md" in docs
+    assert "application-dossier.json" in docs
+    assert "application-dossier.md" in docs
     assert "local-agent-queue/summary.json" in docs
     assert "local-agent-queue/bundle.json" in docs
     assert "local-agent-queue/bundle.md" in docs
@@ -1477,3 +1487,75 @@ def test_release_readiness_evidence_cli_is_documented_and_non_publishing() -> No
     assert "published_to_pypi" in script
     assert "created_release_tag" in script
     assert "contacted_third_parties" in script
+
+
+def test_application_dossier_compiles_evidence_without_submission_permission() -> None:
+    help_proc = subprocess.run(
+        [sys.executable, "-m", "patchrail", "evidence", "application-dossier", "--help"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    json_proc = subprocess.run(
+        [sys.executable, "-m", "patchrail", "evidence", "application-dossier", "--format", "json"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    markdown_proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "patchrail",
+            "evidence",
+            "application-dossier",
+            "--format",
+            "markdown",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    oss_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
+    codex_evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(
+        encoding="utf-8"
+    )
+    cli = (ROOT / "src" / "patchrail" / "cli.py").read_text(encoding="utf-8")
+
+    assert help_proc.returncode == 0, help_proc.stderr
+    assert json_proc.returncode == 0, json_proc.stderr
+    assert markdown_proc.returncode == 0, markdown_proc.stderr
+    assert "Compile a local external-program application dossier without submitting it" in (
+        help_proc.stdout
+    )
+
+    payload = json.loads(json_proc.stdout)
+    assert payload["schema_version"] == "patchrail.application_dossier.v1"
+    assert payload["status"] == "draft_only_do_not_submit"
+    assert payload["application_gate"]["decision"] == "do_not_apply_yet"
+    assert payload["signals"]["ci_fixtures"] == 143
+    assert payload["signals"]["upstream_contribution_count"] >= 2
+    assert payload["submission_policy"]["maintainer_tap_required"] is True
+    assert payload["submission_policy"]["agent_may_submit"] is False
+    assert payload["submission_policy"]["form_submission_allowed_by_gate"] is False
+    assert payload["submission_policy"]["no_money_goal"] is True
+    assert payload["safety"]["network_required"] is False
+    assert payload["safety"]["github_write_permission_required"] is False
+    assert payload["safety"]["third_party_write_actions_allowed"] is False
+    assert payload["safety"]["application_form_write_action"] is True
+    assert "https://github.com/jamie8johnson/cqs/pull/1650" in json_proc.stdout
+    assert "https://github.com/pypa/twine/pull/1329" in json_proc.stdout
+    assert "Maintainer tap required: `True`" in markdown_proc.stdout
+    assert "Agent may submit: `False`" in markdown_proc.stdout
+
+    combined_docs = "\n".join([readme, oss_evidence, codex_evidence])
+    assert "patchrail evidence application-dossier --format markdown" in readme
+    assert "patchrail evidence application-dossier --format json" in combined_docs
+    assert "agent_may_submit=false" in combined_docs
+    assert "maintainer tap" in combined_docs
+    assert "_evidence_application_dossier" in cli
+    assert "patchrail.application_dossier.v1" in cli

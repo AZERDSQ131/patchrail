@@ -29,7 +29,7 @@ Pablo Guillén is the primary maintainer of PatchRail.
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job. The uploaded
   `patchrail-oss-evidence` artifact includes the general snapshot, Agent
-  Control Plane evidence, and the reviewer-facing local queue bundle.
+  Control Plane evidence, application dossier, and the reviewer-facing local queue bundle.
 - Versioned reviewer demo:
   [examples/ci-triage/demo-output.md](../examples/ci-triage/demo-output.md)
   is generated from `patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown`
@@ -269,6 +269,13 @@ Last verified: 2026-06-06.
   `blocked_dependencies` and `safe_local_work_while_blocked` so the lane can
   keep improving CI fixtures, Agent Control Plane evidence, honest docs, and
   real upstream contributions instead of idling.
+- Application dossier smoke:
+  `uv run --extra dev patchrail evidence application-dossier --format json`
+  compiles the local snapshot, roadmap audit, review packet, recorded upstream
+  contributions, application gate blockers, and submission policy into a single
+  draft. It does not submit the form, requires no network or GitHub write
+  permission, keeps `agent_may_submit=false`, and records maintainer tap as
+  mandatory.
 
 ## Public Launch Issues
 

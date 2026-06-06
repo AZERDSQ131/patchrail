@@ -1103,6 +1103,198 @@ def _evidence_application_gate(args: argparse.Namespace) -> int:
     return 0 if payload["status"] == "ready_to_apply" else 1
 
 
+def _application_dossier_payload(root: Path) -> dict[str, Any]:
+    snapshot = _evidence_snapshot_payload(root)
+    roadmap = _roadmap_audit_payload(root)
+    review_packet = _public_review_packet_payload(root)
+    application_gate = _application_gate_payload(root)
+    codex_evidence = _read_optional_text(root / "docs" / "openai-codex-for-oss-evidence.md")
+
+    upstream_contributions: list[dict[str, str]] = []
+    if "https://github.com/jamie8johnson/cqs/pull/1650" in codex_evidence:
+        upstream_contributions.append(
+            {
+                "project": "jamie8johnson/cqs",
+                "url": "https://github.com/jamie8johnson/cqs/pull/1650",
+                "status": "merged",
+                "evidence": "real upstream bug fix merged 2026-05-20",
+            }
+        )
+    if "https://github.com/pypa/twine/pull/1329" in codex_evidence:
+        upstream_contributions.append(
+            {
+                "project": "pypa/twine",
+                "url": "https://github.com/pypa/twine/pull/1329",
+                "status": "open_ready_for_review",
+                "evidence": "focused maintenance PR for local tox debugging",
+            }
+        )
+
+    gate_ready = application_gate["status"] == "ready_to_apply"
+    return {
+        "schema_version": "patchrail.application_dossier.v1",
+        "patchrail_version": __version__,
+        "repository": "patchrail/patchrail",
+        "generated_from": "local_checkout",
+        "status": "ready_for_maintainer_review" if gate_ready else "draft_only_do_not_submit",
+        "application_gate": {
+            "status": application_gate["status"],
+            "decision": application_gate["decision"],
+            "blockers": application_gate["blockers"],
+            "blocked_dependencies": application_gate["blocked_dependencies"],
+        },
+        "signals": {
+            "ci_fixtures": snapshot["signals"]["ci_fixtures"],
+            "ci_benchmark_failed": snapshot["signals"]["ci_benchmark_failed"],
+            "public_release_count": snapshot["signals"]["public_release_count"],
+            "public_external_adopters": snapshot["signals"]["public_external_adopters"],
+            "pilot_summary_count": snapshot["signals"]["pilot_summary_count"],
+            "owned_repo_issue_pr_cycles": snapshot["signals"]["owned_repo_issue_pr_cycles"],
+            "focused_maintainer_prs": review_packet["signals"]["focused_maintainer_prs"],
+            "upstream_contribution_count": len(upstream_contributions),
+        },
+        "upstream_contributions": upstream_contributions,
+        "evidence_commands": [
+            "patchrail evidence snapshot --format markdown",
+            "patchrail evidence roadmap --format markdown",
+            "patchrail evidence review-packet --format markdown",
+            "patchrail evidence application-gate --format markdown",
+            "patchrail evidence control-plane --format markdown",
+        ],
+        "evidence_pages": [
+            "README.md",
+            "docs/openai-codex-for-oss-evidence.md",
+            "docs/oss-program-evidence.md",
+            "docs/public-workflow-ledger.md",
+            "docs/release-v0.1.0-evidence.md",
+            "docs/release-v0.2.0-evidence.md",
+            "docs/release-v0.3.0-evidence.md",
+            "docs/release-v0.4.0-evidence.md",
+        ],
+        "roadmap_status": roadmap["status"],
+        "safe_local_work_while_blocked": application_gate["safe_local_work_while_blocked"],
+        "submission_policy": {
+            "maintainer_tap_required": True,
+            "agent_may_submit": False,
+            "form_submission_allowed_by_gate": gate_ready,
+            "no_placeholder_metrics": True,
+            "no_money_goal": True,
+        },
+        "safety": {
+            "local_first": True,
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+            "third_party_write_actions_allowed": False,
+            "application_form_write_action": True,
+        },
+    }
+
+
+def _render_application_dossier_markdown(payload: dict[str, Any]) -> str:
+    signals = payload["signals"]
+    policy = payload["submission_policy"]
+    safety = payload["safety"]
+    lines = [
+        "# PatchRail Application Dossier",
+        "",
+        f"- Repository: `{payload['repository']}`",
+        f"- Status: `{payload['status']}`",
+        f"- Roadmap status: `{payload['roadmap_status']}`",
+        f"- Application gate: `{payload['application_gate']['status']}`",
+        f"- Gate decision: `{payload['application_gate']['decision']}`",
+        "",
+        "## Signals",
+        "",
+    ]
+    lines.extend(f"- `{key}`: `{value}`" for key, value in signals.items())
+    lines.extend(["", "## Upstream Contributions", ""])
+    if payload["upstream_contributions"]:
+        for item in payload["upstream_contributions"]:
+            lines.append(
+                f"- `{item['project']}`: {item['url']} ({item['status']}; {item['evidence']})"
+            )
+    else:
+        lines.append("- none recorded")
+    lines.extend(["", "## Evidence Commands", ""])
+    lines.extend(f"- `{command}`" for command in payload["evidence_commands"])
+    lines.extend(["", "## Evidence Pages", ""])
+    lines.extend(f"- `{page}`" for page in payload["evidence_pages"])
+    lines.extend(["", "## Blocked Dependencies", ""])
+    if payload["application_gate"]["blocked_dependencies"]:
+        for item in payload["application_gate"]["blocked_dependencies"]:
+            lines.extend(
+                [
+                    f"- `{item['blocker']}`",
+                    f"  - Owner: `{item['owner']}`",
+                    f"  - Required evidence: {item['required_evidence']}",
+                    f"  - Safe local alternative: {item['safe_local_alternative']}",
+                ]
+            )
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Safe Local Work While Blocked", ""])
+    lines.extend(f"- {action}" for action in payload["safe_local_work_while_blocked"])
+    lines.extend(
+        [
+            "",
+            "## Submission Policy",
+            "",
+            f"- Maintainer tap required: `{policy['maintainer_tap_required']}`",
+            f"- Agent may submit: `{policy['agent_may_submit']}`",
+            (f"- Form submission allowed by gate: `{policy['form_submission_allowed_by_gate']}`"),
+            f"- No placeholder metrics: `{policy['no_placeholder_metrics']}`",
+            f"- No money goal: `{policy['no_money_goal']}`",
+            "",
+            "## Safety",
+            "",
+            f"- Local-first: `{safety['local_first']}`",
+            f"- Network required: `{safety['network_required']}`",
+            (f"- GitHub write permission required: `{safety['github_write_permission_required']}`"),
+            f"- External model required: `{safety['external_model_required']}`",
+            f"- Billing required: `{safety['billing_required']}`",
+            (
+                "- Third-party write actions allowed: "
+                f"`{safety['third_party_write_actions_allowed']}`"
+            ),
+            f"- Application form write action: `{safety['application_form_write_action']}`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _render_application_dossier_text(payload: dict[str, Any]) -> str:
+    signals = payload["signals"]
+    return (
+        "\n".join(
+            [
+                f"Repository: {payload['repository']}",
+                f"Status: {payload['status']}",
+                f"Application gate: {payload['application_gate']['status']}",
+                f"Gate decision: {payload['application_gate']['decision']}",
+                f"CI fixtures: {signals['ci_fixtures']}",
+                f"Upstream contributions: {signals['upstream_contribution_count']}",
+                f"Maintainer tap required: {payload['submission_policy']['maintainer_tap_required']}",
+                f"Agent may submit: {payload['submission_policy']['agent_may_submit']}",
+            ]
+        )
+        + "\n"
+    )
+
+
+def _evidence_application_dossier(args: argparse.Namespace) -> int:
+    payload = _application_dossier_payload(Path("."))
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_application_dossier_markdown(payload)
+    else:
+        text = _render_application_dossier_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _release_readiness_payload(args: argparse.Namespace) -> dict[str, Any]:
     root = Path(".")
     script = root / "scripts" / "release_readiness.py"
@@ -3790,6 +3982,20 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     evidence_application_gate.add_argument("--out", type=Path, help="Optional output path.")
     evidence_application_gate.set_defaults(func=_evidence_application_gate)
+
+    evidence_application_dossier = evidence_subparsers.add_parser(
+        "application-dossier",
+        description="Compile a local external-program application dossier without submitting it.",
+        help="Compile a local external-program application dossier without submitting it.",
+    )
+    evidence_application_dossier.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    evidence_application_dossier.add_argument("--out", type=Path, help="Optional output path.")
+    evidence_application_dossier.set_defaults(func=_evidence_application_dossier)
 
     serve = subparsers.add_parser(
         "serve",
