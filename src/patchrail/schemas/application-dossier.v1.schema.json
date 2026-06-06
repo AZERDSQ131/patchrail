@@ -99,7 +99,9 @@
         "pilot_summary_count",
         "owned_repo_issue_pr_cycles",
         "focused_maintainer_prs",
-        "upstream_contribution_count"
+        "upstream_contribution_count",
+        "merged_upstream_contribution_count",
+        "open_upstream_pr_count"
       ],
       "properties": {
         "ci_fixtures": {
@@ -131,6 +133,14 @@
           "minimum": 0
         },
         "upstream_contribution_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "merged_upstream_contribution_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open_upstream_pr_count": {
           "type": "integer",
           "minimum": 0
         }

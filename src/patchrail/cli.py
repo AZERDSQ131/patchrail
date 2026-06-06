@@ -1139,6 +1139,10 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
                 "evidence": "focused maintenance PR for local tox debugging",
             }
         )
+    merged_upstream_count = sum(1 for item in upstream_contributions if item["status"] == "merged")
+    open_upstream_pr_count = sum(
+        1 for item in upstream_contributions if item["status"].startswith("open_")
+    )
 
     gate_ready = application_gate["status"] == "ready_to_apply"
     reviewer_quick_checks = [
@@ -1209,6 +1213,8 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
             "owned_repo_issue_pr_cycles": snapshot["signals"]["owned_repo_issue_pr_cycles"],
             "focused_maintainer_prs": review_packet["signals"]["focused_maintainer_prs"],
             "upstream_contribution_count": len(upstream_contributions),
+            "merged_upstream_contribution_count": merged_upstream_count,
+            "open_upstream_pr_count": open_upstream_pr_count,
         },
         "upstream_contributions": upstream_contributions,
         "evidence_commands": [

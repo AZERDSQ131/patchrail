@@ -90,6 +90,11 @@ Pablo Guillén is the primary maintainer of PatchRail.
   ledger into an owned-repo issue-to-PR and focused-maintainer-PR packet without
   network, GitHub write permission, external model calls, PyPI download claims,
   external-adopter claims, or formal Codex review claims
+- Upstream contribution accounting in
+  `patchrail evidence application-dossier --format json` is deliberately split:
+  total upstream contribution records = 2, merged upstream fixes = 1, and open
+  upstream PRs awaiting external maintainer review = 1. Open PRs are tracked as
+  work in progress, not merged work or adoption evidence.
 - Public issue queue: launch issues for fixtures, contribution docs,
   release-prep evidence, CI maintenance, GitHub Actions artifacts, the Agent
   Control Plane, and the read-only Funded Issue Scout

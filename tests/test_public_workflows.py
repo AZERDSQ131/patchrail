@@ -1774,7 +1774,9 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert payload["status"] == "draft_only_do_not_submit"
     assert payload["application_gate"]["decision"] == "do_not_apply_yet"
     assert payload["signals"]["ci_fixtures"] == 143
-    assert payload["signals"]["upstream_contribution_count"] >= 2
+    assert payload["signals"]["upstream_contribution_count"] == 2
+    assert payload["signals"]["merged_upstream_contribution_count"] == 1
+    assert payload["signals"]["open_upstream_pr_count"] == 1
     assert payload["reviewer_quick_checks"] == [
         {
             "name": "single-command local reviewer check",
@@ -1855,6 +1857,11 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert "pre-PyPI source install smoke" in combined_docs
     assert "agent_may_submit=false" in combined_docs
     assert "maintainer tap" in combined_docs
+    normalized_combined_docs = combined_docs.replace("\n  ", " ")
+    assert "merged upstream fixes = 1" in combined_docs
+    assert "open upstream PRs awaiting external maintainer review = 1" in (normalized_combined_docs)
+    normalized_codex_evidence = codex_evidence.replace("\n  ", " ")
+    assert "not counted as a merge or adoption signal" in normalized_codex_evidence
     assert "_evidence_application_dossier" in cli
     assert "patchrail.application_dossier.v1" in cli
 

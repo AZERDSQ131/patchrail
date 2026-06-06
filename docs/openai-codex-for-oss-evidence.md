@@ -75,6 +75,12 @@ Pablo Guillén is the primary maintainer of PatchRail.
   ledger into a local owned-repo review packet while explicitly leaving external
   adoption, formal Codex review links, PyPI downloads, and third-party write
   actions unclaimed
+- Upstream contribution accounting in
+  `patchrail evidence application-dossier --format json` is deliberately split:
+  total upstream contribution records = 2, merged upstream fixes = 1, and open
+  upstream PRs awaiting external maintainer review = 1. The open `pypa/twine`
+  PR is useful evidence of maintainer work in progress, but it is not counted as
+  a merge or adoption signal.
 - Application gate:
   `patchrail evidence application-gate --format markdown` fails closed until
   PyPI telemetry, permissioned external evidence, and visible review links are
