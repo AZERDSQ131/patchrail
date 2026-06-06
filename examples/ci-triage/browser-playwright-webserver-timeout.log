@@ -1,0 +1,4 @@
+npx playwright test tests/e2e/login.spec.ts --project=chromium
+Error: Timed out waiting 30000ms from config.webServer.
+The local dev server did not print the expected ready message before the test run started.
+Timeout 30000ms exceeded.

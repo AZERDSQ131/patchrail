@@ -1,0 +1,4 @@
+dotnet restore src/Example.sln
+NU1605: Warning As Error: Detected package downgrade: Example.Abstractions from 4.2.0 to 4.1.0.
+Version conflict detected for Example.Abstractions.
+Build FAILED.

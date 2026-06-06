@@ -1,0 +1,5 @@
+composer install --no-interaction --prefer-dist
+vendor/bin/phpunit tests/Feature/ReportTest.php
+PHPUnit 10.5.0 by Sebastian Bergmann and contributors.
+Error: Class App\\Reports\\SummaryRenderer not found
+Tests: 1, Assertions: 0, Errors: 1.

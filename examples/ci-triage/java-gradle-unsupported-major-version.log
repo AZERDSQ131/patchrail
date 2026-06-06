@@ -1,0 +1,4 @@
+./gradlew test
+Execution failed for task ':compileJava'.
+> Unsupported class file major version 65
+BUILD FAILED in 8s

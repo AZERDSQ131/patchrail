@@ -1,0 +1,3 @@
+docker compose --env-file .ci/missing.env up --build --wait
+failed to solve: failed to read dockerfile: open Dockerfile: no such file or directory
+service api is unhealthy after 30s
