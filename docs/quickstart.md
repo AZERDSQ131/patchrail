@@ -6,6 +6,11 @@ No install is required to inspect the current behavior. The versioned demo at
 [examples/ci-triage/demo-output.md](../examples/ci-triage/demo-output.md) is real
 CLI output from the bundled `examples/ci-triage/dependency-failure.log` fixture,
 and tests compare that file against the command output to prevent drift.
+For a single local reviewer smoke test from a source checkout, run:
+
+```bash
+uv run --extra dev python scripts/reviewer_quick_check.py
+```
 
 PyPI publishing is pending, so `pipx install patchrail` will not work yet. Until
 the package is published there, run the public GitHub source directly:

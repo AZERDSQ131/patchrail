@@ -28,6 +28,11 @@ Pablo Guillén is the primary maintainer of PatchRail.
   summarizes CI fixtures, read-only workflow posture, release evidence pages,
   Agent Control Plane demo, Funded Issue Scout demo, pilot summaries, and
   remaining evidence gaps without network or write actions
+- Reviewer quick check:
+  `uv run --extra dev python scripts/reviewer_quick_check.py` emits a local
+  Markdown packet with `doctor`, the real CI triage demo, and the fail-closed
+  application gate. It performs no network calls, write actions, public posts,
+  PRs, comments, PyPI publish, or external application submission.
 - Application gate:
   `patchrail evidence application-gate --format markdown` fails closed until
   PyPI telemetry, permissioned external evidence, and visible review links are
@@ -242,8 +247,9 @@ Last verified: 2026-06-06.
   into one reviewer-facing draft. It requires no network or write permissions,
   keeps `agent_may_submit=false`, and records that maintainer tap is required
   before any external form submission. The JSON also includes
-  `reviewer_quick_checks`: 10-second no-install demo, pre-PyPI source install smoke,
-  fail-closed application gate, and local application dossier. These
+  `reviewer_quick_checks`: single-command local reviewer check, 10-second
+  no-install demo, pre-PyPI source install smoke, fail-closed application gate,
+  and local application dossier. These
   checks keep the application draft useful without fabricating PyPI, adoption,
   or review-link evidence.
 

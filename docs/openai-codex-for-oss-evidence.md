@@ -34,6 +34,11 @@ Pablo Guillén is the primary maintainer of PatchRail.
   [examples/ci-triage/demo-output.md](../examples/ci-triage/demo-output.md)
   is generated from `patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown`
   and kept in sync with real CLI output by tests.
+- Single-command reviewer check:
+  `uv run --extra dev python scripts/reviewer_quick_check.py` emits a local
+  Markdown packet with `doctor`, the real CI triage demo, and the fail-closed
+  application gate. It requires no network, write permissions, PyPI publish,
+  public comments, pull requests, funded issue claims, or application submit.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public metrics tracker: [docs/metrics.md](metrics.md) records current public
@@ -275,10 +280,11 @@ Last verified: 2026-06-06.
   contributions, application gate blockers, and submission policy into a single
   draft. It does not submit the form, requires no network or GitHub write
   permission, keeps `agent_may_submit=false`, and records maintainer tap as
-  mandatory. The JSON includes `reviewer_quick_checks` for the 10-second
-  no-install demo, pre-PyPI source install smoke, fail-closed application gate,
-  and local application dossier, so a reviewer can reproduce the visible value
-  without treating missing PyPI/adopter/review telemetry as already solved.
+  mandatory. The JSON includes `reviewer_quick_checks` for the single-command
+  local reviewer check, 10-second no-install demo, pre-PyPI source install
+  smoke, fail-closed application gate, and local application dossier, so a
+  reviewer can reproduce the visible value without treating missing
+  PyPI/adopter/review telemetry as already solved.
 
 ## Public Launch Issues
 

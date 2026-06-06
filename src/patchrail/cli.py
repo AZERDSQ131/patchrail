@@ -1133,6 +1133,13 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
     gate_ready = application_gate["status"] == "ready_to_apply"
     reviewer_quick_checks = [
         {
+            "name": "single-command local reviewer check",
+            "command": "uv run --extra dev python scripts/reviewer_quick_check.py",
+            "expected": "local Markdown packet with doctor, CI demo, and fail-closed application gate",
+            "network_required": False,
+            "write_action_required": False,
+        },
+        {
             "name": "10-second no-install demo",
             "command": (
                 "open examples/ci-triage/demo-output.md and compare with "

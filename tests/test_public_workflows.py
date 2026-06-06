@@ -227,6 +227,7 @@ def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
         assert "10-second reviewer demo" in text, path
         assert "No install is required to inspect the current behavior." in text, path
         assert "tests compare that file against the command output to prevent drift" in text, path
+        assert "uv run --extra dev python scripts/reviewer_quick_check.py" in text, path
 
         for expected_line in (
             "- Root cause: `python_test_failure`",
@@ -269,6 +270,31 @@ def test_versioned_demo_output_matches_real_cli_output() -> None:
     assert proc.stdout.strip() in demo
     assert "- Root cause: `python_dependency_resolution`" in demo
     assert "PatchRail classified this log locally." in demo
+
+
+def test_reviewer_quick_check_script_outputs_local_demo_and_fail_closed_gate() -> None:
+    proc = subprocess.run(
+        [sys.executable, "scripts/reviewer_quick_check.py"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert proc.returncode == 0, proc.stderr
+    output = proc.stdout
+    assert "# PatchRail Reviewer Quick Check" in output
+    assert "## 1. Local Doctor" in output
+    assert "## 2. CI Triage Demo" in output
+    assert "## 3. Application Gate" in output
+    assert "- Root cause: `python_dependency_resolution`" in output
+    assert "Status: not_ready" in output
+    assert "Decision: do_not_apply_yet" in output
+    assert "- Network required: `False`" in output
+    assert "- Write action required: `False`" in output
+    assert "- Application form submission performed: `False`" in output
+    assert "publish to PyPI" in output
+    assert "create pull requests" in output
 
 
 def test_evidence_snapshot_summarizes_public_oss_signals_without_write_actions() -> None:
@@ -1541,6 +1567,15 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert payload["signals"]["upstream_contribution_count"] >= 2
     assert payload["reviewer_quick_checks"] == [
         {
+            "name": "single-command local reviewer check",
+            "command": "uv run --extra dev python scripts/reviewer_quick_check.py",
+            "expected": (
+                "local Markdown packet with doctor, CI demo, and fail-closed application gate"
+            ),
+            "network_required": False,
+            "write_action_required": False,
+        },
+        {
             "name": "10-second no-install demo",
             "command": (
                 "open examples/ci-triage/demo-output.md and compare with "
@@ -1584,6 +1619,7 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert "https://github.com/jamie8johnson/cqs/pull/1650" in json_proc.stdout
     assert "https://github.com/pypa/twine/pull/1329" in json_proc.stdout
     assert "## Reviewer Quick Checks" in markdown_proc.stdout
+    assert "single-command local reviewer check" in markdown_proc.stdout
     assert "10-second no-install demo" in markdown_proc.stdout
     assert "pre-PyPI source install smoke" in markdown_proc.stdout
     assert "Write action required: `False`" in markdown_proc.stdout
@@ -1594,6 +1630,8 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert "patchrail evidence application-dossier --format markdown" in readme
     assert "patchrail evidence application-dossier --format json" in combined_docs
     assert "reviewer_quick_checks" in combined_docs
+    assert "scripts/reviewer_quick_check.py" in combined_docs
+    assert "Single-command reviewer check" in combined_docs
     assert "reviewer_quick_checks" in codex_evidence
     assert "fail-closed application gate" in codex_evidence
     assert "10-second no-install demo" in combined_docs
