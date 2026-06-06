@@ -1539,6 +1539,40 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert payload["application_gate"]["decision"] == "do_not_apply_yet"
     assert payload["signals"]["ci_fixtures"] == 143
     assert payload["signals"]["upstream_contribution_count"] >= 2
+    assert payload["reviewer_quick_checks"] == [
+        {
+            "name": "10-second no-install demo",
+            "command": (
+                "open examples/ci-triage/demo-output.md and compare with "
+                "uv run --extra dev patchrail ci explain --log "
+                "examples/ci-triage/dependency-failure.log --format markdown"
+            ),
+            "expected": "real CLI output for the bundled fixture; tests prevent drift",
+            "network_required": False,
+            "write_action_required": False,
+        },
+        {
+            "name": "pre-PyPI source install smoke",
+            "command": "uvx --from git+https://github.com/patchrail/patchrail patchrail --help",
+            "expected": "runs from GitHub source while PyPI publish is pending",
+            "network_required": True,
+            "write_action_required": False,
+        },
+        {
+            "name": "fail-closed application gate",
+            "command": "patchrail evidence application-gate --format markdown",
+            "expected": "returns not_ready / do_not_apply_yet until real public evidence exists",
+            "network_required": False,
+            "write_action_required": False,
+        },
+        {
+            "name": "local application dossier",
+            "command": "patchrail evidence application-dossier --format markdown",
+            "expected": "draft only; maintainer tap required before any external form submission",
+            "network_required": False,
+            "write_action_required": False,
+        },
+    ]
     assert payload["submission_policy"]["maintainer_tap_required"] is True
     assert payload["submission_policy"]["agent_may_submit"] is False
     assert payload["submission_policy"]["form_submission_allowed_by_gate"] is False
@@ -1549,12 +1583,19 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert payload["safety"]["application_form_write_action"] is True
     assert "https://github.com/jamie8johnson/cqs/pull/1650" in json_proc.stdout
     assert "https://github.com/pypa/twine/pull/1329" in json_proc.stdout
+    assert "## Reviewer Quick Checks" in markdown_proc.stdout
+    assert "10-second no-install demo" in markdown_proc.stdout
+    assert "pre-PyPI source install smoke" in markdown_proc.stdout
+    assert "Write action required: `False`" in markdown_proc.stdout
     assert "Maintainer tap required: `True`" in markdown_proc.stdout
     assert "Agent may submit: `False`" in markdown_proc.stdout
 
     combined_docs = "\n".join([readme, oss_evidence, codex_evidence])
     assert "patchrail evidence application-dossier --format markdown" in readme
     assert "patchrail evidence application-dossier --format json" in combined_docs
+    assert "reviewer_quick_checks" in combined_docs
+    assert "10-second no-install demo" in combined_docs
+    assert "pre-PyPI source install smoke" in combined_docs
     assert "agent_may_submit=false" in combined_docs
     assert "maintainer tap" in combined_docs
     assert "_evidence_application_dossier" in cli

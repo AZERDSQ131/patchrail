@@ -241,7 +241,11 @@ Last verified: 2026-06-06.
   recorded upstream contributions, blocked dependencies, and submission policy
   into one reviewer-facing draft. It requires no network or write permissions,
   keeps `agent_may_submit=false`, and records that maintainer tap is required
-  before any external form submission.
+  before any external form submission. The JSON also includes
+  `reviewer_quick_checks`: 10-second no-install demo, pre-PyPI source install smoke,
+  fail-closed application gate, and local application dossier. These
+  checks keep the application draft useful without fabricating PyPI, adoption,
+  or review-link evidence.
 
 ## Public Launch Issues
 

@@ -1131,6 +1131,40 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
         )
 
     gate_ready = application_gate["status"] == "ready_to_apply"
+    reviewer_quick_checks = [
+        {
+            "name": "10-second no-install demo",
+            "command": (
+                "open examples/ci-triage/demo-output.md and compare with "
+                "uv run --extra dev patchrail ci explain --log "
+                "examples/ci-triage/dependency-failure.log --format markdown"
+            ),
+            "expected": "real CLI output for the bundled fixture; tests prevent drift",
+            "network_required": False,
+            "write_action_required": False,
+        },
+        {
+            "name": "pre-PyPI source install smoke",
+            "command": "uvx --from git+https://github.com/patchrail/patchrail patchrail --help",
+            "expected": "runs from GitHub source while PyPI publish is pending",
+            "network_required": True,
+            "write_action_required": False,
+        },
+        {
+            "name": "fail-closed application gate",
+            "command": "patchrail evidence application-gate --format markdown",
+            "expected": "returns not_ready / do_not_apply_yet until real public evidence exists",
+            "network_required": False,
+            "write_action_required": False,
+        },
+        {
+            "name": "local application dossier",
+            "command": "patchrail evidence application-dossier --format markdown",
+            "expected": "draft only; maintainer tap required before any external form submission",
+            "network_required": False,
+            "write_action_required": False,
+        },
+    ]
     return {
         "schema_version": "patchrail.application_dossier.v1",
         "patchrail_version": __version__,
@@ -1171,6 +1205,7 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
             "docs/release-v0.3.0-evidence.md",
             "docs/release-v0.4.0-evidence.md",
         ],
+        "reviewer_quick_checks": reviewer_quick_checks,
         "roadmap_status": roadmap["status"],
         "safe_local_work_while_blocked": application_gate["safe_local_work_while_blocked"],
         "submission_policy": {
@@ -1221,6 +1256,17 @@ def _render_application_dossier_markdown(payload: dict[str, Any]) -> str:
     lines.extend(f"- `{command}`" for command in payload["evidence_commands"])
     lines.extend(["", "## Evidence Pages", ""])
     lines.extend(f"- `{page}`" for page in payload["evidence_pages"])
+    lines.extend(["", "## Reviewer Quick Checks", ""])
+    for item in payload["reviewer_quick_checks"]:
+        lines.extend(
+            [
+                f"- {item['name']}",
+                f"  - Command: `{item['command']}`",
+                f"  - Expected: {item['expected']}",
+                f"  - Network required: `{item['network_required']}`",
+                f"  - Write action required: `{item['write_action_required']}`",
+            ]
+        )
     lines.extend(["", "## Blocked Dependencies", ""])
     if payload["application_gate"]["blocked_dependencies"]:
         for item in payload["application_gate"]["blocked_dependencies"]:

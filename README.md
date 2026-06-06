@@ -210,8 +210,12 @@ uv run --extra dev patchrail evidence application-dossier --format markdown
 The gate exits non-zero until PyPI telemetry, permissioned external evidence,
 and visible review links are real rather than placeholder-derived.
 The dossier command compiles local evidence, upstream contribution links,
-blocked dependencies, and the submission policy, but it does not submit the
-application and keeps maintainer tap required.
+blocked dependencies, reviewer_quick_checks, and the submission policy, but it
+does not submit the application and keeps maintainer tap required. The quick
+checks include the 10-second no-install demo, the pre-PyPI source install
+smoke, the fail-closed application gate, and the local application dossier; all
+but the optional GitHub source install run without network access or write
+actions.
 
 ## License
 
