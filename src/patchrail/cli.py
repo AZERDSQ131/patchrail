@@ -152,6 +152,7 @@ def _load_schema(name: str) -> str:
         "queue-proposal": "queue-proposal.v1.schema.json",
         "queue-status": "queue-status.v1.schema.json",
         "queue-work-item": "queue-work-item.v1.schema.json",
+        "reviewer-quick-check-artifacts": "reviewer-quick-check-artifacts.v1.schema.json",
     }
     schema_file = schema_files.get(name)
     if schema_file is None:
@@ -3903,6 +3904,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "queue-proposal",
             "queue-status",
             "queue-work-item",
+            "reviewer-quick-check-artifacts",
         ],
         help="Schema name to emit.",
     )

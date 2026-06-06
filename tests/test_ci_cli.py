@@ -66,6 +66,7 @@ class PatchRailCITests(unittest.TestCase):
             "ci-fixture-check": "patchrail.ci_fixture_check.v1",
             "ci-pilot-summary": "patchrail.ci_pilot_summary.v1",
             "ci-pilot-metrics": "patchrail.ci_pilot_metrics.v1",
+            "reviewer-quick-check-artifacts": "patchrail.reviewer_quick_check_artifacts.v1",
         }
 
         for schema_name, schema_version in expected_versions.items():
@@ -90,6 +91,19 @@ class PatchRailCITests(unittest.TestCase):
                     self.assertEqual(safety["local_first"]["const"], True)
                     self.assertEqual(safety["billing_required"]["const"], False)
                     self.assertEqual(safety["third_party_write_actions_allowed"]["const"], False)
+                elif schema_name == "reviewer-quick-check-artifacts":
+                    self.assertEqual(
+                        schema["properties"]["generated_from"]["const"], "local_checkout"
+                    )
+                    self.assertEqual(schema["properties"]["network_required"]["const"], False)
+                    self.assertEqual(schema["properties"]["write_action_required"]["const"], False)
+                    self.assertEqual(
+                        schema["properties"]["application_form_submission_performed"]["const"],
+                        False,
+                    )
+                    artifacts = schema["properties"]["artifacts"]["items"]["enum"]
+                    self.assertIn("reviewer-quick-check.md", artifacts)
+                    self.assertIn("application-dossier.json", artifacts)
                 else:
                     requirements = schema["properties"]["requirements"]["properties"]
                     self.assertEqual(requirements["billing_required"]["const"], False)

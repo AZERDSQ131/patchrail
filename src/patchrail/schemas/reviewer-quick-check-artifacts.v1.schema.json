@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/reviewer-quick-check-artifacts.v1.schema.json",
+  "title": "PatchRail Reviewer Quick Check Artifact Manifest",
+  "description": "Local manifest emitted by scripts/reviewer_quick_check.py --out-dir. The packet is a reviewer-facing local evidence bundle and never performs network, write, publish, or application-submission actions.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "generated_from",
+    "network_required",
+    "write_action_required",
+    "application_form_submission_performed",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.reviewer_quick_check_artifacts.v1"
+    },
+    "generated_from": {
+      "const": "local_checkout"
+    },
+    "network_required": {
+      "const": false
+    },
+    "write_action_required": {
+      "const": false
+    },
+    "application_form_submission_performed": {
+      "const": false
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 6,
+      "uniqueItems": true,
+      "contains": {
+        "const": "reviewer-quick-check.md"
+      },
+      "items": {
+        "enum": [
+          "reviewer-quick-check.md",
+          "application-dossier.json",
+          "application-dossier.schema.json",
+          "application-dossier.txt",
+          "application-gate.txt",
+          "ci-triage-demo.md"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -345,6 +345,16 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
         assert {path.name for path in out_dir.iterdir()} == expected_files
 
         manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+        schema_proc = subprocess.run(
+            [sys.executable, "-m", "patchrail", "schema", "reviewer-quick-check-artifacts"],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert schema_proc.returncode == 0, schema_proc.stderr
+        schema = json.loads(schema_proc.stdout)
+
         assert manifest == {
             "schema_version": "patchrail.reviewer_quick_check_artifacts.v1",
             "generated_from": "local_checkout",
@@ -360,6 +370,18 @@ def test_reviewer_quick_check_can_write_local_artifact_packet() -> None:
                 "ci-triage-demo.md",
             ],
         }
+        assert schema["properties"]["schema_version"]["const"] == manifest["schema_version"]
+        assert schema["properties"]["generated_from"]["const"] == manifest["generated_from"]
+        assert schema["properties"]["network_required"]["const"] is manifest["network_required"]
+        assert (
+            schema["properties"]["write_action_required"]["const"]
+            is manifest["write_action_required"]
+        )
+        assert (
+            schema["properties"]["application_form_submission_performed"]["const"]
+            is manifest["application_form_submission_performed"]
+        )
+        assert set(manifest["artifacts"]) <= set(schema["properties"]["artifacts"]["items"]["enum"])
 
         dossier = json.loads((out_dir / "application-dossier.json").read_text(encoding="utf-8"))
         assert dossier["schema_version"] == "patchrail.application_dossier.v1"
