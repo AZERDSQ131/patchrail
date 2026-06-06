@@ -8,6 +8,10 @@ import sys
 from pathlib import Path
 
 
+REVIEWER_PACKET_SCHEMA_VERSION = "patchrail.reviewer_quick_check_artifacts.v1"
+REVIEWER_PACKET_GENERATED_FROM = "local_checkout"
+
+
 def _run_patchrail(
     args: list[str], *, root: Path, allow_nonzero: bool = False
 ) -> subprocess.CompletedProcess[str]:
@@ -199,8 +203,8 @@ def _write_artifact_index(out_dir: Path, artifact_names: list[str]) -> None:
 
 def _write_manifest(out_dir: Path, artifact_names: list[str]) -> None:
     manifest = {
-        "schema_version": "patchrail.reviewer_quick_check_artifacts.v1",
-        "generated_from": "local_checkout",
+        "schema_version": REVIEWER_PACKET_SCHEMA_VERSION,
+        "generated_from": REVIEWER_PACKET_GENERATED_FROM,
         "network_required": False,
         "write_action_required": False,
         "application_form_submission_performed": False,
@@ -233,6 +237,8 @@ def _failed_integrity_payload(
         "counts": {"artifact_count": 0, "detail_count": 0, "verified_artifact_count": 0},
         "checks": {
             "manifest_readable": manifest_readable,
+            "schema_version_expected": False,
+            "generated_from_expected": False,
             "artifacts_match_details": False,
             "all_hashes_match": False,
             "all_sizes_match": False,
@@ -266,6 +272,19 @@ def verify_reviewer_packet(packet_dir: Path) -> dict[str, object]:
     if not isinstance(manifest, dict):
         errors.append("manifest must be a JSON object")
         manifest = {}
+
+    schema_version_expected = manifest.get("schema_version") == REVIEWER_PACKET_SCHEMA_VERSION
+    generated_from_expected = manifest.get("generated_from") == REVIEWER_PACKET_GENERATED_FROM
+    if not schema_version_expected:
+        errors.append(
+            "manifest schema_version must be "
+            f"{REVIEWER_PACKET_SCHEMA_VERSION}: {manifest.get('schema_version')}"
+        )
+    if not generated_from_expected:
+        errors.append(
+            "manifest generated_from must be "
+            f"{REVIEWER_PACKET_GENERATED_FROM}: {manifest.get('generated_from')}"
+        )
 
     artifacts = manifest.get("artifacts")
     artifact_details = manifest.get("artifact_details")
@@ -353,6 +372,8 @@ def verify_reviewer_packet(packet_dir: Path) -> dict[str, object]:
 
     checks = {
         "manifest_readable": True,
+        "schema_version_expected": schema_version_expected,
+        "generated_from_expected": generated_from_expected,
         "artifacts_match_details": not missing_details and not extra_details,
         "all_hashes_match": not hash_mismatch and not missing_artifacts,
         "all_sizes_match": not size_mismatch and not missing_artifacts,

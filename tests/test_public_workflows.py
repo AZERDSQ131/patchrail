@@ -629,6 +629,8 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
         }
         assert verified["checks"] == {
             "manifest_readable": True,
+            "schema_version_expected": True,
+            "generated_from_expected": True,
             "artifacts_match_details": True,
             "all_hashes_match": True,
             "all_sizes_match": True,
@@ -694,6 +696,58 @@ def test_verify_reviewer_packet_fails_on_tampered_artifact() -> None:
         assert verify_proc.returncode == 1
         assert "Status: failed" in verify_proc.stdout
         assert "Mismatch: ci-triage-demo.md" in verify_proc.stdout
+
+
+def test_verify_reviewer_packet_fails_on_tampered_manifest_contract() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out_dir = Path(tmpdir) / "reviewer-packet"
+        generate_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "reviewer-packet",
+                "--out-dir",
+                str(out_dir),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert generate_proc.returncode == 0, generate_proc.stderr
+
+        manifest_path = out_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["schema_version"] = "patchrail.reviewer_quick_check_artifacts.v0"
+        manifest["generated_from"] = "unknown_source"
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+
+        verify_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "verify-reviewer-packet",
+                str(out_dir),
+                "--format",
+                "json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        assert verify_proc.returncode == 1
+        verified = json.loads(verify_proc.stdout)
+        assert verified["status"] == "failed"
+        assert verified["checks"]["schema_version_expected"] is False
+        assert verified["checks"]["generated_from_expected"] is False
+        assert "manifest schema_version must be" in "\n".join(verified["errors"])
+        assert "manifest generated_from must be" in "\n".join(verified["errors"])
 
 
 def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
