@@ -138,6 +138,7 @@ Export the local audit trail:
 patchrail queue export --format jsonl > patchrail-queue.jsonl
 patchrail queue audit --format jsonl > patchrail-audit-events.jsonl
 patchrail queue policy-scan --format markdown
+patchrail queue policy-resolve --format markdown
 patchrail queue review --format markdown
 patchrail queue audit-summary --format markdown
 patchrail queue gate-report --format markdown
@@ -152,6 +153,16 @@ other external write actions. It exits non-zero while
 matching records remain active and recommends rejecting or skipping those
 records before handoff. Reading the scan records no audit event, permits no
 execution, redacts absolute local paths, and preserves historical queue data.
+
+`patchrail queue policy-resolve` is the explicit local follow-up when
+`policy-scan` finds active blocked records. It marks matching work items as
+`status=skipped`, rejects matching proposal records, stores the decision note
+`no money goal, OSS-only #3217` by default, appends normal local audit events,
+and then re-runs the scan so reviewers can see whether the policy state is now
+clear. It does not delete history, execute proposals, open pull requests, post
+comments, contact repositories, call external models, require billing, or ask
+for GitHub write permission. Use `--reason` to record a narrower maintainer
+decision note when the default retired-money-work reason does not fit.
 
 `patchrail queue review` is the compact maintainer inbox. It groups pending,
 approved, and rejected work items and proposals without exporting full payloads,

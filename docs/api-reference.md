@@ -65,6 +65,8 @@ patchrail schema queue-proposal
 patchrail schema queue-audit-event
 patchrail schema queue-audit-summary
 patchrail schema queue-gate-report
+patchrail schema queue-policy-resolution
+patchrail schema queue-policy-scan
 patchrail schema queue-review
 ```
 
@@ -95,6 +97,8 @@ consumers:
 - `src/patchrail/schemas/queue-audit-event.v1.schema.json`
 - `src/patchrail/schemas/queue-audit-summary.v1.schema.json`
 - `src/patchrail/schemas/queue-gate-report.v1.schema.json`
+- `src/patchrail/schemas/queue-policy-resolution.v1.schema.json`
+- `src/patchrail/schemas/queue-policy-scan.v1.schema.json`
 - `src/patchrail/schemas/queue-review.v1.schema.json`
 - `src/patchrail/schemas/queue-status.v1.schema.json`
 
@@ -106,6 +110,8 @@ that read schemas without installing the package:
 - `schemas/queue_audit_event.schema.json`
 - `schemas/queue_audit_summary.schema.json`
 - `schemas/queue_gate_report.schema.json`
+- `schemas/queue_policy_resolution.schema.json`
+- `schemas/queue_policy_scan.schema.json`
 - `schemas/queue_review.schema.json`
 - `schemas/queue_status.schema.json`
 - `schemas/application_dossier.schema.json`
@@ -208,6 +214,26 @@ open pull requests, post comments, contact repositories, call external models,
 require billing, or ask for GitHub write permission. Use `patchrail queue reject`
 or `patchrail queue skip` to keep blocked records visible while preventing
 handoff.
+
+## CLI Queue Policy Resolution
+
+`patchrail queue policy-resolve` is the explicit local mutating counterpart to
+`policy-scan`:
+
+```bash
+patchrail queue --db patchrail-pilot.sqlite policy-resolve --format markdown
+```
+
+The command emits `patchrail.queue_policy_resolution.v1`, uses `policy-scan` to
+find active blocked records, marks matching work items as skipped, rejects
+matching proposal records, records normal local audit events, and then runs the
+scan again to report the remaining blocked-record count. The default decision
+note is `no money goal, OSS-only #3217`; maintainers can override it with
+`--reason` for a narrower local policy decision.
+
+The resolution is local-only. It does not delete work items, execute proposals,
+open pull requests, post comments, contact repositories, call external models,
+perform network access, require billing, or ask for GitHub write permission.
 
 ## CLI Queue Review Inbox
 

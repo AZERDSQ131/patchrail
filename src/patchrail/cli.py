@@ -43,9 +43,11 @@ from patchrail.queue import (
 )
 from patchrail.queue.server import make_queue_api_handler, serve_queue_api
 from patchrail.queue.status import (
+    DEFAULT_POLICY_RESOLUTION_REASON,
     queue_audit_summary_payload,
     queue_bundle_payload,
     queue_gate_report_payload,
+    queue_policy_resolution_payload,
     queue_policy_scan_payload,
     queue_review_payload,
     queue_status_payload,
@@ -154,6 +156,7 @@ def _load_schema(name: str) -> str:
         "queue-audit-event": "queue-audit-event.v1.schema.json",
         "queue-audit-summary": "queue-audit-summary.v1.schema.json",
         "queue-gate-report": "queue-gate-report.v1.schema.json",
+        "queue-policy-resolution": "queue-policy-resolution.v1.schema.json",
         "queue-policy-scan": "queue-policy-scan.v1.schema.json",
         "queue-proposal": "queue-proposal.v1.schema.json",
         "queue-review": "queue-review.v1.schema.json",
@@ -2758,6 +2761,97 @@ def _render_queue_policy_scan_text(payload: dict[str, Any]) -> str:
     )
 
 
+def _render_queue_policy_resolution_markdown(payload: dict[str, Any]) -> str:
+    safety = payload["safety"]
+    counts = payload["resolved_counts"]
+    lines = [
+        "# PatchRail Queue Policy Resolution",
+        "",
+        f"- DB: `{payload['db_path']}`",
+        f"- Status: `{payload['status']}`",
+        f"- Reason: `{payload['reason']}`",
+        f"- Before policy status: `{payload['before_policy_status']}`",
+        f"- After policy status: `{payload['after_policy_status']}`",
+        f"- Resolved records: `{payload['resolved_records_count']}`",
+        f"- Remaining blocked records: `{payload['remaining_blocked_records_count']}`",
+        f"- Work items skipped: `{counts['work_items_skipped']}`",
+        f"- Proposals rejected: `{counts['proposals_rejected']}`",
+        f"- Audit events added: `{counts['audit_events_added']}`",
+        "",
+        "## Resolved Records",
+        "",
+    ]
+    if payload["resolved_records"]:
+        for record in payload["resolved_records"]:
+            lines.extend(
+                [
+                    f"### {record['record_type']} `{record['id']}`",
+                    "",
+                    f"- Title: {record['title']}",
+                    f"- Action: `{record['action']}`",
+                    f"- Approval state after: `{record['approval_state_after']}`",
+                    f"- Status after: `{record['status_after']}`",
+                    f"- Matched categories: `{record['matched_categories']}`",
+                    f"- Matched terms: `{record['matched_terms']}`",
+                    "",
+                ]
+            )
+    else:
+        lines.extend(["- No policy-blocking queue records were active.", ""])
+    lines.extend(
+        [
+            "## Reviewer Actions",
+            "",
+            *[f"- {action}" for action in payload["reviewer_actions"]],
+            "",
+            "## Safety",
+            "",
+            f"- Resolution is local only: `{safety['resolution_is_local_only']}`",
+            f"- Resolution records audit event: `{safety['resolution_records_audit_event']}`",
+            f"- Execution allowed: `{safety['execution_allowed']}`",
+            f"- GitHub write performed: `{safety['github_write_performed']}`",
+            f"- Network performed: `{safety['network_performed']}`",
+            f"- Proposals executed: `{safety['proposals_executed']}`",
+            f"- Work items deleted: `{safety['work_items_deleted']}`",
+            f"- Local paths redacted: `{safety['local_paths_redacted']}`",
+            f"- Approval records execute actions: `{safety['approval_records_execute_actions']}`",
+            f"- GitHub write permission required: `{safety['github_write_permission_required']}`",
+            f"- Network required: `{safety['network_required']}`",
+            f"- External model required: `{safety['external_model_required']}`",
+            f"- Billing required: `{safety['billing_required']}`",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _render_queue_policy_resolution_text(payload: dict[str, Any]) -> str:
+    counts = payload["resolved_counts"]
+    return (
+        "\n".join(
+            [
+                "PatchRail Queue Policy Resolution",
+                f"DB: {payload['db_path']}",
+                f"Status: {payload['status']}",
+                f"Reason: {payload['reason']}",
+                f"Resolved records: {payload['resolved_records_count']}",
+                f"Work items skipped: {counts['work_items_skipped']}",
+                f"Proposals rejected: {counts['proposals_rejected']}",
+                f"Audit events added: {counts['audit_events_added']}",
+                f"After policy status: {payload['after_policy_status']}",
+                "Resolution is local only: True",
+                "Resolution records audit event: True",
+                "Execution allowed: False",
+                "GitHub write performed: False",
+                "Network performed: False",
+                "Proposals executed: False",
+                "Work items deleted: False",
+                "Local paths redacted: True",
+            ]
+        )
+        + "\n"
+    )
+
+
 def _render_queue_review_markdown(payload: dict[str, Any]) -> str:
     groups = payload["review_groups"]
     safety = payload["safety"]
@@ -3200,6 +3294,18 @@ def _queue_policy_scan(args: argparse.Namespace) -> int:
         text = _render_queue_policy_scan_text(payload)
     _write_or_print(text, args.out)
     return 0 if payload["status"] == "policy_clear" else 1
+
+
+def _queue_policy_resolve(args: argparse.Namespace) -> int:
+    payload = queue_policy_resolution_payload(_queue_db(args), reason=args.reason)
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_queue_policy_resolution_markdown(payload)
+    else:
+        text = _render_queue_policy_resolution_text(payload)
+    _write_or_print(text, args.out)
+    return 0
 
 
 def _queue_review(args: argparse.Namespace) -> int:
@@ -4481,6 +4587,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "queue-audit-event",
             "queue-audit-summary",
             "queue-gate-report",
+            "queue-policy-resolution",
             "queue-policy-scan",
             "queue-proposal",
             "queue-review",
@@ -4918,6 +5025,26 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     queue_policy_scan.add_argument("--out", type=Path, help="Optional output path.")
     queue_policy_scan.set_defaults(func=_queue_policy_scan)
+
+    queue_policy_resolve = queue_subparsers.add_parser(
+        "policy-resolve",
+        help=(
+            "Locally skip/reject active records flagged by policy-scan while preserving audit history."
+        ),
+    )
+    queue_policy_resolve.add_argument(
+        "--reason",
+        default=DEFAULT_POLICY_RESOLUTION_REASON,
+        help="Decision note recorded in the local audit trail.",
+    )
+    queue_policy_resolve.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    queue_policy_resolve.add_argument("--out", type=Path, help="Optional output path.")
+    queue_policy_resolve.set_defaults(func=_queue_policy_resolve)
 
     queue_bundle = queue_subparsers.add_parser(
         "bundle",

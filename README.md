@@ -159,6 +159,7 @@ uv run --extra dev patchrail evidence application-gate --format markdown
 uv run --extra dev patchrail evidence application-dossier --format markdown
 uv run --extra dev patchrail evidence release-readiness --clean-dist --format markdown
 uv run --extra dev patchrail queue policy-scan --format markdown
+uv run --extra dev patchrail queue policy-resolve --format markdown
 ```
 
 See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and

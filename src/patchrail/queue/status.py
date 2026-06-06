@@ -13,6 +13,8 @@ from patchrail.queue.store import (
     init_queue,
     list_proposals,
     list_work_items,
+    reject_proposal,
+    skip_work_item,
 )
 
 QUEUE_STATUS_SCHEMA_VERSION = "patchrail.queue_status.v1"
@@ -21,6 +23,8 @@ QUEUE_BUNDLE_SCHEMA_VERSION = "patchrail.queue_bundle.v1"
 QUEUE_GATE_REPORT_SCHEMA_VERSION = "patchrail.queue_gate_report.v1"
 QUEUE_REVIEW_SCHEMA_VERSION = "patchrail.queue_review.v1"
 QUEUE_POLICY_SCAN_SCHEMA_VERSION = "patchrail.queue_policy_scan.v1"
+QUEUE_POLICY_RESOLUTION_SCHEMA_VERSION = "patchrail.queue_policy_resolution.v1"
+DEFAULT_POLICY_RESOLUTION_REASON = "no money goal, OSS-only #3217"
 
 DEFAULT_REQUIRED_AUDIT_EVENTS = [
     "work_item_added",
@@ -654,5 +658,99 @@ def queue_policy_scan_payload(db_path: Path = DEFAULT_QUEUE_PATH) -> dict[str, A
             "scan_records_audit_event": False,
             "local_paths_redacted": True,
             "execution_allowed": False,
+        },
+    }
+
+
+def queue_policy_resolution_payload(
+    db_path: Path = DEFAULT_QUEUE_PATH,
+    *,
+    reason: str = DEFAULT_POLICY_RESOLUTION_REASON,
+) -> dict[str, Any]:
+    before = queue_policy_scan_payload(db_path)
+    resolved_records: list[dict[str, Any]] = []
+    work_items_skipped = 0
+    proposals_rejected = 0
+    audit_before = before["scanned_counts"]["audit_events_total"]
+
+    for match in before["matches"]:
+        if match["record_type"] == "work_item":
+            item = skip_work_item(
+                db_path=db_path,
+                item_id=match["id"],
+                decision_note=reason,
+            ).to_dict()
+            item = _redact_local_paths(item)
+            work_items_skipped += 1
+            resolved_records.append(
+                {
+                    "record_type": "work_item",
+                    "id": match["id"],
+                    "title": match["title"],
+                    "action": "skipped",
+                    "approval_state_after": item["approval_state"],
+                    "status_after": item["status"],
+                    "matched_categories": match["matched_categories"],
+                    "matched_terms": match["matched_terms"],
+                }
+            )
+        elif match["record_type"] == "proposal":
+            proposal = reject_proposal(
+                db_path=db_path,
+                proposal_id=match["id"],
+                decision_note=reason,
+            ).to_dict()
+            proposal = _redact_local_paths(proposal)
+            proposals_rejected += 1
+            resolved_records.append(
+                {
+                    "record_type": "proposal",
+                    "id": match["id"],
+                    "work_item_id": match["work_item_id"],
+                    "title": match["title"],
+                    "action": "rejected",
+                    "approval_state_after": proposal["approval_state"],
+                    "status_after": "rejected",
+                    "matched_categories": match["matched_categories"],
+                    "matched_terms": match["matched_terms"],
+                }
+            )
+
+    after = queue_policy_scan_payload(db_path)
+    audit_after = after["scanned_counts"]["audit_events_total"]
+    return {
+        "schema_version": QUEUE_POLICY_RESOLUTION_SCHEMA_VERSION,
+        "queue_schema_version": before["queue_schema_version"],
+        "patchrail_version": __version__,
+        "db_path": _redact_local_paths(str(db_path)),
+        "local_first": True,
+        "status": "resolved_blocked_records" if resolved_records else "no_blocked_records",
+        "reason": reason,
+        "resolved_records_count": len(resolved_records),
+        "resolved_counts": {
+            "work_items_skipped": work_items_skipped,
+            "proposals_rejected": proposals_rejected,
+            "audit_events_added": audit_after - audit_before,
+        },
+        "resolved_records": resolved_records,
+        "before_policy_status": before["status"],
+        "after_policy_status": after["status"],
+        "remaining_blocked_records_count": after["blocked_records_count"],
+        "reviewer_actions": [
+            "Run policy-scan again before handoff.",
+            "Inspect audit events to confirm skipped work items and rejected proposals remain visible.",
+        ]
+        if resolved_records
+        else ["No policy-blocking queue records were active."],
+        "safety": {
+            **SAFE_QUEUE_STATUS,
+            "resolution_is_local_only": True,
+            "resolution_records_audit_event": True,
+            "local_paths_redacted": True,
+            "execution_allowed": False,
+            "github_write_performed": False,
+            "network_performed": False,
+            "proposals_executed": False,
+            "work_items_deleted": False,
         },
     }
