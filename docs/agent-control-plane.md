@@ -147,7 +147,8 @@ patchrail queue bundle --format markdown > patchrail-queue-bundle.md
 `patchrail queue policy-scan` is a read-only pre-handoff brake. It scans local
 work items and proposals for blocked automation signals such as automatic pull
 requests, automatic issue comments, outbound contact, payout/claim language,
-KYC/payment gates, or other external write actions. It exits non-zero while
+KYC/payment gates, package publishing, external application submission, or
+other external write actions. It exits non-zero while
 matching records remain active and recommends rejecting or skipping those
 records before handoff. Reading the scan records no audit event, permits no
 execution, redacts absolute local paths, and preserves historical queue data.

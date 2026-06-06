@@ -493,6 +493,68 @@ class PatchRailQueueTests(unittest.TestCase):
             self.assertEqual(clear["blocked_records_count"], 0)
             self.assertEqual(clear["matches"], [])
 
+    def test_queue_policy_scan_flags_write_publish_and_application_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            db = Path(tmpdir) / "queue.sqlite"
+            item_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "add",
+                    "--kind",
+                    "release_handoff",
+                    "--title",
+                    "Run gh pr create, create release, and publish to PyPI",
+                    "--payload-json",
+                    '{"commands": ["gh issue comment 123 --body done", "twine upload dist/*"]}',
+                ]
+            )
+            self.assertEqual(item_proc.returncode, 0, item_proc.stderr)
+            item = json.loads(item_proc.stdout)
+
+            proposal_proc = run_patchrail(
+                [
+                    "queue",
+                    "--db",
+                    str(db),
+                    "proposal",
+                    "add",
+                    "--item-id",
+                    item["id"],
+                    "--title",
+                    "Submit external application form",
+                    "--summary",
+                    "Submit form after creating a tag release.",
+                    "--patch-plan",
+                    "1. npm publish.\n2. Send application.\n3. Push to main.",
+                    "--risk-level",
+                    "high",
+                ]
+            )
+            self.assertEqual(proposal_proc.returncode, 0, proposal_proc.stderr)
+
+            scan_proc = run_patchrail(["queue", "--db", str(db), "policy-scan", "--format", "json"])
+
+            self.assertEqual(scan_proc.returncode, 1)
+            scan = json.loads(scan_proc.stdout)
+            self.assertEqual(scan["status"], "blocked_records_present")
+            self.assertEqual(scan["blocked_records_count"], 2)
+            categories = {
+                category for match in scan["matches"] for category in match["matched_categories"]
+            }
+            terms = {term for match in scan["matches"] for term in match["matched_terms"]}
+            self.assertIn("external_write", categories)
+            self.assertIn("package_publish", categories)
+            self.assertIn("external_application_submission", categories)
+            self.assertIn("gh pr create", terms)
+            self.assertIn("gh issue comment", terms)
+            self.assertIn("twine upload", terms)
+            self.assertIn("npm publish", terms)
+            self.assertIn("submit form", terms)
+            self.assertEqual(scan["safety"]["execution_allowed"], False)
+            self.assertEqual(scan["safety"]["scan_records_audit_event"], False)
+
     def test_queue_status_summarizes_local_control_plane_without_write_permissions(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             db = Path(tmpdir) / "queue.sqlite"
