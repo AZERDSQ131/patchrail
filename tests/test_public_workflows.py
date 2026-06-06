@@ -570,6 +570,48 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
             assert detail["size_bytes"] == len(data)
             assert detail["sha256"] == hashlib.sha256(data).hexdigest()
 
+        verify_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "verify-reviewer-packet",
+                str(out_dir),
+                "--format",
+                "json",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        assert verify_proc.returncode == 0, verify_proc.stderr
+        verified = json.loads(verify_proc.stdout)
+        assert verified["schema_version"] == "patchrail.reviewer_packet_integrity.v1"
+        assert verified["status"] == "verified"
+        assert verified["counts"] == {
+            "artifact_count": 14,
+            "detail_count": 14,
+            "verified_artifact_count": 14,
+        }
+        assert verified["checks"] == {
+            "manifest_readable": True,
+            "artifacts_match_details": True,
+            "all_hashes_match": True,
+            "all_sizes_match": True,
+            "no_extra_files": True,
+            "safety_flags_pass": True,
+        }
+        assert verified["errors"] == []
+        assert verified["missing_artifacts"] == []
+        assert verified["extra_files"] == []
+        assert verified["mismatches"] == []
+        assert {item["path"] for item in verified["verified_artifacts"]} == set(
+            manifest["artifacts"]
+        )
+
         packet = (out_dir / "reviewer-quick-check.md").read_text(encoding="utf-8")
         assert "Status: draft_only_do_not_submit" in packet
         assert "ready_for_reviewer_handoff" in packet
@@ -578,6 +620,49 @@ def test_reviewer_quick_check_cli_can_write_local_artifact_packet() -> None:
         assert "/Volumes/" not in packet
         assert "/Users/" not in packet
         assert "/home/" not in packet
+
+
+def test_verify_reviewer_packet_fails_on_tampered_artifact() -> None:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out_dir = Path(tmpdir) / "reviewer-packet"
+        generate_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "reviewer-packet",
+                "--out-dir",
+                str(out_dir),
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert generate_proc.returncode == 0, generate_proc.stderr
+
+        (out_dir / "ci-triage-demo.md").write_text("tampered\n", encoding="utf-8")
+        verify_proc = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "evidence",
+                "verify-reviewer-packet",
+                str(out_dir),
+                "--format",
+                "text",
+            ],
+            cwd=ROOT,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        assert verify_proc.returncode == 1
+        assert "Status: failed" in verify_proc.stdout
+        assert "Mismatch: ci-triage-demo.md" in verify_proc.stdout
 
 
 def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
@@ -601,6 +686,7 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
 
     assert "patchrail schema reviewer-quick-check-artifacts" in api_reference
     assert "patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet" in api_reference
+    assert "patchrail evidence verify-reviewer-packet patchrail-reviewer-packet" in api_reference
     assert "src/patchrail/schemas/reviewer-quick-check-artifacts.v1.schema.json" in api_reference
     assert "schemas/reviewer_quick_check_artifacts.schema.json" in api_reference
     assert "no network, write action, public publish, or application submission" in api_reference
@@ -619,6 +705,9 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
     assert "own manifest schema for offline validation" in normalized_evidence
     assert (
         "SHA-256 and byte-size manifest details for offline integrity checks" in combined_evidence
+    )
+    assert "patchrail evidence verify-reviewer-packet patchrail-reviewer-packet" in (
+        combined_evidence
     )
     assert "artifact_details" in api_reference
     assert mirrored_schema == packaged_schema

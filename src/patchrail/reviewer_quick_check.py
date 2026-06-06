@@ -154,6 +154,180 @@ def _write_manifest(out_dir: Path, artifact_names: list[str]) -> None:
     )
 
 
+def _packet_display_path(packet_dir: Path) -> str:
+    if packet_dir.is_absolute():
+        return packet_dir.name
+    return packet_dir.as_posix()
+
+
+def _failed_integrity_payload(
+    packet_dir: Path,
+    *,
+    errors: list[str],
+    manifest_readable: bool,
+) -> dict[str, object]:
+    return {
+        "schema_version": "patchrail.reviewer_packet_integrity.v1",
+        "packet_dir": _packet_display_path(packet_dir),
+        "status": "failed",
+        "errors": errors,
+        "counts": {"artifact_count": 0, "detail_count": 0, "verified_artifact_count": 0},
+        "checks": {
+            "manifest_readable": manifest_readable,
+            "artifacts_match_details": False,
+            "all_hashes_match": False,
+            "all_sizes_match": False,
+            "no_extra_files": False,
+            "safety_flags_pass": False,
+        },
+        "missing_artifacts": [],
+        "extra_files": [],
+        "mismatches": [],
+        "verified_artifacts": [],
+    }
+
+
+def verify_reviewer_packet(packet_dir: Path) -> dict[str, object]:
+    manifest_path = packet_dir / "manifest.json"
+    errors: list[str] = []
+    mismatches: list[dict[str, object]] = []
+    verified_artifacts: list[dict[str, object]] = []
+
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return _failed_integrity_payload(
+            packet_dir, errors=["missing manifest.json"], manifest_readable=False
+        )
+    except json.JSONDecodeError as exc:
+        return _failed_integrity_payload(
+            packet_dir, errors=[f"invalid manifest.json: {exc.msg}"], manifest_readable=False
+        )
+
+    if not isinstance(manifest, dict):
+        errors.append("manifest must be a JSON object")
+        manifest = {}
+
+    artifacts = manifest.get("artifacts")
+    artifact_details = manifest.get("artifact_details")
+    if not isinstance(artifacts, list) or not all(isinstance(item, str) for item in artifacts):
+        errors.append("manifest artifacts must be a list of file names")
+        artifacts = []
+    if not isinstance(artifact_details, list) or not all(
+        isinstance(item, dict) for item in artifact_details
+    ):
+        errors.append("manifest artifact_details must be a list of objects")
+        artifact_details = []
+
+    details_by_path: dict[str, dict[str, object]] = {}
+    duplicate_details: list[str] = []
+    for detail in artifact_details:
+        path = detail.get("path")
+        if not isinstance(path, str):
+            errors.append("artifact detail path must be a string")
+            continue
+        if Path(path).is_absolute() or "/" in path or "\\" in path:
+            errors.append(f"artifact detail path must be a local file name: {path}")
+            continue
+        if path in details_by_path:
+            duplicate_details.append(path)
+            continue
+        details_by_path[path] = detail
+
+    for path in duplicate_details:
+        errors.append(f"duplicate artifact detail: {path}")
+
+    manifest_artifacts = list(artifacts)
+    detail_paths = list(details_by_path)
+    missing_details = sorted(set(manifest_artifacts) - set(detail_paths))
+    extra_details = sorted(set(detail_paths) - set(manifest_artifacts))
+    for path in missing_details:
+        errors.append(f"artifact missing detail: {path}")
+    for path in extra_details:
+        errors.append(f"artifact detail not listed in artifacts: {path}")
+
+    missing_artifacts: list[str] = []
+    hash_mismatch = False
+    size_mismatch = False
+    for artifact in manifest_artifacts:
+        if Path(artifact).is_absolute() or "/" in artifact or "\\" in artifact:
+            errors.append(f"artifact path must be a local file name: {artifact}")
+            continue
+        artifact_path = packet_dir / artifact
+        detail = details_by_path.get(artifact)
+        if not artifact_path.exists():
+            missing_artifacts.append(artifact)
+            continue
+        actual = _artifact_detail(artifact_path)
+        if detail is None:
+            continue
+        expected_size = detail.get("size_bytes")
+        expected_sha = detail.get("sha256")
+        actual_size = actual["size_bytes"]
+        actual_sha = actual["sha256"]
+        item_mismatches: dict[str, object] = {"path": artifact}
+        if expected_size != actual_size:
+            size_mismatch = True
+            item_mismatches["expected_size_bytes"] = expected_size
+            item_mismatches["actual_size_bytes"] = actual_size
+        if expected_sha != actual_sha:
+            hash_mismatch = True
+            item_mismatches["expected_sha256"] = expected_sha
+            item_mismatches["actual_sha256"] = actual_sha
+        if len(item_mismatches) > 1:
+            mismatches.append(item_mismatches)
+        else:
+            verified_artifacts.append(actual)
+
+    extra_files = sorted(
+        path.name
+        for path in packet_dir.iterdir()
+        if path.is_file() and path.name != "manifest.json" and path.name not in manifest_artifacts
+    )
+    safety_flags_pass = (
+        manifest.get("network_required") is False
+        and manifest.get("write_action_required") is False
+        and manifest.get("application_form_submission_performed") is False
+    )
+    if not safety_flags_pass:
+        errors.append("manifest safety flags must all be false")
+
+    checks = {
+        "manifest_readable": True,
+        "artifacts_match_details": not missing_details and not extra_details,
+        "all_hashes_match": not hash_mismatch and not missing_artifacts,
+        "all_sizes_match": not size_mismatch and not missing_artifacts,
+        "no_extra_files": not extra_files,
+        "safety_flags_pass": safety_flags_pass,
+    }
+    status = (
+        "verified"
+        if not errors
+        and not missing_artifacts
+        and not extra_files
+        and not mismatches
+        and all(checks.values())
+        else "failed"
+    )
+    return {
+        "schema_version": "patchrail.reviewer_packet_integrity.v1",
+        "packet_dir": _packet_display_path(packet_dir),
+        "status": status,
+        "manifest_schema_version": manifest.get("schema_version"),
+        "counts": {
+            "artifact_count": len(manifest_artifacts),
+            "detail_count": len(details_by_path),
+            "verified_artifact_count": len(verified_artifacts),
+        },
+        "checks": checks,
+        "errors": errors,
+        "missing_artifacts": missing_artifacts,
+        "extra_files": extra_files,
+        "mismatches": mismatches,
+        "verified_artifacts": verified_artifacts,
+    }
+
+
 def _reviewer_packet_readme() -> str:
     return """
 # PatchRail Reviewer Packet

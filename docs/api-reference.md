@@ -127,6 +127,15 @@ manual gates, include ephemeral loopback HTTP API smoke evidence as
 validation. The manifest also includes `artifact_details` with each artifact's
 path, byte size, and SHA-256 digest so reviewers can perform offline integrity
 checks after downloading a CI artifact.
+Reviewers can verify those details locally:
+
+```bash
+patchrail evidence verify-reviewer-packet patchrail-reviewer-packet --format markdown
+```
+
+The verifier recomputes every listed artifact's byte size and SHA-256 digest,
+checks that `artifacts` and `artifact_details` cover the same files, rejects
+extra files, and exits non-zero if the packet has drifted.
 Contract phrase: no network, write action, public publish,
 or application submission. Short contract: no network, write action, public publish, or application submission.
 The compatibility script

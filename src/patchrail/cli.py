@@ -420,6 +420,69 @@ def _evidence_reviewer_packet(args: argparse.Namespace) -> int:
     return 0
 
 
+def _render_reviewer_packet_integrity_markdown(payload: dict[str, Any]) -> str:
+    counts = payload["counts"]
+    checks = payload["checks"]
+    lines = [
+        "# PatchRail Reviewer Packet Integrity",
+        "",
+        f"- Status: `{payload['status']}`",
+        f"- Manifest schema: `{payload.get('manifest_schema_version')}`",
+        f"- Artifacts: `{counts['artifact_count']}`",
+        f"- Details: `{counts['detail_count']}`",
+        f"- Verified artifacts: `{counts['verified_artifact_count']}`",
+        "",
+        "## Checks",
+        "",
+    ]
+    lines.extend(f"- {name}: `{value}`" for name, value in checks.items())
+    errors = payload.get("errors") or []
+    missing = payload.get("missing_artifacts") or []
+    extra = payload.get("extra_files") or []
+    mismatches = payload.get("mismatches") or []
+    if errors or missing or extra or mismatches:
+        lines.extend(["", "## Findings", ""])
+        lines.extend(f"- {error}" for error in errors)
+        lines.extend(f"- missing artifact: `{path}`" for path in missing)
+        lines.extend(f"- extra file not in manifest: `{path}`" for path in extra)
+        for mismatch in mismatches:
+            lines.append(f"- integrity mismatch: `{mismatch['path']}`")
+    return "\n".join(lines) + "\n"
+
+
+def _render_reviewer_packet_integrity_text(payload: dict[str, Any]) -> str:
+    counts = payload["counts"]
+    lines = [
+        f"Status: {payload['status']}",
+        f"Artifacts: {counts['artifact_count']}",
+        f"Details: {counts['detail_count']}",
+        f"Verified artifacts: {counts['verified_artifact_count']}",
+    ]
+    errors = payload.get("errors") or []
+    missing = payload.get("missing_artifacts") or []
+    extra = payload.get("extra_files") or []
+    mismatches = payload.get("mismatches") or []
+    lines.extend(f"Error: {error}" for error in errors)
+    lines.extend(f"Missing artifact: {path}" for path in missing)
+    lines.extend(f"Extra file: {path}" for path in extra)
+    lines.extend(f"Mismatch: {mismatch['path']}" for mismatch in mismatches)
+    return "\n".join(lines) + "\n"
+
+
+def _evidence_verify_reviewer_packet(args: argparse.Namespace) -> int:
+    from patchrail.reviewer_quick_check import verify_reviewer_packet
+
+    payload = verify_reviewer_packet(args.packet_dir)
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_reviewer_packet_integrity_markdown(payload)
+    else:
+        text = _render_reviewer_packet_integrity_text(payload)
+    _write_or_print(text, args.out)
+    return 0 if payload["status"] == "verified" else 1
+
+
 def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
     fixture_root = root / "examples" / "ci-triage"
     log_paths = sorted(fixture_root.glob("*.log")) if fixture_root.exists() else []
@@ -4103,6 +4166,24 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional directory for reviewer-facing Markdown/JSON artifacts.",
     )
     evidence_reviewer_packet.set_defaults(func=_evidence_reviewer_packet)
+
+    evidence_verify_reviewer_packet = evidence_subparsers.add_parser(
+        "verify-reviewer-packet",
+        help="Verify a local reviewer packet manifest by recomputing SHA-256 and byte sizes.",
+    )
+    evidence_verify_reviewer_packet.add_argument(
+        "packet_dir",
+        type=Path,
+        help="Directory created by `patchrail evidence reviewer-packet --out-dir`.",
+    )
+    evidence_verify_reviewer_packet.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    evidence_verify_reviewer_packet.add_argument("--out", type=Path, help="Optional output path.")
+    evidence_verify_reviewer_packet.set_defaults(func=_evidence_verify_reviewer_packet)
 
     evidence_application_gate = evidence_subparsers.add_parser(
         "application-gate",
