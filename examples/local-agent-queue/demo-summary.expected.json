@@ -36,6 +36,10 @@
   "bundle_local_paths_redacted": true,
   "bundle_records_audit_event": false,
   "bundle_remaining_gate_gaps": [],
+  "bundle_reviewer_execution_allowed": false,
+  "bundle_reviewer_human_gates_complete": true,
+  "bundle_reviewer_pending_decisions": 0,
+  "bundle_reviewer_status": "ready_for_reviewer_handoff",
   "bundle_status": "ready_for_handoff",
   "audit_event_types": [
     "work_item_added",

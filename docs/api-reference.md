@@ -171,10 +171,14 @@ patchrail queue --db patchrail-pilot.sqlite bundle --format markdown
 ```
 
 The bundle includes queue status, audit-summary gate coverage, work items,
-proposals, audit events, safety requirements, and remaining gate gaps. It emits
-`patchrail.queue_bundle.v1` JSON by default, exits successfully only when the
-required gate events are present, redacts absolute local paths in the emitted
-payload, and does not append a new audit event while reading the queue.
+proposals, audit events, a reviewer summary, safety requirements, and remaining
+gate gaps. It emits `patchrail.queue_bundle.v1` JSON by default, exits
+successfully only when the required gate events are present, redacts absolute
+local paths in the emitted payload, and does not append a new audit event while
+reading the queue. The reviewer summary gives a maintainer a quick checklist:
+handoff readiness, human-gate completion, pending decisions, proposal/work-item
+decision counts, and the sections to inspect before acting on the local
+evidence.
 
 Like the other queue commands, the bundle does not execute proposals, open pull
 requests, post comments, contact repositories, call external models, require
@@ -193,9 +197,10 @@ patchrail evidence http-api --format markdown
 It validates `examples/local-agent-queue/demo-summary.expected.json`, confirms
 the required audit events and artifacts are present, and reports whether the
 human approval, proposal approval, and risky-proposal rejection gates were
-exercised. It is a local release guardrail: it does not bind a server, contact
-GitHub, call external models, require billing, or grant repository write
-permission.
+exercised. It also verifies that the bundle reviewer summary is ready for
+handoff, leaves no pending decisions, and does not allow execution. It is a
+local release guardrail: it does not bind a server, contact GitHub, call
+external models, require billing, or grant repository write permission.
 
 `patchrail evidence http-api` complements that artifact check by starting an
 ephemeral server bound to `127.0.0.1`, creating local work items and proposals,

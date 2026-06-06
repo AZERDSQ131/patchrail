@@ -832,6 +832,10 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert "Bundle is read-only: `True`" in markdown_proc.stdout
     assert "Bundle records audit event: `False`" in markdown_proc.stdout
     assert "Bundle local paths redacted: `True`" in markdown_proc.stdout
+    assert "Bundle reviewer status: `ready_for_reviewer_handoff`" in markdown_proc.stdout
+    assert "Bundle reviewer pending decisions: `0`" in markdown_proc.stdout
+    assert "Bundle reviewer human gates complete: `True`" in markdown_proc.stdout
+    assert "Bundle reviewer execution allowed: `False`" in markdown_proc.stdout
 
     agent_control_plane = (ROOT / "docs" / "agent-control-plane.md").read_text(encoding="utf-8")
     api_reference = (ROOT / "docs" / "api-reference.md").read_text(encoding="utf-8")
@@ -844,6 +848,8 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
     assert "patchrail evidence control-plane --format markdown" in docs
     assert "patchrail evidence http-api --format markdown" in docs
     assert "patchrail queue bundle --format markdown" in docs
+    assert "reviewer summary" in docs
+    assert "ready_for_reviewer_handoff" in docs
     assert "local_demo_ready" in docs
     assert "risky-proposal rejection" in docs
 

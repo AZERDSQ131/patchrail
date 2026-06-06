@@ -32,8 +32,8 @@ candidate evidence covers:
   `patchrail schema queue-audit-summary`.
 - Read-only `patchrail.queue_bundle.v1` handoff packet from
   `patchrail queue bundle`, including status, gate coverage, queue records,
-  proposals, audit events, and safety metadata without appending a new audit
-  event.
+  proposals, audit events, reviewer checklist, and safety metadata without
+  appending a new audit event.
 - Executable demo in `examples/local-agent-queue`.
 - No pull request creation, issue comments, repository writes, external model
   calls, billing, or GitHub write permissions.
@@ -80,12 +80,13 @@ Current evidence snapshot from 2026-06-03:
   proposal, and export events are present.
 - The demo also writes `bundle.json` and `bundle.md`; `patchrail queue bundle`
   reports `ready_for_handoff`, stays read-only, records no audit event while
-  reading, and redacts local paths.
+  reading, redacts local paths, and exposes `reviewer_summary.status` as
+  `ready_for_reviewer_handoff`.
 - `patchrail queue bundle --format json` emits a read-only handoff packet with
-  work items, proposals, audit events, status, audit summary, safety metadata,
-  and `remaining_gate_gaps=[]` once the demo gate sequence is complete. Reading
-  the bundle redacts absolute local paths in the emitted artifact and does not
-  add another audit event.
+  work items, proposals, audit events, status, audit summary, reviewer summary,
+  safety metadata, and `remaining_gate_gaps=[]` once the demo gate sequence is
+  complete. Reading the bundle redacts absolute local paths in the emitted
+  artifact and does not add another audit event.
 - `patchrail evidence control-plane --format markdown` reports
   `local_demo_ready` from the checked-in summary when required audit events,
   artifacts, source docs, human approval, proposal approval, risky-proposal

@@ -502,6 +502,21 @@ class PatchRailQueueTests(unittest.TestCase):
             self.assertEqual(bundle["counts"]["proposals_total"], 2)
             self.assertEqual(bundle["audit_summary"]["status"], "human_gates_exercised")
             self.assertEqual(bundle["remaining_gate_gaps"], [])
+            self.assertEqual(
+                bundle["reviewer_summary"]["status"],
+                "ready_for_reviewer_handoff",
+            )
+            self.assertEqual(bundle["reviewer_summary"]["human_gates_complete"], True)
+            self.assertEqual(bundle["reviewer_summary"]["pending_decisions"], 0)
+            self.assertEqual(bundle["reviewer_summary"]["approved_work_items"], 1)
+            self.assertEqual(bundle["reviewer_summary"]["rejected_work_items"], 1)
+            self.assertEqual(bundle["reviewer_summary"]["approved_proposals"], 1)
+            self.assertEqual(bundle["reviewer_summary"]["rejected_proposals"], 1)
+            self.assertEqual(bundle["reviewer_summary"]["execution_allowed"], False)
+            self.assertIn(
+                "Inspect work_items for local CI evidence and write_actions_allowed=false.",
+                bundle["reviewer_summary"]["review_steps"],
+            )
             self.assertEqual(bundle["safety"]["bundle_is_read_only"], True)
             self.assertEqual(bundle["safety"]["bundle_records_audit_event"], False)
             self.assertEqual(bundle["safety"]["local_paths_redacted"], True)
@@ -530,6 +545,18 @@ class PatchRailQueueTests(unittest.TestCase):
             )
             self.assertEqual(markdown_proc.returncode, 0, markdown_proc.stderr)
             self.assertIn("# PatchRail Queue Bundle", markdown_proc.stdout)
+            self.assertIn("## Reviewer Checklist", markdown_proc.stdout)
+            self.assertIn(
+                "Reviewer handoff status: `ready_for_reviewer_handoff`",
+                markdown_proc.stdout,
+            )
+            self.assertIn("Human gates complete: `True`", markdown_proc.stdout)
+            self.assertIn("Pending decisions: `0`", markdown_proc.stdout)
+            self.assertIn("Execution allowed by this bundle: `False`", markdown_proc.stdout)
+            self.assertIn(
+                "Inspect audit_summary for required human gate events.",
+                markdown_proc.stdout,
+            )
             self.assertIn("Bundle is read-only: `True`", markdown_proc.stdout)
             self.assertIn("Bundle records audit event: `False`", markdown_proc.stdout)
             self.assertIn("Local paths redacted: `True`", markdown_proc.stdout)

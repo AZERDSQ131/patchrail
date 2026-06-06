@@ -167,9 +167,11 @@ Expected local artifacts:
 - `.patchrail-demo/audit-summary.json`: the local gate summary proving the
   required approval, rejection, proposal, and export events were exercised.
 - `.patchrail-demo/bundle.json`: the read-only handoff packet with status,
-  audit coverage, queue records, proposals, and local-path redaction.
+  audit coverage, queue records, proposals, a reviewer summary, and local-path
+  redaction.
 - `.patchrail-demo/bundle.md`: the same handoff packet rendered for reviewer
-  inspection.
+  inspection, including a checklist of sections to inspect before acting on
+  the local evidence.
 - `.patchrail-demo/summary.json`: stable demo summary matching
   `demo-summary.expected.json`.
 - The work item is imported from `pilot-pack/pilot-manifest.json`, which
@@ -210,6 +212,10 @@ assert bundle["remaining_gate_gaps"] == []
 assert bundle["safety"]["bundle_is_read_only"] is True
 assert bundle["safety"]["bundle_records_audit_event"] is False
 assert bundle["safety"]["local_paths_redacted"] is True
+assert bundle["reviewer_summary"]["status"] == "ready_for_reviewer_handoff"
+assert bundle["reviewer_summary"]["human_gates_complete"] is True
+assert bundle["reviewer_summary"]["pending_decisions"] == 0
+assert bundle["reviewer_summary"]["execution_allowed"] is False
 
 events = [json.loads(line) for line in Path(".patchrail-demo/audit-events.jsonl").read_text().splitlines()]
 assert [event["event_type"] for event in events] == [

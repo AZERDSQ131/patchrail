@@ -185,6 +185,26 @@ def queue_bundle_payload(
     )
     audit_events = _redact_local_paths(export_audit_events(db_path=db_path)["audit_events"])
     ready = audit_summary["status"] == "human_gates_exercised"
+    gate_summary = status["human_gate_summary"]
+    remaining_gate_gaps = audit_summary["missing_required_events"]
+    reviewer_summary = {
+        "status": "ready_for_reviewer_handoff" if ready else "needs_more_gate_evidence",
+        "ready_for_handoff": ready,
+        "human_gates_complete": ready,
+        "pending_decisions": gate_summary["total_pending_decisions"],
+        "approved_work_items": gate_summary["approved_work_items"],
+        "rejected_work_items": gate_summary["rejected_work_items"],
+        "approved_proposals": gate_summary["approved_proposals"],
+        "rejected_proposals": gate_summary["rejected_proposals"],
+        "remaining_gate_gaps": remaining_gate_gaps,
+        "review_steps": [
+            "Inspect work_items for local CI evidence and write_actions_allowed=false.",
+            "Inspect proposals for approved low-risk plans and rejected risky plans.",
+            "Inspect audit_summary for required human gate events.",
+            "Inspect safety to confirm the bundle is read-only and local paths are redacted.",
+        ],
+        "execution_allowed": False,
+    }
     return {
         "schema_version": QUEUE_BUNDLE_SCHEMA_VERSION,
         "queue_schema_version": status["queue_schema_version"],
@@ -202,11 +222,12 @@ def queue_bundle_payload(
         "work_items": work_items,
         "proposals": proposals,
         "audit_events": audit_events,
+        "reviewer_summary": reviewer_summary,
         "safety": {
             **SAFE_QUEUE_STATUS,
             "bundle_is_read_only": True,
             "bundle_records_audit_event": False,
             "local_paths_redacted": True,
         },
-        "remaining_gate_gaps": audit_summary["missing_required_events"],
+        "remaining_gate_gaps": remaining_gate_gaps,
     }

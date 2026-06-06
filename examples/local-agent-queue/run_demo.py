@@ -399,6 +399,10 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
         "audit_summary_gates": audit_summary["gates"],
         "bundle_status": bundle["status"],
         "bundle_remaining_gate_gaps": bundle["remaining_gate_gaps"],
+        "bundle_reviewer_status": bundle["reviewer_summary"]["status"],
+        "bundle_reviewer_human_gates_complete": bundle["reviewer_summary"]["human_gates_complete"],
+        "bundle_reviewer_pending_decisions": bundle["reviewer_summary"]["pending_decisions"],
+        "bundle_reviewer_execution_allowed": bundle["reviewer_summary"]["execution_allowed"],
         "bundle_is_read_only": bundle["safety"]["bundle_is_read_only"],
         "bundle_records_audit_event": bundle["safety"]["bundle_records_audit_event"],
         "bundle_local_paths_redacted": bundle["safety"]["local_paths_redacted"],
@@ -423,6 +427,14 @@ def run_demo(output: Path, *, force: bool = False) -> dict[str, Any]:
         raise AssertionError("Bundle must be ready for handoff after gate events.")
     if summary["bundle_remaining_gate_gaps"]:
         raise AssertionError("Bundle must not report remaining gate gaps.")
+    if summary["bundle_reviewer_status"] != "ready_for_reviewer_handoff":
+        raise AssertionError("Bundle reviewer summary must be ready for handoff.")
+    if not summary["bundle_reviewer_human_gates_complete"]:
+        raise AssertionError("Bundle reviewer summary must report complete human gates.")
+    if summary["bundle_reviewer_pending_decisions"] != 0:
+        raise AssertionError("Bundle reviewer summary must not leave pending decisions.")
+    if summary["bundle_reviewer_execution_allowed"]:
+        raise AssertionError("Bundle reviewer summary must not allow execution.")
     if not summary["bundle_is_read_only"]:
         raise AssertionError("Bundle must remain read-only.")
     if summary["bundle_records_audit_event"]:

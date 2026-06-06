@@ -151,19 +151,24 @@ proposal, open a pull request, post a comment, or contact a repository.
 
 `patchrail queue bundle` emits a read-only handoff packet from the same SQLite
 database. The bundle includes queue status, audit-summary gate coverage, work
-items, proposals, audit events, safety requirements, and remaining gate gaps in
-one JSON or Markdown artifact. It redacts absolute local paths in the emitted
-bundle and leaves the original SQLite records unchanged. Reading the bundle
-does not add an audit event, execute a proposal, open a pull request, post a
-comment, or contact a repository.
+items, proposals, audit events, safety requirements, a reviewer checklist, and
+remaining gate gaps in one JSON or Markdown artifact. The reviewer checklist
+summarizes whether the handoff is ready, whether human gates are complete, how
+many decisions remain pending, and what sections a maintainer should inspect
+before acting on the local evidence. It redacts absolute local paths in the
+emitted bundle and leaves the original SQLite records unchanged. Reading the
+bundle does not add an audit event, execute a proposal, open a pull request,
+post a comment, or contact a repository.
 
 The runnable demo in
 [`examples/local-agent-queue`](../examples/local-agent-queue/README.md) writes
 both `.patchrail-demo/bundle.json` and `.patchrail-demo/bundle.md`. Its stable
 summary records `bundle_status=ready_for_handoff`,
 `bundle_is_read_only=true`, `bundle_records_audit_event=false`, and
-`bundle_local_paths_redacted=true`, so reviewers can inspect the handoff without
-starting a server or granting GitHub write permission.
+`bundle_local_paths_redacted=true`. The Markdown bundle starts with a reviewer
+checklist for the local CI evidence, proposal decisions, audit summary, and
+safety fields, so reviewers can inspect the handoff without starting a server
+or granting GitHub write permission.
 
 Run the local-only HTTP API:
 

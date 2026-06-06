@@ -1543,6 +1543,10 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
     bundle_does_not_record = summary.get("bundle_records_audit_event") is False
     bundle_paths_redacted = summary.get("bundle_local_paths_redacted") is True
     bundle_remaining_gaps = list(summary.get("bundle_remaining_gate_gaps") or [])
+    bundle_reviewer_ready = summary.get("bundle_reviewer_status") == ("ready_for_reviewer_handoff")
+    bundle_reviewer_human_gates = summary.get("bundle_reviewer_human_gates_complete") is True
+    bundle_reviewer_pending_decisions = summary.get("bundle_reviewer_pending_decisions")
+    bundle_reviewer_execution_allowed = summary.get("bundle_reviewer_execution_allowed")
     local_first = summary.get("local_first") is True
     safety_gaps = []
     if not local_first:
@@ -1571,6 +1575,14 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
         safety_gaps.append("bundle_local_paths_redacted")
     if bundle_remaining_gaps:
         safety_gaps.append("bundle_remaining_gate_gaps")
+    if not bundle_reviewer_ready:
+        safety_gaps.append("bundle_reviewer_ready_for_handoff")
+    if not bundle_reviewer_human_gates:
+        safety_gaps.append("bundle_reviewer_human_gates_complete")
+    if bundle_reviewer_pending_decisions != 0:
+        safety_gaps.append("bundle_reviewer_no_pending_decisions")
+    if bundle_reviewer_execution_allowed is not False:
+        safety_gaps.append("bundle_reviewer_execution_disallowed")
     gaps = [*missing_events, *missing_artifacts, *missing_source_files, *safety_gaps]
     return {
         "schema_version": "patchrail.control_plane_evidence.v1",
@@ -1592,6 +1604,8 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
             "audit_summary_status": summary.get("audit_summary_status"),
             "bundle_status": summary.get("bundle_status"),
             "bundle_remaining_gate_gaps": bundle_remaining_gaps,
+            "bundle_reviewer_status": summary.get("bundle_reviewer_status"),
+            "bundle_reviewer_pending_decisions": bundle_reviewer_pending_decisions,
         },
         "safety": {
             "local_first": local_first,
@@ -1608,6 +1622,8 @@ def _control_plane_evidence_payload(root: Path, summary_path: Path | None) -> di
             "bundle_is_read_only": bundle_read_only,
             "bundle_records_audit_event": summary.get("bundle_records_audit_event"),
             "bundle_local_paths_redacted": bundle_paths_redacted,
+            "bundle_reviewer_human_gates_complete": bundle_reviewer_human_gates,
+            "bundle_reviewer_execution_allowed": bundle_reviewer_execution_allowed,
         },
         "artifact_presence": {
             "required_events_present": missing_events == [],
@@ -1645,6 +1661,8 @@ def _render_control_plane_evidence_markdown(payload: dict[str, Any]) -> str:
         f"- Audit summary status: `{signals['audit_summary_status']}`",
         f"- Bundle status: `{signals['bundle_status']}`",
         f"- Bundle remaining gate gaps: `{signals['bundle_remaining_gate_gaps']}`",
+        f"- Bundle reviewer status: `{signals['bundle_reviewer_status']}`",
+        f"- Bundle reviewer pending decisions: `{signals['bundle_reviewer_pending_decisions']}`",
         "",
         "## Safety",
         "",
@@ -1662,6 +1680,8 @@ def _render_control_plane_evidence_markdown(payload: dict[str, Any]) -> str:
         f"- Bundle is read-only: `{safety['bundle_is_read_only']}`",
         f"- Bundle records audit event: `{safety['bundle_records_audit_event']}`",
         f"- Bundle local paths redacted: `{safety['bundle_local_paths_redacted']}`",
+        f"- Bundle reviewer human gates complete: `{safety['bundle_reviewer_human_gates_complete']}`",
+        f"- Bundle reviewer execution allowed: `{safety['bundle_reviewer_execution_allowed']}`",
         "",
         "## Artifact Presence",
         "",
@@ -2259,6 +2279,7 @@ def _render_queue_bundle_markdown(payload: dict[str, Any]) -> str:
     counts = payload["counts"]
     safety = payload["safety"]
     audit_summary = payload["audit_summary"]
+    reviewer_summary = payload["reviewer_summary"]
     lines = [
         "# PatchRail Queue Bundle",
         "",
@@ -2270,9 +2291,28 @@ def _render_queue_bundle_markdown(payload: dict[str, Any]) -> str:
         f"- Audit events: `{counts['audit_events_total']}`",
         f"- Audit summary status: `{audit_summary['status']}`",
         "",
-        "## Human Gate Coverage",
+        "## Reviewer Checklist",
+        "",
+        f"- Reviewer handoff status: `{reviewer_summary['status']}`",
+        f"- Human gates complete: `{reviewer_summary['human_gates_complete']}`",
+        f"- Pending decisions: `{reviewer_summary['pending_decisions']}`",
+        f"- Approved work items: `{reviewer_summary['approved_work_items']}`",
+        f"- Rejected work items: `{reviewer_summary['rejected_work_items']}`",
+        f"- Approved proposals: `{reviewer_summary['approved_proposals']}`",
+        f"- Rejected proposals: `{reviewer_summary['rejected_proposals']}`",
+        f"- Execution allowed by this bundle: `{reviewer_summary['execution_allowed']}`",
+        "",
+        "Reviewer steps:",
         "",
     ]
+    lines.extend(f"- {step}" for step in reviewer_summary["review_steps"])
+    lines.extend(
+        [
+            "",
+            "## Human Gate Coverage",
+            "",
+        ]
+    )
     for event_type in audit_summary["required_events"]:
         present = event_type not in audit_summary["missing_required_events"]
         lines.append(f"- `{event_type}`: `{present}`")
@@ -2305,12 +2345,17 @@ def _render_queue_bundle_markdown(payload: dict[str, Any]) -> str:
 
 def _render_queue_bundle_text(payload: dict[str, Any]) -> str:
     counts = payload["counts"]
+    reviewer_summary = payload["reviewer_summary"]
     return (
         "\n".join(
             [
                 "PatchRail Queue Bundle",
                 f"DB: {payload['db_path']}",
                 f"Status: {payload['status']}",
+                f"Reviewer handoff status: {reviewer_summary['status']}",
+                f"Human gates complete: {reviewer_summary['human_gates_complete']}",
+                f"Pending decisions: {reviewer_summary['pending_decisions']}",
+                f"Execution allowed by this bundle: {reviewer_summary['execution_allowed']}",
                 f"Work items: {counts['work_items_total']}",
                 f"Proposals: {counts['proposals_total']}",
                 f"Audit events: {counts['audit_events_total']}",
