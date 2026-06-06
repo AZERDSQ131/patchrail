@@ -844,6 +844,8 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
     assert (
         "SHA-256 and byte-size manifest details for offline integrity checks" in combined_evidence
     )
+    assert "rejects symlinked or non-file artifacts" in normalized_evidence
+    assert "exits non-zero when the packet drifts from its manifest" in normalized_evidence
     assert "patchrail evidence verify-reviewer-packet patchrail-reviewer-packet" in (
         combined_evidence
     )
@@ -1497,8 +1499,8 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "PyPI publishing is pending" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
     assert "Verified public CI evidence snapshot, 2026-06-06" in evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27059930584" in evidence
-    assert "de5f333daee03d0449fa85ee83ca00235aaf56f0" in evidence
+    assert "https://github.com/patchrail/patchrail/actions/runs/27062668635" in evidence
+    assert "891aea7acfff9f392764542ec598b40073f93efa" in evidence
     assert "patchrail-oss-evidence" in evidence
     assert "Agent Control Plane evidence" in evidence
     assert "reviewer-facing local queue bundle" in evidence
@@ -1629,16 +1631,32 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
         "[CI run 27059930584](https://github.com/patchrail/patchrail/actions/runs/27059930584)"
         in workflow_ledger
     )
+    assert (
+        "[`a8f2e55`](https://github.com/patchrail/patchrail/commit/a8f2e5588fdeb94917425765b68bcefcda14af49)"
+        in workflow_ledger
+    )
+    assert (
+        "[CI run 27062345476](https://github.com/patchrail/patchrail/actions/runs/27062345476)"
+        in workflow_ledger
+    )
+    assert (
+        "[`891aea7`](https://github.com/patchrail/patchrail/commit/891aea7acfff9f392764542ec598b40073f93efa)"
+        in workflow_ledger
+    )
+    assert (
+        "[CI run 27062668635](https://github.com/patchrail/patchrail/actions/runs/27062668635)"
+        in workflow_ledger
+    )
     normalized_workflow_ledger = " ".join(workflow_ledger.split())
     assert (
         "not counted as issue-to-PR cycles, external adoption, or formal Codex review"
         in normalized_workflow_ledger
     )
     assert "Verified public CI evidence snapshot, 2026-06-06" in oss_program_evidence
-    assert "https://github.com/patchrail/patchrail/actions/runs/27059930584" in (
+    assert "https://github.com/patchrail/patchrail/actions/runs/27062668635" in (
         oss_program_evidence
     )
-    assert "de5f333daee03d0449fa85ee83ca00235aaf56f0" in oss_program_evidence
+    assert "891aea7acfff9f392764542ec598b40073f93efa" in oss_program_evidence
     assert "patchrail evidence review-packet --format markdown" in workflow_ledger
     assert (
         "Fixture hygiene gate: `patchrail ci fixture-check examples/ci-triage --format json`"

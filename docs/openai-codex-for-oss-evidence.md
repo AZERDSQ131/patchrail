@@ -24,8 +24,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl`
   and ran `patchrail --help` successfully.
 - Verified public CI evidence snapshot, 2026-06-06:
-  <https://github.com/patchrail/patchrail/actions/runs/27059930584> completed
-  successfully for commit `de5f333daee03d0449fa85ee83ca00235aaf56f0`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27062668635> completed
+  successfully for commit `891aea7acfff9f392764542ec598b40073f93efa`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
   package-smoke, and the OSS evidence snapshot job. The uploaded
   `patchrail-oss-evidence` artifact includes the general snapshot, Agent
@@ -53,7 +53,9 @@ Pablo Guillén is the primary maintainer of PatchRail.
   and its own manifest schema for offline
   validation. The manifest includes SHA-256 and byte-size manifest details for offline integrity checks after artifact download, and reviewers can recompute them with
   `patchrail evidence verify-reviewer-packet patchrail-reviewer-packet --format markdown`. Its manifest contract is available with
-  `patchrail schema reviewer-quick-check-artifacts`. It requires no network,
+  `patchrail schema reviewer-quick-check-artifacts`. The verifier rejects
+  symlinked or non-file artifacts, rejects extra files, and exits non-zero when
+  the packet drifts from its manifest. It requires no network,
   write permissions, PyPI publish, public comments, pull requests, funded issue
   claims, or application submit. The source-checkout compatibility wrapper
   remains `uv run --extra dev python scripts/reviewer_quick_check.py --out-dir patchrail-reviewer-packet`.
@@ -148,6 +150,10 @@ Current public evidence is local, owned-repository, and preparatory:
   and [CI run 27059633468](https://github.com/patchrail/patchrail/actions/runs/27059633468),
   plus [`de5f333`](https://github.com/patchrail/patchrail/commit/de5f333daee03d0449fa85ee83ca00235aaf56f0)
   and [CI run 27059930584](https://github.com/patchrail/patchrail/actions/runs/27059930584),
+  plus [`a8f2e55`](https://github.com/patchrail/patchrail/commit/a8f2e5588fdeb94917425765b68bcefcda14af49)
+  and [CI run 27062345476](https://github.com/patchrail/patchrail/actions/runs/27062345476),
+  plus [`891aea7`](https://github.com/patchrail/patchrail/commit/891aea7acfff9f392764542ec598b40073f93efa)
+  and [CI run 27062668635](https://github.com/patchrail/patchrail/actions/runs/27062668635),
   while keeping them separate from issue-to-PR cycles, external adoption, and
   formal review claims.
 - Issue triage: public own-repo issues are tracked in

@@ -104,6 +104,8 @@ counted as issue-to-PR cycles, external adoption, or formal Codex review.
 | Public workflow evidence ledger refresh | [`7af5fbc`](https://github.com/patchrail/patchrail/commit/7af5fbc01add0cfb95e7d9775b61d4f9deaef853) | [CI run 27059149472](https://github.com/patchrail/patchrail/actions/runs/27059149472) | public evidence ledger freshness |
 | Public CI evidence refresh | [`054e034`](https://github.com/patchrail/patchrail/commit/054e0349a785081ebf976875ac3adc8b0caaf1ab) | [CI run 27059633468](https://github.com/patchrail/patchrail/actions/runs/27059633468) | reviewer-facing CI artifact reference |
 | Verified CI evidence snapshot | [`de5f333`](https://github.com/patchrail/patchrail/commit/de5f333daee03d0449fa85ee83ca00235aaf56f0) | [CI run 27059930584](https://github.com/patchrail/patchrail/actions/runs/27059930584) | dated evidence snapshot with public CI success |
+| Reviewer packet manifest contract | [`a8f2e55`](https://github.com/patchrail/patchrail/commit/a8f2e5588fdeb94917425765b68bcefcda14af49) | [CI run 27062345476](https://github.com/patchrail/patchrail/actions/runs/27062345476) | reviewer packet schema and source contract |
+| Reviewer packet artifact hardening | [`891aea7`](https://github.com/patchrail/patchrail/commit/891aea7acfff9f392764542ec598b40073f93efa) | [CI run 27062668635](https://github.com/patchrail/patchrail/actions/runs/27062668635) | symlink and non-file artifact rejection |
 
 ## How To Read This Ledger
 

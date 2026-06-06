@@ -48,7 +48,9 @@ Pablo Guillén is the primary maintainer of PatchRail.
   and its own manifest schema for offline
   validation. The manifest includes SHA-256 and byte-size manifest details for offline integrity checks after artifact download, and reviewers can recompute them with
   `patchrail evidence verify-reviewer-packet patchrail-reviewer-packet --format markdown`. Its manifest contract is available with
-  `patchrail schema reviewer-quick-check-artifacts`. It performs no network
+  `patchrail schema reviewer-quick-check-artifacts`. The verifier rejects
+  symlinked or non-file artifacts, rejects extra files, and exits non-zero when
+  the packet drifts from its manifest. It performs no network
   calls, write actions, public posts, PRs, comments, PyPI publish, or external
   application submission. The source-checkout compatibility wrapper remains
   `uv run --extra dev python scripts/reviewer_quick_check.py --out-dir patchrail-reviewer-packet`.
@@ -74,8 +76,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   tests, benchmark, and package smoke pass. This is project-health evidence
   only; it does not count as external adoption or PyPI download evidence.
 - Verified public CI evidence snapshot, 2026-06-06:
-  <https://github.com/patchrail/patchrail/actions/runs/27059930584> completed
-  successfully for commit `de5f333daee03d0449fa85ee83ca00235aaf56f0`, including
+  <https://github.com/patchrail/patchrail/actions/runs/27062668635> completed
+  successfully for commit `891aea7acfff9f392764542ec598b40073f93efa`, including
   Python 3.11/3.12/3.13 tests, package smoke, fixture benchmark, and the
   `patchrail-oss-evidence` artifact.
 - Adopter list: [ADOPTERS.md](../ADOPTERS.md) is permission-only and currently
