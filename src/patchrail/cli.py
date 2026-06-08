@@ -25,6 +25,7 @@ from patchrail.funded_issues import (
     import_provider_export,
     load_funded_issues,
     report_funded_issues,
+    score_funded_issues,
     summarize_issues,
     validate_funded_issues,
 )
@@ -4508,6 +4509,72 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_score_text(payload: dict[str, Any]) -> str:
+    lines = [
+        "PatchRail Funded Issues Score",
+        f"Loaded: {payload['total_loaded']}",
+        f"Scored: {payload['total_scored']}",
+        "Read-only: True",
+    ]
+    for row in payload["scores"]:
+        issue = row["issue"]
+        lines.append(
+            f"{issue['reference']}: {row['score']} ({row['rating']}) "
+            f"[{', '.join(row['reason_codes'])}]"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_score_markdown(payload: dict[str, Any]) -> str:
+    lines = [
+        "# PatchRail Funded Issues Score",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Safe-only filter: `{payload['safe_only']}`",
+        f"- Loaded: `{payload['total_loaded']}`",
+        f"- Scored: `{payload['total_scored']}`",
+        "",
+        "## Rating Counts",
+        "",
+    ]
+    if payload["rating_counts"]:
+        lines.extend(
+            f"- `{rating}`: `{count}`" for rating, count in payload["rating_counts"].items()
+        )
+    else:
+        lines.append("- No issues matched the filters.")
+    lines.extend(["", "## Scores", ""])
+    for row in payload["scores"]:
+        issue = row["issue"]
+        lines.extend(
+            [
+                f"### {issue['reference']}",
+                "",
+                f"- Score: `{row['score']}`",
+                f"- Rating: `{row['rating']}`",
+                f"- Title: {issue['title']}",
+                f"- Platform: `{issue['platform']}`",
+                f"- Funding: `{issue['funding']['display']}`",
+                f"- Risk level: `{issue['risk_level']}`",
+                f"- URL: {issue['url']}",
+                "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
 def _default_funded_issues_source() -> Path:
     return Path("examples") / "funded-issues-readonly" / "issues.json"
 
@@ -4625,6 +4692,30 @@ def _funded_issues_report(args: argparse.Namespace) -> int:
         text = _render_funded_issues_report_markdown(payload)
     else:
         text = _render_funded_issues_report_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_score(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        payload = score_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_score_markdown(payload)
+    else:
+        text = _render_funded_issues_score_text(payload)
     _write_or_print(text, args.out)
     return 0
 
@@ -5600,6 +5691,34 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_report.add_argument("--out", type=Path, help="Optional output path.")
     funded_report.set_defaults(func=_funded_issues_report)
+
+    funded_score = funded_subparsers.add_parser(
+        "score",
+        help="Score local funded issue readiness with read-only reason codes.",
+    )
+    funded_score.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_score.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only score safe-to-list issues while preserving read-only boundaries.",
+    )
+    funded_score.add_argument("--platform", help="Filter by funding platform.")
+    funded_score.add_argument("--language", help="Filter by repository language.")
+    funded_score.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_score.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="json",
+        help="Output format.",
+    )
+    funded_score.add_argument("--out", type=Path, help="Optional output path.")
+    funded_score.set_defaults(func=_funded_issues_score)
 
     return parser
 

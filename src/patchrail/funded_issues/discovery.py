@@ -360,6 +360,118 @@ def report_funded_issues(
     }
 
 
+def score_funded_issues(
+    issues: list[FundedIssue],
+    *,
+    safe_only: bool = False,
+    platform: str | None = None,
+    language: str | None = None,
+    min_usd: float | None = None,
+) -> dict[str, Any]:
+    scored = [
+        _score_issue(issue)
+        for issue in issues
+        if _matches_report_filter(issue, platform=platform, language=language, min_usd=min_usd)
+    ]
+    if safe_only:
+        scored = [row for row in scored if row["issue"]["safe_to_list"]]
+    ratings = Counter(row["rating"] for row in scored)
+    return {
+        "schema_version": "patchrail.funded_issues.score.v1",
+        "source_schema_version": SCHEMA_VERSION,
+        "read_only": True,
+        "safe_only": safe_only,
+        "blocked_actions": BLOCKED_ACTIONS,
+        "filters": {
+            "platform": platform,
+            "language": language,
+            "min_usd": min_usd,
+        },
+        "total_loaded": len(issues),
+        "total_scored": len(scored),
+        "rating_counts": dict(sorted(ratings.items())),
+        "scores": sorted(
+            scored,
+            key=lambda row: (-int(row["score"]), row["issue"]["reference"]),
+        ),
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "boundary": (
+            "Local read-only readiness scoring only. Funding is context, not an instruction to "
+            "claim rewards, post comments, open pull requests, or contact maintainers."
+        ),
+    }
+
+
+def _score_issue(issue: FundedIssue) -> dict[str, Any]:
+    score = 35
+    components: dict[str, int] = {
+        "base": 35,
+        "funding_visible": 0,
+        "guidelines_visible": 0,
+        "contribution_signals": 0,
+        "risk_penalty": 0,
+        "safe_boundary_bonus": 0,
+    }
+    reason_codes: list[str] = []
+
+    if issue.funding_amount is not None and issue.funding_currency:
+        components["funding_visible"] = 15
+    else:
+        reason_codes.append("FUNDING_STATE_UNCLEAR")
+
+    if issue.contribution_guidelines_url:
+        components["guidelines_visible"] = 15
+    else:
+        reason_codes.append("NO_CONTRIBUTION_GUIDELINES")
+
+    components["contribution_signals"] = min(len(issue.contribution_signals), 3) * 8
+    if not issue.contribution_signals:
+        reason_codes.append("NO_REPRO_OR_CONTRIBUTION_SIGNAL")
+
+    if issue.risk_flags:
+        risk_penalty = 15 * len(issue.risk_flags)
+        if issue.risk_level == "high":
+            risk_penalty += 20
+        components["risk_penalty"] = -risk_penalty
+        reason_codes.extend(_risk_reason_code(flag) for flag in issue.risk_flags)
+    else:
+        components["safe_boundary_bonus"] = 10
+
+    score += sum(value for key, value in components.items() if key != "base")
+    score = max(0, min(100, score))
+    if issue.risk_level == "high":
+        rating = "no_go"
+    elif score >= 80:
+        rating = "go_candidate"
+    elif score >= 55:
+        rating = "watchlist"
+    else:
+        rating = "no_go"
+
+    return {
+        "issue": issue.to_dict(),
+        "score": score,
+        "rating": rating,
+        "reason_codes": sorted(set(reason_codes)) or ["NO_MAJOR_REVIEW_GAPS"],
+        "components": components,
+    }
+
+
+def _risk_reason_code(flag: str) -> str:
+    return {
+        "ambiguous_scope": "SCOPE_TOO_BROAD",
+        "bounty_farming_language": "BOUNTY_FARMING_RISK",
+        "requires_external_contact": "NEEDS_AUTHORIZATION",
+        "no_contribution_guidelines": "NO_CONTRIBUTION_GUIDELINES",
+        "spam_attractive": "SPAM_ATTRACTIVE",
+    }.get(flag, f"RISK_{flag.upper()}")
+
+
 def _matches_report_filter(
     issue: FundedIssue,
     *,

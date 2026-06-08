@@ -412,6 +412,59 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("does not claim rewards", proc.stdout)
         self.assertIn("automatic_issue_comments", proc.stdout)
 
+    def test_funded_issues_score_ranks_readiness_with_reason_codes(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "score",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["schema_version"], "patchrail.funded_issues.score.v1")
+        self.assertEqual(payload["read_only"], True)
+        self.assertEqual(payload["total_loaded"], 2)
+        self.assertEqual(payload["total_scored"], 2)
+        self.assertEqual(payload["rating_counts"], {"go_candidate": 1, "no_go": 1})
+        self.assertEqual(payload["scores"][0]["issue"]["reference"], "example/project#42")
+        self.assertEqual(payload["scores"][0]["score"], 99)
+        self.assertEqual(payload["scores"][0]["rating"], "go_candidate")
+        self.assertEqual(payload["scores"][0]["reason_codes"], ["NO_MAJOR_REVIEW_GAPS"])
+        risky = payload["scores"][1]
+        self.assertEqual(risky["issue"]["reference"], "example/toolkit#17")
+        self.assertEqual(risky["rating"], "no_go")
+        self.assertIn("SCOPE_TOO_BROAD", risky["reason_codes"])
+        self.assertIn("SPAM_ATTRACTIVE", risky["reason_codes"])
+        self.assertIn("NO_CONTRIBUTION_GUIDELINES", risky["reason_codes"])
+        self.assertFalse(payload["requirements"]["network_required"])
+        self.assertFalse(payload["requirements"]["github_write_permission_required"])
+        self.assertIn("ranking_by_money_only", payload["blocked_actions"])
+
+    def test_funded_issues_score_safe_only_filters_high_risk(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "score",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--safe-only",
+                "--format",
+                "markdown",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("# PatchRail Funded Issues Score", proc.stdout)
+        self.assertIn("example/project#42", proc.stdout)
+        self.assertNotIn("example/toolkit#17", proc.stdout)
+        self.assertIn("claim rewards", proc.stdout)
+        self.assertIn("automatic_pull_requests", proc.stdout)
+
     def test_funded_issues_readonly_demo_has_stable_summary(self) -> None:
         expected = json.loads(
             Path("examples/funded-issues-readonly/demo-summary.expected.json").read_text(

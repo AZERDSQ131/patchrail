@@ -98,6 +98,7 @@ class PatchRailWebMetricsTests(unittest.TestCase):
 
             landing = json.loads((api_dir / "landing-metrics.json").read_text(encoding="utf-8"))
             sources = json.loads((api_dir / "sources-volumes.json").read_text(encoding="utf-8"))
+            product = json.loads((api_dir / "product-metrics.json").read_text(encoding="utf-8"))
 
             self.assertEqual(
                 landing["evidence"]["schema_version"], "patchrail.web_evidence_metrics.v1"
@@ -109,6 +110,43 @@ class PatchRailWebMetricsTests(unittest.TestCase):
             self.assertNotIn("/Users/", json.dumps(landing))
             self.assertIn({"name": "GitHub Issues", "volume": 16}, sources["sources"])
             self.assertIn({"name": "Algora", "volume": 1}, sources["sources"])
+            self.assertEqual(product["schema_version"], "patchrail.product_metrics.v1")
+            self.assertEqual(product["product"]["repository"], "patchrail/patchrail")
+            self.assertEqual(
+                product["tracker"]["active_bounties"], landing["values"]["active_bounties"]
+            )
+            self.assertEqual(product["readiness"]["safe_to_list"], 1)
+            self.assertEqual(product["readiness"]["go_candidates"], 1)
+            self.assertIn(
+                "public/api/product-metrics.json", product["automation"]["static_api_files"]
+            )
+            self.assertNotIn("/Volumes/", json.dumps(product))
+            self.assertNotIn("/Users/", json.dumps(product))
+
+    def test_web_metrics_update_dry_run_reports_product_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            web_dir = Path(tmp) / "web"
+            (web_dir / "public" / "api").mkdir(parents=True)
+
+            proc = run_patchrail(
+                [
+                    "web-metrics",
+                    "update",
+                    "--web-dir",
+                    str(web_dir),
+                    "--product-repo",
+                    ".",
+                    "--dry-run",
+                    "--format",
+                    "json",
+                ]
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["status"], "would_update")
+            self.assertIn("public/api/product-metrics.json", payload["would_write"])
+            self.assertFalse((web_dir / "public" / "api" / "product-metrics.json").exists())
 
 
 if __name__ == "__main__":

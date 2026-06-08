@@ -11,7 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from patchrail.funded_issues import FundedIssue, load_funded_issues, report_funded_issues
+from patchrail.funded_issues import (
+    FundedIssue,
+    load_funded_issues,
+    report_funded_issues,
+    score_funded_issues,
+)
 
 
 SOURCE_NAMES = [
@@ -260,9 +265,10 @@ def build_payloads(
     product_repo: Path,
     funded_source: Path,
     desk_dir: Path | None,
-) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
     issues = load_funded_issues(funded_source)
     report = report_funded_issues(issues)
+    score_report = score_funded_issues(issues)
     signals = desk_signals(desk_dir)
     volumes = source_volumes(report, signals)
     commit = product_commit(product_repo)
@@ -370,15 +376,69 @@ def build_payloads(
             "sources_with_volume": sum(1 for volume in volumes.values() if volume > 0),
         },
     }
+    product_payload = {
+        "as_of": as_of,
+        "schema_version": "patchrail.product_metrics.v1",
+        "product": {
+            "name": "PatchRail Bounty Radar",
+            "repository": "patchrail/patchrail",
+            "commit": commit,
+        },
+        "tracker": {
+            "active_bounties": values["active_bounties"],
+            "tracked_this_week_usd": values["tracked_this_week_usd"],
+            "sources_monitored": values["sources_monitored"],
+            "new_24h": values["new_24h"],
+            "source_fingerprint": fingerprint,
+        },
+        "readiness": {
+            "funded_issues_loaded": report["totals"]["loaded"],
+            "safe_to_list": report["totals"]["safe_to_list"],
+            "high_risk": report["totals"]["high_risk"],
+            "go_candidates": score_report["rating_counts"].get("go_candidate", 0),
+            "watchlist": score_report["rating_counts"].get("watchlist", 0),
+            "no_go": score_report["rating_counts"].get("no_go", 0),
+            "known_usd_from_source": product_usd,
+        },
+        "opportunity_desk": {
+            "evidence_files_scanned": len(iter_signal_files(desk_dir)),
+            "evidence_files_with_counts": len(signals),
+            "active_count_from_evidence": sum(signal.active_count for signal in signals),
+            "known_bounty_usd_week": evidence_usd_week,
+        },
+        "automation": {
+            "generated_by": "patchrail web-metrics update",
+            "static_api_files": [
+                "public/api/landing-metrics.json",
+                "public/api/sources-volumes.json",
+                "public/api/product-metrics.json",
+            ],
+            "read_only": True,
+            "network_required": False,
+            "github_write_permission_required": False,
+        },
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "billing_required": False,
+            "external_model_required": False,
+        },
+    }
     summary = {
         "status": "prepared",
         "fingerprint": fingerprint,
         "as_of": as_of,
         "values": values,
         "source_volumes": {name: volumes[name] for name in SOURCE_NAMES if volumes[name] > 0},
+        "product_metrics": {
+            "safe_to_list": product_payload["readiness"]["safe_to_list"],
+            "go_candidates": product_payload["readiness"]["go_candidates"],
+            "no_go": product_payload["readiness"]["no_go"],
+            "evidence_files_scanned": product_payload["opportunity_desk"]["evidence_files_scanned"],
+        },
         "product_commit": commit["short"],
     }
-    return landing_payload, sources_payload, summary
+    return landing_payload, sources_payload, product_payload, summary
 
 
 def update_web_metrics(
@@ -398,7 +458,7 @@ def update_web_metrics(
         else default_funded_source(product_repo)
     )
 
-    landing_payload, sources_payload, summary = build_payloads(
+    landing_payload, sources_payload, product_payload, summary = build_payloads(
         web_dir=web_dir,
         product_repo=product_repo,
         funded_source=funded_source,
@@ -407,6 +467,7 @@ def update_web_metrics(
 
     landing_path = web_dir / "public" / "api" / "landing-metrics.json"
     sources_path = web_dir / "public" / "api" / "sources-volumes.json"
+    product_path = web_dir / "public" / "api" / "product-metrics.json"
     changed_paths: list[str] = []
     if dry_run:
         if not landing_path.exists() or landing_path.read_text(encoding="utf-8") != stable_json(
@@ -417,11 +478,17 @@ def update_web_metrics(
             sources_payload
         ):
             changed_paths.append("public/api/sources-volumes.json")
+        if not product_path.exists() or product_path.read_text(encoding="utf-8") != stable_json(
+            product_payload
+        ):
+            changed_paths.append("public/api/product-metrics.json")
     else:
         if write_if_changed(landing_path, stable_json(landing_payload)):
             changed_paths.append("public/api/landing-metrics.json")
         if write_if_changed(sources_path, stable_json(sources_payload)):
             changed_paths.append("public/api/sources-volumes.json")
+        if write_if_changed(product_path, stable_json(product_payload)):
+            changed_paths.append("public/api/product-metrics.json")
 
     status = "updated" if changed_paths else "unchanged"
     if dry_run and changed_paths:
@@ -445,6 +512,8 @@ def render_text(summary: dict[str, Any]) -> str:
         f"Active bounties: {values['active_bounties']}",
         f"Sources monitored: {values['sources_monitored']}",
         f"New 24h: {values['new_24h']}",
+        f"Safe-to-list funded issues: {summary['product_metrics']['safe_to_list']}",
+        f"Go candidates: {summary['product_metrics']['go_candidates']}",
     ]
     written = summary.get("written") or summary.get("would_write") or []
     lines.append(f"Files changed: {', '.join(written) if written else 'none'}")

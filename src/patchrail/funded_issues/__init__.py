@@ -6,6 +6,7 @@ from patchrail.funded_issues.discovery import (
     funded_issues_payload,
     load_funded_issues,
     report_funded_issues,
+    score_funded_issues,
     summarize_issues,
     validate_funded_issues,
 )
@@ -19,6 +20,7 @@ __all__ = [
     "import_provider_export",
     "load_funded_issues",
     "report_funded_issues",
+    "score_funded_issues",
     "summarize_issues",
     "validate_funded_issues",
 ]
