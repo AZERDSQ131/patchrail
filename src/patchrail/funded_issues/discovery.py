@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -209,6 +210,123 @@ def summarize_issues(
             "billing_required": False,
         },
     }
+
+
+def report_funded_issues(
+    issues: list[FundedIssue],
+    *,
+    safe_only: bool = False,
+    platform: str | None = None,
+    language: str | None = None,
+    min_usd: float | None = None,
+) -> dict[str, Any]:
+    summary = summarize_issues(
+        issues,
+        safe_only=safe_only,
+        platform=platform,
+        language=language,
+        min_usd=min_usd,
+    )
+    scoped_issues = [
+        issue
+        for issue in issues
+        if _matches_report_filter(issue, platform=platform, language=language, min_usd=min_usd)
+    ]
+    returned_issues = [_issue_from_mapping(issue) for issue in summary["issues"]]
+    risk_levels = Counter(issue.risk_level for issue in scoped_issues)
+    platforms = Counter(issue.platform for issue in scoped_issues)
+    languages = Counter(issue.language or "unknown" for issue in scoped_issues)
+    risk_flags = Counter(flag for issue in scoped_issues for flag in issue.risk_flags)
+    funding_known = sum(1 for issue in scoped_issues if issue.funding_amount is not None)
+    funding_unknown = len(scoped_issues) - funding_known
+    safe_candidates = sorted(
+        (issue for issue in returned_issues if issue.safe_to_list),
+        key=_candidate_sort_key,
+    )
+    return {
+        "schema_version": "patchrail.funded_issues.report.v1",
+        "source_schema_version": SCHEMA_VERSION,
+        "read_only": True,
+        "safe_only": safe_only,
+        "blocked_actions": BLOCKED_ACTIONS,
+        "filters": {
+            "platform": platform,
+            "language": language,
+            "min_usd": min_usd,
+        },
+        "totals": {
+            "loaded": len(issues),
+            "in_scope": len(scoped_issues),
+            "returned": len(returned_issues),
+            "safe_to_list": sum(1 for issue in scoped_issues if issue.safe_to_list),
+            "high_risk": risk_levels.get("high", 0),
+            "funding_known": funding_known,
+            "funding_unknown": funding_unknown,
+        },
+        "breakdown": {
+            "risk_levels": dict(sorted(risk_levels.items())),
+            "platforms": dict(sorted(platforms.items())),
+            "languages": dict(sorted(languages.items())),
+            "risk_flags": dict(sorted(risk_flags.items())),
+        },
+        "no_go_moat": {
+            "high_risk_or_excluded": sum(1 for issue in scoped_issues if not issue.safe_to_list),
+            "missing_contribution_guidelines": sum(
+                1 for issue in scoped_issues if not issue.contribution_guidelines_url
+            ),
+            "ambiguous_scope": risk_flags.get("ambiguous_scope", 0),
+            "spam_attractive": risk_flags.get("spam_attractive", 0),
+            "funding_unknown": funding_unknown,
+        },
+        "top_safe_candidates": [
+            {
+                "reference": issue.reference,
+                "title": issue.title,
+                "platform": issue.platform,
+                "funding": issue.funding_display,
+                "risk_level": issue.risk_level,
+                "signals": issue.contribution_signals,
+                "url": issue.url,
+            }
+            for issue in safe_candidates
+        ],
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "boundary": (
+            "Local read-only report only. PatchRail does not claim rewards, post comments, "
+            "open pull requests, contact maintainers, or rank work by money alone."
+        ),
+    }
+
+
+def _matches_report_filter(
+    issue: FundedIssue,
+    *,
+    platform: str | None,
+    language: str | None,
+    min_usd: float | None,
+) -> bool:
+    if platform and issue.platform.lower() != platform.lower():
+        return False
+    if language and (issue.language or "").lower() != language.lower():
+        return False
+    if min_usd is not None:
+        if issue.funding_currency != "USD" or issue.funding_amount is None:
+            return False
+        if issue.funding_amount < min_usd:
+            return False
+    return True
+
+
+def _candidate_sort_key(issue: FundedIssue) -> tuple[int, int, float, str]:
+    has_guidelines = 1 if issue.contribution_guidelines_url else 0
+    signal_count = len(issue.contribution_signals)
+    funding_amount = issue.funding_amount if issue.funding_currency == "USD" else 0.0
+    return (-has_guidelines, -signal_count, -funding_amount, issue.reference)
 
 
 def explain_issue(issues: list[FundedIssue], reference: str) -> dict[str, Any]:

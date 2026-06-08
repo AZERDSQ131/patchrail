@@ -22,6 +22,7 @@ from patchrail.funded_issues import (
     explain_issue,
     import_provider_export,
     load_funded_issues,
+    report_funded_issues,
     summarize_issues,
 )
 from patchrail.queue import (
@@ -4292,6 +4293,103 @@ def _render_funded_issues_import_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
+    totals = payload["totals"]
+    moat = payload["no_go_moat"]
+    lines = [
+        "PatchRail Funded Issues Report",
+        f"Loaded: {totals['loaded']}",
+        f"In scope: {totals['in_scope']}",
+        f"Safe to list: {totals['safe_to_list']}",
+        f"High risk: {totals['high_risk']}",
+        f"Funding unknown: {totals['funding_unknown']}",
+        (
+            "No-go moat: "
+            f"{moat['high_risk_or_excluded']} high-risk/excluded, "
+            f"{moat['missing_contribution_guidelines']} missing guidelines"
+        ),
+        "Read-only: True",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
+    totals = payload["totals"]
+    breakdown = payload["breakdown"]
+    moat = payload["no_go_moat"]
+    lines = [
+        "# PatchRail Funded Issues Report",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Safe-only filter: `{payload['safe_only']}`",
+        f"- Loaded: `{totals['loaded']}`",
+        f"- In scope: `{totals['in_scope']}`",
+        f"- Safe to list: `{totals['safe_to_list']}`",
+        f"- High risk: `{totals['high_risk']}`",
+        f"- Funding known: `{totals['funding_known']}`",
+        f"- Funding unknown: `{totals['funding_unknown']}`",
+        "",
+        "## No-Go Moat",
+        "",
+        "| Measure | Count |",
+        "|---|---:|",
+        f"| High-risk or excluded | {moat['high_risk_or_excluded']} |",
+        f"| Missing contribution guidelines | {moat['missing_contribution_guidelines']} |",
+        f"| Ambiguous scope | {moat['ambiguous_scope']} |",
+        f"| Spam-attractive signals | {moat['spam_attractive']} |",
+        f"| Funding unknown | {moat['funding_unknown']} |",
+        "",
+        "## Breakdowns",
+        "",
+        "### Risk Levels",
+        "",
+    ]
+    for risk_level, count in breakdown["risk_levels"].items():
+        lines.append(f"- `{risk_level}`: `{count}`")
+    lines.extend(["", "### Platforms", ""])
+    for platform, count in breakdown["platforms"].items():
+        lines.append(f"- `{platform}`: `{count}`")
+    lines.extend(["", "### Languages", ""])
+    for language, count in breakdown["languages"].items():
+        lines.append(f"- `{language}`: `{count}`")
+    lines.extend(["", "### Risk Flags", ""])
+    if breakdown["risk_flags"]:
+        for flag, count in breakdown["risk_flags"].items():
+            lines.append(f"- `{flag}`: `{count}`")
+    else:
+        lines.append("- No risk flags recorded.")
+    lines.extend(["", "## Top Safe Candidates", ""])
+    candidates = payload["top_safe_candidates"]
+    if candidates:
+        for candidate in candidates:
+            lines.extend(
+                [
+                    f"### {candidate['reference']}",
+                    "",
+                    f"- Title: {candidate['title']}",
+                    f"- Platform: `{candidate['platform']}`",
+                    f"- Funding: `{candidate['funding']}`",
+                    f"- Risk level: `{candidate['risk_level']}`",
+                    f"- URL: {candidate['url']}",
+                    "",
+                ]
+            )
+    else:
+        lines.append("No safe candidates matched the filters.")
+    lines.extend(
+        [
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
 def _default_funded_issues_source() -> Path:
     return Path("examples") / "funded-issues-readonly" / "issues.json"
 
@@ -4359,6 +4457,30 @@ def _funded_issues_import(args: argparse.Namespace) -> int:
         text = _render_funded_issues_import_markdown(payload)
     else:
         text = _render_funded_issues_text(payload["issues"])
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_report(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        payload = report_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_report_markdown(payload)
+    else:
+        text = _render_funded_issues_report_text(payload)
     _write_or_print(text, args.out)
     return 0
 
@@ -5215,6 +5337,34 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_import.add_argument("--out", type=Path, help="Optional output path.")
     funded_import.set_defaults(func=_funded_issues_import)
+
+    funded_report = funded_subparsers.add_parser(
+        "report",
+        help="Summarize local funded issue coverage and no-go moat metrics.",
+    )
+    funded_report.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_report.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Limit candidate rows to safe-to-list issues while still reporting total coverage.",
+    )
+    funded_report.add_argument("--platform", help="Filter by funding platform.")
+    funded_report.add_argument("--language", help="Filter by repository language.")
+    funded_report.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_report.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_report.add_argument("--out", type=Path, help="Optional output path.")
+    funded_report.set_defaults(func=_funded_issues_report)
 
     return parser
 

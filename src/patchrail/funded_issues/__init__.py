@@ -5,6 +5,7 @@ from patchrail.funded_issues.discovery import (
     explain_issue,
     funded_issues_payload,
     load_funded_issues,
+    report_funded_issues,
     summarize_issues,
 )
 from patchrail.funded_issues.importers import SUPPORTED_PROVIDERS, import_provider_export
@@ -16,5 +17,6 @@ __all__ = [
     "funded_issues_payload",
     "import_provider_export",
     "load_funded_issues",
+    "report_funded_issues",
     "summarize_issues",
 ]

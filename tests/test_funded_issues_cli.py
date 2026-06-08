@@ -165,6 +165,58 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["total_returned"], 1)
         self.assertEqual(payload["issues"][0]["reference"], "example/project#42")
 
+    def test_funded_issues_report_summarizes_coverage_and_no_go_moat(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "report",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["schema_version"], "patchrail.funded_issues.report.v1")
+        self.assertEqual(payload["read_only"], True)
+        self.assertEqual(payload["totals"]["loaded"], 2)
+        self.assertEqual(payload["totals"]["in_scope"], 2)
+        self.assertEqual(payload["totals"]["safe_to_list"], 1)
+        self.assertEqual(payload["totals"]["high_risk"], 1)
+        self.assertEqual(payload["breakdown"]["risk_levels"], {"high": 1, "low": 1})
+        self.assertEqual(payload["breakdown"]["platforms"], {"algora": 1, "polar": 1})
+        self.assertEqual(payload["no_go_moat"]["high_risk_or_excluded"], 1)
+        self.assertEqual(payload["no_go_moat"]["ambiguous_scope"], 1)
+        self.assertEqual(payload["no_go_moat"]["spam_attractive"], 1)
+        self.assertEqual(payload["top_safe_candidates"][0]["reference"], "example/project#42")
+        self.assertIn("ranking_by_money_only", payload["blocked_actions"])
+        self.assertEqual(payload["requirements"]["network_required"], False)
+        self.assertEqual(payload["requirements"]["github_write_permission_required"], False)
+
+    def test_funded_issues_report_markdown_preserves_read_only_boundary(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "report",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--safe-only",
+                "--format",
+                "markdown",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("# PatchRail Funded Issues Report", proc.stdout)
+        self.assertIn("## No-Go Moat", proc.stdout)
+        self.assertIn("High-risk or excluded | 1", proc.stdout)
+        self.assertIn("example/project#42", proc.stdout)
+        self.assertNotIn("example/toolkit#17", proc.stdout)
+        self.assertIn("does not claim rewards", proc.stdout)
+        self.assertIn("automatic_issue_comments", proc.stdout)
+
     def test_funded_issues_readonly_demo_has_stable_summary(self) -> None:
         expected = json.loads(
             Path("examples/funded-issues-readonly/demo-summary.expected.json").read_text(
