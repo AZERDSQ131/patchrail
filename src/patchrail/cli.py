@@ -56,6 +56,8 @@ from patchrail.queue.status import (
     queue_review_payload,
     queue_status_payload,
 )
+from patchrail.web_metrics import render_text as render_web_metrics_text
+from patchrail.web_metrics import update_web_metrics
 
 
 def _read_log(path: Path | None) -> str:
@@ -4627,6 +4629,26 @@ def _funded_issues_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _web_metrics_update(args: argparse.Namespace) -> int:
+    try:
+        payload = update_web_metrics(
+            web_dir=args.web_dir,
+            product_repo=args.product_repo,
+            desk_dir=args.desk_dir,
+            funded_source=args.funded_source,
+            dry_run=args.dry_run,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError, OSError) as exc:
+        print(f"Invalid web metrics input: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "text":
+        text = render_web_metrics_text(payload)
+    else:
+        text = json.dumps(payload, sort_keys=True) + "\n"
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _ci_benchmark(args: argparse.Namespace) -> int:
     if args.min_cases_per_class < 0:
         print("--min-cases-per-class must be >= 0", file=sys.stderr)
@@ -4876,6 +4898,54 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     doctor.add_argument("--out", type=Path, help="Optional output path.")
     doctor.set_defaults(func=_doctor)
+
+    web_metrics = subparsers.add_parser(
+        "web-metrics",
+        help="Update website metric JSON from read-only product and tracker evidence.",
+    )
+    web_metrics_subparsers = web_metrics.add_subparsers(
+        dest="web_metrics_command",
+        required=True,
+    )
+    web_metrics_update = web_metrics_subparsers.add_parser(
+        "update",
+        help="Write public/api website metric payloads only when evidence changed.",
+    )
+    web_metrics_update.add_argument(
+        "--web-dir",
+        type=Path,
+        required=True,
+        help="Website checkout containing public/api.",
+    )
+    web_metrics_update.add_argument(
+        "--product-repo",
+        type=Path,
+        default=Path("."),
+        help="PatchRail product repository. Defaults to the current directory.",
+    )
+    web_metrics_update.add_argument(
+        "--desk-dir",
+        type=Path,
+        help="Optional Opportunity Desk directory with research/prospecting evidence.",
+    )
+    web_metrics_update.add_argument(
+        "--funded-source",
+        type=Path,
+        help="Local funded issue JSON source. Defaults to product examples.",
+    )
+    web_metrics_update.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report which files would change without writing website JSON.",
+    )
+    web_metrics_update.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="json",
+        help="Output format.",
+    )
+    web_metrics_update.add_argument("--out", type=Path, help="Optional output path.")
+    web_metrics_update.set_defaults(func=_web_metrics_update)
 
     evidence = subparsers.add_parser(
         "evidence",
