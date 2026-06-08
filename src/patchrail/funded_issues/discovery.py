@@ -9,6 +9,7 @@ from typing import Any
 
 SCHEMA_VERSION = "patchrail.funded_issues.v1"
 VALIDATION_SCHEMA_VERSION = "patchrail.funded_issues.validation.v1"
+SHORTLIST_SCHEMA_VERSION = "patchrail.funded_issues.shortlist.v1"
 BLOCKED_ACTIONS = [
     "automatic_claims",
     "automatic_pull_requests",
@@ -403,6 +404,70 @@ def score_funded_issues(
         "boundary": (
             "Local read-only readiness scoring only. Funding is context, not an instruction to "
             "claim rewards, post comments, open pull requests, or contact maintainers."
+        ),
+    }
+
+
+def shortlist_funded_issues(
+    issues: list[FundedIssue],
+    *,
+    safe_only: bool = False,
+    platform: str | None = None,
+    language: str | None = None,
+    min_usd: float | None = None,
+    limit: int = 5,
+) -> dict[str, Any]:
+    if limit < 1:
+        raise ValueError("limit must be >= 1")
+    score_payload = score_funded_issues(
+        issues,
+        safe_only=False,
+        platform=platform,
+        language=language,
+        min_usd=min_usd,
+    )
+    report_payload = report_funded_issues(
+        issues,
+        safe_only=safe_only,
+        platform=platform,
+        language=language,
+        min_usd=min_usd,
+    )
+    candidate_rows = [
+        row
+        for row in score_payload["scores"]
+        if row["rating"] in {"go_candidate", "watchlist"}
+        and (not safe_only or row["issue"]["safe_to_list"])
+    ]
+    no_go_rows = [row for row in score_payload["scores"] if row["rating"] == "no_go"]
+    return {
+        "schema_version": SHORTLIST_SCHEMA_VERSION,
+        "source_schema_version": SCHEMA_VERSION,
+        "read_only": True,
+        "safe_only": safe_only,
+        "limit": limit,
+        "blocked_actions": BLOCKED_ACTIONS,
+        "filters": score_payload["filters"],
+        "summary": {
+            "total_loaded": score_payload["total_loaded"],
+            "total_scored": score_payload["total_scored"],
+            "rating_counts": score_payload["rating_counts"],
+            "in_scope": report_payload["totals"]["in_scope"],
+            "safe_to_list": report_payload["totals"]["safe_to_list"],
+            "high_risk": report_payload["totals"]["high_risk"],
+        },
+        "shortlist": candidate_rows[:limit],
+        "no_go_evidence": no_go_rows,
+        "no_go_moat": report_payload["no_go_moat"],
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "boundary": (
+            "Decision support only. PatchRail does not claim rewards, post comments, open pull "
+            "requests, contact maintainers, or guarantee merge or payout outcomes."
         ),
     }
 

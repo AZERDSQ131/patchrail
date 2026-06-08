@@ -7,6 +7,7 @@ from patchrail.funded_issues.discovery import (
     load_funded_issues,
     report_funded_issues,
     score_funded_issues,
+    shortlist_funded_issues,
     summarize_issues,
     validate_funded_issues,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "load_funded_issues",
     "report_funded_issues",
     "score_funded_issues",
+    "shortlist_funded_issues",
     "summarize_issues",
     "validate_funded_issues",
 ]

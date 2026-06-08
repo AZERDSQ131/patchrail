@@ -465,6 +465,142 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("claim rewards", proc.stdout)
         self.assertIn("automatic_pull_requests", proc.stdout)
 
+    def test_funded_issues_shortlist_builds_decision_support_artifact(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "shortlist",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["schema_version"], "patchrail.funded_issues.shortlist.v1")
+        self.assertEqual(payload["read_only"], True)
+        self.assertEqual(payload["summary"]["total_loaded"], 2)
+        self.assertEqual(payload["summary"]["rating_counts"], {"go_candidate": 1, "no_go": 1})
+        self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/project#42")
+        self.assertEqual(payload["shortlist"][0]["rating"], "go_candidate")
+        self.assertEqual(payload["no_go_evidence"][0]["issue"]["reference"], "example/toolkit#17")
+        self.assertEqual(payload["no_go_evidence"][0]["rating"], "no_go")
+        self.assertEqual(payload["no_go_moat"]["ambiguous_scope"], 1)
+        self.assertIn("automatic_claims", payload["blocked_actions"])
+        self.assertIn("automatic_issue_comments", payload["blocked_actions"])
+        self.assertFalse(payload["requirements"]["network_required"])
+        self.assertFalse(payload["requirements"]["github_write_permission_required"])
+        self.assertFalse(payload["requirements"]["billing_required"])
+        self.assertIn("Decision support only", payload["boundary"])
+        self.assertIn("guarantee merge or payout", payload["boundary"])
+
+    def test_funded_issues_shortlist_markdown_preserves_no_go_boundary(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "shortlist",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "markdown",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("# PatchRail Funded Issues Shortlist", proc.stdout)
+        self.assertIn("## Shortlist", proc.stdout)
+        self.assertIn("example/project#42", proc.stdout)
+        self.assertIn("## No-Go Evidence", proc.stdout)
+        self.assertIn("example/toolkit#17", proc.stdout)
+        self.assertIn("Decision support only", proc.stdout)
+        self.assertIn("automatic_pull_requests", proc.stdout)
+
+    def test_funded_issues_shortlist_limit_caps_candidate_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "issues.json"
+            source.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.v1",
+                        "issues": [
+                            {
+                                "id": "one",
+                                "platform": "polar",
+                                "repository": "example/one",
+                                "issue_number": 1,
+                                "title": "Fix deterministic CI failure",
+                                "url": "https://github.com/example/one/issues/1",
+                                "funding": {"amount": 100, "currency": "USD"},
+                                "language": "python",
+                                "labels": ["bug"],
+                                "contribution_signals": ["reproduction included"],
+                                "risk_flags": [],
+                                "contribution_guidelines_url": (
+                                    "https://github.com/example/one/blob/main/CONTRIBUTING.md"
+                                ),
+                            },
+                            {
+                                "id": "two",
+                                "platform": "polar",
+                                "repository": "example/two",
+                                "issue_number": 2,
+                                "title": "Repair release workflow",
+                                "url": "https://github.com/example/two/issues/2",
+                                "funding": {"amount": 200, "currency": "USD"},
+                                "language": "python",
+                                "labels": ["ci"],
+                                "contribution_signals": [
+                                    "reproduction included",
+                                    "failing CI linked",
+                                ],
+                                "risk_flags": [],
+                                "contribution_guidelines_url": (
+                                    "https://github.com/example/two/blob/main/CONTRIBUTING.md"
+                                ),
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "shortlist",
+                    "--source",
+                    str(source),
+                    "--limit",
+                    "1",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["limit"], 1)
+        self.assertEqual(len(payload["shortlist"]), 1)
+        self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/two#2")
+        self.assertEqual(payload["summary"]["rating_counts"], {"go_candidate": 2})
+
+    def test_funded_issues_shortlist_rejects_invalid_limit(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "shortlist",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--limit",
+                "0",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("limit must be >= 1", proc.stderr)
+
     def test_funded_issues_readonly_demo_has_stable_summary(self) -> None:
         expected = json.loads(
             Path("examples/funded-issues-readonly/demo-summary.expected.json").read_text(

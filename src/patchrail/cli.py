@@ -26,6 +26,7 @@ from patchrail.funded_issues import (
     load_funded_issues,
     report_funded_issues,
     score_funded_issues,
+    shortlist_funded_issues,
     summarize_issues,
     validate_funded_issues,
 )
@@ -4575,6 +4576,114 @@ def _render_funded_issues_score_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    moat = payload["no_go_moat"]
+    lines = [
+        "PatchRail Funded Issues Shortlist",
+        f"Loaded: {summary['total_loaded']}",
+        f"Scored: {summary['total_scored']}",
+        f"Candidates: {len(payload['shortlist'])}",
+        f"No-go evidence: {len(payload['no_go_evidence'])}",
+        (
+            "No-go moat: "
+            f"{moat['high_risk_or_excluded']} high-risk/excluded, "
+            f"{moat['ambiguous_scope']} ambiguous scope"
+        ),
+        "Read-only: True",
+        "Boundary: Decision support only.",
+    ]
+    for row in payload["shortlist"]:
+        issue = row["issue"]
+        lines.append(f"{issue['reference']}: {row['score']} ({row['rating']})")
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    moat = payload["no_go_moat"]
+    lines = [
+        "# PatchRail Funded Issues Shortlist",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Safe-only candidate filter: `{payload['safe_only']}`",
+        f"- Limit: `{payload['limit']}`",
+        f"- Loaded: `{summary['total_loaded']}`",
+        f"- Scored: `{summary['total_scored']}`",
+        f"- Safe to list: `{summary['safe_to_list']}`",
+        f"- High risk: `{summary['high_risk']}`",
+        "",
+        "## Shortlist",
+        "",
+    ]
+    if payload["shortlist"]:
+        for row in payload["shortlist"]:
+            issue = row["issue"]
+            lines.extend(
+                [
+                    f"### {issue['reference']}",
+                    "",
+                    f"- Score: `{row['score']}`",
+                    f"- Rating: `{row['rating']}`",
+                    f"- Title: {issue['title']}",
+                    f"- Platform: `{issue['platform']}`",
+                    f"- Funding: `{issue['funding']['display']}`",
+                    f"- Risk level: `{issue['risk_level']}`",
+                    "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
+                    f"- URL: {issue['url']}",
+                    "",
+                ]
+            )
+    else:
+        lines.append("No go-candidate or watchlist issues matched the filters.")
+    lines.extend(
+        [
+            "## No-Go Evidence",
+            "",
+        ]
+    )
+    if payload["no_go_evidence"]:
+        for row in payload["no_go_evidence"]:
+            issue = row["issue"]
+            lines.extend(
+                [
+                    f"### {issue['reference']}",
+                    "",
+                    f"- Score: `{row['score']}`",
+                    f"- Rating: `{row['rating']}`",
+                    f"- Title: {issue['title']}",
+                    f"- Risk level: `{issue['risk_level']}`",
+                    "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
+                    "",
+                ]
+            )
+    else:
+        lines.append("No no-go rows matched the filters.")
+    lines.extend(
+        [
+            "",
+            "## No-Go Moat",
+            "",
+            "| Measure | Count |",
+            "|---|---:|",
+            f"| High-risk or excluded | {moat['high_risk_or_excluded']} |",
+            f"| Missing contribution guidelines | {moat['missing_contribution_guidelines']} |",
+            f"| Ambiguous scope | {moat['ambiguous_scope']} |",
+            f"| Spam-attractive signals | {moat['spam_attractive']} |",
+            f"| Funding unknown | {moat['funding_unknown']} |",
+            "",
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
 def _default_funded_issues_source() -> Path:
     return Path("examples") / "funded-issues-readonly" / "issues.json"
 
@@ -4716,6 +4825,31 @@ def _funded_issues_score(args: argparse.Namespace) -> int:
         text = _render_funded_issues_score_markdown(payload)
     else:
         text = _render_funded_issues_score_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_shortlist(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        payload = shortlist_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            limit=args.limit,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_shortlist_markdown(payload)
+    else:
+        text = _render_funded_issues_shortlist_text(payload)
     _write_or_print(text, args.out)
     return 0
 
@@ -5719,6 +5853,40 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_score.add_argument("--out", type=Path, help="Optional output path.")
     funded_score.set_defaults(func=_funded_issues_score)
+
+    funded_shortlist = funded_subparsers.add_parser(
+        "shortlist",
+        help="Build a local read-only shortlist artifact with no-go evidence.",
+    )
+    funded_shortlist.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_shortlist.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only allow safe-to-list issues in shortlist candidates.",
+    )
+    funded_shortlist.add_argument("--platform", help="Filter by funding platform.")
+    funded_shortlist.add_argument("--language", help="Filter by repository language.")
+    funded_shortlist.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_shortlist.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="Maximum shortlist candidate rows to include.",
+    )
+    funded_shortlist.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_shortlist.add_argument("--out", type=Path, help="Optional output path.")
+    funded_shortlist.set_defaults(func=_funded_issues_shortlist)
 
     return parser
 
