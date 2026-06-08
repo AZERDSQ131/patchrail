@@ -80,8 +80,9 @@ def _issue_from_provider_record(provider: str, raw: dict[str, Any], index: int) 
         "contributing_url",
         "guidelines_url",
     )
+    opportunity_state = _opportunity_state(raw, labels)
     contribution_signals = _contribution_signals(raw, labels, contribution_guidelines_url)
-    risk_flags = _risk_flags(raw, title, labels, amount, contribution_guidelines_url)
+    risk_flags = _risk_flags(raw, title, labels, amount, contribution_guidelines_url, opportunity_state)
     identifier = _first_string(raw, "id", "node_id", "slug") or _stable_id(
         provider, repository, issue_number, title, index
     )
@@ -101,6 +102,7 @@ def _issue_from_provider_record(provider: str, raw: dict[str, Any], index: int) 
         risk_flags=risk_flags,
         maintainer_permission=str(raw.get("maintainer_permission") or "public_issue_only"),
         contribution_guidelines_url=contribution_guidelines_url,
+        opportunity_state=opportunity_state,
     )
 
 
@@ -203,6 +205,7 @@ def _risk_flags(
     labels: list[str],
     amount: float | None,
     contribution_guidelines_url: str | None,
+    opportunity_state: str,
 ) -> list[str]:
     flags = _string_list(raw.get("risk_flags"))
     title_lower = title.lower()
@@ -215,7 +218,34 @@ def _risk_flags(
         flags.append("spam_attractive")
     if not contribution_guidelines_url:
         flags.append("no_contribution_guidelines")
+    if opportunity_state == "stale":
+        flags.append("stale_no_maintainer_signal")
+    if opportunity_state == "closed":
+        flags.append("closed_or_inactive")
     return sorted(set(flags))
+
+
+def _opportunity_state(raw: dict[str, Any], labels: list[str]) -> str:
+    label_lowers = {label.lower() for label in labels}
+    if "stale" in label_lowers:
+        return "stale"
+    for key in ("opportunity_state", "state", "status", "issue_state"):
+        value = raw.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, str) and value.strip():
+            normalized = value.strip().lower().replace("-", "_").replace(" ", "_")
+            if normalized in {"active", "open", "opened", "live", "available"}:
+                return "active"
+            if normalized in {"closed", "completed", "done", "paid", "resolved", "cancelled"}:
+                return "closed"
+            if normalized in {"stale", "inactive", "abandoned", "expired"}:
+                return "stale"
+    for key in ("open", "is_open"):
+        value = raw.get(key)
+        if isinstance(value, bool):
+            return "active" if value else "closed"
+    return "unknown"
 
 
 def _first_string(raw: dict[str, Any], *keys: str) -> str | None:

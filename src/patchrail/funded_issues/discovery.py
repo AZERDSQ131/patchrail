@@ -21,10 +21,14 @@ BLOCKED_ACTIONS = [
 HIGH_RISK_FLAGS = {
     "ambiguous_scope",
     "bounty_farming_language",
+    "closed_or_inactive",
     "requires_external_contact",
     "no_contribution_guidelines",
     "spam_attractive",
+    "stale_no_maintainer_signal",
 }
+
+VALID_OPPORTUNITY_STATES = {"active", "closed", "stale", "unknown"}
 
 
 @dataclass(frozen=True)
@@ -43,6 +47,7 @@ class FundedIssue:
     risk_flags: list[str] = field(default_factory=list)
     maintainer_permission: str = "public_issue_only"
     contribution_guidelines_url: str | None = None
+    opportunity_state: str = "unknown"
 
     @property
     def reference(self) -> str:
@@ -69,7 +74,7 @@ class FundedIssue:
 
     @property
     def safe_to_list(self) -> bool:
-        return self.risk_level != "high"
+        return self.risk_level != "high" and self.opportunity_state not in {"closed", "stale"}
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -91,6 +96,7 @@ class FundedIssue:
             "risk_flags": self.risk_flags,
             "risk_level": self.risk_level,
             "safe_to_list": self.safe_to_list,
+            "opportunity_state": self.opportunity_state,
             "maintainer_permission": self.maintainer_permission,
             "contribution_guidelines_url": self.contribution_guidelines_url,
             "read_only": True,
@@ -134,6 +140,9 @@ def _issue_from_mapping(raw: dict[str, Any]) -> FundedIssue:
             str(raw["contribution_guidelines_url"])
             if raw.get("contribution_guidelines_url")
             else None
+        ),
+        opportunity_state=_normalize_opportunity_state(
+            raw.get("opportunity_state") or raw.get("state") or raw.get("status")
         ),
     )
 
@@ -188,6 +197,9 @@ def validate_funded_issues(issues: list[FundedIssue]) -> dict[str, Any]:
     ]
     missing_signals = [issue.reference for issue in issues if not issue.contribution_signals]
     high_risk = [issue.reference for issue in issues if issue.risk_level == "high"]
+    stale_or_closed = [
+        issue.reference for issue in issues if issue.opportunity_state in {"closed", "stale"}
+    ]
     warnings = {
         "duplicate_ids": duplicate_ids,
         "duplicate_references": duplicate_references,
@@ -195,9 +207,11 @@ def validate_funded_issues(issues: list[FundedIssue]) -> dict[str, Any]:
         "missing_contribution_guidelines": missing_guidelines,
         "missing_contribution_signals": missing_signals,
         "high_risk": high_risk,
+        "stale_or_closed": stale_or_closed,
     }
     warning_count = sum(len(items) for items in warnings.values())
     risk_levels = Counter(issue.risk_level for issue in issues)
+    opportunity_states = Counter(issue.opportunity_state for issue in issues)
     return {
         "schema_version": VALIDATION_SCHEMA_VERSION,
         "source_schema_version": SCHEMA_VERSION,
@@ -211,6 +225,10 @@ def validate_funded_issues(issues: list[FundedIssue]) -> dict[str, Any]:
             "high_risk": risk_levels.get("high", 0),
             "medium_risk": risk_levels.get("medium", 0),
             "low_risk": risk_levels.get("low", 0),
+            "active": opportunity_states.get("active", 0),
+            "stale": opportunity_states.get("stale", 0),
+            "closed": opportunity_states.get("closed", 0),
+            "unknown_state": opportunity_states.get("unknown", 0),
         },
         "blocked_actions": BLOCKED_ACTIONS,
         "requirements": {
@@ -295,6 +313,7 @@ def report_funded_issues(
     platforms = Counter(issue.platform for issue in scoped_issues)
     languages = Counter(issue.language or "unknown" for issue in scoped_issues)
     risk_flags = Counter(flag for issue in scoped_issues for flag in issue.risk_flags)
+    opportunity_states = Counter(issue.opportunity_state for issue in scoped_issues)
     funding_known = sum(1 for issue in scoped_issues if issue.funding_amount is not None)
     funding_unknown = len(scoped_issues) - funding_known
     safe_candidates = sorted(
@@ -326,6 +345,7 @@ def report_funded_issues(
             "platforms": dict(sorted(platforms.items())),
             "languages": dict(sorted(languages.items())),
             "risk_flags": dict(sorted(risk_flags.items())),
+            "opportunity_states": dict(sorted(opportunity_states.items())),
         },
         "no_go_moat": {
             "high_risk_or_excluded": sum(1 for issue in scoped_issues if not issue.safe_to_list),
@@ -335,6 +355,9 @@ def report_funded_issues(
             "ambiguous_scope": risk_flags.get("ambiguous_scope", 0),
             "spam_attractive": risk_flags.get("spam_attractive", 0),
             "funding_unknown": funding_unknown,
+            "stale_or_closed": sum(
+                1 for issue in scoped_issues if issue.opportunity_state in {"closed", "stale"}
+            ),
         },
         "top_safe_candidates": [
             {
@@ -342,6 +365,7 @@ def report_funded_issues(
                 "title": issue.title,
                 "platform": issue.platform,
                 "funding": issue.funding_display,
+                "opportunity_state": issue.opportunity_state,
                 "risk_level": issue.risk_level,
                 "signals": issue.contribution_signals,
                 "url": issue.url,
@@ -455,6 +479,7 @@ def shortlist_funded_issues(
             "in_scope": report_payload["totals"]["in_scope"],
             "safe_to_list": report_payload["totals"]["safe_to_list"],
             "high_risk": report_payload["totals"]["high_risk"],
+            "opportunity_states": report_payload["breakdown"]["opportunity_states"],
         },
         "shortlist": candidate_rows[:limit],
         "no_go_evidence": no_go_rows,
@@ -507,9 +532,18 @@ def _score_issue(issue: FundedIssue) -> dict[str, Any]:
     else:
         components["safe_boundary_bonus"] = 10
 
+    if issue.opportunity_state == "closed":
+        components["risk_penalty"] -= 35
+        reason_codes.append("CLOSED_OR_INACTIVE")
+    elif issue.opportunity_state == "stale":
+        components["risk_penalty"] -= 30
+        reason_codes.append("STALE_NO_MAINTAINER_SIGNAL")
+    elif issue.opportunity_state == "unknown":
+        reason_codes.append("OPPORTUNITY_STATE_UNCLEAR")
+
     score += sum(value for key, value in components.items() if key != "base")
     score = max(0, min(100, score))
-    if issue.risk_level == "high":
+    if issue.risk_level == "high" or issue.opportunity_state in {"closed", "stale"}:
         rating = "no_go"
     elif score >= 80:
         rating = "go_candidate"
@@ -534,7 +568,22 @@ def _risk_reason_code(flag: str) -> str:
         "requires_external_contact": "NEEDS_AUTHORIZATION",
         "no_contribution_guidelines": "NO_CONTRIBUTION_GUIDELINES",
         "spam_attractive": "SPAM_ATTRACTIVE",
+        "stale_no_maintainer_signal": "STALE_NO_MAINTAINER_SIGNAL",
+        "closed_or_inactive": "CLOSED_OR_INACTIVE",
     }.get(flag, f"RISK_{flag.upper()}")
+
+
+def _normalize_opportunity_state(value: Any) -> str:
+    if value is None:
+        return "unknown"
+    normalized = str(value).strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized in {"active", "open", "opened", "live", "available"}:
+        return "active"
+    if normalized in {"closed", "completed", "done", "paid", "resolved", "cancelled"}:
+        return "closed"
+    if normalized in {"stale", "inactive", "abandoned", "expired"}:
+        return "stale"
+    return normalized if normalized in VALID_OPPORTUNITY_STATES else "unknown"
 
 
 def _matches_report_filter(

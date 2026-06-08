@@ -41,6 +41,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["total_returned"], 1)
         self.assertEqual(payload["issues"][0]["reference"], "example/project#42")
         self.assertEqual(payload["issues"][0]["risk_level"], "low")
+        self.assertEqual(payload["issues"][0]["opportunity_state"], "active")
         self.assertIn("automatic_pull_requests", payload["blocked_actions"])
         self.assertEqual(payload["requirements"]["network_required"], False)
         self.assertEqual(payload["requirements"]["github_write_permission_required"], False)
@@ -64,6 +65,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["total_returned"], 2)
         risky = [issue for issue in payload["issues"] if issue["risk_level"] == "high"]
         self.assertEqual(risky[0]["reference"], "example/toolkit#17")
+        self.assertEqual(risky[0]["opportunity_state"], "closed")
+        self.assertFalse(risky[0]["safe_to_list"])
         self.assertIn("ambiguous_scope", risky[0]["risk_flags"])
 
     def test_funded_issues_list_exports_safe_only_tracker_csv(self) -> None:
@@ -85,6 +88,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(rows[0]["platform"], "polar")
         self.assertEqual(rows[0]["funding_amount"], "250.0")
         self.assertEqual(rows[0]["funding_currency"], "USD")
+        self.assertEqual(rows[0]["opportunity_state"], "active")
         self.assertEqual(rows[0]["risk_level"], "low")
         self.assertEqual(rows[0]["safe_to_list"], "true")
         self.assertEqual(rows[0]["read_only"], "true")
@@ -108,6 +112,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         row = json.loads(lines[0])
         self.assertEqual(row["reference"], "example/project#42")
         self.assertEqual(row["risk_level"], "low")
+        self.assertEqual(row["opportunity_state"], "active")
         self.assertEqual(row["read_only"], True)
         self.assertTrue(row["safe_to_list"])
         self.assertIn("automatic_pull_requests", row["blocked_actions"])
@@ -216,11 +221,14 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         safe_issue = payload["issues"][0]
         self.assertEqual(safe_issue["reference"], "example/project#42")
         self.assertEqual(safe_issue["funding"]["display"], "250 USD")
+        self.assertEqual(safe_issue["opportunity_state"], "active")
         self.assertEqual(safe_issue["risk_level"], "low")
         self.assertIn("contribution guidelines linked", safe_issue["contribution_signals"])
         risky_issue = payload["issues"][1]
         self.assertEqual(risky_issue["reference"], "example/toolkit#17")
+        self.assertEqual(risky_issue["opportunity_state"], "closed")
         self.assertEqual(risky_issue["risk_level"], "high")
+        self.assertIn("closed_or_inactive", risky_issue["risk_flags"])
         self.assertIn("ambiguous_scope", risky_issue["risk_flags"])
         self.assertIn("automatic_issue_comments", payload["blocked_actions"])
 
@@ -275,6 +283,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                                 "url": "https://github.com/example/clean/issues/12",
                                 "funding": {"amount": 250, "currency": "USD"},
                                 "language": "python",
+                                "opportunity_state": "active",
                                 "labels": ["bug"],
                                 "contribution_signals": ["reproduction included"],
                                 "risk_flags": [],
@@ -298,6 +307,9 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["status"], "ok")
         self.assertEqual(payload["warning_count"], 0)
         self.assertEqual(payload["counts"]["low_risk"], 1)
+        self.assertEqual(payload["counts"]["active"], 1)
+        self.assertEqual(payload["counts"]["stale"], 0)
+        self.assertEqual(payload["counts"]["closed"], 0)
         self.assertEqual(payload["requirements"]["network_required"], False)
         self.assertEqual(payload["requirements"]["github_write_permission_required"], False)
 
@@ -319,6 +331,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertGreater(payload["warning_count"], 0)
         self.assertIn("example/toolkit#17", payload["warnings"]["high_risk"])
         self.assertIn("example/toolkit#17", payload["warnings"]["missing_contribution_guidelines"])
+        self.assertIn("example/toolkit#17", payload["warnings"]["stale_or_closed"])
         self.assertIn("automatic_claims", payload["blocked_actions"])
         self.assertIn("read-only", payload["boundary"])
 
@@ -382,10 +395,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["totals"]["high_risk"], 1)
         self.assertEqual(payload["breakdown"]["risk_levels"], {"high": 1, "low": 1})
         self.assertEqual(payload["breakdown"]["platforms"], {"algora": 1, "polar": 1})
+        self.assertEqual(payload["breakdown"]["opportunity_states"], {"active": 1, "closed": 1})
         self.assertEqual(payload["no_go_moat"]["high_risk_or_excluded"], 1)
         self.assertEqual(payload["no_go_moat"]["ambiguous_scope"], 1)
         self.assertEqual(payload["no_go_moat"]["spam_attractive"], 1)
+        self.assertEqual(payload["no_go_moat"]["stale_or_closed"], 1)
         self.assertEqual(payload["top_safe_candidates"][0]["reference"], "example/project#42")
+        self.assertEqual(payload["top_safe_candidates"][0]["opportunity_state"], "active")
         self.assertIn("ranking_by_money_only", payload["blocked_actions"])
         self.assertEqual(payload["requirements"]["network_required"], False)
         self.assertEqual(payload["requirements"]["github_write_permission_required"], False)
@@ -407,6 +423,9 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("# PatchRail Funded Issues Report", proc.stdout)
         self.assertIn("## No-Go Moat", proc.stdout)
         self.assertIn("High-risk or excluded | 1", proc.stdout)
+        self.assertIn("Stale or closed | 1", proc.stdout)
+        self.assertIn("### Opportunity States", proc.stdout)
+        self.assertIn("`active`: `1`", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
         self.assertNotIn("example/toolkit#17", proc.stdout)
         self.assertIn("does not claim rewards", proc.stdout)
@@ -477,7 +496,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["scores"][0]["reason_codes"], ["NO_MAJOR_REVIEW_GAPS"])
         risky = payload["scores"][1]
         self.assertEqual(risky["issue"]["reference"], "example/toolkit#17")
+        self.assertEqual(risky["issue"]["opportunity_state"], "closed")
+        self.assertEqual(risky["score"], 0)
         self.assertEqual(risky["rating"], "no_go")
+        self.assertIn("CLOSED_OR_INACTIVE", risky["reason_codes"])
         self.assertIn("SCOPE_TOO_BROAD", risky["reason_codes"])
         self.assertIn("SPAM_ATTRACTIVE", risky["reason_codes"])
         self.assertIn("NO_CONTRIBUTION_GUIDELINES", risky["reason_codes"])
@@ -522,12 +544,15 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], "patchrail.funded_issues.shortlist.v1")
         self.assertEqual(payload["read_only"], True)
         self.assertEqual(payload["summary"]["total_loaded"], 2)
+        self.assertEqual(payload["summary"]["opportunity_states"], {"active": 1, "closed": 1})
         self.assertEqual(payload["summary"]["rating_counts"], {"go_candidate": 1, "no_go": 1})
         self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/project#42")
         self.assertEqual(payload["shortlist"][0]["rating"], "go_candidate")
         self.assertEqual(payload["no_go_evidence"][0]["issue"]["reference"], "example/toolkit#17")
+        self.assertEqual(payload["no_go_evidence"][0]["issue"]["opportunity_state"], "closed")
         self.assertEqual(payload["no_go_evidence"][0]["rating"], "no_go")
         self.assertEqual(payload["no_go_moat"]["ambiguous_scope"], 1)
+        self.assertEqual(payload["no_go_moat"]["stale_or_closed"], 1)
         self.assertIn("automatic_claims", payload["blocked_actions"])
         self.assertIn("automatic_issue_comments", payload["blocked_actions"])
         self.assertFalse(payload["requirements"]["network_required"])
@@ -574,6 +599,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                                 "url": "https://github.com/example/one/issues/1",
                                 "funding": {"amount": 100, "currency": "USD"},
                                 "language": "python",
+                                "opportunity_state": "active",
                                 "labels": ["bug"],
                                 "contribution_signals": ["reproduction included"],
                                 "risk_flags": [],
@@ -590,6 +616,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                                 "url": "https://github.com/example/two/issues/2",
                                 "funding": {"amount": 200, "currency": "USD"},
                                 "language": "python",
+                                "opportunity_state": "active",
                                 "labels": ["ci"],
                                 "contribution_signals": [
                                     "reproduction included",

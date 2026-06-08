@@ -50,7 +50,8 @@
         "rating_counts",
         "in_scope",
         "safe_to_list",
-        "high_risk"
+        "high_risk",
+        "opportunity_states"
       ],
       "properties": {
         "total_loaded": { "type": "integer", "minimum": 0 },
@@ -58,7 +59,8 @@
         "rating_counts": { "$ref": "#/$defs/count_map" },
         "in_scope": { "type": "integer", "minimum": 0 },
         "safe_to_list": { "type": "integer", "minimum": 0 },
-        "high_risk": { "type": "integer", "minimum": 0 }
+        "high_risk": { "type": "integer", "minimum": 0 },
+        "opportunity_states": { "$ref": "#/$defs/count_map" }
       },
       "additionalProperties": false
     },
@@ -131,6 +133,7 @@
         "risk_flags",
         "risk_level",
         "safe_to_list",
+        "opportunity_state",
         "maintainer_permission",
         "contribution_guidelines_url",
         "read_only",
@@ -169,6 +172,7 @@
         },
         "risk_level": { "enum": ["low", "medium", "high"] },
         "safe_to_list": { "type": "boolean" },
+        "opportunity_state": { "$ref": "#/$defs/opportunity_state" },
         "maintainer_permission": { "type": "string", "minLength": 1 },
         "contribution_guidelines_url": { "type": ["string", "null"], "format": "uri" },
         "read_only": { "const": true },
@@ -183,16 +187,21 @@
         "missing_contribution_guidelines",
         "ambiguous_scope",
         "spam_attractive",
-        "funding_unknown"
+        "funding_unknown",
+        "stale_or_closed"
       ],
       "properties": {
         "high_risk_or_excluded": { "type": "integer", "minimum": 0 },
         "missing_contribution_guidelines": { "type": "integer", "minimum": 0 },
         "ambiguous_scope": { "type": "integer", "minimum": 0 },
         "spam_attractive": { "type": "integer", "minimum": 0 },
-        "funding_unknown": { "type": "integer", "minimum": 0 }
+        "funding_unknown": { "type": "integer", "minimum": 0 },
+        "stale_or_closed": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
+    },
+    "opportunity_state": {
+      "enum": ["active", "stale", "closed", "unknown"]
     },
     "safe_requirements": {
       "type": "object",

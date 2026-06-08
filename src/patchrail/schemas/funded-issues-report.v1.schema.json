@@ -61,12 +61,13 @@
     },
     "breakdown": {
       "type": "object",
-      "required": ["risk_levels", "platforms", "languages", "risk_flags"],
+      "required": ["risk_levels", "platforms", "languages", "risk_flags", "opportunity_states"],
       "properties": {
         "risk_levels": { "$ref": "#/$defs/count_map" },
         "platforms": { "$ref": "#/$defs/count_map" },
         "languages": { "$ref": "#/$defs/count_map" },
-        "risk_flags": { "$ref": "#/$defs/count_map" }
+        "risk_flags": { "$ref": "#/$defs/count_map" },
+        "opportunity_states": { "$ref": "#/$defs/count_map" }
       },
       "additionalProperties": false
     },
@@ -82,6 +83,7 @@
           "title",
           "platform",
           "funding",
+          "opportunity_state",
           "risk_level",
           "signals",
           "url"
@@ -91,6 +93,7 @@
           "title": { "type": "string", "minLength": 1 },
           "platform": { "type": "string", "minLength": 1 },
           "funding": { "type": "string", "minLength": 1 },
+          "opportunity_state": { "$ref": "#/$defs/opportunity_state" },
           "risk_level": { "enum": ["low", "medium", "high"] },
           "signals": {
             "type": "array",
@@ -149,16 +152,21 @@
         "missing_contribution_guidelines",
         "ambiguous_scope",
         "spam_attractive",
-        "funding_unknown"
+        "funding_unknown",
+        "stale_or_closed"
       ],
       "properties": {
         "high_risk_or_excluded": { "type": "integer", "minimum": 0 },
         "missing_contribution_guidelines": { "type": "integer", "minimum": 0 },
         "ambiguous_scope": { "type": "integer", "minimum": 0 },
         "spam_attractive": { "type": "integer", "minimum": 0 },
-        "funding_unknown": { "type": "integer", "minimum": 0 }
+        "funding_unknown": { "type": "integer", "minimum": 0 },
+        "stale_or_closed": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
+    },
+    "opportunity_state": {
+      "enum": ["active", "stale", "closed", "unknown"]
     },
     "safe_requirements": {
       "type": "object",

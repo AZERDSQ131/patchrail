@@ -4201,6 +4201,7 @@ def _render_funded_issues_csv(issues: list[dict[str, Any]]) -> str:
         "funding_currency",
         "funding_display",
         "language",
+        "opportunity_state",
         "risk_level",
         "safe_to_list",
         "contribution_signals",
@@ -4225,6 +4226,7 @@ def _render_funded_issues_csv(issues: list[dict[str, Any]]) -> str:
                 "funding_currency": _csv_cell(funding["currency"]),
                 "funding_display": _csv_cell(funding["display"]),
                 "language": _csv_cell(issue["language"]),
+                "opportunity_state": _csv_cell(issue["opportunity_state"]),
                 "risk_level": _csv_cell(issue["risk_level"]),
                 "safe_to_list": _csv_cell(issue["safe_to_list"]),
                 "contribution_signals": _csv_cell(issue["contribution_signals"]),
@@ -4257,6 +4259,7 @@ def _funded_issues_invalid_validation_payload(source: Path, exc: Exception) -> d
             "missing_contribution_guidelines": [],
             "missing_contribution_signals": [],
             "high_risk": [],
+            "stale_or_closed": [],
         },
         "requirements": {
             "network_required": False,
@@ -4307,6 +4310,7 @@ def _render_funded_issues_markdown(payload: dict[str, Any]) -> str:
                 f"- Title: {issue['title']}",
                 f"- Platform: `{issue['platform']}`",
                 f"- Funding: `{issue['funding']['display']}`",
+                f"- Opportunity state: `{issue['opportunity_state']}`",
                 f"- Risk level: `{issue['risk_level']}`",
                 f"- URL: {issue['url']}",
                 "",
@@ -4334,6 +4338,7 @@ def _render_funded_issue_explain_markdown(payload: dict[str, Any]) -> str:
         f"- Title: {issue['title']}",
         f"- Platform: `{issue['platform']}`",
         f"- Funding: `{issue['funding']['display']}`",
+        f"- Opportunity state: `{issue['opportunity_state']}`",
         f"- Risk level: `{issue['risk_level']}`",
         f"- Read-only: `{payload['read_only']}`",
         f"- URL: {issue['url']}",
@@ -4397,6 +4402,7 @@ def _render_funded_issues_import_markdown(payload: dict[str, Any]) -> str:
                 "",
                 f"- Title: {issue['title']}",
                 f"- Funding: `{issue['funding']['display']}`",
+                f"- Opportunity state: `{issue['opportunity_state']}`",
                 f"- Risk level: `{issue['risk_level']}`",
                 f"- Safe to list: `{issue['safe_to_list']}`",
                 "",
@@ -4460,6 +4466,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
         f"| Ambiguous scope | {moat['ambiguous_scope']} |",
         f"| Spam-attractive signals | {moat['spam_attractive']} |",
         f"| Funding unknown | {moat['funding_unknown']} |",
+        f"| Stale or closed | {moat['stale_or_closed']} |",
         "",
         "## Breakdowns",
         "",
@@ -4474,6 +4481,9 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     lines.extend(["", "### Languages", ""])
     for language, count in breakdown["languages"].items():
         lines.append(f"- `{language}`: `{count}`")
+    lines.extend(["", "### Opportunity States", ""])
+    for opportunity_state, count in breakdown["opportunity_states"].items():
+        lines.append(f"- `{opportunity_state}`: `{count}`")
     lines.extend(["", "### Risk Flags", ""])
     if breakdown["risk_flags"]:
         for flag, count in breakdown["risk_flags"].items():
@@ -4491,6 +4501,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
                     f"- Title: {candidate['title']}",
                     f"- Platform: `{candidate['platform']}`",
                     f"- Funding: `{candidate['funding']}`",
+                    f"- Opportunity state: `{candidate['opportunity_state']}`",
                     f"- Risk level: `{candidate['risk_level']}`",
                     f"- URL: {candidate['url']}",
                     "",
@@ -4558,6 +4569,7 @@ def _render_funded_issues_score_markdown(payload: dict[str, Any]) -> str:
                 f"- Title: {issue['title']}",
                 f"- Platform: `{issue['platform']}`",
                 f"- Funding: `{issue['funding']['display']}`",
+                f"- Opportunity state: `{issue['opportunity_state']}`",
                 f"- Risk level: `{issue['risk_level']}`",
                 f"- URL: {issue['url']}",
                 "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
@@ -4630,6 +4642,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
                     f"- Title: {issue['title']}",
                     f"- Platform: `{issue['platform']}`",
                     f"- Funding: `{issue['funding']['display']}`",
+                    f"- Opportunity state: `{issue['opportunity_state']}`",
                     f"- Risk level: `{issue['risk_level']}`",
                     "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
                     f"- URL: {issue['url']}",
@@ -4654,6 +4667,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
                     f"- Score: `{row['score']}`",
                     f"- Rating: `{row['rating']}`",
                     f"- Title: {issue['title']}",
+                    f"- Opportunity state: `{issue['opportunity_state']}`",
                     f"- Risk level: `{issue['risk_level']}`",
                     "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
                     "",
