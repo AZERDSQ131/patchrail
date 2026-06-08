@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/funded-issues-shortlist.v1.schema.json",
+  "title": "PatchRail Funded Issues Shortlist",
+  "description": "Read-only decision-support shortlist emitted by patchrail funded-issues shortlist.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_schema_version",
+    "read_only",
+    "safe_only",
+    "limit",
+    "blocked_actions",
+    "filters",
+    "summary",
+    "shortlist",
+    "no_go_evidence",
+    "no_go_moat",
+    "requirements",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.funded_issues.shortlist.v1"
+    },
+    "source_schema_version": {
+      "const": "patchrail.funded_issues.v1"
+    },
+    "read_only": {
+      "const": true
+    },
+    "safe_only": {
+      "type": "boolean"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "blocked_actions": {
+      "$ref": "#/$defs/blocked_actions"
+    },
+    "filters": {
+      "$ref": "#/$defs/filters"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_loaded",
+        "total_scored",
+        "rating_counts",
+        "in_scope",
+        "safe_to_list",
+        "high_risk"
+      ],
+      "properties": {
+        "total_loaded": { "type": "integer", "minimum": 0 },
+        "total_scored": { "type": "integer", "minimum": 0 },
+        "rating_counts": { "$ref": "#/$defs/count_map" },
+        "in_scope": { "type": "integer", "minimum": 0 },
+        "safe_to_list": { "type": "integer", "minimum": 0 },
+        "high_risk": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "shortlist": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scored_issue" }
+    },
+    "no_go_evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scored_issue" }
+    },
+    "no_go_moat": {
+      "$ref": "#/$defs/no_go_moat"
+    },
+    "requirements": {
+      "$ref": "#/$defs/safe_requirements"
+    },
+    "boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "blocked_actions": {
+      "type": "array",
+      "contains": { "const": "automatic_claims" },
+      "items": {
+        "enum": [
+          "automatic_claims",
+          "automatic_pull_requests",
+          "automatic_issue_comments",
+          "mass_outreach",
+          "ranking_by_money_only"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "count_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "filters": {
+      "type": "object",
+      "required": ["platform", "language", "min_usd"],
+      "properties": {
+        "platform": { "type": ["string", "null"] },
+        "language": { "type": ["string", "null"] },
+        "min_usd": { "type": ["number", "null"], "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "funded_issue": {
+      "type": "object",
+      "required": [
+        "id",
+        "platform",
+        "repository",
+        "issue_number",
+        "reference",
+        "title",
+        "url",
+        "funding",
+        "language",
+        "labels",
+        "contribution_signals",
+        "risk_flags",
+        "risk_level",
+        "safe_to_list",
+        "maintainer_permission",
+        "contribution_guidelines_url",
+        "read_only",
+        "blocked_actions"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "platform": { "type": "string", "minLength": 1 },
+        "repository": { "type": "string", "minLength": 1 },
+        "issue_number": { "type": ["integer", "null"], "minimum": 0 },
+        "reference": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "funding": {
+          "type": "object",
+          "required": ["amount", "currency", "display"],
+          "properties": {
+            "amount": { "type": ["number", "null"] },
+            "currency": { "type": ["string", "null"] },
+            "display": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "language": { "type": ["string", "null"] },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "contribution_signals": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "risk_flags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "risk_level": { "enum": ["low", "medium", "high"] },
+        "safe_to_list": { "type": "boolean" },
+        "maintainer_permission": { "type": "string", "minLength": 1 },
+        "contribution_guidelines_url": { "type": ["string", "null"], "format": "uri" },
+        "read_only": { "const": true },
+        "blocked_actions": { "$ref": "#/$defs/blocked_actions" }
+      },
+      "additionalProperties": false
+    },
+    "no_go_moat": {
+      "type": "object",
+      "required": [
+        "high_risk_or_excluded",
+        "missing_contribution_guidelines",
+        "ambiguous_scope",
+        "spam_attractive",
+        "funding_unknown"
+      ],
+      "properties": {
+        "high_risk_or_excluded": { "type": "integer", "minimum": 0 },
+        "missing_contribution_guidelines": { "type": "integer", "minimum": 0 },
+        "ambiguous_scope": { "type": "integer", "minimum": 0 },
+        "spam_attractive": { "type": "integer", "minimum": 0 },
+        "funding_unknown": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "safe_requirements": {
+      "type": "object",
+      "required": [
+        "network_required",
+        "github_write_permission_required",
+        "external_model_required",
+        "billing_required"
+      ],
+      "properties": {
+        "network_required": { "const": false },
+        "github_write_permission_required": { "const": false },
+        "external_model_required": { "const": false },
+        "billing_required": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "scored_issue": {
+      "type": "object",
+      "required": ["issue", "score", "rating", "reason_codes", "components"],
+      "properties": {
+        "issue": { "$ref": "#/$defs/funded_issue" },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "rating": { "enum": ["go_candidate", "watchlist", "no_go"] },
+        "reason_codes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "components": {
+          "type": "object",
+          "required": [
+            "base",
+            "funding_visible",
+            "guidelines_visible",
+            "contribution_signals",
+            "risk_penalty",
+            "safe_boundary_bonus"
+          ],
+          "properties": {
+            "base": { "type": "integer" },
+            "funding_visible": { "type": "integer" },
+            "guidelines_visible": { "type": "integer" },
+            "contribution_signals": { "type": "integer" },
+            "risk_penalty": { "type": "integer" },
+            "safe_boundary_bonus": { "type": "integer" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

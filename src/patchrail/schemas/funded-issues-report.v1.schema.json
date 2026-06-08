@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/funded-issues-report.v1.schema.json",
+  "title": "PatchRail Funded Issues Report",
+  "description": "Read-only opportunity coverage report emitted by patchrail funded-issues report.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_schema_version",
+    "read_only",
+    "safe_only",
+    "blocked_actions",
+    "filters",
+    "totals",
+    "breakdown",
+    "no_go_moat",
+    "top_safe_candidates",
+    "requirements",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.funded_issues.report.v1"
+    },
+    "source_schema_version": {
+      "const": "patchrail.funded_issues.v1"
+    },
+    "read_only": {
+      "const": true
+    },
+    "safe_only": {
+      "type": "boolean"
+    },
+    "blocked_actions": {
+      "$ref": "#/$defs/blocked_actions"
+    },
+    "filters": {
+      "$ref": "#/$defs/filters"
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "loaded",
+        "in_scope",
+        "returned",
+        "safe_to_list",
+        "high_risk",
+        "funding_known",
+        "funding_unknown"
+      ],
+      "properties": {
+        "loaded": { "type": "integer", "minimum": 0 },
+        "in_scope": { "type": "integer", "minimum": 0 },
+        "returned": { "type": "integer", "minimum": 0 },
+        "safe_to_list": { "type": "integer", "minimum": 0 },
+        "high_risk": { "type": "integer", "minimum": 0 },
+        "funding_known": { "type": "integer", "minimum": 0 },
+        "funding_unknown": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "breakdown": {
+      "type": "object",
+      "required": ["risk_levels", "platforms", "languages", "risk_flags"],
+      "properties": {
+        "risk_levels": { "$ref": "#/$defs/count_map" },
+        "platforms": { "$ref": "#/$defs/count_map" },
+        "languages": { "$ref": "#/$defs/count_map" },
+        "risk_flags": { "$ref": "#/$defs/count_map" }
+      },
+      "additionalProperties": false
+    },
+    "no_go_moat": {
+      "$ref": "#/$defs/no_go_moat"
+    },
+    "top_safe_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "reference",
+          "title",
+          "platform",
+          "funding",
+          "risk_level",
+          "signals",
+          "url"
+        ],
+        "properties": {
+          "reference": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "platform": { "type": "string", "minLength": 1 },
+          "funding": { "type": "string", "minLength": 1 },
+          "risk_level": { "enum": ["low", "medium", "high"] },
+          "signals": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "url": { "type": "string", "format": "uri" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "requirements": {
+      "$ref": "#/$defs/safe_requirements"
+    },
+    "boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "blocked_actions": {
+      "type": "array",
+      "contains": { "const": "automatic_claims" },
+      "items": {
+        "enum": [
+          "automatic_claims",
+          "automatic_pull_requests",
+          "automatic_issue_comments",
+          "mass_outreach",
+          "ranking_by_money_only"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "count_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "filters": {
+      "type": "object",
+      "required": ["platform", "language", "min_usd"],
+      "properties": {
+        "platform": { "type": ["string", "null"] },
+        "language": { "type": ["string", "null"] },
+        "min_usd": { "type": ["number", "null"], "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "no_go_moat": {
+      "type": "object",
+      "required": [
+        "high_risk_or_excluded",
+        "missing_contribution_guidelines",
+        "ambiguous_scope",
+        "spam_attractive",
+        "funding_unknown"
+      ],
+      "properties": {
+        "high_risk_or_excluded": { "type": "integer", "minimum": 0 },
+        "missing_contribution_guidelines": { "type": "integer", "minimum": 0 },
+        "ambiguous_scope": { "type": "integer", "minimum": 0 },
+        "spam_attractive": { "type": "integer", "minimum": 0 },
+        "funding_unknown": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "safe_requirements": {
+      "type": "object",
+      "required": [
+        "network_required",
+        "github_write_permission_required",
+        "external_model_required",
+        "billing_required"
+      ],
+      "properties": {
+        "network_required": { "const": false },
+        "github_write_permission_required": { "const": false },
+        "external_model_required": { "const": false },
+        "billing_required": { "const": false }
+      },
+      "additionalProperties": false
+    }
+  }
+}

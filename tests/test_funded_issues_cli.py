@@ -412,6 +412,46 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("does not claim rewards", proc.stdout)
         self.assertIn("automatic_issue_comments", proc.stdout)
 
+    def test_schema_command_exposes_funded_issues_report_and_shortlist_contracts(self) -> None:
+        expected_versions = {
+            "funded-issues-report": "patchrail.funded_issues.report.v1",
+            "funded-issues-shortlist": "patchrail.funded_issues.shortlist.v1",
+        }
+
+        for schema_name, schema_version in expected_versions.items():
+            with self.subTest(schema_name=schema_name):
+                proc = run_patchrail(["schema", schema_name])
+
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                schema = json.loads(proc.stdout)
+                self.assertIn("https://patchrail.dev/schemas/", schema["$id"])
+                self.assertEqual(schema["properties"]["schema_version"]["const"], schema_version)
+                self.assertEqual(schema["properties"]["read_only"]["const"], True)
+                self.assertIn("blocked_actions", schema["required"])
+                self.assertIn("requirements", schema["required"])
+                requirements = schema["$defs"]["safe_requirements"]["properties"]
+                self.assertEqual(requirements["network_required"]["const"], False)
+                self.assertEqual(requirements["github_write_permission_required"]["const"], False)
+                self.assertEqual(requirements["external_model_required"]["const"], False)
+                self.assertEqual(requirements["billing_required"]["const"], False)
+
+                blocked_actions = schema["$defs"]["blocked_actions"]["items"]["enum"]
+                self.assertIn("automatic_claims", blocked_actions)
+                self.assertIn("automatic_pull_requests", blocked_actions)
+                self.assertIn("automatic_issue_comments", blocked_actions)
+                self.assertIn("mass_outreach", blocked_actions)
+                self.assertIn("ranking_by_money_only", blocked_actions)
+
+                if schema_name == "funded-issues-shortlist":
+                    self.assertIn("shortlist", schema["required"])
+                    self.assertIn("no_go_evidence", schema["required"])
+                    self.assertEqual(
+                        schema["$defs"]["scored_issue"]["properties"]["score"]["maximum"], 100
+                    )
+                else:
+                    self.assertIn("top_safe_candidates", schema["required"])
+                    self.assertIn("no_go_moat", schema["required"])
+
     def test_funded_issues_score_ranks_readiness_with_reason_codes(self) -> None:
         proc = run_patchrail(
             [
