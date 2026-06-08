@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import subprocess
 import sys
@@ -63,6 +65,74 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         risky = [issue for issue in payload["issues"] if issue["risk_level"] == "high"]
         self.assertEqual(risky[0]["reference"], "example/toolkit#17")
         self.assertIn("ambiguous_scope", risky[0]["risk_flags"])
+
+    def test_funded_issues_list_exports_safe_only_tracker_csv(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "list",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "csv",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        rows = list(csv.DictReader(io.StringIO(proc.stdout)))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["reference"], "example/project#42")
+        self.assertEqual(rows[0]["platform"], "polar")
+        self.assertEqual(rows[0]["funding_amount"], "250.0")
+        self.assertEqual(rows[0]["funding_currency"], "USD")
+        self.assertEqual(rows[0]["risk_level"], "low")
+        self.assertEqual(rows[0]["safe_to_list"], "true")
+        self.assertEqual(rows[0]["read_only"], "true")
+        self.assertIn("reproduction included", rows[0]["contribution_signals"])
+
+    def test_funded_issues_list_csv_neutralizes_formula_cells(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "issues.json"
+            source.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.v1",
+                        "issues": [
+                            {
+                                "id": "formula-title",
+                                "platform": "github",
+                                "repository": "example/formula",
+                                "issue_number": 9,
+                                "title": '=IMPORTDATA("https://example.invalid")',
+                                "url": "https://github.com/example/formula/issues/9",
+                                "funding": {"amount": 100, "currency": "USD"},
+                                "language": "python",
+                                "labels": ["bug"],
+                                "risk_flags": [],
+                                "contribution_guidelines_url": (
+                                    "https://github.com/example/formula/blob/main/CONTRIBUTING.md"
+                                ),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "list",
+                    "--source",
+                    str(source),
+                    "--format",
+                    "csv",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        rows = list(csv.DictReader(io.StringIO(proc.stdout)))
+        self.assertEqual(rows[0]["title"], '\'=IMPORTDATA("https://example.invalid")')
 
     def test_funded_issues_explain_states_ethics_boundary(self) -> None:
         proc = run_patchrail(

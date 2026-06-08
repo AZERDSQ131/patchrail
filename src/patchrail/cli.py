@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import importlib.util
+import io
 import json
 import re
 import subprocess
@@ -4163,6 +4165,70 @@ def _render_funded_issues_text(issues: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_cell(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        text = "true" if value else "false"
+    elif isinstance(value, list):
+        text = "; ".join(str(item) for item in value)
+    else:
+        text = str(value)
+    if text.startswith(_CSV_FORMULA_PREFIXES):
+        return f"'{text}"
+    return text
+
+
+def _render_funded_issues_csv(issues: list[dict[str, Any]]) -> str:
+    fieldnames = [
+        "platform",
+        "repository",
+        "reference",
+        "issue_number",
+        "title",
+        "url",
+        "funding_amount",
+        "funding_currency",
+        "funding_display",
+        "language",
+        "risk_level",
+        "safe_to_list",
+        "contribution_signals",
+        "risk_flags",
+        "contribution_guidelines_url",
+        "read_only",
+    ]
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    for issue in issues:
+        funding = issue["funding"]
+        writer.writerow(
+            {
+                "platform": _csv_cell(issue["platform"]),
+                "repository": _csv_cell(issue["repository"]),
+                "reference": _csv_cell(issue["reference"]),
+                "issue_number": _csv_cell(issue["issue_number"]),
+                "title": _csv_cell(issue["title"]),
+                "url": _csv_cell(issue["url"]),
+                "funding_amount": _csv_cell(funding["amount"]),
+                "funding_currency": _csv_cell(funding["currency"]),
+                "funding_display": _csv_cell(funding["display"]),
+                "language": _csv_cell(issue["language"]),
+                "risk_level": _csv_cell(issue["risk_level"]),
+                "safe_to_list": _csv_cell(issue["safe_to_list"]),
+                "contribution_signals": _csv_cell(issue["contribution_signals"]),
+                "risk_flags": _csv_cell(issue["risk_flags"]),
+                "contribution_guidelines_url": _csv_cell(issue["contribution_guidelines_url"]),
+                "read_only": _csv_cell(issue["read_only"]),
+            }
+        )
+    return buffer.getvalue()
+
+
 def _render_funded_issues_markdown(payload: dict[str, Any]) -> str:
     lines = [
         "# PatchRail Funded Issues",
@@ -4418,6 +4484,8 @@ def _funded_issues_list(args: argparse.Namespace) -> int:
         text = _json_dump(payload)
     elif args.format == "markdown":
         text = _render_funded_issues_markdown(payload)
+    elif args.format == "csv":
+        text = _render_funded_issues_csv(payload["issues"])
     else:
         text = _render_funded_issues_text(payload["issues"])
     _write_or_print(text, args.out)
@@ -5287,7 +5355,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_list.add_argument(
         "--format",
-        choices=["json", "markdown", "text"],
+        choices=["csv", "json", "markdown", "text"],
         default="text",
         help="Output format.",
     )
