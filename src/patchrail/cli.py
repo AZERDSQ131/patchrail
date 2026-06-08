@@ -4229,6 +4229,10 @@ def _render_funded_issues_csv(issues: list[dict[str, Any]]) -> str:
     return buffer.getvalue()
 
 
+def _render_funded_issues_jsonl(issues: list[dict[str, Any]]) -> str:
+    return "".join(json.dumps(issue, sort_keys=True) + "\n" for issue in issues)
+
+
 def _render_funded_issues_markdown(payload: dict[str, Any]) -> str:
     lines = [
         "# PatchRail Funded Issues",
@@ -4486,6 +4490,8 @@ def _funded_issues_list(args: argparse.Namespace) -> int:
         text = _render_funded_issues_markdown(payload)
     elif args.format == "csv":
         text = _render_funded_issues_csv(payload["issues"])
+    elif args.format == "jsonl":
+        text = _render_funded_issues_jsonl(payload["issues"])
     else:
         text = _render_funded_issues_text(payload["issues"])
     _write_or_print(text, args.out)
@@ -5355,7 +5361,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_list.add_argument(
         "--format",
-        choices=["csv", "json", "markdown", "text"],
+        choices=["csv", "json", "jsonl", "markdown", "text"],
         default="text",
         help="Output format.",
     )

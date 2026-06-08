@@ -90,6 +90,29 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(rows[0]["read_only"], "true")
         self.assertIn("reproduction included", rows[0]["contribution_signals"])
 
+    def test_funded_issues_list_exports_safe_only_jsonl_for_pipeline_ingest(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "list",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "jsonl",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        lines = proc.stdout.splitlines()
+        self.assertEqual(len(lines), 1)
+        row = json.loads(lines[0])
+        self.assertEqual(row["reference"], "example/project#42")
+        self.assertEqual(row["risk_level"], "low")
+        self.assertEqual(row["read_only"], True)
+        self.assertTrue(row["safe_to_list"])
+        self.assertIn("automatic_pull_requests", row["blocked_actions"])
+        self.assertIn("reproduction included", row["contribution_signals"])
+
     def test_funded_issues_list_csv_neutralizes_formula_cells(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "issues.json"
