@@ -82,7 +82,9 @@ def _issue_from_provider_record(provider: str, raw: dict[str, Any], index: int) 
     )
     opportunity_state = _opportunity_state(raw, labels)
     contribution_signals = _contribution_signals(raw, labels, contribution_guidelines_url)
-    risk_flags = _risk_flags(raw, title, labels, amount, contribution_guidelines_url, opportunity_state)
+    risk_flags = _risk_flags(
+        raw, title, labels, amount, contribution_guidelines_url, opportunity_state
+    )
     identifier = _first_string(raw, "id", "node_id", "slug") or _stable_id(
         provider, repository, issue_number, title, index
     )
