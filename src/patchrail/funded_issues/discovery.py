@@ -8,6 +8,7 @@ from typing import Any
 
 
 SCHEMA_VERSION = "patchrail.funded_issues.v1"
+VALIDATION_SCHEMA_VERSION = "patchrail.funded_issues.validation.v1"
 BLOCKED_ACTIONS = [
     "automatic_claims",
     "automatic_pull_requests",
@@ -171,6 +172,62 @@ def funded_issues_payload(
     if import_source:
         payload["import_source"] = import_source
     return payload
+
+
+def validate_funded_issues(issues: list[FundedIssue]) -> dict[str, Any]:
+    duplicate_ids = _duplicates(issue.id for issue in issues)
+    duplicate_references = _duplicates(issue.reference for issue in issues)
+    missing_funding = [
+        issue.reference
+        for issue in issues
+        if issue.funding_amount is None or issue.funding_currency is None
+    ]
+    missing_guidelines = [
+        issue.reference for issue in issues if not issue.contribution_guidelines_url
+    ]
+    missing_signals = [issue.reference for issue in issues if not issue.contribution_signals]
+    high_risk = [issue.reference for issue in issues if issue.risk_level == "high"]
+    warnings = {
+        "duplicate_ids": duplicate_ids,
+        "duplicate_references": duplicate_references,
+        "missing_funding": missing_funding,
+        "missing_contribution_guidelines": missing_guidelines,
+        "missing_contribution_signals": missing_signals,
+        "high_risk": high_risk,
+    }
+    warning_count = sum(len(items) for items in warnings.values())
+    risk_levels = Counter(issue.risk_level for issue in issues)
+    return {
+        "schema_version": VALIDATION_SCHEMA_VERSION,
+        "source_schema_version": SCHEMA_VERSION,
+        "status": "ok" if warning_count == 0 else "needs_review",
+        "read_only": True,
+        "total_loaded": len(issues),
+        "warning_count": warning_count,
+        "warnings": warnings,
+        "counts": {
+            "safe_to_list": sum(1 for issue in issues if issue.safe_to_list),
+            "high_risk": risk_levels.get("high", 0),
+            "medium_risk": risk_levels.get("medium", 0),
+            "low_risk": risk_levels.get("low", 0),
+        },
+        "blocked_actions": BLOCKED_ACTIONS,
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "boundary": (
+            "Validation is local and read-only. Warnings require human review before the dataset "
+            "is used as paid-opportunity evidence."
+        ),
+    }
+
+
+def _duplicates(values: Any) -> list[str]:
+    counts = Counter(str(value) for value in values)
+    return sorted(value for value, count in counts.items() if count > 1)
 
 
 def summarize_issues(

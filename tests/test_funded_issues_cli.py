@@ -258,6 +258,108 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["total_returned"], 1)
         self.assertEqual(payload["issues"][0]["reference"], "example/project#42")
 
+    def test_funded_issues_validate_passes_clean_local_dataset(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "clean-funded-issues.json"
+            source.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.v1",
+                        "issues": [
+                            {
+                                "id": "clean-issue",
+                                "platform": "polar",
+                                "repository": "example/clean",
+                                "issue_number": 12,
+                                "title": "Fix reproducible CLI regression",
+                                "url": "https://github.com/example/clean/issues/12",
+                                "funding": {"amount": 250, "currency": "USD"},
+                                "language": "python",
+                                "labels": ["bug"],
+                                "contribution_signals": ["reproduction included"],
+                                "risk_flags": [],
+                                "contribution_guidelines_url": (
+                                    "https://github.com/example/clean/blob/main/CONTRIBUTING.md"
+                                ),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                ["funded-issues", "validate", "--source", str(source), "--format", "json"]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["schema_version"], "patchrail.funded_issues.validation.v1")
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["warning_count"], 0)
+        self.assertEqual(payload["counts"]["low_risk"], 1)
+        self.assertEqual(payload["requirements"]["network_required"], False)
+        self.assertEqual(payload["requirements"]["github_write_permission_required"], False)
+
+    def test_funded_issues_validate_warns_on_review_gaps_without_strict_failure(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "validate",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["status"], "needs_review")
+        self.assertGreater(payload["warning_count"], 0)
+        self.assertIn("example/toolkit#17", payload["warnings"]["high_risk"])
+        self.assertIn("example/toolkit#17", payload["warnings"]["missing_contribution_guidelines"])
+        self.assertIn("automatic_claims", payload["blocked_actions"])
+        self.assertIn("read-only", payload["boundary"])
+
+    def test_funded_issues_validate_strict_fails_on_review_warnings(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "validate",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--strict",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 1)
+        payload = json.loads(proc.stdout)
+        self.assertTrue(payload["strict"])
+        self.assertEqual(payload["status"], "needs_review")
+        self.assertGreater(payload["warning_count"], 0)
+
+    def test_funded_issues_validate_returns_structured_invalid_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "invalid-funded-issues.json"
+            source.write_text(
+                json.dumps({"schema_version": "wrong.version", "issues": []}),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                ["funded-issues", "validate", "--source", str(source), "--format", "json"]
+            )
+
+        self.assertEqual(proc.returncode, 1)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["status"], "invalid")
+        self.assertEqual(payload["total_loaded"], 0)
+        self.assertFalse(payload["requirements"]["network_required"])
+        self.assertIn("patchrail.funded_issues.v1", payload["errors"][0])
+
     def test_funded_issues_report_summarizes_coverage_and_no_go_moat(self) -> None:
         proc = run_patchrail(
             [

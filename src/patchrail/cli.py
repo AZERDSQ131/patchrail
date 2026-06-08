@@ -26,6 +26,7 @@ from patchrail.funded_issues import (
     load_funded_issues,
     report_funded_issues,
     summarize_issues,
+    validate_funded_issues,
 )
 from patchrail.queue import (
     DEFAULT_QUEUE_PATH,
@@ -4233,6 +4234,51 @@ def _render_funded_issues_jsonl(issues: list[dict[str, Any]]) -> str:
     return "".join(json.dumps(issue, sort_keys=True) + "\n" for issue in issues)
 
 
+def _funded_issues_invalid_validation_payload(source: Path, exc: Exception) -> dict[str, Any]:
+    return {
+        "schema_version": "patchrail.funded_issues.validation.v1",
+        "source_schema_version": None,
+        "status": "invalid",
+        "read_only": True,
+        "source": str(source),
+        "total_loaded": 0,
+        "warning_count": 0,
+        "errors": [str(exc)],
+        "warnings": {
+            "duplicate_ids": [],
+            "duplicate_references": [],
+            "missing_funding": [],
+            "missing_contribution_guidelines": [],
+            "missing_contribution_signals": [],
+            "high_risk": [],
+        },
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "boundary": "Validation is local and read-only. Invalid sources are not usable evidence.",
+    }
+
+
+def _render_funded_issues_validate_text(payload: dict[str, Any]) -> str:
+    lines = [
+        "PatchRail Funded Issues Validation",
+        f"Status: {payload['status']}",
+        f"Loaded: {payload['total_loaded']}",
+        f"Warnings: {payload['warning_count']}",
+        "Read-only: True",
+    ]
+    errors = payload.get("errors") or []
+    for error in errors:
+        lines.append(f"ERROR {error}")
+    for warning_name, values in payload["warnings"].items():
+        if values:
+            lines.append(f"WARN {warning_name}: {', '.join(values)}")
+    return "\n".join(lines) + "\n"
+
+
 def _render_funded_issues_markdown(payload: dict[str, Any]) -> str:
     lines = [
         "# PatchRail Funded Issues",
@@ -4468,6 +4514,28 @@ def _load_funded_issues_for_cli(source: Path) -> list[Any]:
     if not source.exists():
         raise FileNotFoundError(source)
     return load_funded_issues(source)
+
+
+def _funded_issues_validate(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        payload = validate_funded_issues(issues)
+        payload["source"] = str(source)
+        payload["strict"] = bool(args.strict)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        payload = _funded_issues_invalid_validation_payload(source, exc)
+        payload["strict"] = bool(args.strict)
+    if args.format == "json":
+        text = _json_dump(payload)
+    else:
+        text = _render_funded_issues_validate_text(payload)
+    _write_or_print(text, args.out)
+    if payload["status"] == "invalid":
+        return 1
+    if args.strict and payload["warning_count"]:
+        return 1
+    return 0
 
 
 def _funded_issues_list(args: argparse.Namespace) -> int:
@@ -5339,6 +5407,29 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Inspect funded maintenance issues from local read-only metadata.",
     )
     funded_subparsers = funded.add_subparsers(dest="funded_issues_command", required=True)
+
+    funded_validate = funded_subparsers.add_parser(
+        "validate",
+        help="Validate a local funded issue dataset before using it as tracker evidence.",
+    )
+    funded_validate.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_validate.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return non-zero when review warnings are present.",
+    )
+    funded_validate.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="Output format.",
+    )
+    funded_validate.add_argument("--out", type=Path, help="Optional output path.")
+    funded_validate.set_defaults(func=_funded_issues_validate)
 
     funded_list = funded_subparsers.add_parser(
         "list",
