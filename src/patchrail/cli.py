@@ -5336,11 +5336,15 @@ def _render_funded_issues_cash_actions_markdown(payload: dict[str, Any]) -> str:
 
 def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> str:
     cash_path = payload["cash_path_status"]
+    readiness = payload["delivery_readiness"]
     totals = payload["totals"]
     lines = [
         "PatchRail Funded Issues Fulfillment Packet",
         f"Read-only: {payload['read_only']}",
         f"Status: {payload['status']}",
+        f"Delivery readiness: {readiness['status']}",
+        f"Ready for paid delivery: {readiness['ready_for_paid_delivery']}",
+        f"Blocking gates: {readiness['blocking_gates']}",
         f"Suggested package: {payload['suggested_package']}",
         f"Packet limit: {payload['packet_limit']}",
         f"Items before limit: {payload['items_before_limit']}",
@@ -5362,6 +5366,7 @@ def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> st
 
 def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -> str:
     cash_path = payload["cash_path_status"]
+    readiness = payload["delivery_readiness"]
     totals = payload["totals"]
     handoff = payload["handoff"]
     lines = [
@@ -5403,6 +5408,22 @@ def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -
         )
     lines.extend(
         [
+            "",
+            "## Delivery Readiness",
+            "",
+            f"- Status: `{readiness['status']}`",
+            f"- Ready for paid delivery: `{readiness['ready_for_paid_delivery']}`",
+            f"- Next internal action: `{readiness['next_internal_action']}`",
+            f"- Payment route allowed now: `{readiness['payment_route_allowed_now']}`",
+            f"- External body allowed: `{readiness['external_body_allowed']}`",
+            "- Blocking gates: " + _format_reference_list(readiness["blocking_gates"]),
+            "- Blocking item actions: "
+            + _format_reference_list(readiness["blocking_item_actions"]),
+            "- Blocking reference scope: "
+            + _format_reference_list(readiness["blocking_reference_scope"]),
+            "",
+            readiness["boundary"],
+            "",
             "",
             "## Fulfillment Items",
             "",

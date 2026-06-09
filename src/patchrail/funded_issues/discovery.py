@@ -852,6 +852,7 @@ def fulfillment_packet_funded_issues(
         recheck_payload=recheck_payload,
         cash_payload=cash_payload,
     )
+    qa_gates = _fulfillment_qa_gates(report_payload)
     items_before_limit = len(items)
     if max_items is not None:
         items = items[:max_items]
@@ -881,7 +882,12 @@ def fulfillment_packet_funded_issues(
             "active_rechecks": report_payload["recheck_plan"]["recheck_rows"],
             "source_count": len(report_payload["source_quality"]["sources"]),
         },
-        "qa_gates": _fulfillment_qa_gates(report_payload),
+        "qa_gates": qa_gates,
+        "delivery_readiness": _fulfillment_delivery_readiness(
+            qa_gates=qa_gates,
+            items=items,
+            report_payload=report_payload,
+        ),
         "handoff": {
             "candidate_references": report_payload["delivery_pack"]["handoff"][
                 "candidate_references"
@@ -1112,6 +1118,35 @@ def _fulfillment_qa_gate(
         "passed": passed,
         "reason": reason,
         "evidence": evidence,
+    }
+
+
+def _fulfillment_delivery_readiness(
+    *,
+    qa_gates: list[dict[str, Any]],
+    items: list[dict[str, Any]],
+    report_payload: dict[str, Any],
+) -> dict[str, Any]:
+    blocking_gates = [gate["gate"] for gate in qa_gates if not gate["passed"]]
+    blocking_items = [item for item in items if item["blocks_paid_delivery"]]
+    ready_for_paid_delivery = not blocking_gates and not blocking_items
+    return {
+        "ready_for_paid_delivery": ready_for_paid_delivery,
+        "status": "ready_for_paid_delivery" if ready_for_paid_delivery else "blocked_internal",
+        "passed_gates": [gate["gate"] for gate in qa_gates if gate["passed"]],
+        "blocking_gates": blocking_gates,
+        "blocking_item_actions": sorted({str(item["action"]) for item in blocking_items}),
+        "blocking_reference_scope": sorted(
+            {reference for item in blocking_items for reference in item["reference_scope"]}
+        ),
+        "next_internal_action": report_payload["cash_path_status"]["next_revenue_action"],
+        "payment_route_allowed_now": False,
+        "external_body_allowed": False,
+        "boundary": (
+            "Delivery readiness is internal operations status only. It does not authorize "
+            "customer-facing prose, payment routes, claims, comments, maintainer contact, "
+            "pull requests, or merge/payout guarantees."
+        ),
     }
 
 
