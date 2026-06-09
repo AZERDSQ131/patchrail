@@ -3,9 +3,11 @@ from __future__ import annotations
 import unittest
 
 from patchrail.funded_issues import (
+    COMPETITION_BATCH_SCHEMA_VERSION,
     COMPETITION_SIGNAL_SCHEMA_VERSION,
     FundedIssue,
     assess_bounty_competition,
+    assess_competition_batch,
     score_funded_issues,
 )
 
@@ -126,6 +128,84 @@ class CompetitionFlagScoringIntegrationTests(unittest.TestCase):
             [self._issue(["contested_bounty", "crowded_no_assignment"])]
         )["scores"][0]["score"]
         self.assertLess(contested, quiet)
+
+
+class AssessCompetitionBatchTests(unittest.TestCase):
+    def _observations(self) -> list[dict[str, object]]:
+        return [
+            {"reference": "quiet/repo#1", "competing_pr_count": 1, "comment_count": 3},
+            {
+                "reference": "trap/repo#2",
+                "competing_pr_count": 6,
+                "distinct_claimants": 5,
+                "comment_count": 30,
+                "assigned": False,
+            },
+            {
+                "reference": "busy/repo#3",
+                "comment_count": 18,
+                "assigned": False,
+            },
+        ]
+
+    def test_batch_payload_shape_and_summary(self) -> None:
+        payload = assess_competition_batch(self._observations())
+        self.assertEqual(payload["schema_version"], COMPETITION_BATCH_SCHEMA_VERSION)
+        self.assertTrue(payload["read_only"])
+        self.assertEqual(payload["reviewed"], 3)
+        summary = payload["summary"]
+        self.assertEqual(summary["reviewed"], 3)
+        self.assertEqual(summary["high"], 1)
+        self.assertEqual(summary["elevated"], 1)
+        self.assertEqual(summary["low"], 1)
+        self.assertEqual(summary["noise_traps"], 2)
+        self.assertEqual(summary["contested_bounty"], 1)
+        self.assertEqual(summary["crowded_no_assignment"], 2)
+        self.assertIn("automatic_claims", payload["blocked_actions"])
+
+    def test_results_are_sorted_highest_pressure_first(self) -> None:
+        payload = assess_competition_batch(self._observations())
+        references = [row["reference"] for row in payload["results"]]
+        self.assertEqual(references, ["trap/repo#2", "busy/repo#3", "quiet/repo#1"])
+        self.assertEqual(payload["results"][0]["level"], "high")
+        self.assertEqual(payload["results"][-1]["level"], "low")
+
+    def test_missing_reference_gets_positional_label(self) -> None:
+        payload = assess_competition_batch([{"comment_count": 1}])
+        self.assertEqual(payload["results"][0]["reference"], "observation-1")
+
+    def test_id_and_url_are_accepted_as_reference_fallbacks(self) -> None:
+        payload = assess_competition_batch(
+            [
+                {"id": "polar-7", "comment_count": 1},
+                {"url": "https://example.com/issues/9", "comment_count": 1},
+            ]
+        )
+        references = {row["reference"] for row in payload["results"]}
+        self.assertIn("polar-7", references)
+        self.assertIn("https://example.com/issues/9", references)
+
+    def test_empty_batch_is_valid(self) -> None:
+        payload = assess_competition_batch([])
+        self.assertEqual(payload["reviewed"], 0)
+        self.assertEqual(payload["results"], [])
+        self.assertEqual(payload["summary"]["noise_traps"], 0)
+
+    def test_non_list_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            assess_competition_batch({"observations": []})
+
+    def test_non_dict_observation_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            assess_competition_batch([{"comment_count": 1}, "nope"])
+
+    def test_non_string_reference_is_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            assess_competition_batch([{"reference": 7, "comment_count": 1}])
+
+    def test_invalid_count_propagates_validation_error(self) -> None:
+        with self.assertRaises(ValueError):
+            assess_competition_batch([{"competing_pr_count": -1}])
 
 
 if __name__ == "__main__":

@@ -23,6 +23,7 @@ from patchrail.funded_issues import (
     SUPPORTED_PROVIDERS,
     VALID_OPPORTUNITY_STATES,
     VALID_RISK_LEVELS,
+    assess_competition_batch,
     cash_actions_funded_issues,
     explain_issue,
     fulfillment_packet_funded_issues,
@@ -6031,6 +6032,97 @@ def _funded_issues_fulfillment_packet(args: argparse.Namespace) -> int:
     return 0
 
 
+def _default_competition_observations_source() -> Path:
+    return Path("examples") / "funded-issues-readonly" / "competition-observations.json"
+
+
+def _render_funded_issues_competition_text(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    lines = [
+        "PatchRail Funded Issues Competition Signal",
+        f"Read-only: {payload['read_only']}",
+        f"Reviewed: {summary['reviewed']}",
+        f"Noise traps (high+elevated): {summary['noise_traps']}",
+        f"High: {summary['high']} | Elevated: {summary['elevated']} | Low: {summary['low']}",
+        f"Contested bounty: {summary['contested_bounty']} | "
+        f"Crowded no owner: {summary['crowded_no_assignment']}",
+    ]
+    for result in payload["results"]:
+        observed = result["observed"]
+        flags = ", ".join(result["risk_flags"]) or "none"
+        lines.append(
+            f"{result['reference']} | {result['level']} | flags: {flags} | "
+            f"PRs: {observed['competing_pr_count']} | "
+            f"claimants: {observed['distinct_claimants']} | "
+            f"comments: {observed['comment_count']} | "
+            f"assigned: {observed['assigned']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_competition_markdown(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    lines = [
+        "# PatchRail Funded Issues Competition Signal",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Reviewed: `{summary['reviewed']}`",
+        f"- Noise traps (high+elevated): `{summary['noise_traps']}`",
+        f"- High: `{summary['high']}` | Elevated: `{summary['elevated']}` | Low: `{summary['low']}`",
+        f"- Contested bounty: `{summary['contested_bounty']}` | "
+        f"Crowded no owner: `{summary['crowded_no_assignment']}`",
+        "",
+        "## Results",
+        "",
+    ]
+    if payload["results"]:
+        lines.extend(
+            [
+                "| Reference | Level | Risk flags | PRs | Claimants | Comments | Assigned | Next step |",
+                "|---|---|---|---:|---:|---:|---|---|",
+            ]
+        )
+        for result in payload["results"]:
+            observed = result["observed"]
+            flags = ", ".join(result["risk_flags"]) or "none"
+            lines.append(
+                "| "
+                f"{_escape_markdown_cell(result['reference'])} | "
+                f"`{result['level']}` | "
+                f"{_escape_markdown_cell(flags)} | "
+                f"{observed['competing_pr_count']} | "
+                f"{observed['distinct_claimants']} | "
+                f"{observed['comment_count']} | "
+                f"{observed['assigned']} | "
+                f"{_escape_markdown_cell(result['recommended_next_step'])} |"
+            )
+    else:
+        lines.append("No competition observations were provided.")
+    lines.extend(["", "## Blocked Actions", ""])
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _funded_issues_competition(args: argparse.Namespace) -> int:
+    source = args.source or _default_competition_observations_source()
+    try:
+        raw = json.loads(source.read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            raw = raw.get("observations", raw)
+        payload = assess_competition_batch(raw)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid competition observations source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_competition_markdown(payload)
+    else:
+        text = _render_funded_issues_competition_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _web_metrics_update(args: argparse.Namespace) -> int:
     try:
         payload = update_web_metrics(
@@ -7271,6 +7363,28 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_fulfillment_packet.add_argument("--out", type=Path, help="Optional output path.")
     funded_fulfillment_packet.set_defaults(func=_funded_issues_fulfillment_packet)
+
+    funded_competition = funded_subparsers.add_parser(
+        "competition",
+        help="Score read-only competition / noise-trap pressure for a batch of bounties.",
+    )
+    funded_competition.add_argument(
+        "--source",
+        type=Path,
+        help=(
+            "Local JSON file of public competition observations (list, or an object with an "
+            "'observations' list). Defaults to "
+            "examples/funded-issues-readonly/competition-observations.json."
+        ),
+    )
+    funded_competition.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_competition.add_argument("--out", type=Path, help="Optional output path.")
+    funded_competition.set_defaults(func=_funded_issues_competition)
 
     return parser
 

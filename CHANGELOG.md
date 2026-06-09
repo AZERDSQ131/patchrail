@@ -8,6 +8,13 @@
   comment volume, assignment), with curated `CONTESTED_HIGH_COMPETITION` /
   `CROWDED_NO_CLEAR_OWNER` reason codes. Competition flags cost score and
   confidence without forcing an automatic no-go.
+- Added `funded-issues competition`, a read-only batch command that scores
+  competition / noise-trap pressure across many bounties from public metadata
+  observations (JSON list or `{observations: [...]}`), sorts results
+  highest-pressure first, and summarizes high/elevated/low counts plus
+  contested/crowded totals. Backed by the pure `assess_competition_batch`
+  helper and an example observations fixture. Strictly read-only: no claims,
+  comments, or maintainer contact.
 - Prepared the CI Janitor v0.2 evidence bundle around the 143-case fixture zoo,
   `fixture-check`, read-only GitHub Actions triage artifact, maintainer pilot
   guide, and public metrics/adopter surfaces.

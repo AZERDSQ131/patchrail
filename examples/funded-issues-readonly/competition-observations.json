@@ -1,0 +1,34 @@
+{
+  "schema_version": "patchrail.funded_issues.competition_observations.v1",
+  "note": "Public metadata counts only. PatchRail never claims, comments, or contacts maintainers.",
+  "observations": [
+    {
+      "reference": "example/project#42",
+      "competing_pr_count": 1,
+      "distinct_claimants": 1,
+      "comment_count": 4,
+      "assigned": false
+    },
+    {
+      "reference": "example/toolkit#17",
+      "competing_pr_count": 6,
+      "distinct_claimants": 5,
+      "comment_count": 31,
+      "assigned": false
+    },
+    {
+      "reference": "example/api#88",
+      "competing_pr_count": 4,
+      "distinct_claimants": 2,
+      "comment_count": 9,
+      "assigned": true
+    },
+    {
+      "reference": "example/cli#210",
+      "competing_pr_count": 0,
+      "distinct_claimants": 1,
+      "comment_count": 18,
+      "assigned": false
+    }
+  ]
+}

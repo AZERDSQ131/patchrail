@@ -15,6 +15,7 @@ RECHECK_QUEUE_SCHEMA_VERSION = "patchrail.funded_issues.recheck_queue.v1"
 CASH_ACTIONS_SCHEMA_VERSION = "patchrail.funded_issues.cash_actions.v1"
 FULFILLMENT_PACKET_SCHEMA_VERSION = "patchrail.funded_issues.fulfillment_packet.v1"
 COMPETITION_SIGNAL_SCHEMA_VERSION = "patchrail.funded_issues.competition.v1"
+COMPETITION_BATCH_SCHEMA_VERSION = "patchrail.funded_issues.competition_batch.v1"
 BLOCKED_ACTIONS = [
     "automatic_claims",
     "automatic_pull_requests",
@@ -3007,6 +3008,91 @@ def assess_bounty_competition(
         },
         "thresholds": dict(COMPETITION_THRESHOLDS),
         "recommended_next_step": next_step,
+    }
+
+
+_COMPETITION_LEVEL_ORDER = {"high": 0, "elevated": 1, "low": 2}
+
+
+def _competition_sort_key(result: dict[str, Any]) -> tuple[int, int, str]:
+    observed = result["observed"]
+    pressure = (
+        observed["competing_pr_count"] + observed["distinct_claimants"] + observed["comment_count"]
+    )
+    return (
+        _COMPETITION_LEVEL_ORDER.get(result["level"], 3),
+        -pressure,
+        result["reference"],
+    )
+
+
+def assess_competition_batch(observations: Any) -> dict[str, Any]:
+    """Assess read-only competition / noise-trap pressure across a batch of bounties.
+
+    Productizes the per-prospect recon the desk does by hand into a single pass:
+    given public metadata counts for several funded issues, surface which ones are
+    contested or crowded noise traps so an operator can drop them before spending
+    engineering time. ``observations`` is a list of dicts, each with an optional
+    ``reference`` (or ``id``/``url``) label plus the public counts consumed by
+    :func:`assess_bounty_competition` (``competing_pr_count``, ``distinct_claimants``,
+    ``comment_count``, ``assigned``). Results are sorted highest-pressure first.
+    This never claims, comments on, or contacts anyone.
+    """
+    if not isinstance(observations, list):
+        raise ValueError("competition observations must be a list")
+
+    results: list[dict[str, Any]] = []
+    level_counts = {"high": 0, "elevated": 0, "low": 0}
+    contested = 0
+    crowded = 0
+
+    for index, raw in enumerate(observations):
+        if not isinstance(raw, dict):
+            raise ValueError(f"competition observation #{index} must be an object")
+        reference = raw.get("reference") or raw.get("id") or raw.get("url")
+        if reference is not None and not isinstance(reference, str):
+            raise ValueError(f"competition observation #{index} reference must be a string")
+        signal = assess_bounty_competition(
+            competing_pr_count=raw.get("competing_pr_count", 0),
+            distinct_claimants=raw.get("distinct_claimants", 0),
+            comment_count=raw.get("comment_count", 0),
+            assigned=raw.get("assigned", False),
+        )
+        level_counts[signal["level"]] += 1
+        if CONTESTED_BOUNTY_FLAG in signal["risk_flags"]:
+            contested += 1
+        if CROWDED_NO_ASSIGNMENT_FLAG in signal["risk_flags"]:
+            crowded += 1
+        results.append(
+            {
+                "reference": reference or f"observation-{index + 1}",
+                "level": signal["level"],
+                "risk_flags": signal["risk_flags"],
+                "reason_codes": signal["reason_codes"],
+                "observed": signal["observed"],
+                "recommended_next_step": signal["recommended_next_step"],
+            }
+        )
+
+    results.sort(key=_competition_sort_key)
+    noise_traps = level_counts["high"] + level_counts["elevated"]
+
+    return {
+        "schema_version": COMPETITION_BATCH_SCHEMA_VERSION,
+        "read_only": True,
+        "reviewed": len(results),
+        "summary": {
+            "reviewed": len(results),
+            "noise_traps": noise_traps,
+            "high": level_counts["high"],
+            "elevated": level_counts["elevated"],
+            "low": level_counts["low"],
+            "contested_bounty": contested,
+            "crowded_no_assignment": crowded,
+        },
+        "thresholds": dict(COMPETITION_THRESHOLDS),
+        "results": results,
+        "blocked_actions": list(BLOCKED_ACTIONS),
     }
 
 
