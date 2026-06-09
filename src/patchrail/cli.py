@@ -4458,6 +4458,7 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
         ),
         _source_quality_summary(payload["source_quality"]),
         _recheck_plan_summary(payload["recheck_plan"]),
+        _client_fit_summary_line(payload["client_fit_summary"]),
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         "Read-only: True",
     ]
@@ -4489,6 +4490,15 @@ def _recheck_plan_summary(recheck_plan: dict[str, Any]) -> str:
         "Recheck plan: "
         f"{recheck_plan['recheck_rows']} active rechecks, "
         f"{recheck_plan['no_go_rows']} archived no-go rows"
+    )
+
+
+def _client_fit_summary_line(client_fit_summary: dict[str, Any]) -> str:
+    return (
+        "Client fit summary: "
+        f"{client_fit_summary['matching_rows']}/{client_fit_summary['total_rows']} "
+        f"matching rows, {client_fit_summary['excluded_rows']} excluded, "
+        f"status {client_fit_summary['status']}"
     )
 
 
@@ -4526,6 +4536,34 @@ def _append_source_quality_markdown(
     else:
         lines.append("| n/a | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | No rows matched the filters. |")
     lines.extend(["", source_quality["boundary"]])
+
+
+def _append_client_fit_summary_markdown(
+    lines: list[str],
+    client_fit_summary: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Client Fit Summary",
+            "",
+            f"- Profile: `{client_fit_summary['profile_name'] or 'none'}`",
+            f"- Status: `{client_fit_summary['status']}`",
+            f"- Matching rows: `{client_fit_summary['matching_rows']}` / "
+            f"`{client_fit_summary['total_rows']}`",
+            f"- Excluded rows: `{client_fit_summary['excluded_rows']}`",
+            f"- Recommended action: {client_fit_summary['recommended_action']}",
+            "",
+            "| Gap code | Count |",
+            "|---|---:|",
+        ]
+    )
+    if client_fit_summary["gap_counts"]:
+        for gap_code, count in client_fit_summary["gap_counts"].items():
+            lines.append(f"| `{gap_code}` | {count} |")
+    else:
+        lines.append("| n/a | 0 |")
+    lines.extend(["", client_fit_summary["boundary"]])
 
 
 def _append_recheck_plan_markdown(
@@ -4660,6 +4698,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
         lines.append(f"| `{level}` | {count} |")
     _append_source_quality_markdown(lines, payload["source_quality"])
     _append_recheck_plan_markdown(lines, payload["recheck_plan"])
+    _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     lines.extend(
         [
@@ -4846,6 +4885,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
         ),
         _source_quality_summary(payload["source_quality"]),
         _recheck_plan_summary(payload["recheck_plan"]),
+        _client_fit_summary_line(payload["client_fit_summary"]),
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         "Read-only: True",
         "Boundary: Decision support only.",
@@ -4909,6 +4949,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
         lines.append(f"| `{level}` | {count} |")
     _append_source_quality_markdown(lines, payload["source_quality"])
     _append_recheck_plan_markdown(lines, payload["recheck_plan"])
+    _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     lines.extend(
         [

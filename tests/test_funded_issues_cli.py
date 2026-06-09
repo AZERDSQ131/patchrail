@@ -501,6 +501,15 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             recheck_plan["next_rows"][0]["action"], "recheck_public_issue_state"
         )
         self.assertIn("read-only tracker triage", recheck_plan["boundary"])
+        client_fit_summary = payload["client_fit_summary"]
+        self.assertIsNone(client_fit_summary["profile_name"])
+        self.assertEqual(client_fit_summary["status"], "no_profile")
+        self.assertEqual(client_fit_summary["total_rows"], 2)
+        self.assertEqual(client_fit_summary["matching_rows"], 2)
+        self.assertEqual(client_fit_summary["excluded_rows"], 0)
+        self.assertEqual(client_fit_summary["gap_counts"], {})
+        self.assertIn("read-only client profile", client_fit_summary["recommended_action"])
+        self.assertIn("does not authorize claiming", client_fit_summary["boundary"])
         self.assertEqual(payload["top_safe_candidates"][0]["reference"], "example/project#42")
         self.assertEqual(payload["top_safe_candidates"][0]["opportunity_state"], "active")
         self.assertIn("ranking_by_money_only", payload["blocked_actions"])
@@ -538,6 +547,9 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Active rechecks: `1`", proc.stdout)
         self.assertIn("`recheck_public_issue_state` | 1", proc.stdout)
         self.assertIn("read-only tracker triage", proc.stdout)
+        self.assertIn("## Client Fit Summary", proc.stdout)
+        self.assertIn("Status: `no_profile`", proc.stdout)
+        self.assertIn("Matching rows: `2` / `2`", proc.stdout)
         self.assertIn("paid scope", proc.stdout)
         self.assertIn("## No-Go Moat", proc.stdout)
         self.assertIn("High-risk or excluded | 1", proc.stdout)
@@ -613,6 +625,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Client profile: `Async Python buyer`", proc.stdout)
         self.assertIn("In scope: `1`", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
+        self.assertIn("## Client Fit Summary", proc.stdout)
+        self.assertIn("Status: `partial_match`", proc.stdout)
+        self.assertIn("Matching rows: `1` / `2`", proc.stdout)
+        self.assertIn("EXCLUDED_RISK_FLAG:spam_attractive", proc.stdout)
         self.assertIn("## Client Fit Gaps", proc.stdout)
         self.assertIn("example/toolkit#17", proc.stdout)
         self.assertIn("LANGUAGE_MISMATCH", proc.stdout)
@@ -676,6 +692,11 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                     schema["$defs"]["recheck_row"]["properties"]["action"]["enum"],
                 )
                 self.assertIn("client_fit_gaps", schema["required"])
+                self.assertIn("client_fit_summary", schema["required"])
+                client_fit_summary = schema["$defs"]["client_fit_summary"]
+                self.assertIn("matching_rows", client_fit_summary["required"])
+                self.assertIn("partial_match", client_fit_summary["properties"]["status"]["enum"])
+                self.assertIn("gap_counts", client_fit_summary["required"])
                 client_fit_gap = schema["$defs"]["client_fit_gap"]
                 self.assertIn("gap_codes", client_fit_gap["required"])
                 self.assertIn("gap_summary", client_fit_gap["required"])
@@ -1032,6 +1053,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             payload["recheck_plan"]["next_rows"][0]["action"],
             "recheck_public_issue_state",
         )
+        client_fit_summary = payload["client_fit_summary"]
+        self.assertEqual(client_fit_summary["status"], "no_profile")
+        self.assertEqual(client_fit_summary["matching_rows"], 2)
+        self.assertEqual(client_fit_summary["excluded_rows"], 0)
         self.assertIn("automatic_claims", payload["blocked_actions"])
         self.assertIn("automatic_issue_comments", payload["blocked_actions"])
         self.assertFalse(payload["requirements"]["network_required"])
@@ -1067,6 +1092,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("## Recheck Plan", proc.stdout)
         self.assertIn("Archived no-go rows: `1`", proc.stdout)
         self.assertIn("`archive_as_no_go_evidence` | 1", proc.stdout)
+        self.assertIn("## Client Fit Summary", proc.stdout)
+        self.assertIn("Status: `no_profile`", proc.stdout)
         self.assertIn("## Shortlist", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
         self.assertIn("Confidence: `0.99`", proc.stdout)
@@ -1218,6 +1245,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/project#42")
         self.assertEqual(payload["no_go_evidence"], [])
         self.assertEqual(len(payload["client_fit_gaps"]), 1)
+        self.assertEqual(payload["client_fit_summary"]["profile_name"], "Async Python buyer")
+        self.assertEqual(payload["client_fit_summary"]["status"], "partial_match")
+        self.assertEqual(payload["client_fit_summary"]["matching_rows"], 1)
+        self.assertEqual(payload["client_fit_summary"]["excluded_rows"], 1)
+        self.assertEqual(
+            payload["client_fit_summary"]["gap_counts"]["LANGUAGE_MISMATCH"], 1
+        )
         self.assertEqual(payload["client_fit_gaps"][0]["reference"], "example/toolkit#17")
         self.assertEqual(
             payload["client_fit_gaps"][0]["gap_codes"],
@@ -1272,6 +1306,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["shortlist"], [])
         self.assertEqual(payload["no_go_evidence"], [])
         self.assertEqual(len(payload["client_fit_gaps"]), 2)
+        self.assertEqual(payload["client_fit_summary"]["status"], "no_matching_rows")
+        self.assertEqual(payload["client_fit_summary"]["matching_rows"], 0)
+        self.assertEqual(payload["client_fit_summary"]["excluded_rows"], 2)
+        self.assertIn(
+            "Do not pitch this batch",
+            payload["client_fit_summary"]["recommended_action"],
+        )
         self.assertEqual(payload["client_fit_gaps"][0]["reference"], "example/project#42")
         self.assertEqual(
             payload["client_fit_gaps"][0]["gap_codes"],

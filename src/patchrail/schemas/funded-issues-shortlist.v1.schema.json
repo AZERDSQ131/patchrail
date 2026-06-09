@@ -20,6 +20,7 @@
     "delivery_budget",
     "source_quality",
     "recheck_plan",
+    "client_fit_summary",
     "client_fit_gaps",
     "requirements",
     "boundary"
@@ -91,6 +92,9 @@
     },
     "recheck_plan": {
       "$ref": "#/$defs/recheck_plan"
+    },
+    "client_fit_summary": {
+      "$ref": "#/$defs/client_fit_summary"
     },
     "client_fit_gaps": {
       "$ref": "#/$defs/client_fit_gaps"
@@ -442,6 +446,38 @@
     "client_fit_gaps": {
       "type": "array",
       "items": { "$ref": "#/$defs/client_fit_gap" }
+    },
+    "client_fit_summary": {
+      "type": "object",
+      "required": [
+        "profile_name",
+        "status",
+        "total_rows",
+        "matching_rows",
+        "excluded_rows",
+        "gap_counts",
+        "recommended_action",
+        "boundary"
+      ],
+      "properties": {
+        "profile_name": { "type": ["string", "null"], "minLength": 1 },
+        "status": {
+          "enum": [
+            "all_rows_match",
+            "no_matching_rows",
+            "no_profile",
+            "no_rows",
+            "partial_match"
+          ]
+        },
+        "total_rows": { "type": "integer", "minimum": 0 },
+        "matching_rows": { "type": "integer", "minimum": 0 },
+        "excluded_rows": { "type": "integer", "minimum": 0 },
+        "gap_counts": { "$ref": "#/$defs/count_map" },
+        "recommended_action": { "type": "string", "minLength": 1 },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
     },
     "client_fit_gap": {
       "type": "object",

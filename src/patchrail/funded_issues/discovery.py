@@ -467,6 +467,7 @@ def report_funded_issues(
         "delivery_budget": _delivery_budget(scored_rows),
         "source_quality": _source_quality(scored_rows),
         "recheck_plan": _recheck_plan(scored_rows),
+        "client_fit_summary": _client_fit_summary(issues, profile, client_fit_gaps),
         "client_fit_gaps": client_fit_gaps,
         "top_safe_candidates": [
             {
@@ -627,6 +628,7 @@ def shortlist_funded_issues(
         "delivery_budget": _delivery_budget(score_payload["scores"]),
         "source_quality": _source_quality(score_payload["scores"]),
         "recheck_plan": _recheck_plan(score_payload["scores"]),
+        "client_fit_summary": _client_fit_summary(issues, profile, report_payload["client_fit_gaps"]),
         "client_fit_gaps": report_payload["client_fit_gaps"],
         "requirements": {
             "network_required": False,
@@ -882,6 +884,72 @@ def _client_fit_gaps(
             }
         )
     return rows
+
+
+def _client_fit_summary(
+    issues: list[FundedIssue],
+    profile: ClientProfile | None,
+    client_fit_gaps: list[dict[str, Any]],
+) -> dict[str, Any]:
+    total_rows = len(issues)
+    excluded_rows = len(client_fit_gaps) if profile else 0
+    matching_rows = max(0, total_rows - excluded_rows)
+    gap_counts = Counter(
+        gap_code for row in client_fit_gaps for gap_code in row["gap_codes"]
+    )
+    return {
+        "profile_name": profile.name if profile and profile.name else None,
+        "status": _client_fit_status(profile, total_rows, matching_rows, excluded_rows),
+        "total_rows": total_rows,
+        "matching_rows": matching_rows,
+        "excluded_rows": excluded_rows,
+        "gap_counts": dict(sorted(gap_counts.items())),
+        "recommended_action": _client_fit_recommended_action(
+            profile=profile,
+            total_rows=total_rows,
+            matching_rows=matching_rows,
+            excluded_rows=excluded_rows,
+        ),
+        "boundary": (
+            "Client fit is local buyer-fit evidence only. It does not authorize claiming "
+            "rewards, contacting maintainers, posting comments, or opening pull requests."
+        ),
+    }
+
+
+def _client_fit_status(
+    profile: ClientProfile | None,
+    total_rows: int,
+    matching_rows: int,
+    excluded_rows: int,
+) -> str:
+    if profile is None:
+        return "no_profile"
+    if total_rows == 0:
+        return "no_rows"
+    if matching_rows == 0:
+        return "no_matching_rows"
+    if excluded_rows:
+        return "partial_match"
+    return "all_rows_match"
+
+
+def _client_fit_recommended_action(
+    *,
+    profile: ClientProfile | None,
+    total_rows: int,
+    matching_rows: int,
+    excluded_rows: int,
+) -> str:
+    if profile is None:
+        return "Attach a read-only client profile before buyer-specific shortlist delivery."
+    if total_rows == 0:
+        return "Expand permitted read-only sources before buyer-fit ranking."
+    if matching_rows == 0:
+        return "Do not pitch this batch as buyer-ready; expand sources or adjust the client profile."
+    if excluded_rows:
+        return "Use matching rows for shortlist review and keep excluded rows as fit-gap evidence."
+    return "Use this batch for buyer-specific shortlist review after public-state recheck."
 
 
 def _client_fit_gap_codes(issue: FundedIssue, profile: ClientProfile) -> list[str]:
