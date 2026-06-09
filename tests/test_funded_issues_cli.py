@@ -486,6 +486,21 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(source_quality["sources"]["algora"]["usable_signal_ratio"], 0)
         self.assertIn("no-go moat evidence", source_quality["sources"]["algora"]["recommended_use"])
         self.assertIn("read-only benchmarking", source_quality["boundary"])
+        recheck_plan = payload["recheck_plan"]
+        self.assertEqual(recheck_plan["total_rows"], 2)
+        self.assertEqual(recheck_plan["recheck_rows"], 1)
+        self.assertEqual(recheck_plan["no_go_rows"], 1)
+        self.assertEqual(recheck_plan["priority_counts"], {"high": 1})
+        self.assertEqual(
+            recheck_plan["action_counts"],
+            {"archive_as_no_go_evidence": 1, "recheck_public_issue_state": 1},
+        )
+        self.assertEqual(recheck_plan["next_rows"][0]["reference"], "example/project#42")
+        self.assertEqual(recheck_plan["next_rows"][0]["priority"], "high")
+        self.assertEqual(
+            recheck_plan["next_rows"][0]["action"], "recheck_public_issue_state"
+        )
+        self.assertIn("read-only tracker triage", recheck_plan["boundary"])
         self.assertEqual(payload["top_safe_candidates"][0]["reference"], "example/project#42")
         self.assertEqual(payload["top_safe_candidates"][0]["opportunity_state"], "active")
         self.assertIn("ranking_by_money_only", payload["blocked_actions"])
@@ -519,6 +534,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("`polar` | 1 | 1 | 0 | 1", proc.stdout)
         self.assertIn("`algora` | 1 | 0 | 1 | 0", proc.stdout)
         self.assertIn("read-only benchmarking", proc.stdout)
+        self.assertIn("## Recheck Plan", proc.stdout)
+        self.assertIn("Active rechecks: `1`", proc.stdout)
+        self.assertIn("`recheck_public_issue_state` | 1", proc.stdout)
+        self.assertIn("read-only tracker triage", proc.stdout)
         self.assertIn("paid scope", proc.stdout)
         self.assertIn("## No-Go Moat", proc.stdout)
         self.assertIn("High-risk or excluded | 1", proc.stdout)
@@ -649,6 +668,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 self.assertIn("requirements", schema["required"])
                 self.assertIn("source_quality", schema["required"])
                 self.assertIn("sources", schema["$defs"]["source_quality"]["required"])
+                self.assertIn("recheck_plan", schema["required"])
+                self.assertIn("next_rows", schema["$defs"]["recheck_plan"]["required"])
+                self.assertIn("action", schema["$defs"]["recheck_row"]["required"])
+                self.assertIn(
+                    "recheck_public_issue_state",
+                    schema["$defs"]["recheck_row"]["properties"]["action"]["enum"],
+                )
                 self.assertIn("client_fit_gaps", schema["required"])
                 client_fit_gap = schema["$defs"]["client_fit_gap"]
                 self.assertIn("gap_codes", client_fit_gap["required"])
@@ -1000,6 +1026,12 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(source_quality["sources"]["algora"]["no_go_rows"], 1)
         self.assertEqual(source_quality["sources"]["algora"]["usable_signal_ratio"], 0)
         self.assertIn("read-only benchmarking", source_quality["boundary"])
+        self.assertEqual(payload["recheck_plan"]["recheck_rows"], 1)
+        self.assertEqual(payload["recheck_plan"]["no_go_rows"], 1)
+        self.assertEqual(
+            payload["recheck_plan"]["next_rows"][0]["action"],
+            "recheck_public_issue_state",
+        )
         self.assertIn("automatic_claims", payload["blocked_actions"])
         self.assertIn("automatic_issue_comments", payload["blocked_actions"])
         self.assertFalse(payload["requirements"]["network_required"])
@@ -1032,6 +1064,9 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("## Source Quality", proc.stdout)
         self.assertIn("`polar` | 1 | 1 | 0 | 1", proc.stdout)
         self.assertIn("`algora` | 1 | 0 | 1 | 0", proc.stdout)
+        self.assertIn("## Recheck Plan", proc.stdout)
+        self.assertIn("Archived no-go rows: `1`", proc.stdout)
+        self.assertIn("`archive_as_no_go_evidence` | 1", proc.stdout)
         self.assertIn("## Shortlist", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
         self.assertIn("Confidence: `0.99`", proc.stdout)

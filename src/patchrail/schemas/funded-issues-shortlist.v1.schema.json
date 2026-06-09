@@ -19,6 +19,7 @@
     "decision_summary",
     "delivery_budget",
     "source_quality",
+    "recheck_plan",
     "client_fit_gaps",
     "requirements",
     "boundary"
@@ -87,6 +88,9 @@
     },
     "source_quality": {
       "$ref": "#/$defs/source_quality"
+    },
+    "recheck_plan": {
+      "$ref": "#/$defs/recheck_plan"
     },
     "client_fit_gaps": {
       "$ref": "#/$defs/client_fit_gaps"
@@ -371,6 +375,67 @@
         "average_score": { "type": "number", "minimum": 0, "maximum": 100 },
         "usable_signal_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
         "recommended_use": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "recheck_plan": {
+      "type": "object",
+      "required": [
+        "total_rows",
+        "recheck_rows",
+        "no_go_rows",
+        "priority_counts",
+        "action_counts",
+        "next_rows",
+        "boundary"
+      ],
+      "properties": {
+        "total_rows": { "type": "integer", "minimum": 0 },
+        "recheck_rows": { "type": "integer", "minimum": 0 },
+        "no_go_rows": { "type": "integer", "minimum": 0 },
+        "priority_counts": { "$ref": "#/$defs/count_map" },
+        "action_counts": { "$ref": "#/$defs/count_map" },
+        "next_rows": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/recheck_row" }
+        },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "recheck_row": {
+      "type": "object",
+      "required": [
+        "reference",
+        "platform",
+        "decision_gate",
+        "priority",
+        "action",
+        "reason"
+      ],
+      "properties": {
+        "reference": { "type": "string", "minLength": 1 },
+        "platform": { "type": "string", "minLength": 1 },
+        "decision_gate": {
+          "enum": [
+            "go_after_recheck",
+            "needs_authorization",
+            "needs_funding_verification",
+            "no_go",
+            "watchlist"
+          ]
+        },
+        "priority": { "enum": ["high", "medium", "low", "none"] },
+        "action": {
+          "enum": [
+            "archive_as_no_go_evidence",
+            "confirm_client_authorization",
+            "recheck_public_issue_state",
+            "recheck_scope_and_noise",
+            "verify_funding_visibility"
+          ]
+        },
+        "reason": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },

@@ -4457,6 +4457,7 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
             f"within margin budget: {budget['within_margin_budget']}"
         ),
         _source_quality_summary(payload["source_quality"]),
+        _recheck_plan_summary(payload["recheck_plan"]),
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         "Read-only: True",
     ]
@@ -4480,6 +4481,14 @@ def _source_quality_summary(source_quality: dict[str, Any]) -> str:
         "Source quality: "
         f"{source} has {stats['candidate_rows']}/{stats['total_rows']} candidate rows, "
         f"{stats['usable_signal_ratio']} usable signal ratio"
+    )
+
+
+def _recheck_plan_summary(recheck_plan: dict[str, Any]) -> str:
+    return (
+        "Recheck plan: "
+        f"{recheck_plan['recheck_rows']} active rechecks, "
+        f"{recheck_plan['no_go_rows']} archived no-go rows"
     )
 
 
@@ -4517,6 +4526,55 @@ def _append_source_quality_markdown(
     else:
         lines.append("| n/a | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | No rows matched the filters. |")
     lines.extend(["", source_quality["boundary"]])
+
+
+def _append_recheck_plan_markdown(
+    lines: list[str],
+    recheck_plan: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Recheck Plan",
+            "",
+            f"- Rows: `{recheck_plan['total_rows']}`",
+            f"- Active rechecks: `{recheck_plan['recheck_rows']}`",
+            f"- Archived no-go rows: `{recheck_plan['no_go_rows']}`",
+            "",
+            "| Priority | Count |",
+            "|---|---:|",
+        ]
+    )
+    if recheck_plan["priority_counts"]:
+        for priority, count in recheck_plan["priority_counts"].items():
+            lines.append(f"| `{priority}` | {count} |")
+    else:
+        lines.append("| n/a | 0 |")
+    lines.extend(
+        [
+            "",
+            "| Action | Count |",
+            "|---|---:|",
+        ]
+    )
+    for action, count in recheck_plan["action_counts"].items():
+        lines.append(f"| `{action}` | {count} |")
+    lines.extend(
+        [
+            "",
+            "| Reference | Priority | Action | Reason |",
+            "|---|---|---|---|",
+        ]
+    )
+    if recheck_plan["next_rows"]:
+        for row in recheck_plan["next_rows"]:
+            lines.append(
+                f"| `{row['reference']}` | `{row['priority']}` | "
+                f"`{row['action']}` | {row['reason']} |"
+            )
+    else:
+        lines.append("| n/a | n/a | n/a | No active rechecks matched the filters. |")
+    lines.extend(["", recheck_plan["boundary"]])
 
 
 def _append_client_fit_gaps_markdown(
@@ -4601,6 +4659,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     for level, count in budget["analysis_rows"].items():
         lines.append(f"| `{level}` | {count} |")
     _append_source_quality_markdown(lines, payload["source_quality"])
+    _append_recheck_plan_markdown(lines, payload["recheck_plan"])
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     lines.extend(
         [
@@ -4786,6 +4845,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
             f"within margin budget: {budget['within_margin_budget']}"
         ),
         _source_quality_summary(payload["source_quality"]),
+        _recheck_plan_summary(payload["recheck_plan"]),
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         "Read-only: True",
         "Boundary: Decision support only.",
@@ -4848,6 +4908,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     for level, count in budget["analysis_rows"].items():
         lines.append(f"| `{level}` | {count} |")
     _append_source_quality_markdown(lines, payload["source_quality"])
+    _append_recheck_plan_markdown(lines, payload["recheck_plan"])
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     lines.extend(
         [

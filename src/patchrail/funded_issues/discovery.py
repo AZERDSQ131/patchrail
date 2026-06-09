@@ -466,6 +466,7 @@ def report_funded_issues(
         "decision_summary": _decision_summary(scored_rows),
         "delivery_budget": _delivery_budget(scored_rows),
         "source_quality": _source_quality(scored_rows),
+        "recheck_plan": _recheck_plan(scored_rows),
         "client_fit_gaps": client_fit_gaps,
         "top_safe_candidates": [
             {
@@ -625,6 +626,7 @@ def shortlist_funded_issues(
         },
         "delivery_budget": _delivery_budget(score_payload["scores"]),
         "source_quality": _source_quality(score_payload["scores"]),
+        "recheck_plan": _recheck_plan(score_payload["scores"]),
         "client_fit_gaps": report_payload["client_fit_gaps"],
         "requirements": {
             "network_required": False,
@@ -777,6 +779,84 @@ def _source_quality(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "or open pull requests."
         ),
     }
+
+
+def _recheck_plan(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    for row in scored_rows:
+        issue = row["issue"]
+        decision_gate = str(row["decision_gate"])
+        action = _recheck_action_for_gate(decision_gate)
+        priority = _recheck_priority_for_gate(decision_gate)
+        rows.append(
+            {
+                "reference": issue["reference"],
+                "platform": issue["platform"],
+                "decision_gate": decision_gate,
+                "priority": priority,
+                "action": action,
+                "reason": _recheck_reason_for_gate(decision_gate),
+            }
+        )
+
+    active_rechecks = [row for row in rows if row["action"] != "archive_as_no_go_evidence"]
+    priority_counts = Counter(row["priority"] for row in active_rechecks)
+    action_counts = Counter(row["action"] for row in rows)
+    return {
+        "total_rows": len(rows),
+        "recheck_rows": len(active_rechecks),
+        "no_go_rows": action_counts.get("archive_as_no_go_evidence", 0),
+        "priority_counts": dict(sorted(priority_counts.items())),
+        "action_counts": dict(sorted(action_counts.items())),
+        "next_rows": sorted(
+            active_rechecks,
+            key=lambda row: (
+                _recheck_priority_rank(row["priority"]),
+                row["platform"],
+                row["reference"],
+            ),
+        ),
+        "boundary": (
+            "Recheck plan is local read-only tracker triage. It schedules evidence review only; "
+            "it does not claim, comment, contact maintainers, open pull requests, or guarantee payout."
+        ),
+    }
+
+
+def _recheck_action_for_gate(decision_gate: str) -> str:
+    return {
+        "go_after_recheck": "recheck_public_issue_state",
+        "watchlist": "recheck_scope_and_noise",
+        "needs_funding_verification": "verify_funding_visibility",
+        "needs_authorization": "confirm_client_authorization",
+        "no_go": "archive_as_no_go_evidence",
+    }.get(decision_gate, "recheck_public_issue_state")
+
+
+def _recheck_priority_for_gate(decision_gate: str) -> str:
+    return {
+        "go_after_recheck": "high",
+        "needs_funding_verification": "high",
+        "watchlist": "medium",
+        "needs_authorization": "medium",
+        "no_go": "none",
+    }.get(decision_gate, "medium")
+
+
+def _recheck_reason_for_gate(decision_gate: str) -> str:
+    return {
+        "go_after_recheck": "Candidate rows need current public state recheck before shortlist use.",
+        "watchlist": "Watchlist rows need scope/noise recheck before paid review time.",
+        "needs_funding_verification": (
+            "Funding or current state is unclear and must be verified from permitted sources."
+        ),
+        "needs_authorization": "Row should stay parked until client authorization is explicit.",
+        "no_go": "Keep as exclusion evidence; do not spend delivery time.",
+    }.get(decision_gate, "Review public state before ranking this row.")
+
+
+def _recheck_priority_rank(priority: str) -> int:
+    return {"high": 0, "medium": 1, "low": 2, "none": 3}.get(priority, 2)
 
 
 def _client_fit_gaps(
