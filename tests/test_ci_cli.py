@@ -188,6 +188,105 @@ class PatchRailCITests(unittest.TestCase):
             payload = json.loads(stdout.getvalue())
             self.assertEqual(payload["failure_class"], "code_coverage_threshold")
 
+    def test_ci_classify_detects_mypy_type_check_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run mypy src\n"
+                'src/app.py:42: error: Incompatible return value type (got "int", '
+                'expected "str")  [return-value]\n'
+                'src/app.py:88: error: Argument 1 to "run" has incompatible type '
+                '"bytes"; expected "str"  [arg-type]\n'
+                "Found 2 errors in 1 file (checked 24 source files)\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "python_type_check")
+            self.assertGreaterEqual(payload["confidence"], 0.7)
+            self.assertEqual(payload["requirements"]["external_model_required"], False)
+
+    def test_ci_classify_detects_pyright_type_check_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run pyright\n"
+                '/repo/src/app.py:17:9 - error: "value" is not assignable to declared '
+                'type "int" (reportAssignmentType)\n'
+                "3 errors, 0 warnings, 0 informations\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "python_type_check")
+
+    def test_ci_classify_type_check_wins_over_passing_pytest_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run: pytest && mypy src\n"
+                "============== 120 passed in 4.2s ==============\n"
+                "src/app.py:10: error: Incompatible types in assignment  [assignment]\n"
+                "Found 1 error in 1 file (checked 12 source files)\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "python_type_check")
+
+    def test_ci_classify_detects_ruff_lint_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run ruff check .\n"
+                "src/app.py:1:1: F401 [*] `os` imported but unused\n"
+                "src/app.py:12:89: E501 Line too long (104 > 88)\n"
+                "Found 2 errors.\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "python_lint")
+            self.assertGreaterEqual(payload["confidence"], 0.7)
+
+    def test_ci_classify_detects_black_format_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run black --check .\n"
+                "would reformat src/app.py\n"
+                "Oh no! 1 file would be reformatted, 23 files would be left unchanged.\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "python_lint")
+
     def test_schema_command_emits_ci_result_contract(self) -> None:
         proc = subprocess.run(
             [sys.executable, "-m", "patchrail", "schema", "ci-result"],
@@ -210,6 +309,8 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("runner_resource_exhaustion", schema["properties"]["failure_class"]["enum"])
         self.assertIn("network_transient_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("code_coverage_threshold", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("python_type_check", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("python_lint", schema["properties"]["failure_class"]["enum"])
         self.assertEqual(
             schema["properties"]["requirements"]["properties"]["billing_required"]["const"], False
         )

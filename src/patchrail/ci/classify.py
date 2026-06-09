@@ -169,6 +169,65 @@ RULES: list[dict[str, Any]] = [
         ),
     },
     {
+        "failure_class": "python_type_check",
+        "likely_subsystem": "Python static type checking",
+        "patterns": [
+            r"\bmypy\b",
+            r"\bpyright\b",
+            r"Found \d+ errors? in \d+ files?",
+            r"error: Incompatible (?:types|return value type|default for argument)",
+            r"has incompatible type",
+            r"Argument \d+ to .* has incompatible type",
+            r"error: .*\[(?:assignment|arg-type|return-value|attr-defined|call-arg|union-attr"
+            r"|index|operator|var-annotated|name-defined|misc|override|valid-type|no-any-return"
+            r"|type-var|dict-item|list-item|import-untyped|func-returns-value)\]",
+            r"error: Need type annotation for",
+            r"error: Function is missing a (?:return )?type annotation",
+            r"error: Missing (?:return statement|type parameters)",
+            r"report(?:GeneralTypeIssues|ArgumentType|AttributeAccessIssue|ReturnType"
+            r"|OptionalMemberAccess|CallIssue|AssignmentType|IndexIssue|Redeclaration"
+            r"|UndefinedVariable)",
+            r"\d+ errors?, \d+ warnings?, \d+ informations?",
+            r"is not assignable to (?:parameter|return type|declared type)",
+        ],
+        "reproduction_command": "mypy . || pyright",
+        "minimal_repair_strategy": (
+            "Confirm the static type checker (mypy or pyright) failed rather than the tests, then "
+            "fix the narrowest reported type mismatch, missing annotation, or import drift and "
+            "rerun the same type checker before broad CI."
+        ),
+    },
+    {
+        "failure_class": "python_lint",
+        "likely_subsystem": "Python linting or formatting",
+        "patterns": [
+            r"\bruff\b",
+            r"ruff check",
+            r"\bflake8\b",
+            r"\bpycodestyle\b",
+            r"\bpyflakes\b",
+            r"\bpylint\b",
+            r"\bautopep8\b",
+            r"\bisort\b",
+            r"imported but unused",
+            r"\bF401\b",
+            r"\bE501\b",
+            r"line too long \(\d+ > \d+",
+            r"Your code has been rated at",
+            r"\((?:unused-import|line-too-long|missing-(?:module|function|class)-docstring"
+            r"|undefined-variable|unused-variable)\)",
+            r"\d+ files? would be reformatted",
+            r"would reformat \S+\.py",
+            r"Imports are incorrectly sorted",
+        ],
+        "reproduction_command": "ruff check . || flake8 .",
+        "minimal_repair_strategy": (
+            "Confirm a linter or formatter (ruff, flake8, pylint, black, or isort) failed rather "
+            "than the tests, then apply the reported fix only in the touched files and rerun the "
+            "same linter."
+        ),
+    },
+    {
         "failure_class": "python_test_failure",
         "likely_subsystem": "Python tests",
         "patterns": [r"\bpytest\b", r"FAILED .*::", r"AssertionError", r"ModuleNotFoundError"],
