@@ -1,0 +1,524 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/funded-issues-client-report.v1.schema.json",
+  "title": "PatchRail Funded Issues Client Report",
+  "description": "Client-facing read-only opportunity shortlist deliverable emitted by patchrail funded-issues client-report.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source_schema_version",
+    "read_only",
+    "client_name",
+    "prepared_by",
+    "date",
+    "scope",
+    "blocked_actions",
+    "filters",
+    "executive_summary",
+    "top_recommendations",
+    "watchlist",
+    "no_go_list",
+    "no_go_moat_evidence",
+    "patterns_observed",
+    "recommended_operating_procedure",
+    "disclaimer",
+    "requirements",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.funded_issues.client_report.v1"
+    },
+    "source_schema_version": {
+      "const": "patchrail.funded_issues.v1"
+    },
+    "read_only": {
+      "const": true
+    },
+    "client_name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "prepared_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "date": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scope": {
+      "type": "string"
+    },
+    "blocked_actions": {
+      "$ref": "#/$defs/blocked_actions"
+    },
+    "filters": {
+      "$ref": "#/$defs/filters"
+    },
+    "executive_summary": {
+      "$ref": "#/$defs/executive_summary"
+    },
+    "top_recommendations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recommendation"
+      }
+    },
+    "watchlist": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/watchlist_row"
+      }
+    },
+    "no_go_list": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/no_go_row"
+      }
+    },
+    "no_go_moat_evidence": {
+      "$ref": "#/$defs/no_go_moat_evidence"
+    },
+    "patterns_observed": {
+      "$ref": "#/$defs/patterns_observed"
+    },
+    "recommended_operating_procedure": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "disclaimer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "requirements": {
+      "$ref": "#/$defs/safe_requirements"
+    },
+    "boundary": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "blocked_actions": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "automatic_claims",
+          "automatic_pull_requests",
+          "automatic_issue_comments",
+          "mass_outreach",
+          "ranking_by_money_only"
+        ]
+      }
+    },
+    "safe_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "network_required",
+        "github_write_permission_required",
+        "external_model_required",
+        "billing_required"
+      ],
+      "properties": {
+        "network_required": {
+          "const": false
+        },
+        "github_write_permission_required": {
+          "const": false
+        },
+        "external_model_required": {
+          "const": false
+        },
+        "billing_required": {
+          "const": false
+        }
+      }
+    },
+    "filters": {
+      "type": "object",
+      "required": [
+        "profile",
+        "platform",
+        "language",
+        "min_usd",
+        "opportunity_state",
+        "risk_level"
+      ],
+      "properties": {
+        "profile": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/client_profile"
+            }
+          ]
+        },
+        "platform": {
+          "type": ["string", "null"]
+        },
+        "language": {
+          "type": ["string", "null"]
+        },
+        "min_usd": {
+          "type": ["number", "null"]
+        },
+        "opportunity_state": {
+          "type": ["string", "null"]
+        },
+        "risk_level": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "client_profile": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "name",
+        "languages",
+        "min_usd",
+        "allowed_opportunity_states",
+        "allowed_risk_levels",
+        "excluded_risk_flags",
+        "read_only"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "patchrail.funded_issues.client_profile.v1"
+        },
+        "read_only": {
+          "const": true
+        }
+      }
+    },
+    "executive_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewed",
+        "go",
+        "watchlist",
+        "no_go",
+        "actionable_percent",
+        "top_recommendation",
+        "dominant_no_go_reason"
+      ],
+      "properties": {
+        "reviewed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "go": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "watchlist": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "no_go": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "actionable_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "top_recommendation": {
+          "type": ["string", "null"]
+        },
+        "dominant_no_go_reason": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["reason_code", "count", "of_total"],
+              "properties": {
+                "reason_code": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "of_total": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "recommendation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "title",
+        "url",
+        "platform",
+        "language",
+        "payout",
+        "state",
+        "maintainer_activity",
+        "scope",
+        "risk",
+        "effort",
+        "recommended_next_step",
+        "confidence",
+        "decision"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "platform": {
+          "type": "string"
+        },
+        "language": {
+          "type": ["string", "null"]
+        },
+        "payout": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "maintainer_activity": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "risk": {
+          "type": "string"
+        },
+        "effort": {
+          "type": ["string", "null"]
+        },
+        "recommended_next_step": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "decision": {
+          "enum": ["Go", "Watchlist"]
+        }
+      }
+    },
+    "watchlist_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "title",
+        "url",
+        "payout",
+        "blocker",
+        "trigger_to_promote"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "payout": {
+          "type": "string"
+        },
+        "blocker": {
+          "type": "string"
+        },
+        "trigger_to_promote": {
+          "type": "string"
+        }
+      }
+    },
+    "no_go_row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reference",
+        "title",
+        "url",
+        "payout",
+        "reason_code",
+        "reason_codes",
+        "evidence"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        },
+        "payout": {
+          "type": "string"
+        },
+        "reason_code": {
+          "type": "string"
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "evidence": {
+          "type": "string"
+        }
+      }
+    },
+    "no_go_moat_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "raw_results_reviewed",
+        "in_scope_reviewed",
+        "high_risk_or_excluded",
+        "missing_contribution_guidelines",
+        "ambiguous_scope",
+        "spam_attractive",
+        "funding_unknown",
+        "stale_or_closed",
+        "final_go_candidates"
+      ],
+      "properties": {
+        "raw_results_reviewed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "in_scope_reviewed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high_risk_or_excluded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_contribution_guidelines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ambiguous_scope": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "spam_attractive": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "funding_unknown": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale_or_closed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "final_go_candidates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "patterns_observed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_go_reason_code_counts",
+        "go_platform_counts",
+        "go_language_counts",
+        "no_go_platform_counts",
+        "moat_highlights"
+      ],
+      "properties": {
+        "no_go_reason_code_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "go_platform_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "go_language_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "no_go_platform_counts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "moat_highlights": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "high_risk_or_excluded",
+            "funding_unknown",
+            "ambiguous_scope",
+            "stale_or_closed"
+          ],
+          "properties": {
+            "high_risk_or_excluded": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "funding_unknown": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ambiguous_scope": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stale_or_closed": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    }
+  }
+}

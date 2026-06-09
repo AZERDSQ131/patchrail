@@ -29,6 +29,7 @@ from patchrail.funded_issues import (
     assess_staleness_batch,
     assess_testability_batch,
     cash_actions_funded_issues,
+    client_report_funded_issues,
     explain_issue,
     fulfillment_packet_funded_issues,
     import_provider_export,
@@ -176,6 +177,7 @@ def _load_schema(name: str) -> str:
         "ci-pilot-metrics": "ci-pilot-metrics.v1.schema.json",
         "ci-pilot-summary": "ci-pilot-summary.v1.schema.json",
         "ci-result": "ci-result.v1.schema.json",
+        "funded-issues-client-report": "funded-issues-client-report.v1.schema.json",
         "funded-issues-report": "funded-issues-report.v1.schema.json",
         "funded-issues-recheck-queue": "funded-issues-recheck-queue.v1.schema.json",
         "funded-issues-shortlist": "funded-issues-shortlist.v1.schema.json",
@@ -5293,6 +5295,257 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _client_report_section_headers() -> list[str]:
+    return [
+        "## 1. Executive summary",
+        "## 2. Top recommendations",
+        "## 3. Watchlist",
+        "## 4. No-go list",
+        "## 5. No-go moat evidence",
+        "## 6. Patterns observed",
+        "## 7. Recommended operating procedure",
+        "## 8. Disclaimer",
+    ]
+
+
+def _render_funded_issues_client_report_text(payload: dict[str, Any]) -> str:
+    summary = payload["executive_summary"]
+    lines = [
+        "PatchRail Opportunity Shortlist",
+        f"Prepared for: {payload['client_name']}",
+        f"Prepared by: {payload['prepared_by']}",
+        f"Date: {payload['date']}",
+        f"Scope: {payload['scope']}",
+        "",
+        "Executive summary",
+        f"- Reviewed: {summary['reviewed']}",
+        f"- Go: {summary['go']}",
+        f"- Watchlist: {summary['watchlist']}",
+        f"- No-go: {summary['no_go']}",
+        f"- Actionable: {summary['actionable_percent']}%",
+        f"- Top recommendation: {summary['top_recommendation'] or 'none'}",
+    ]
+    dominant = summary["dominant_no_go_reason"]
+    if dominant:
+        lines.append(
+            "- Main reason for no-go decisions: "
+            f"{dominant['reason_code']} ({dominant['count']} of {dominant['of_total']})"
+        )
+    else:
+        lines.append("- Main reason for no-go decisions: none")
+    lines.append("")
+    lines.append("Top recommendations")
+    if payload["top_recommendations"]:
+        for row in payload["top_recommendations"]:
+            lines.append(
+                f"- {row['reference']} — {row['payout']} — {row['decision']} "
+                f"(confidence {row['confidence']})"
+            )
+    else:
+        lines.append("- No Go candidates matched the filters.")
+    lines.append("")
+    lines.append("Watchlist")
+    if payload["watchlist"]:
+        for row in payload["watchlist"]:
+            lines.append(f"- {row['reference']} — {row['payout']} — {row['blocker']}")
+    else:
+        lines.append("- No watchlist items matched the filters.")
+    lines.append("")
+    lines.append("No-go list")
+    if payload["no_go_list"]:
+        for row in payload["no_go_list"]:
+            lines.append(f"- {row['reference']} — {row['payout']} — {row['reason_code']}")
+    else:
+        lines.append("- No no-go rows matched the filters.")
+    lines.append("")
+    lines.append("Disclaimer")
+    lines.append(payload["disclaimer"])
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_client_report_markdown(payload: dict[str, Any]) -> str:
+    summary = payload["executive_summary"]
+    moat = payload["no_go_moat_evidence"]
+    patterns = payload["patterns_observed"]
+    lines = [
+        "# PatchRail Opportunity Shortlist",
+        "",
+        f"Prepared for: {payload['client_name']}",
+        f"Prepared by: {payload['prepared_by']}",
+        f"Scope: {payload['scope']}",
+        f"Date: {payload['date']}",
+        "",
+        "---",
+        "",
+        "## 1. Executive summary",
+        "",
+        f"- Reviewed: {summary['reviewed']} funded open-source issues",
+        f"- Actionable (Go): {summary['go']}",
+        f"- Watchlist: {summary['watchlist']}",
+        f"- No-go: {summary['no_go']}",
+        f"- Top recommendation: {summary['top_recommendation'] or 'none'}",
+    ]
+    dominant = summary["dominant_no_go_reason"]
+    if dominant:
+        lines.append(
+            "- Main reason for no-go decisions: "
+            f"`{dominant['reason_code']}` ({dominant['count']} of {dominant['of_total']})"
+        )
+    else:
+        lines.append("- Main reason for no-go decisions: none")
+    lines.extend(
+        [
+            "",
+            f"The signal-to-noise ratio in this batch was ~{summary['actionable_percent']}% "
+            "actionable. The review layer below filters stale, unclear, already-contested, "
+            "low-ROI, or authorization-heavy opportunities before engineering time is spent.",
+            "",
+            "---",
+            "",
+            "## 2. Top recommendations",
+            "",
+        ]
+    )
+    if payload["top_recommendations"]:
+        for index, row in enumerate(payload["top_recommendations"], start=1):
+            lines.append(f"### {index}. {row['reference']} — {row['payout']} — {row['decision']}")
+            lines.append("")
+            lines.append(f"- Title: {row['title']}")
+            lines.append(f"- URL: {row['url']}")
+            lines.append(f"- Platform: {row['platform']}")
+            lines.append(f"- Language/stack: {row['language'] or 'unspecified'}")
+            lines.append(f"- Current state: {row['state']}")
+            lines.append(f"- Maintainer activity: {row['maintainer_activity']}")
+            lines.append(f"- Scope clarity: {row['scope']}")
+            lines.append(f"- Risk: {row['risk']}")
+            if row["effort"]:
+                lines.append(f"- Estimated effort: {row['effort']}")
+            lines.append(f"- Recommended next step: {row['recommended_next_step']}")
+            lines.append(f"- Confidence: {row['confidence']}")
+            lines.append("")
+    else:
+        lines.append("No Go candidates matched the filters.")
+        lines.append("")
+    lines.extend(
+        [
+            "---",
+            "",
+            "## 3. Watchlist",
+            "",
+            "Issues that may become actionable after clarification or maintainer response.",
+            "",
+        ]
+    )
+    if payload["watchlist"]:
+        lines.append("| Issue | Payout | Blocker | Trigger to promote |")
+        lines.append("|---|---:|---|---|")
+        for row in payload["watchlist"]:
+            lines.append(
+                "| "
+                f"[{_escape_markdown_cell(row['reference'])}]({row['url']}) | "
+                f"{_escape_markdown_cell(row['payout'])} | "
+                f"{_escape_markdown_cell(row['blocker'])} | "
+                f"{_escape_markdown_cell(row['trigger_to_promote'])} |"
+            )
+    else:
+        lines.append("No watchlist items matched the filters.")
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "## 4. No-go list",
+            "",
+        ]
+    )
+    if payload["no_go_list"]:
+        lines.append("| Issue | Payout | Reason code | Evidence |")
+        lines.append("|---|---:|---|---|")
+        for row in payload["no_go_list"]:
+            lines.append(
+                "| "
+                f"[{_escape_markdown_cell(row['reference'])}]({row['url']}) | "
+                f"{_escape_markdown_cell(row['payout'])} | "
+                f"`{_escape_markdown_cell(row['reason_code'])}` | "
+                f"{_escape_markdown_cell(row['evidence'])} |"
+            )
+    else:
+        lines.append("No no-go rows matched the filters.")
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "## 5. No-go moat evidence",
+            "",
+            "The numbers below make the review layer visible: public links are only useful "
+            "after they survive state, funding, competition, scope and risk checks.",
+            "",
+            "| Measure | Count |",
+            "|---|---:|",
+            f"| Raw public results reviewed | {moat['raw_results_reviewed']} |",
+            f"| In-scope results reviewed | {moat['in_scope_reviewed']} |",
+            f"| High-risk or excluded | {moat['high_risk_or_excluded']} |",
+            f"| Missing contribution guidelines | {moat['missing_contribution_guidelines']} |",
+            f"| Ambiguous scope | {moat['ambiguous_scope']} |",
+            f"| Spam-attractive signals | {moat['spam_attractive']} |",
+            f"| Funding unclear | {moat['funding_unknown']} |",
+            f"| Stale or closed | {moat['stale_or_closed']} |",
+            f"| Final Go candidates | {moat['final_go_candidates']} |",
+            "",
+            "---",
+            "",
+            "## 6. Patterns observed",
+            "",
+        ]
+    )
+    if patterns["no_go_reason_code_counts"]:
+        reason_summary = ", ".join(
+            f"`{code}` ({count})" for code, count in patterns["no_go_reason_code_counts"].items()
+        )
+        lines.append(f"- **No-go reason codes:** {reason_summary}")
+    if patterns["go_platform_counts"]:
+        go_platforms = ", ".join(
+            f"{platform} ({count})" for platform, count in patterns["go_platform_counts"].items()
+        )
+        lines.append(f"- **Platforms with Go picks:** {go_platforms}")
+    if patterns["go_language_counts"]:
+        go_languages = ", ".join(
+            f"{language} ({count})" for language, count in patterns["go_language_counts"].items()
+        )
+        lines.append(f"- **Stacks with highest fit:** {go_languages}")
+    moat_highlights = patterns["moat_highlights"]
+    lines.append(
+        "- **Noise filtered:** "
+        f"{moat_highlights['high_risk_or_excluded']} high-risk/excluded, "
+        f"{moat_highlights['funding_unknown']} funding unclear, "
+        f"{moat_highlights['ambiguous_scope']} ambiguous scope, "
+        f"{moat_highlights['stale_or_closed']} stale or closed."
+    )
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "## 7. Recommended operating procedure",
+            "",
+        ]
+    )
+    lines.extend(f"- {step}" for step in payload["recommended_operating_procedure"])
+    lines.extend(
+        [
+            "",
+            "---",
+            "",
+            "## 8. Disclaimer",
+            "",
+            payload["disclaimer"],
+            "",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _render_funded_issues_recheck_queue_text(payload: dict[str, Any]) -> str:
     lines = [
         "PatchRail Funded Issues Recheck Queue",
@@ -5951,6 +6204,38 @@ def _funded_issues_shortlist(args: argparse.Namespace) -> int:
         text = _render_funded_issues_shortlist_markdown(payload)
     else:
         text = _render_funded_issues_shortlist_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_client_report(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
+        payload = client_report_funded_issues(
+            issues,
+            client_name=args.client_name,
+            report_date=args.date,
+            prepared_by=args.prepared_by,
+            safe_only=args.safe_only,
+            profile=profile,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
+            limit=args.limit,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "text":
+        text = _render_funded_issues_client_report_text(payload)
+    else:
+        text = _render_funded_issues_client_report_markdown(payload)
     _write_or_print(text, args.out)
     return 0
 
@@ -6762,6 +7047,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "ci-pilot-metrics",
             "ci-pilot-summary",
             "ci-result",
+            "funded-issues-client-report",
             "funded-issues-report",
             "funded-issues-recheck-queue",
             "funded-issues-shortlist",
@@ -7619,6 +7905,70 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_shortlist.add_argument("--out", type=Path, help="Optional output path.")
     funded_shortlist.set_defaults(func=_funded_issues_shortlist)
+
+    funded_client_report = funded_subparsers.add_parser(
+        "client-report",
+        help="Build the client-facing Opportunity Shortlist deliverable (read-only).",
+    )
+    funded_client_report.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_client_report.add_argument(
+        "--client-name",
+        required=True,
+        help="Client name the report is prepared for.",
+    )
+    funded_client_report.add_argument(
+        "--date",
+        required=True,
+        help="Report date in ISO format (injected for deterministic output).",
+    )
+    funded_client_report.add_argument(
+        "--prepared-by",
+        default="PatchRail Opportunity Desk",
+        help="Author line for the report.",
+    )
+    funded_client_report.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only allow safe-to-list issues in shortlist candidates.",
+    )
+    funded_client_report.add_argument("--platform", help="Filter by funding platform.")
+    funded_client_report.add_argument("--language", help="Filter by repository language.")
+    funded_client_report.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_client_report.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before shortlisting. Read-only.",
+    )
+    funded_client_report.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_client_report.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_client_report.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="Maximum shortlist candidate rows to include.",
+    )
+    funded_client_report.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_client_report.add_argument("--out", type=Path, help="Optional output path.")
+    funded_client_report.set_defaults(func=_funded_issues_client_report)
 
     funded_recheck_queue = funded_subparsers.add_parser(
         "recheck-queue",
