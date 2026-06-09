@@ -1,0 +1,32 @@
+{
+  "schema_version": "patchrail.funded_issues.staleness_observations.v1",
+  "note": "Public issue age/activity metadata only. PatchRail never claims, comments, or contacts maintainers; staleness drives a read-only opportunity_state recommendation.",
+  "observations": [
+    {
+      "reference": "example/project#42",
+      "days_since_last_activity": 4,
+      "days_since_created": 30,
+      "maintainer_recently_active": true
+    },
+    {
+      "reference": "example/toolkit#17",
+      "days_since_last_activity": 60,
+      "days_since_created": 200,
+      "maintainer_recently_active": false
+    },
+    {
+      "reference": "example/api#88",
+      "days_since_last_activity": 140,
+      "days_since_created": 410
+    },
+    {
+      "reference": "example/cli#210",
+      "days_since_last_activity": 430,
+      "days_since_created": 620,
+      "maintainer_recently_active": false
+    },
+    {
+      "reference": "example/docs#5"
+    }
+  ]
+}
