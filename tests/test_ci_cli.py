@@ -134,6 +134,60 @@ class PatchRailCITests(unittest.TestCase):
             self.assertEqual(payload["failure_class"], "network_transient_failure")
             self.assertIn("re-run", payload["reproduction_command"])
 
+    def test_ci_classify_detects_pytest_coverage_threshold_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run pytest --cov=src --cov-fail-under=90\n"
+                "======================== 412 passed in 18.44s ========================\n"
+                "Required test coverage of 90% not reached. Total coverage: 86.71%\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "code_coverage_threshold")
+            self.assertIn("coverage", payload["minimal_repair_strategy"])
+            self.assertEqual(payload["requirements"]["external_model_required"], False)
+
+    def test_ci_classify_coverage_gate_wins_over_passing_pytest_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "coverage report --fail-under=85\n"
+                "Coverage failure: total of 82 is less than fail-under=85\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "code_coverage_threshold")
+
+    def test_ci_classify_detects_jest_coverage_threshold_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                'Jest: "global" coverage threshold for statements (90%) not met: 84.21%\n'
+                "Jest: Coverage for lines (88%) does not meet global threshold (90%)\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "code_coverage_threshold")
+
     def test_schema_command_emits_ci_result_contract(self) -> None:
         proc = subprocess.run(
             [sys.executable, "-m", "patchrail", "schema", "ci-result"],
@@ -155,6 +209,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("php_composer_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("runner_resource_exhaustion", schema["properties"]["failure_class"]["enum"])
         self.assertIn("network_transient_failure", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("code_coverage_threshold", schema["properties"]["failure_class"]["enum"])
         self.assertEqual(
             schema["properties"]["requirements"]["properties"]["billing_required"]["const"], False
         )
