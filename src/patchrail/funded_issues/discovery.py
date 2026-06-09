@@ -14,6 +14,7 @@ SHORTLIST_SCHEMA_VERSION = "patchrail.funded_issues.shortlist.v1"
 RECHECK_QUEUE_SCHEMA_VERSION = "patchrail.funded_issues.recheck_queue.v1"
 CASH_ACTIONS_SCHEMA_VERSION = "patchrail.funded_issues.cash_actions.v1"
 FULFILLMENT_PACKET_SCHEMA_VERSION = "patchrail.funded_issues.fulfillment_packet.v1"
+COMPETITION_SIGNAL_SCHEMA_VERSION = "patchrail.funded_issues.competition.v1"
 BLOCKED_ACTIONS = [
     "automatic_claims",
     "automatic_pull_requests",
@@ -35,6 +36,19 @@ PRIMARY_SOURCE_REVIEW_FLAGS = {
     "aggregator_only_source",
     "discovery_only_source",
     "primary_source_required",
+}
+
+# Competition / noise-trap signal flags. These are intentionally NOT in
+# HIGH_RISK_FLAGS: a contested bounty can still be a real, winnable issue, so it
+# costs score and confidence (via the generic risk-flag penalty) without forcing
+# an automatic no-go. They productize the per-prospect recon the desk does by
+# hand (e.g. counting competing PRs and comment volume on a sponsor's bounties).
+CONTESTED_BOUNTY_FLAG = "contested_bounty"
+CROWDED_NO_ASSIGNMENT_FLAG = "crowded_no_assignment"
+COMPETITION_THRESHOLDS = {
+    "competing_pr_count_contested": 3,
+    "distinct_claimants_contested": 3,
+    "comment_count_busy": 15,
 }
 
 VALID_OPPORTUNITY_STATES = {"active", "closed", "stale", "unknown"}
@@ -2819,6 +2833,8 @@ def _risk_reason_code(flag: str) -> str:
         "spam_attractive": "SPAM_ATTRACTIVE",
         "stale_no_maintainer_signal": "STALE_NO_MAINTAINER_SIGNAL",
         "closed_or_inactive": "CLOSED_OR_INACTIVE",
+        "contested_bounty": "CONTESTED_HIGH_COMPETITION",
+        "crowded_no_assignment": "CROWDED_NO_CLEAR_OWNER",
     }.get(flag, f"RISK_{flag.upper()}")
 
 
@@ -2904,6 +2920,94 @@ def _candidate_sort_key(issue: FundedIssue) -> tuple[int, int, float, str]:
     signal_count = len(issue.contribution_signals)
     funding_amount = issue.funding_amount if issue.funding_currency == "USD" else 0.0
     return (-has_guidelines, -signal_count, -funding_amount, issue.reference)
+
+
+def _coerce_count(value: Any, name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be an integer")
+    if value < 0:
+        raise ValueError(f"{name} must be >= 0")
+    return value
+
+
+def assess_bounty_competition(
+    *,
+    competing_pr_count: int = 0,
+    distinct_claimants: int = 0,
+    comment_count: int = 0,
+    assigned: bool = False,
+) -> dict[str, Any]:
+    """Derive a read-only competition / noise-trap signal for a funded issue.
+
+    Productizes the per-prospect recon the desk does by hand: many solvers racing
+    the same bounty, or high comment volume with no clear owner, is a noise trap
+    where engineering effort is often wasted even when the issue itself is real.
+    Inputs are public metadata counts only; this never claims, comments, or
+    contacts anyone. Returns risk flags that an operator can merge into a
+    FundedIssue's ``risk_flags`` (they apply the normal risk penalty and emit the
+    curated ``CONTESTED_HIGH_COMPETITION`` / ``CROWDED_NO_CLEAR_OWNER`` codes).
+    """
+    competing_pr_count = _coerce_count(competing_pr_count, "competing_pr_count")
+    distinct_claimants = _coerce_count(distinct_claimants, "distinct_claimants")
+    comment_count = _coerce_count(comment_count, "comment_count")
+    if not isinstance(assigned, bool):
+        raise ValueError("assigned must be a boolean")
+
+    contested = (
+        competing_pr_count >= COMPETITION_THRESHOLDS["competing_pr_count_contested"]
+        or distinct_claimants >= COMPETITION_THRESHOLDS["distinct_claimants_contested"]
+    )
+    crowded_no_owner = not assigned and (
+        comment_count >= COMPETITION_THRESHOLDS["comment_count_busy"]
+        or distinct_claimants >= COMPETITION_THRESHOLDS["distinct_claimants_contested"]
+    )
+
+    flags: list[str] = []
+    if contested:
+        flags.append(CONTESTED_BOUNTY_FLAG)
+    if crowded_no_owner:
+        flags.append(CROWDED_NO_ASSIGNMENT_FLAG)
+
+    if contested and crowded_no_owner:
+        level = "high"
+    elif flags:
+        level = "elevated"
+    else:
+        level = "low"
+
+    reason_codes = sorted({_risk_reason_code(flag) for flag in flags}) or [
+        "NO_COMPETITION_PRESSURE"
+    ]
+
+    if level == "high":
+        next_step = (
+            "Treat as a noise trap: multiple solvers are racing this bounty with no clear "
+            "owner. Keep as no-go/watchlist evidence unless the client specifically wants it "
+            "and assignment is clarified from a permitted public source."
+        )
+    elif level == "elevated":
+        next_step = (
+            "Verify assignment and active PR count from permitted public sources before "
+            "ranking; effort may be wasted if another solver is already ahead."
+        )
+    else:
+        next_step = "No significant competition pressure from the provided public metadata."
+
+    return {
+        "schema_version": COMPETITION_SIGNAL_SCHEMA_VERSION,
+        "read_only": True,
+        "level": level,
+        "risk_flags": flags,
+        "reason_codes": reason_codes,
+        "observed": {
+            "competing_pr_count": competing_pr_count,
+            "distinct_claimants": distinct_claimants,
+            "comment_count": comment_count,
+            "assigned": assigned,
+        },
+        "thresholds": dict(COMPETITION_THRESHOLDS),
+        "recommended_next_step": next_step,
+    }
 
 
 def explain_issue(issues: list[FundedIssue], reference: str) -> dict[str, Any]:

@@ -2,6 +2,12 @@
 
 ## 0.2.0 - draft
 
+- Added a read-only `assess_bounty_competition` signal to `funded-issues`
+  scoring that derives `contested_bounty` / `crowded_no_assignment` risk flags
+  from public competition metadata (competing PR count, distinct claimants,
+  comment volume, assignment), with curated `CONTESTED_HIGH_COMPETITION` /
+  `CROWDED_NO_CLEAR_OWNER` reason codes. Competition flags cost score and
+  confidence without forcing an automatic no-go.
 - Prepared the CI Janitor v0.2 evidence bundle around the 143-case fixture zoo,
   `fixture-check`, read-only GitHub Actions triage artifact, maintainer pilot
   guide, and public metrics/adopter surfaces.
