@@ -498,7 +498,7 @@ class PatchRailQueueTests(unittest.TestCase):
                         "skip",
                         risky_item["id"],
                         "--reason",
-                        "no money goal, open-source-only #3217",
+                        "revenue-safety policy: local-only human approval required",
                     ]
                 ).returncode,
                 0,
@@ -638,7 +638,9 @@ class PatchRailQueueTests(unittest.TestCase):
                 "patchrail.queue_policy_resolution.v1",
             )
             self.assertEqual(resolved["status"], "resolved_blocked_records")
-            self.assertEqual(resolved["reason"], "no money goal, open-source-only #3217")
+            self.assertEqual(
+                resolved["reason"], "revenue-safety policy: local-only human approval required"
+            )
             self.assertEqual(resolved["before_policy_status"], "blocked_records_present")
             self.assertEqual(resolved["after_policy_status"], "policy_clear")
             self.assertEqual(resolved["remaining_blocked_records_count"], 0)
@@ -666,7 +668,10 @@ class PatchRailQueueTests(unittest.TestCase):
             )
             self.assertEqual(item_after["status"], "skipped")
             self.assertEqual(item_after["approval_state"], "rejected")
-            self.assertEqual(item_after["decision_note"], "no money goal, open-source-only #3217")
+            self.assertEqual(
+                item_after["decision_note"],
+                "revenue-safety policy: local-only human approval required",
+            )
 
             proposal_after = json.loads(
                 run_patchrail(
@@ -684,7 +689,8 @@ class PatchRailQueueTests(unittest.TestCase):
             )
             self.assertEqual(proposal_after["approval_state"], "rejected")
             self.assertEqual(
-                proposal_after["decision_note"], "no money goal, open-source-only #3217"
+                proposal_after["decision_note"],
+                "revenue-safety policy: local-only human approval required",
             )
 
             audit_events = json.loads(
@@ -870,7 +876,7 @@ class PatchRailQueueTests(unittest.TestCase):
             )
             self.assertIn(
                 "patchrail queue --db <queue.sqlite> skip <work-item-id> --reason "
-                '"no money goal, open-source-only #3217"',
+                '"revenue-safety policy: local-only human approval required"',
                 pending_commands,
             )
             self.assertIn(

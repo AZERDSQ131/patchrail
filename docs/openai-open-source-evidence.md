@@ -333,7 +333,7 @@ Last verified: 2026-06-06.
   `patchrail.application_dossier.v1` contract. The schema is also mirrored at
   `schemas/application_dossier.schema.json` and makes the external-program
   boundary machine-readable: maintainer tap required, `agent_may_submit=false`,
-  no placeholder metrics, no money goal, local-first evidence, and no
+  no placeholder metrics, local revenue-safe, local-first evidence, and no
   third-party write actions.
 
 ## Public Launch Issues

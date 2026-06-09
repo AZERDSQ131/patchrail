@@ -297,7 +297,7 @@ Last verified: 2026-06-06.
   emits `patchrail.application_dossier.v1`, mirrored at
   `schemas/application_dossier.schema.json`, and locks the draft boundary:
   maintainer tap required, `agent_may_submit=false`, no placeholder metrics,
-  no money goal, local-first evidence, and no third-party write actions.
+  local revenue-safe, local-first evidence, and no third-party write actions.
 
 ## Public Launch Issues
 

@@ -24,7 +24,7 @@ QUEUE_GATE_REPORT_SCHEMA_VERSION = "patchrail.queue_gate_report.v1"
 QUEUE_REVIEW_SCHEMA_VERSION = "patchrail.queue_review.v1"
 QUEUE_POLICY_SCAN_SCHEMA_VERSION = "patchrail.queue_policy_scan.v1"
 QUEUE_POLICY_RESOLUTION_SCHEMA_VERSION = "patchrail.queue_policy_resolution.v1"
-DEFAULT_POLICY_RESOLUTION_REASON = "no money goal, open-source-only #3217"
+DEFAULT_POLICY_RESOLUTION_REASON = "revenue-safety policy: local-only human approval required"
 
 DEFAULT_REQUIRED_AUDIT_EVENTS = [
     "work_item_added",
@@ -494,7 +494,7 @@ def _queue_review_handoff_checklist(
                     "state": "pending_work_items",
                     "command": (
                         "patchrail queue --db <queue.sqlite> skip <work-item-id> "
-                        '--reason "no money goal, open-source-only #3217"'
+                        '--reason "revenue-safety policy: local-only human approval required"'
                     ),
                     "purpose": "Skip retired or out-of-scope work while preserving history.",
                 },
