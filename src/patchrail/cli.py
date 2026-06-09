@@ -24,12 +24,14 @@ from patchrail.funded_issues import (
     SUPPORTED_PROVIDERS,
     VALID_OPPORTUNITY_STATES,
     VALID_RISK_LEVELS,
+    apply_recheck_to_store,
     assess_competition_batch,
     assess_payout_effort_batch,
     assess_staleness_batch,
     assess_testability_batch,
     cash_actions_funded_issues,
     client_report_funded_issues,
+    empty_store,
     explain_issue,
     fulfillment_packet_funded_issues,
     import_provider_export,
@@ -180,6 +182,7 @@ def _load_schema(name: str) -> str:
         "funded-issues-client-report": "funded-issues-client-report.v1.schema.json",
         "funded-issues-report": "funded-issues-report.v1.schema.json",
         "funded-issues-recheck-queue": "funded-issues-recheck-queue.v1.schema.json",
+        "funded-issues-recheck-summary": "funded-issues-recheck-summary.v1.schema.json",
         "funded-issues-shortlist": "funded-issues-shortlist.v1.schema.json",
         "funded-issues-store": "funded-issues-store.v1.schema.json",
         "funded-issues-store-status": "funded-issues-store-status.v1.schema.json",
@@ -6806,6 +6809,113 @@ def _funded_issues_track_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def _normalize_recheck_observation(raw: dict[str, Any]) -> dict[str, Any]:
+    """Normalize one recheck observation, accepting native or GitHub API shapes.
+
+    A native observation already uses ``url`` / ``state`` / ``updated_at`` /
+    ``closed_at`` / ``assignee_count`` / ``comments``. A GitHub API issue object
+    exposes ``html_url`` (or ``url``), ``state`` (open|closed), ``updated_at``,
+    ``closed_at``, ``comments`` and an ``assignees`` list -- those are mapped to
+    the native vocabulary so both inputs feed the same store function.
+    """
+
+    url = raw.get("url") or raw.get("html_url")
+    observation: dict[str, Any] = {
+        "url": str(url) if url else None,
+        "state": raw.get("state"),
+    }
+    if raw.get("updated_at") is not None:
+        observation["updated_at"] = raw["updated_at"]
+    if raw.get("closed_at") is not None:
+        observation["closed_at"] = raw["closed_at"]
+    if raw.get("comments") is not None:
+        observation["comments"] = raw["comments"]
+    if raw.get("assignee_count") is not None:
+        observation["assignee_count"] = raw["assignee_count"]
+    elif isinstance(raw.get("assignees"), list):
+        observation["assignee_count"] = len(raw["assignees"])
+    return observation
+
+
+def _load_recheck_observations(source: Path) -> list[dict[str, Any]]:
+    """Load and normalize recheck observations from a local JSON file.
+
+    Accepts a bare list of observations, an object ``{"observations": [...]}``,
+    or a list of GitHub API issue objects. Performs zero network calls.
+    """
+
+    payload = json.loads(Path(source).read_text(encoding="utf-8"))
+    if isinstance(payload, dict):
+        rows = payload.get("observations")
+        if not isinstance(rows, list):
+            raise ValueError('observations object must contain an "observations" list')
+    elif isinstance(payload, list):
+        rows = payload
+    else:
+        raise ValueError("recheck input must be a list or an observations object")
+
+    observations: list[dict[str, Any]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("each recheck observation must be an object")
+        observations.append(_normalize_recheck_observation(row))
+    return observations
+
+
+def _render_funded_issues_apply_recheck_text(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    transitions = summary["transitions"]
+    lines = [
+        "PatchRail funded-issues tracker recheck",
+        f"Store: {payload['store']}",
+        f"Now: {payload['now']}  Stale after: {payload['stale_after_days']}d"
+        + ("  (dry-run)" if payload["dry_run"] else ""),
+        f"Checked: {summary['checked']}  Matched: {summary['matched']}  "
+        f"Unmatched: {summary['unmatched']}",
+        f"To closed: {transitions['to_closed']}  To stale: {transitions['to_stale']}  "
+        f"To active: {transitions['to_active']}  Unchanged: {summary['unchanged']}",
+    ]
+    for transition in summary["transition_log"]:
+        lines.append(f"  - {transition['url']}: {transition['from']} -> {transition['state']}")
+    return "\n".join(lines) + "\n"
+
+
+def _funded_issues_apply_recheck(args: argparse.Namespace) -> int:
+    now = args.now or _now_iso()
+    try:
+        observations = _load_recheck_observations(args.input)
+        store = load_store(args.store)
+        summary = apply_recheck_to_store(
+            store, observations, now, stale_after_days=args.stale_after_days
+        )
+        if not args.dry_run:
+            save_store(args.store, store)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid recheck input: {exc}", file=sys.stderr)
+        return 1
+    safe = empty_store()
+    payload = {
+        "schema_version": "patchrail.funded_issues.recheck_summary.v1",
+        "source_schema_version": safe["source_schema_version"],
+        "read_only": True,
+        "blocked_actions": list(safe["blocked_actions"]),
+        "requirements": dict(safe["requirements"]),
+        "store": str(args.store),
+        "input": str(args.input),
+        "now": now,
+        "stale_after_days": args.stale_after_days,
+        "dry_run": bool(args.dry_run),
+        "total_entries": len(store["entries"]),
+        "summary": summary.to_dict(),
+    }
+    if args.format == "json":
+        text = _json_dump(payload)
+    else:
+        text = _render_funded_issues_apply_recheck_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _web_metrics_update(args: argparse.Namespace) -> int:
     try:
         payload = update_web_metrics(
@@ -7050,6 +7160,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "funded-issues-client-report",
             "funded-issues-report",
             "funded-issues-recheck-queue",
+            "funded-issues-recheck-summary",
             "funded-issues-shortlist",
             "funded-issues-store",
             "funded-issues-store-status",
@@ -8253,6 +8364,48 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_track_status.add_argument("--out", type=Path, help="Optional output path.")
     funded_track_status.set_defaults(func=_funded_issues_track_status)
+
+    funded_apply_recheck = funded_subparsers.add_parser(
+        "apply-recheck",
+        help="Apply local recheck observations to a tracker store, transitioning states.",
+    )
+    funded_apply_recheck.add_argument(
+        "--store",
+        required=True,
+        type=Path,
+        help="Local JSON store file written by funded-issues track. "
+        "PatchRail never writes to third parties.",
+    )
+    funded_apply_recheck.add_argument(
+        "--input",
+        required=True,
+        type=Path,
+        help='Local JSON observations: a list, an {"observations": [...]} object, '
+        "or a list of GitHub API issue objects. No network is touched.",
+    )
+    funded_apply_recheck.add_argument(
+        "--now",
+        help="ISO-8601 UTC timestamp to record. Defaults to the local clock.",
+    )
+    funded_apply_recheck.add_argument(
+        "--stale-after-days",
+        type=int,
+        default=45,
+        help="Days since updated_at after which an open issue is marked stale. Default 45.",
+    )
+    funded_apply_recheck.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="Output format.",
+    )
+    funded_apply_recheck.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Compute and report transitions without writing the store.",
+    )
+    funded_apply_recheck.add_argument("--out", type=Path, help="Optional output path.")
+    funded_apply_recheck.set_defaults(func=_funded_issues_apply_recheck)
 
     return parser
 

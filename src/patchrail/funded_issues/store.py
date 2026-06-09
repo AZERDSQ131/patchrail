@@ -30,6 +30,7 @@ from patchrail.funded_issues.discovery import (
 
 STORE_SCHEMA_VERSION = "patchrail.funded_issues.store.v1"
 STORE_STATUS_SCHEMA_VERSION = "patchrail.funded_issues.store_status.v1"
+RECHECK_SUMMARY_SCHEMA_VERSION = "patchrail.funded_issues.recheck_summary.v1"
 
 # State vocabulary tracked per entry. ``open`` is accepted as an inbound alias
 # for ``active`` so imported provider exports that label issues "open" land in a
@@ -70,6 +71,39 @@ class MergeSummary:
             "transitioned": self.transitioned,
             "unchanged": self.unchanged,
             "transitions": list(self.transitions),
+        }
+
+
+@dataclass
+class RecheckSummary:
+    """Counts describing what an :func:`apply_recheck_to_store` call changed.
+
+    Observations whose URL is not present in the store are ignored for state
+    purposes and counted under ``unmatched``. ``checked`` counts every inbound
+    observation; ``matched`` counts the subset that hit an existing entry.
+    """
+
+    checked: int = 0
+    matched: int = 0
+    unmatched: int = 0
+    unchanged: int = 0
+    to_closed: int = 0
+    to_stale: int = 0
+    to_active: int = 0
+    transitions: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "checked": self.checked,
+            "matched": self.matched,
+            "unmatched": self.unmatched,
+            "transitions": {
+                "to_closed": self.to_closed,
+                "to_stale": self.to_stale,
+                "to_active": self.to_active,
+            },
+            "unchanged": self.unchanged,
+            "transition_log": list(self.transitions),
         }
 
 
@@ -213,6 +247,115 @@ def merge_into_store(
             summary.transitions.append({"url": url, **transition})
         elif changed:
             summary.updated += 1
+        else:
+            summary.unchanged += 1
+
+    return summary
+
+
+def _observation_url(observation: dict[str, Any]) -> str | None:
+    url = observation.get("url")
+    if not url:
+        return None
+    return str(url)
+
+
+def _recheck_target_state(
+    observation: dict[str, Any],
+    *,
+    now_dt: datetime,
+    stale_after_days: int,
+) -> str:
+    """Map a single recheck observation to a canonical opportunity state.
+
+    ``state=closed`` always wins. An ``open`` observation becomes ``stale`` once
+    its ``updated_at`` is strictly older than ``stale_after_days`` days relative
+    to ``now``; otherwise it is ``active`` (which also revives a stale entry).
+    A fresh ``open`` with an unparseable/absent ``updated_at`` is treated as
+    ``active`` -- we never invent staleness from missing data.
+    """
+
+    raw_state = observation.get("state")
+    normalized = str(raw_state).strip().lower() if raw_state is not None else ""
+    if normalized == "closed":
+        return "closed"
+
+    updated_at = observation.get("updated_at")
+    if updated_at:
+        try:
+            updated_dt = _parse_iso(str(updated_at))
+        except ValueError:
+            return "active"
+        if now_dt - updated_dt > timedelta(days=stale_after_days):
+            return "stale"
+    return "active"
+
+
+def apply_recheck_to_store(
+    store: dict[str, Any],
+    observations: list[dict[str, Any]],
+    now: str,
+    stale_after_days: int = 45,
+) -> RecheckSummary:
+    """Apply read-only recheck ``observations`` to ``store`` in place.
+
+    Each observation is a mapping carrying at least a ``url`` (matched against
+    stored entries with the same canonical-URL criterion as
+    :func:`merge_into_store`) and a ``state`` (``"open"`` or ``"closed"``). It
+    may also carry ``updated_at`` / ``closed_at`` (ISO-8601) and the lightweight
+    public signals ``assignee_count`` and ``comments``.
+
+    State rules, evaluated against ``now``:
+
+    * ``state=closed`` -> opportunity_state ``"closed"``.
+    * ``state=open`` and ``now - updated_at`` exceeds ``stale_after_days`` days
+      -> ``"stale"``.
+    * ``state=open`` and fresh -> ``"active"`` (this also revives a previously
+      ``stale`` entry back to ``active``).
+
+    ``last_checked`` always advances for a matched entry. A ``state_history``
+    transition (same shape as :func:`merge_into_store`) is appended only on a
+    real state change, so a second identical pass yields zero transitions.
+    Observations whose URL is unknown to the store are ignored and counted as
+    ``unmatched``. Returns a :class:`RecheckSummary`.
+
+    ``now`` must be a parseable ISO-8601 timestamp; otherwise ``ValueError`` is
+    raised before any mutation occurs.
+    """
+
+    now_dt = _parse_iso(now)
+    entries = store.setdefault("entries", {})
+    summary = RecheckSummary()
+
+    for observation in observations:
+        summary.checked += 1
+        url = _observation_url(observation)
+        existing = entries.get(url) if url is not None else None
+        if existing is None:
+            summary.unmatched += 1
+            continue
+
+        summary.matched += 1
+        previous_state = existing.get("state")
+        existing["last_checked"] = now
+
+        target_state = _recheck_target_state(
+            observation,
+            now_dt=now_dt,
+            stale_after_days=stale_after_days,
+        )
+
+        if target_state != previous_state:
+            transition = {"state": target_state, "at": now, "from": previous_state}
+            existing.setdefault("state_history", []).append(transition)
+            existing["state"] = target_state
+            summary.transitions.append({"url": url, **transition})
+            if target_state == "closed":
+                summary.to_closed += 1
+            elif target_state == "stale":
+                summary.to_stale += 1
+            else:
+                summary.to_active += 1
         else:
             summary.unchanged += 1
 

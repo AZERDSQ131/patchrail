@@ -30,6 +30,15 @@
   total. Backed by the pure `assess_payout_effort_batch` helper and an example
   observations fixture. Strictly read-only: no claims, comments, or maintainer
   contact.
+- Added `funded-issues apply-recheck`, a local-file-only command that applies
+  recheck observations (a JSON list, an `{observations: [...]}` object, or a
+  list of GitHub API issue objects) to a tracker store, transitioning entries
+  to closed / stale / active. Stale is derived from `updated_at` against a
+  `--stale-after-days` floor (default 45); `state_history` records only real
+  transitions, `--dry-run` reports without writing, and a second identical pass
+  is a no-op. Backed by the pure `apply_recheck_to_store` helper and the
+  `funded-issues-recheck-summary` schema. Strictly read-only: no claims,
+  comments, or maintainer contact.
 - Prepared the CI Janitor v0.2 evidence bundle around the 143-case fixture zoo,
   `fixture-check`, read-only GitHub Actions triage artifact, maintainer pilot
   guide, and public metrics/adopter surfaces.
