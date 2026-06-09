@@ -11,6 +11,7 @@ SCHEMA_VERSION = "patchrail.funded_issues.v1"
 CLIENT_PROFILE_SCHEMA_VERSION = "patchrail.funded_issues.client_profile.v1"
 VALIDATION_SCHEMA_VERSION = "patchrail.funded_issues.validation.v1"
 SHORTLIST_SCHEMA_VERSION = "patchrail.funded_issues.shortlist.v1"
+CLIENT_REPORT_SCHEMA_VERSION = "patchrail.funded_issues.client_report.v1"
 RECHECK_QUEUE_SCHEMA_VERSION = "patchrail.funded_issues.recheck_queue.v1"
 CASH_ACTIONS_SCHEMA_VERSION = "patchrail.funded_issues.cash_actions.v1"
 FULFILLMENT_PACKET_SCHEMA_VERSION = "patchrail.funded_issues.fulfillment_packet.v1"
@@ -781,6 +782,285 @@ def shortlist_funded_issues(
         "boundary": (
             "Decision support only. PatchRail does not claim rewards, post comments, open pull "
             "requests, contact maintainers, or guarantee merge or payout outcomes."
+        ),
+    }
+
+
+CLIENT_REPORT_DISCLAIMER = (
+    "This report is read-only opportunity intelligence. It does not guarantee bounty "
+    "availability, merge acceptance, payout, or maintainer response. No claims, comments, "
+    "outreach, or PR submissions were made by PatchRail unless explicitly authorized in writing."
+)
+
+
+def _client_report_maintainer_activity(issue: dict[str, Any]) -> str:
+    state = issue.get("opportunity_state")
+    if state == "active":
+        return "active opportunity state; recent maintainer signal observed"
+    if state == "stale":
+        return "stale; no recent maintainer signal"
+    if state == "closed":
+        return "closed or inactive"
+    return "maintainer activity unconfirmed"
+
+
+def _client_report_scope(issue: dict[str, Any], reason_codes: list[str]) -> str:
+    if "SCOPE_TOO_BROAD" in reason_codes:
+        return "broad — scope not yet bounded"
+    if issue.get("contribution_signals"):
+        return "narrow — contribution signals documented"
+    return "unconfirmed — no contribution signals recorded"
+
+
+def _client_report_effort(reason_codes: list[str]) -> str | None:
+    if "PAYOUT_TOO_LOW_FOR_EFFORT" in reason_codes:
+        return "payout may be low relative to estimated effort"
+    return None
+
+
+def _client_report_recommendation_row(row: dict[str, Any]) -> dict[str, Any]:
+    issue = row["issue"]
+    reason_codes = list(row["reason_codes"])
+    effort = _client_report_effort(reason_codes)
+    recommendation: dict[str, Any] = {
+        "reference": issue["reference"],
+        "title": issue["title"],
+        "url": issue["url"],
+        "platform": issue["platform"],
+        "language": issue.get("language"),
+        "payout": issue["funding"]["display"],
+        "state": issue["opportunity_state"],
+        "maintainer_activity": _client_report_maintainer_activity(issue),
+        "scope": _client_report_scope(issue, reason_codes),
+        "risk": issue["risk_level"],
+        "effort": effort,
+        "recommended_next_step": row["recommended_next_step"],
+        "confidence": row["confidence"],
+        "decision": "Go" if row["decision_gate"] == "go_after_recheck" else "Watchlist",
+    }
+    return recommendation
+
+
+def _client_report_watchlist_row(row: dict[str, Any]) -> dict[str, Any]:
+    issue = row["issue"]
+    reason_codes = list(row["reason_codes"])
+    blocker = reason_codes[0] if reason_codes else "review pending"
+    return {
+        "reference": issue["reference"],
+        "title": issue["title"],
+        "url": issue["url"],
+        "payout": issue["funding"]["display"],
+        "blocker": blocker,
+        "trigger_to_promote": row["recommended_next_step"],
+    }
+
+
+def _client_report_no_go_row(row: dict[str, Any]) -> dict[str, Any]:
+    issue = row["issue"]
+    reason_codes = list(row["reason_codes"])
+    return {
+        "reference": issue["reference"],
+        "title": issue["title"],
+        "url": issue["url"],
+        "payout": issue["funding"]["display"],
+        "reason_code": reason_codes[0] if reason_codes else "NO_MAJOR_REVIEW_GAPS",
+        "reason_codes": reason_codes,
+        "evidence": row["recommended_next_step"],
+    }
+
+
+def _client_report_executive_summary(
+    *,
+    reviewed: int,
+    go_rows: list[dict[str, Any]],
+    watchlist_rows: list[dict[str, Any]],
+    no_go_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    go_count = len(go_rows)
+    watchlist_count = len(watchlist_rows)
+    no_go_count = len(no_go_rows)
+    actionable_pct = round(100 * go_count / reviewed, 1) if reviewed else 0.0
+    top_recommendation = None
+    if go_rows:
+        top = go_rows[0]["issue"]
+        top_recommendation = f"{top['reference']} ({top['funding']['display']}, Go)"
+    no_go_reason_counts = Counter(
+        row["reason_code"] for row in (_client_report_no_go_row(r) for r in no_go_rows)
+    )
+    dominant_no_go_reason = None
+    if no_go_reason_counts:
+        code, count = no_go_reason_counts.most_common(1)[0]
+        dominant_no_go_reason = {
+            "reason_code": code,
+            "count": count,
+            "of_total": no_go_count,
+        }
+    return {
+        "reviewed": reviewed,
+        "go": go_count,
+        "watchlist": watchlist_count,
+        "no_go": no_go_count,
+        "actionable_percent": actionable_pct,
+        "top_recommendation": top_recommendation,
+        "dominant_no_go_reason": dominant_no_go_reason,
+    }
+
+
+def _client_report_patterns(
+    *,
+    go_rows: list[dict[str, Any]],
+    no_go_rows: list[dict[str, Any]],
+    no_go_moat: dict[str, Any],
+) -> dict[str, Any]:
+    no_go_reason_counts = Counter(code for row in no_go_rows for code in row["reason_codes"])
+    go_platform_counts = Counter(row["issue"]["platform"] for row in go_rows)
+    go_language_counts = Counter((row["issue"].get("language") or "unknown") for row in go_rows)
+    no_go_platform_counts = Counter(row["issue"]["platform"] for row in no_go_rows)
+    return {
+        "no_go_reason_code_counts": dict(no_go_reason_counts.most_common()),
+        "go_platform_counts": dict(sorted(go_platform_counts.items())),
+        "go_language_counts": dict(sorted(go_language_counts.items())),
+        "no_go_platform_counts": dict(sorted(no_go_platform_counts.items())),
+        "moat_highlights": {
+            "high_risk_or_excluded": no_go_moat["high_risk_or_excluded"],
+            "funding_unknown": no_go_moat["funding_unknown"],
+            "ambiguous_scope": no_go_moat["ambiguous_scope"],
+            "stale_or_closed": no_go_moat["stale_or_closed"],
+        },
+    }
+
+
+def _client_report_operating_procedure(
+    *,
+    go_rows: list[dict[str, Any]],
+    watchlist_rows: list[dict[str, Any]],
+    no_go_rows: list[dict[str, Any]],
+) -> list[str]:
+    steps: list[str] = []
+    if go_rows:
+        top = go_rows[0]["issue"]
+        steps.append(
+            f"Start review with {top['reference']} (highest-confidence Go pick); "
+            "reproduce locally before any client-side engagement decision."
+        )
+        for row in go_rows[1:]:
+            issue = row["issue"]
+            steps.append(
+                f"Prepare a local feasibility note for {issue['reference']} and "
+                "re-check assignment/competition before any engagement decision."
+            )
+    else:
+        steps.append(
+            "No Go candidates in this batch; expand permitted read-only sources before "
+            "ranking again."
+        )
+    if watchlist_rows:
+        steps.append(
+            "Do not invest in Watchlist items until each promotion trigger fires; "
+            "re-check public state on the listed cadence."
+        )
+    if no_go_rows:
+        steps.append(
+            f"Skip the entire No-go list ({len(no_go_rows)} rows); keep it as exclusion "
+            "evidence rather than spending engineering time."
+        )
+    steps.append(
+        "Do not claim, comment, open pull requests, or contact maintainers without explicit "
+        "written client authorization and confirmation that project rules allow it."
+    )
+    return steps
+
+
+def client_report_funded_issues(
+    issues: list[FundedIssue],
+    *,
+    client_name: str,
+    report_date: str,
+    prepared_by: str = "PatchRail Opportunity Desk",
+    safe_only: bool = False,
+    profile: ClientProfile | None = None,
+    platform: str | None = None,
+    language: str | None = None,
+    min_usd: float | None = None,
+    opportunity_state: str | None = None,
+    risk_level: str | None = None,
+    limit: int = 5,
+) -> dict[str, Any]:
+    if not client_name or not client_name.strip():
+        raise ValueError("client_name must be a non-empty string")
+    if not report_date or not report_date.strip():
+        raise ValueError("report_date must be a non-empty ISO date string")
+    shortlist_payload = shortlist_funded_issues(
+        issues,
+        safe_only=safe_only,
+        profile=profile,
+        platform=platform,
+        language=language,
+        min_usd=min_usd,
+        opportunity_state=opportunity_state,
+        risk_level=risk_level,
+        limit=limit,
+    )
+    go_rows = [
+        row for row in shortlist_payload["shortlist"] if row["decision_gate"] == "go_after_recheck"
+    ]
+    watchlist_rows = [
+        row for row in shortlist_payload["shortlist"] if row["decision_gate"] == "watchlist"
+    ]
+    no_go_rows = shortlist_payload["no_go_evidence"]
+    no_go_moat = shortlist_payload["no_go_moat"]
+    reviewed = shortlist_payload["summary"]["total_scored"]
+    return {
+        "schema_version": CLIENT_REPORT_SCHEMA_VERSION,
+        "source_schema_version": SCHEMA_VERSION,
+        "read_only": True,
+        "client_name": client_name.strip(),
+        "prepared_by": prepared_by,
+        "date": report_date.strip(),
+        "scope": f"{reviewed} public funded open-source issues reviewed",
+        "blocked_actions": BLOCKED_ACTIONS,
+        "filters": shortlist_payload["filters"],
+        "executive_summary": _client_report_executive_summary(
+            reviewed=reviewed,
+            go_rows=go_rows,
+            watchlist_rows=watchlist_rows,
+            no_go_rows=no_go_rows,
+        ),
+        "top_recommendations": [_client_report_recommendation_row(row) for row in go_rows],
+        "watchlist": [_client_report_watchlist_row(row) for row in watchlist_rows],
+        "no_go_list": [_client_report_no_go_row(row) for row in no_go_rows],
+        "no_go_moat_evidence": {
+            "raw_results_reviewed": shortlist_payload["summary"]["total_loaded"],
+            "in_scope_reviewed": reviewed,
+            "high_risk_or_excluded": no_go_moat["high_risk_or_excluded"],
+            "missing_contribution_guidelines": no_go_moat["missing_contribution_guidelines"],
+            "ambiguous_scope": no_go_moat["ambiguous_scope"],
+            "spam_attractive": no_go_moat["spam_attractive"],
+            "funding_unknown": no_go_moat["funding_unknown"],
+            "stale_or_closed": no_go_moat["stale_or_closed"],
+            "final_go_candidates": len(go_rows),
+        },
+        "patterns_observed": _client_report_patterns(
+            go_rows=go_rows,
+            no_go_rows=no_go_rows,
+            no_go_moat=no_go_moat,
+        ),
+        "recommended_operating_procedure": _client_report_operating_procedure(
+            go_rows=go_rows,
+            watchlist_rows=watchlist_rows,
+            no_go_rows=no_go_rows,
+        ),
+        "disclaimer": CLIENT_REPORT_DISCLAIMER,
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "boundary": (
+            "Client-facing read-only opportunity intelligence. PatchRail does not claim rewards, "
+            "post comments, open pull requests, contact maintainers, or guarantee merge or payout "
+            "outcomes."
         ),
     }
 
