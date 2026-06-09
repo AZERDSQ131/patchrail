@@ -2539,6 +2539,69 @@ class PatchRailFundedIssuesPayoutEffortCliTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("Invalid payout-effort observations source", proc.stderr)
 
+    def test_staleness_default_source_emits_sorted_json(self) -> None:
+        proc = run_patchrail(["funded-issues", "staleness", "--format", "json"])
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["schema_version"], "patchrail.funded_issues.staleness_batch.v1")
+        self.assertTrue(payload["read_only"])
+        self.assertEqual(payload["reviewed"], 5)
+        self.assertEqual(payload["results"][0]["reference"], "example/cli#210")
+        self.assertEqual(payload["results"][0]["level"], "dormant")
+        self.assertEqual(payload["results"][-1]["level"], "active")
+        summary = payload["summary"]
+        self.assertEqual(summary["active"], 1)
+        self.assertEqual(summary["stale"], 2)
+        self.assertEqual(summary["dormant"], 1)
+        self.assertEqual(summary["unknown"], 1)
+        self.assertEqual(summary["stale_or_dormant"], 3)
+        self.assertIn("automatic_claims", payload["blocked_actions"])
+
+    def test_staleness_accepts_bare_list_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "obs.json"
+            source.write_text(
+                json.dumps(
+                    [
+                        {"reference": "a/b#1", "days_since_last_activity": 400},
+                        {"reference": "c/d#2", "days_since_last_activity": 5},
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            proc = run_patchrail(
+                ["funded-issues", "staleness", "--source", str(source), "--format", "json"]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["reviewed"], 2)
+        self.assertEqual(payload["summary"]["dormant"], 1)
+        self.assertEqual(payload["results"][0]["reference"], "a/b#1")
+
+    def test_staleness_markdown_lists_results_table(self) -> None:
+        proc = run_patchrail(["funded-issues", "staleness"])
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("# PatchRail Funded Issues Staleness Signal", proc.stdout)
+        self.assertIn("| Reference | Level | Risk flags |", proc.stdout)
+        self.assertIn("example/cli#210", proc.stdout)
+
+    def test_staleness_rejects_invalid_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "bad.json"
+            source.write_text(
+                json.dumps([{"days_since_last_activity": -1}]),
+                encoding="utf-8",
+            )
+            proc = run_patchrail(
+                ["funded-issues", "staleness", "--source", str(source), "--format", "json"]
+            )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("Invalid staleness observations source", proc.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

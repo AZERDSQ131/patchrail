@@ -18,6 +18,8 @@ COMPETITION_SIGNAL_SCHEMA_VERSION = "patchrail.funded_issues.competition.v1"
 COMPETITION_BATCH_SCHEMA_VERSION = "patchrail.funded_issues.competition_batch.v1"
 PAYOUT_EFFORT_SIGNAL_SCHEMA_VERSION = "patchrail.funded_issues.payout_effort.v1"
 PAYOUT_EFFORT_BATCH_SCHEMA_VERSION = "patchrail.funded_issues.payout_effort_batch.v1"
+STALENESS_SIGNAL_SCHEMA_VERSION = "patchrail.funded_issues.staleness.v1"
+STALENESS_BATCH_SCHEMA_VERSION = "patchrail.funded_issues.staleness_batch.v1"
 BLOCKED_ACTIONS = [
     "automatic_claims",
     "automatic_pull_requests",
@@ -65,6 +67,25 @@ PAYOUT_EFFORT_THRESHOLDS = {
     "target_hourly_rate_usd": DEFAULT_TARGET_HOURLY_RATE_USD,
     "low_ratio": 0.5,
     "marginal_ratio": 1.0,
+}
+
+# Staleness / liveness signal. Productizes the desk's core "filter stale traps"
+# value prop (REVENUE_PLAN §10.2 STALE_NO_MAINTAINER_SIGNAL): derive an
+# opportunity_state recommendation from observable issue age plus whether a
+# maintainer is still engaging, instead of eyeballing it per prospect. A
+# ``stale``/``dormant`` result emits the existing high-risk
+# ``stale_no_maintainer_signal`` flag (forces no-go, like a closed/stale state),
+# while a merely ``aging`` result emits the softer, non-high-risk
+# ``aging_low_activity`` flag (costs score via the generic risk penalty without
+# forcing a no-go). Inputs are public age/activity metadata only; this never
+# claims, comments, or contacts anyone.
+STALE_NO_MAINTAINER_FLAG = "stale_no_maintainer_signal"
+AGING_LOW_ACTIVITY_FLAG = "aging_low_activity"
+STALENESS_THRESHOLDS = {
+    "active_max_days": 30,
+    "aging_max_days": 90,
+    "stale_max_days": 180,
+    "long_unresolved_days": 365,
 }
 
 VALID_OPPORTUNITY_STATES = {"active", "closed", "stale", "unknown"}
@@ -2852,6 +2873,7 @@ def _risk_reason_code(flag: str) -> str:
         "contested_bounty": "CONTESTED_HIGH_COMPETITION",
         "crowded_no_assignment": "CROWDED_NO_CLEAR_OWNER",
         "payout_too_low_for_effort": "PAYOUT_TOO_LOW_FOR_EFFORT",
+        "aging_low_activity": "AGING_LOW_ACTIVITY",
     }.get(flag, f"RISK_{flag.upper()}")
 
 
@@ -2945,6 +2967,18 @@ def _coerce_count(value: Any, name: str) -> int:
     if value < 0:
         raise ValueError(f"{name} must be >= 0")
     return value
+
+
+def _coerce_optional_count(value: Any, name: str) -> int | None:
+    if value is None:
+        return None
+    return _coerce_count(value, name)
+
+
+def _coerce_optional_bool(value: Any, name: str) -> bool | None:
+    if value is None or isinstance(value, bool):
+        return value
+    raise ValueError(f"{name} must be a boolean or null")
 
 
 def _coerce_amount(
@@ -3312,6 +3346,196 @@ def assess_payout_effort_batch(observations: Any) -> dict[str, Any]:
             "unverified_currency": level_counts["unverified_currency"],
         },
         "thresholds": dict(PAYOUT_EFFORT_THRESHOLDS),
+        "results": results,
+        "blocked_actions": list(BLOCKED_ACTIONS),
+    }
+
+
+_STALENESS_NEXT_STEP = {
+    "active": (
+        "Recent public activity; safe to rank on the usual scope/competition/payout signals."
+    ),
+    "aging": (
+        "Activity is slowing; confirm a maintainer is still engaged from a permitted public "
+        "source before committing engineering time."
+    ),
+    "stale": (
+        "No recent maintainer signal; treat as stale/no-go evidence unless public project state "
+        "shows the opportunity is live again."
+    ),
+    "dormant": (
+        "Long-dormant with no maintainer signal; keep as no-go evidence — a classic "
+        "stale-bounty trap where effort is wasted even if the issue itself is real."
+    ),
+    "unknown": (
+        "Verify the last public activity date from a permitted source before ranking; staleness "
+        "cannot be assessed from the provided metadata."
+    ),
+}
+
+
+def assess_issue_staleness(
+    *,
+    days_since_last_activity: int | None = None,
+    days_since_created: int | None = None,
+    maintainer_recently_active: bool | None = None,
+) -> dict[str, Any]:
+    """Derive a read-only staleness / liveness signal for a funded issue.
+
+    Productizes the desk's core value prop ("filter stale traps"): instead of
+    eyeballing per prospect whether a bounty is alive, derive an
+    ``opportunity_state`` recommendation from observable issue age plus whether a
+    maintainer is still engaging. Inputs are public age/activity metadata only;
+    this never claims, comments, or contacts anyone.
+
+    ``days_since_last_activity`` drives the base level (active/aging/stale/
+    dormant). ``maintainer_recently_active`` adjusts severity by one notch: an
+    engaged maintainer softens a stale/dormant issue (it is old but not dead),
+    while an explicitly absent maintainer hardens an active/aging issue (recent
+    solver churn with no maintainer is the classic noise trap). The returned
+    ``risk_flags`` can be merged into a FundedIssue's ``risk_flags``: a
+    ``stale``/``dormant`` result emits the high-risk ``stale_no_maintainer_signal``
+    flag (forces no-go), while ``aging`` emits the softer ``aging_low_activity``
+    flag (costs score via the normal risk penalty without forcing a no-go).
+    """
+    days_since_last_activity = _coerce_optional_count(
+        days_since_last_activity, "days_since_last_activity"
+    )
+    days_since_created = _coerce_optional_count(days_since_created, "days_since_created")
+    maintainer_recently_active = _coerce_optional_bool(
+        maintainer_recently_active, "maintainer_recently_active"
+    )
+
+    long_unresolved = (
+        days_since_created is not None
+        and days_since_created >= STALENESS_THRESHOLDS["long_unresolved_days"]
+    )
+
+    if days_since_last_activity is None:
+        level = "unknown"
+    elif days_since_last_activity <= STALENESS_THRESHOLDS["active_max_days"]:
+        level = "active"
+    elif days_since_last_activity <= STALENESS_THRESHOLDS["aging_max_days"]:
+        level = "aging"
+    elif days_since_last_activity <= STALENESS_THRESHOLDS["stale_max_days"]:
+        level = "stale"
+    else:
+        level = "dormant"
+
+    if level != "unknown" and maintainer_recently_active is True:
+        level = {"dormant": "stale", "stale": "aging", "aging": "active"}.get(level, level)
+    elif level != "unknown" and maintainer_recently_active is False:
+        level = {"active": "aging", "aging": "stale"}.get(level, level)
+
+    if level in {"stale", "dormant"}:
+        flags = [STALE_NO_MAINTAINER_FLAG]
+        recommended_state = "stale"
+    elif level == "aging":
+        flags = [AGING_LOW_ACTIVITY_FLAG]
+        recommended_state = "active"
+    elif level == "active":
+        flags = []
+        recommended_state = "active"
+    else:
+        flags = []
+        recommended_state = "unknown"
+
+    if flags:
+        reason_codes = sorted({_risk_reason_code(flag) for flag in flags})
+    elif level == "active":
+        reason_codes = ["RECENT_PUBLIC_ACTIVITY"]
+    else:
+        reason_codes = ["STALENESS_UNVERIFIED"]
+
+    return {
+        "schema_version": STALENESS_SIGNAL_SCHEMA_VERSION,
+        "read_only": True,
+        "level": level,
+        "recommended_opportunity_state": recommended_state,
+        "risk_flags": flags,
+        "reason_codes": reason_codes,
+        "observed": {
+            "days_since_last_activity": days_since_last_activity,
+            "days_since_created": days_since_created,
+            "maintainer_recently_active": maintainer_recently_active,
+            "long_unresolved": long_unresolved,
+        },
+        "thresholds": dict(STALENESS_THRESHOLDS),
+        "recommended_next_step": _STALENESS_NEXT_STEP[level],
+    }
+
+
+_STALENESS_LEVEL_ORDER = {"dormant": 0, "stale": 1, "aging": 2, "unknown": 3, "active": 4}
+
+
+def _staleness_sort_key(result: dict[str, Any]) -> tuple[int, int, str]:
+    days = result["observed"]["days_since_last_activity"]
+    days_key = -days if days is not None else 0
+    return (
+        _STALENESS_LEVEL_ORDER.get(result["level"], 5),
+        days_key,
+        result["reference"],
+    )
+
+
+def assess_staleness_batch(observations: Any) -> dict[str, Any]:
+    """Assess read-only staleness across a batch of funded issues.
+
+    Productizes the desk's stale-trap triage into a single pass: given public
+    age/activity metadata for several bounties, surface which ones are stale or
+    long-dormant so an operator can drop them before spending engineering time.
+    ``observations`` is a list of dicts, each with an optional ``reference``
+    (or ``id``/``url``) label plus the values consumed by
+    :func:`assess_issue_staleness` (``days_since_last_activity``,
+    ``days_since_created``, optional ``maintainer_recently_active``). Results are
+    sorted most-stale first. This never claims, comments on, or contacts anyone.
+    """
+    if not isinstance(observations, list):
+        raise ValueError("staleness observations must be a list")
+
+    results: list[dict[str, Any]] = []
+    level_counts = {"active": 0, "aging": 0, "stale": 0, "dormant": 0, "unknown": 0}
+
+    for index, raw in enumerate(observations):
+        if not isinstance(raw, dict):
+            raise ValueError(f"staleness observation #{index} must be an object")
+        reference = raw.get("reference") or raw.get("id") or raw.get("url")
+        if reference is not None and not isinstance(reference, str):
+            raise ValueError(f"staleness observation #{index} reference must be a string")
+        signal = assess_issue_staleness(
+            days_since_last_activity=raw.get("days_since_last_activity"),
+            days_since_created=raw.get("days_since_created"),
+            maintainer_recently_active=raw.get("maintainer_recently_active"),
+        )
+        level_counts[signal["level"]] += 1
+        results.append(
+            {
+                "reference": reference or f"observation-{index + 1}",
+                "level": signal["level"],
+                "recommended_opportunity_state": signal["recommended_opportunity_state"],
+                "risk_flags": signal["risk_flags"],
+                "reason_codes": signal["reason_codes"],
+                "observed": signal["observed"],
+                "recommended_next_step": signal["recommended_next_step"],
+            }
+        )
+
+    results.sort(key=_staleness_sort_key)
+
+    return {
+        "schema_version": STALENESS_BATCH_SCHEMA_VERSION,
+        "read_only": True,
+        "reviewed": len(results),
+        "summary": {
+            "reviewed": len(results),
+            "stale_or_dormant": level_counts["stale"] + level_counts["dormant"],
+            "active": level_counts["active"],
+            "aging": level_counts["aging"],
+            "stale": level_counts["stale"],
+            "dormant": level_counts["dormant"],
+            "unknown": level_counts["unknown"],
+        },
+        "thresholds": dict(STALENESS_THRESHOLDS),
         "results": results,
         "blocked_actions": list(BLOCKED_ACTIONS),
     }
