@@ -54,6 +54,26 @@ patchrail evidence snapshot --format markdown
 The snapshot is a consistency check over the checkout. It does not replace
 public GitHub, PyPI, or adopter metrics.
 
+To refresh the live website metric API from local read-only evidence:
+
+```bash
+patchrail web-metrics update \
+  --web-dir /path/to/getpatchrail.com \
+  --product-repo . \
+  --desk-dir /path/to/opportunity-desk \
+  --format json
+```
+
+The command writes three static payloads when evidence changes:
+
+- `public/api/landing-metrics.json` for the homepage counters;
+- `public/api/sources-volumes.json` for the sources page;
+- `public/api/product-metrics.json` for product readiness, tracker health, and automation status.
+
+The payloads are read-only, local-first, and safe to run from a scheduler. They
+do not fetch provider APIs, write to GitHub, contact maintainers, claim bounties,
+or deploy production by themselves.
+
 Before applying to an external open-source support program, run the fail-closed
 application gate:
 
@@ -66,7 +86,7 @@ permissioned external pilots/adopters, and visible review links must exist
 before application copy can be treated as ready.
 
 The main CI workflow also publishes this output as the read-only
-`patchrail-oss-evidence` artifact after tests, fixture benchmark, and package
+`patchrail-open-source-evidence` artifact after tests, fixture benchmark, and package
 smoke pass. Treat that artifact as reproducible project-health evidence, not as
 external adoption or PyPI download evidence.
 

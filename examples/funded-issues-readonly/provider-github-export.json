@@ -10,6 +10,7 @@
       "html_url": "https://github.com/example/project/issues/42",
       "amount_usd": 250,
       "language": "python",
+      "state": "open",
       "labels": [
         {"name": "ci"},
         {"name": "tests"},
@@ -26,6 +27,7 @@
       "html_url": "https://github.com/example/toolkit/issues/17",
       "amount_usd": 1500,
       "language": "typescript",
+      "state": "closed",
       "labels": [
         {"name": "architecture"},
         {"name": "bounty"}

@@ -62,7 +62,7 @@ jobs:
           patchrail doctor --format json
           patchrail ci explain --log examples/ci-triage/dependency-failure.log --format text
 
-  oss-evidence-snapshot:
+  open-source-evidence-snapshot:
     runs-on: ubuntu-latest
     needs: [test, package-smoke]
     steps:
@@ -73,20 +73,20 @@ jobs:
       - uses: astral-sh/setup-uv@v8.1.0
       - name: Install
         run: uv sync --extra dev
-      - name: Generate OSS evidence snapshot
+      - name: Generate open-source evidence snapshot
         run: |
-          mkdir -p patchrail-oss-evidence
-          uv run patchrail evidence snapshot --format json --out patchrail-oss-evidence/evidence-snapshot.json
-          uv run patchrail evidence snapshot --format markdown --out patchrail-oss-evidence/evidence-snapshot.md
-          uv run patchrail evidence control-plane --format json --out patchrail-oss-evidence/control-plane-evidence.json
-          uv run patchrail evidence control-plane --format markdown --out patchrail-oss-evidence/control-plane-evidence.md
-          uv run patchrail evidence application-dossier --format json --out patchrail-oss-evidence/application-dossier.json
-          uv run patchrail evidence application-dossier --format markdown --out patchrail-oss-evidence/application-dossier.md
-          uv run patchrail evidence reviewer-packet --out-dir patchrail-oss-evidence/reviewer-packet
-          uv run patchrail evidence control-plane-demo --out-dir patchrail-oss-evidence/local-agent-queue --force --format markdown --out patchrail-oss-evidence/local-agent-queue/demo-run.md
-      - name: Upload OSS evidence snapshot
+          mkdir -p patchrail-open-source-evidence
+          uv run patchrail evidence snapshot --format json --out patchrail-open-source-evidence/evidence-snapshot.json
+          uv run patchrail evidence snapshot --format markdown --out patchrail-open-source-evidence/evidence-snapshot.md
+          uv run patchrail evidence control-plane --format json --out patchrail-open-source-evidence/control-plane-evidence.json
+          uv run patchrail evidence control-plane --format markdown --out patchrail-open-source-evidence/control-plane-evidence.md
+          uv run patchrail evidence application-dossier --format json --out patchrail-open-source-evidence/application-dossier.json
+          uv run patchrail evidence application-dossier --format markdown --out patchrail-open-source-evidence/application-dossier.md
+          uv run patchrail evidence reviewer-packet --out-dir patchrail-open-source-evidence/reviewer-packet
+          uv run patchrail evidence control-plane-demo --out-dir patchrail-open-source-evidence/local-agent-queue --force --format markdown --out patchrail-open-source-evidence/local-agent-queue/demo-run.md
+      - name: Upload open-source evidence snapshot
         uses: actions/upload-artifact@v7.0.1
         with:
-          name: patchrail-oss-evidence
-          path: patchrail-oss-evidence/
+          name: patchrail-open-source-evidence
+          path: patchrail-open-source-evidence/
           if-no-files-found: error

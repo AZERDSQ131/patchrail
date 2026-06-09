@@ -33,6 +33,48 @@ class PatchRailCITests(unittest.TestCase):
             self.assertEqual(payload["requirements"]["external_model_required"], False)
             self.assertIn("pytest", payload["reproduction_command"])
 
+    def test_ci_classify_detects_runner_memory_exhaustion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run pytest -q\n"
+                "collected 412 items\n"
+                "##[error]The operation was canceled.\n"
+                "Process completed with exit code 137.\n"
+                "Container app was OOMKilled (exceeded memory limit).\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "runner_resource_exhaustion")
+            self.assertEqual(payload["requirements"]["external_model_required"], False)
+            self.assertIn("memory", payload["minimal_repair_strategy"])
+
+    def test_ci_classify_detects_runner_disk_exhaustion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "npm error code ENOSPC\n"
+                "npm error syscall write\n"
+                "npm error errno -28\n"
+                "npm error nospc ENOSPC: No space left on device, write\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "runner_resource_exhaustion")
+            self.assertIn("disk", payload["minimal_repair_strategy"])
+
     def test_schema_command_emits_ci_result_contract(self) -> None:
         proc = subprocess.run(
             [sys.executable, "-m", "patchrail", "schema", "ci-result"],
@@ -52,6 +94,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("security_scan_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("ruby_bundle_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("php_composer_failure", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("runner_resource_exhaustion", schema["properties"]["failure_class"]["enum"])
         self.assertEqual(
             schema["properties"]["requirements"]["properties"]["billing_required"]["const"], False
         )
@@ -1094,6 +1137,47 @@ class PatchRailCITests(unittest.TestCase):
         self.assertNotIn("glpat-1234567890abcdefghijkl", proc.stdout)
         self.assertNotIn("pypi-AgEIcHlwaS5vcmcCdGVzdC12YWx1ZQ", proc.stdout)
         self.assertNotIn("npm_1234567890abcdefghijklmnopqrst", proc.stdout)
+
+    def test_redact_command_handles_cloud_and_key_material(self) -> None:
+        fake_jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.s5b3Qd7n0pXcVm9wQ1aZ2k4L8tR6yU0o"
+        fake_google_key = "AIza" + "b" * 35
+        # Build at runtime so the recognizable token prefix never appears verbatim in source.
+        fake_slack_token = "xox" + "b-123456789012-abcdefghijklmnop"
+        private_key = (
+            "-----BEGIN RSA PRIVATE KEY-----\n"
+            "MIIBVAIBADANBgkqhkiG9w0BAQEFAASCAT4wggE6AgEAAkEA\n"
+            "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKL\n"
+            "-----END RSA PRIVATE KEY-----"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-m", "patchrail", "redact"],
+            input=(
+                f"Slack token {fake_slack_token}\n"
+                f"Google key {fake_google_key}\n"
+                "Google oauth ya29.A0ARrdaM-abcdefghijklmnopqrstuvwxyz0123\n"
+                "HuggingFace hf_abcdefghijklmnopqrstuvwxyz0123\n"
+                f"Auth header Authorization: Bearer {fake_jwt}\n"
+                f"{private_key}\n"
+            ),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("<slack-token>", proc.stdout)
+        self.assertIn("<google-api-key>", proc.stdout)
+        self.assertIn("<google-oauth-token>", proc.stdout)
+        self.assertIn("<huggingface-token>", proc.stdout)
+        self.assertIn("<jwt>", proc.stdout)
+        self.assertIn("<private-key>", proc.stdout)
+        self.assertNotIn(fake_slack_token, proc.stdout)
+        self.assertNotIn(fake_google_key, proc.stdout)
+        self.assertNotIn("ya29.A0ARrdaM", proc.stdout)
+        self.assertNotIn("hf_abcdefghijklmnopqrstuvwxyz0123", proc.stdout)
+        self.assertNotIn(fake_jwt, proc.stdout)
+        self.assertNotIn("MIIBVAIBADANBgkqhkiG", proc.stdout)
+        self.assertNotIn("BEGIN RSA PRIVATE KEY", proc.stdout)
 
     def test_unknown_log_is_not_repairable(self) -> None:
         result = json.loads(

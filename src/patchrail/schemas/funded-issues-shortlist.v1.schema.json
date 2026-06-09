@@ -1,0 +1,953 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/funded-issues-shortlist.v1.schema.json",
+  "title": "PatchRail Funded Issues Shortlist",
+  "description": "Read-only decision-support shortlist emitted by patchrail funded-issues shortlist.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_schema_version",
+    "read_only",
+    "safe_only",
+    "limit",
+    "blocked_actions",
+    "filters",
+    "summary",
+    "shortlist",
+    "no_go_evidence",
+    "no_go_moat",
+    "decision_summary",
+    "delivery_budget",
+    "delivery_pack",
+    "source_quality",
+    "recheck_plan",
+    "evidence_debt",
+    "client_fit_summary",
+    "client_fit_gaps",
+    "intake_followup",
+    "cash_path_status",
+    "operator_next_steps",
+    "requirements",
+    "boundary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.funded_issues.shortlist.v1"
+    },
+    "source_schema_version": {
+      "const": "patchrail.funded_issues.v1"
+    },
+    "read_only": {
+      "const": true
+    },
+    "safe_only": {
+      "type": "boolean"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "blocked_actions": {
+      "$ref": "#/$defs/blocked_actions"
+    },
+    "filters": {
+      "$ref": "#/$defs/filters"
+    },
+    "summary": {
+      "type": "object",
+      "required": [
+        "total_loaded",
+        "total_scored",
+        "rating_counts",
+        "in_scope",
+        "safe_to_list",
+        "high_risk",
+        "opportunity_states"
+      ],
+      "properties": {
+        "total_loaded": { "type": "integer", "minimum": 0 },
+        "total_scored": { "type": "integer", "minimum": 0 },
+        "rating_counts": { "$ref": "#/$defs/count_map" },
+        "in_scope": { "type": "integer", "minimum": 0 },
+        "safe_to_list": { "type": "integer", "minimum": 0 },
+        "high_risk": { "type": "integer", "minimum": 0 },
+        "opportunity_states": { "$ref": "#/$defs/count_map" }
+      },
+      "additionalProperties": false
+    },
+    "shortlist": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scored_issue" }
+    },
+    "no_go_evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scored_issue" }
+    },
+    "no_go_moat": {
+      "$ref": "#/$defs/no_go_moat"
+    },
+    "decision_summary": {
+      "$ref": "#/$defs/decision_summary"
+    },
+    "delivery_budget": {
+      "$ref": "#/$defs/delivery_budget"
+    },
+    "delivery_pack": {
+      "$ref": "#/$defs/delivery_pack"
+    },
+    "source_quality": {
+      "$ref": "#/$defs/source_quality"
+    },
+    "recheck_plan": {
+      "$ref": "#/$defs/recheck_plan"
+    },
+    "evidence_debt": {
+      "$ref": "#/$defs/evidence_debt"
+    },
+    "client_fit_summary": {
+      "$ref": "#/$defs/client_fit_summary"
+    },
+    "client_fit_gaps": {
+      "$ref": "#/$defs/client_fit_gaps"
+    },
+    "intake_followup": {
+      "$ref": "#/$defs/intake_followup"
+    },
+    "cash_path_status": {
+      "$ref": "#/$defs/cash_path_status"
+    },
+    "operator_next_steps": {
+      "$ref": "#/$defs/operator_next_steps"
+    },
+    "requirements": {
+      "$ref": "#/$defs/safe_requirements"
+    },
+    "boundary": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "blocked_actions": {
+      "type": "array",
+      "contains": { "const": "automatic_claims" },
+      "items": {
+        "enum": [
+          "automatic_claims",
+          "automatic_pull_requests",
+          "automatic_issue_comments",
+          "mass_outreach",
+          "ranking_by_money_only"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "count_map": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "filters": {
+      "type": "object",
+      "required": [
+        "profile",
+        "platform",
+        "language",
+        "min_usd",
+        "opportunity_state",
+        "risk_level"
+      ],
+      "properties": {
+        "profile": {
+          "anyOf": [
+            { "$ref": "#/$defs/client_profile" },
+            { "type": "null" }
+          ]
+        },
+        "platform": { "type": ["string", "null"] },
+        "language": { "type": ["string", "null"] },
+        "min_usd": { "type": ["number", "null"], "minimum": 0 },
+        "opportunity_state": { "anyOf": [{ "$ref": "#/$defs/opportunity_state" }, { "type": "null" }] },
+        "risk_level": { "anyOf": [{ "$ref": "#/$defs/risk_level" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "client_profile": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "name",
+        "languages",
+        "min_usd",
+        "allowed_opportunity_states",
+        "allowed_risk_levels",
+        "excluded_risk_flags",
+        "read_only"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "patchrail.funded_issues.client_profile.v1"
+        },
+        "name": { "type": ["string", "null"] },
+        "languages": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "min_usd": { "type": ["number", "null"], "minimum": 0 },
+        "allowed_opportunity_states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/opportunity_state" }
+        },
+        "allowed_risk_levels": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/risk_level" }
+        },
+        "excluded_risk_flags": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "read_only": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "funded_issue": {
+      "type": "object",
+      "required": [
+        "id",
+        "platform",
+        "repository",
+        "issue_number",
+        "reference",
+        "title",
+        "url",
+        "funding",
+        "language",
+        "labels",
+        "contribution_signals",
+        "risk_flags",
+        "risk_level",
+        "safe_to_list",
+        "source_review",
+        "opportunity_state",
+        "maintainer_permission",
+        "contribution_guidelines_url",
+        "read_only",
+        "blocked_actions"
+      ],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "platform": { "type": "string", "minLength": 1 },
+        "repository": { "type": "string", "minLength": 1 },
+        "issue_number": { "type": ["integer", "null"], "minimum": 0 },
+        "reference": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "funding": {
+          "type": "object",
+          "required": ["amount", "currency", "display"],
+          "properties": {
+            "amount": { "type": ["number", "null"] },
+            "currency": { "type": ["string", "null"] },
+            "display": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": false
+        },
+        "language": { "type": ["string", "null"] },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "contribution_signals": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "risk_flags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "risk_level": { "enum": ["low", "medium", "high"] },
+        "safe_to_list": { "type": "boolean" },
+        "source_review": { "$ref": "#/$defs/source_review" },
+        "opportunity_state": { "$ref": "#/$defs/opportunity_state" },
+        "maintainer_permission": { "type": "string", "minLength": 1 },
+        "contribution_guidelines_url": { "type": ["string", "null"], "format": "uri" },
+        "read_only": { "const": true },
+        "blocked_actions": { "$ref": "#/$defs/blocked_actions" }
+      },
+      "additionalProperties": false
+    },
+    "source_review": {
+      "type": "object",
+      "required": [
+        "primary_source_required",
+        "risk_flags",
+        "required_before_shortlist",
+        "next_step"
+      ],
+      "properties": {
+        "primary_source_required": { "type": "boolean" },
+        "risk_flags": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "aggregator_only_source",
+              "discovery_only_source",
+              "primary_source_required"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "required_before_shortlist": { "type": "boolean" },
+        "next_step": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "no_go_moat": {
+      "type": "object",
+      "required": [
+        "high_risk_or_excluded",
+        "missing_contribution_guidelines",
+        "ambiguous_scope",
+        "spam_attractive",
+        "funding_unknown",
+        "stale_or_closed"
+      ],
+      "properties": {
+        "high_risk_or_excluded": { "type": "integer", "minimum": 0 },
+        "missing_contribution_guidelines": { "type": "integer", "minimum": 0 },
+        "ambiguous_scope": { "type": "integer", "minimum": 0 },
+        "spam_attractive": { "type": "integer", "minimum": 0 },
+        "funding_unknown": { "type": "integer", "minimum": 0 },
+        "stale_or_closed": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "decision_summary": {
+      "type": "object",
+      "required": [
+        "total_rows",
+        "candidate_rows",
+        "no_go_rows",
+        "gate_counts",
+        "verification_needed",
+        "authorization_needed",
+        "recommended_batch_action",
+        "safety_boundary"
+      ],
+      "properties": {
+        "total_rows": { "type": "integer", "minimum": 0 },
+        "candidate_rows": { "type": "integer", "minimum": 0 },
+        "no_go_rows": { "type": "integer", "minimum": 0 },
+        "gate_counts": { "$ref": "#/$defs/count_map" },
+        "verification_needed": { "type": "integer", "minimum": 0 },
+        "authorization_needed": { "type": "integer", "minimum": 0 },
+        "recommended_batch_action": { "type": "string", "minLength": 1 },
+        "safety_boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "delivery_budget": {
+      "type": "object",
+      "required": [
+        "suggested_package",
+        "estimated_review_minutes",
+        "estimated_review_hours",
+        "max_paid_hours",
+        "within_margin_budget",
+        "analysis_rows",
+        "boundary"
+      ],
+      "properties": {
+        "suggested_package": {
+          "enum": [
+            "none",
+            "mini_diagnostic",
+            "validation_sprint",
+            "opportunity_shortlist",
+            "custom_batch"
+          ]
+        },
+        "estimated_review_minutes": { "type": "integer", "minimum": 0 },
+        "estimated_review_hours": { "type": "number", "minimum": 0 },
+        "max_paid_hours": { "type": ["number", "null"], "minimum": 0 },
+        "within_margin_budget": { "type": "boolean" },
+        "analysis_rows": {
+          "type": "object",
+          "required": [
+            "l1_state_and_noise_review",
+            "l2_scope_and_readiness_review",
+            "l3_deep_dive_deferred"
+          ],
+          "properties": {
+            "l1_state_and_noise_review": { "type": "integer", "minimum": 0 },
+            "l2_scope_and_readiness_review": { "type": "integer", "minimum": 0 },
+            "l3_deep_dive_deferred": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "delivery_pack": {
+      "type": "object",
+      "required": [
+        "suggested_package",
+        "phase_counts",
+        "phases",
+        "handoff",
+        "boundary"
+      ],
+      "properties": {
+        "suggested_package": {
+          "enum": [
+            "none",
+            "mini_diagnostic",
+            "validation_sprint",
+            "opportunity_shortlist",
+            "custom_batch"
+          ]
+        },
+        "phase_counts": { "$ref": "#/$defs/count_map" },
+        "phases": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/delivery_phase" }
+        },
+        "handoff": { "$ref": "#/$defs/delivery_handoff" },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "delivery_phase": {
+      "type": "object",
+      "required": ["phase", "row_count", "references", "objective", "exit_criteria"],
+      "properties": {
+        "phase": {
+          "enum": [
+            "l1_state_and_noise_review",
+            "l2_shortlist_readiness_review",
+            "l3_deep_dive_deferred"
+          ]
+        },
+        "row_count": { "type": "integer", "minimum": 0 },
+        "references": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "objective": { "type": "string", "minLength": 1 },
+        "exit_criteria": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "delivery_handoff": {
+      "type": "object",
+      "required": [
+        "candidate_references",
+        "verification_references",
+        "no_go_references"
+      ],
+      "properties": {
+        "candidate_references": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "verification_references": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "no_go_references": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "source_quality": {
+      "type": "object",
+      "required": ["summary", "sources", "boundary"],
+      "properties": {
+        "summary": { "$ref": "#/$defs/source_quality_summary" },
+        "sources": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/source_quality_source" }
+        },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "source_quality_summary": {
+      "type": "object",
+      "required": [
+        "source_count",
+        "total_rows",
+        "candidate_rows",
+        "no_go_rows",
+        "candidate_source_count",
+        "no_go_only_source_count",
+        "funding_verification_needed",
+        "authorization_needed",
+        "status",
+        "next_tracker_action",
+        "boundary"
+      ],
+      "properties": {
+        "source_count": { "type": "integer", "minimum": 0 },
+        "total_rows": { "type": "integer", "minimum": 0 },
+        "candidate_rows": { "type": "integer", "minimum": 0 },
+        "no_go_rows": { "type": "integer", "minimum": 0 },
+        "candidate_source_count": { "type": "integer", "minimum": 0 },
+        "no_go_only_source_count": { "type": "integer", "minimum": 0 },
+        "funding_verification_needed": { "type": "integer", "minimum": 0 },
+        "authorization_needed": { "type": "integer", "minimum": 0 },
+        "status": {
+          "enum": [
+            "candidate_sources_available",
+            "collect_more_rows",
+            "needs_authorization",
+            "needs_funding_verification",
+            "no_go_only_sources",
+            "no_sources"
+          ]
+        },
+        "next_tracker_action": { "type": "string", "minLength": 1 },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "source_quality_source": {
+      "type": "object",
+      "required": [
+        "total_rows",
+        "candidate_rows",
+        "no_go_rows",
+        "safe_to_list",
+        "funding_verification_needed",
+        "authorization_needed",
+        "average_score",
+        "usable_signal_ratio",
+        "recommended_use"
+      ],
+      "properties": {
+        "total_rows": { "type": "integer", "minimum": 0 },
+        "candidate_rows": { "type": "integer", "minimum": 0 },
+        "no_go_rows": { "type": "integer", "minimum": 0 },
+        "safe_to_list": { "type": "integer", "minimum": 0 },
+        "funding_verification_needed": { "type": "integer", "minimum": 0 },
+        "authorization_needed": { "type": "integer", "minimum": 0 },
+        "average_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "usable_signal_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "recommended_use": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "recheck_plan": {
+      "type": "object",
+      "required": [
+        "total_rows",
+        "recheck_rows",
+        "no_go_rows",
+        "priority_counts",
+        "action_counts",
+        "next_rows",
+        "boundary"
+      ],
+      "properties": {
+        "total_rows": { "type": "integer", "minimum": 0 },
+        "recheck_rows": { "type": "integer", "minimum": 0 },
+        "no_go_rows": { "type": "integer", "minimum": 0 },
+        "priority_counts": { "$ref": "#/$defs/count_map" },
+        "action_counts": { "$ref": "#/$defs/count_map" },
+        "next_rows": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/recheck_row" }
+        },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "evidence_debt": {
+      "type": "object",
+      "required": [
+        "status",
+        "blocking_rows",
+        "archive_only_rows",
+        "highest_priority",
+        "next_action",
+        "action_counts",
+        "platform_counts",
+        "priority_counts",
+        "references",
+        "payment_route_allowed_now",
+        "external_body_allowed",
+        "boundary"
+      ],
+      "properties": {
+        "status": { "enum": ["active_evidence_debt", "clear"] },
+        "blocking_rows": { "type": "integer", "minimum": 0 },
+        "archive_only_rows": { "type": "integer", "minimum": 0 },
+        "highest_priority": { "enum": ["high", "medium", "low", "none"] },
+        "next_action": {
+          "enum": [
+            "confirm_client_authorization",
+            "ready_for_delivery_readiness_review",
+            "recheck_public_issue_state",
+            "recheck_scope_and_noise",
+            "verify_funding_visibility"
+          ]
+        },
+        "action_counts": { "$ref": "#/$defs/count_map" },
+        "platform_counts": { "$ref": "#/$defs/count_map" },
+        "priority_counts": { "$ref": "#/$defs/count_map" },
+        "references": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "payment_route_allowed_now": { "const": false },
+        "external_body_allowed": { "const": false },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "recheck_row": {
+      "type": "object",
+      "required": [
+        "reference",
+        "platform",
+        "decision_gate",
+        "priority",
+        "action",
+        "reason"
+      ],
+      "properties": {
+        "reference": { "type": "string", "minLength": 1 },
+        "platform": { "type": "string", "minLength": 1 },
+        "decision_gate": {
+          "enum": [
+            "go_after_recheck",
+            "needs_authorization",
+            "needs_funding_verification",
+            "no_go",
+            "watchlist"
+          ]
+        },
+        "priority": { "enum": ["high", "medium", "low", "none"] },
+        "action": {
+          "enum": [
+            "archive_as_no_go_evidence",
+            "confirm_client_authorization",
+            "recheck_public_issue_state",
+            "recheck_scope_and_noise",
+            "verify_funding_visibility"
+          ]
+        },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "client_fit_gaps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/client_fit_gap" }
+    },
+    "client_fit_summary": {
+      "type": "object",
+      "required": [
+        "profile_name",
+        "status",
+        "total_rows",
+        "matching_rows",
+        "excluded_rows",
+        "gap_counts",
+        "recommended_action",
+        "boundary"
+      ],
+      "properties": {
+        "profile_name": { "type": ["string", "null"], "minLength": 1 },
+        "status": {
+          "enum": [
+            "all_rows_match",
+            "no_matching_rows",
+            "no_profile",
+            "no_rows",
+            "partial_match"
+          ]
+        },
+        "total_rows": { "type": "integer", "minimum": 0 },
+        "matching_rows": { "type": "integer", "minimum": 0 },
+        "excluded_rows": { "type": "integer", "minimum": 0 },
+        "gap_counts": { "$ref": "#/$defs/count_map" },
+        "recommended_action": { "type": "string", "minLength": 1 },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "client_fit_gap": {
+      "type": "object",
+      "required": ["reference", "title", "url", "platform", "gap_codes", "gap_summary"],
+      "properties": {
+        "reference": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "platform": { "type": "string", "minLength": 1 },
+        "gap_codes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "gap_summary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "intake_followup": {
+      "type": "object",
+      "required": [
+        "status",
+        "suggested_package",
+        "required_before_paid_delivery",
+        "requested_fields",
+        "next_internal_action",
+        "boundary"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "needs_buyer_intake",
+            "needs_source_expansion",
+            "ready_after_read_only_recheck",
+            "ready_for_scope_confirmation"
+          ]
+        },
+        "suggested_package": {
+          "enum": [
+            "none",
+            "mini_diagnostic",
+            "validation_sprint",
+            "opportunity_shortlist",
+            "custom_batch"
+          ]
+        },
+        "required_before_paid_delivery": { "type": "integer", "minimum": 0 },
+        "requested_fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/intake_field" }
+        },
+        "next_internal_action": { "type": "string", "minLength": 1 },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "cash_path_status": {
+      "type": "object",
+      "required": [
+        "status",
+        "next_revenue_action",
+        "copy_brief_facts_available",
+        "payment_route_allowed_now",
+        "requires_written_acceptance_before_payment_route",
+        "buyer_ready",
+        "boundary"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "needs_buyer_intake",
+            "needs_source_expansion",
+            "ready_after_read_only_recheck",
+            "ready_for_scope_confirmation"
+          ]
+        },
+        "next_revenue_action": {
+          "enum": [
+            "collect_buyer_intake",
+            "expand_permitted_sources",
+            "run_read_only_recheck",
+            "confirm_paid_scope"
+          ]
+        },
+        "copy_brief_facts_available": { "type": "boolean" },
+        "payment_route_allowed_now": { "const": false },
+        "requires_written_acceptance_before_payment_route": { "const": true },
+        "buyer_ready": { "type": "boolean" },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "operator_next_steps": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "primary_action",
+        "copy_brief_facts_available",
+        "payment_route_allowed_now",
+        "external_body_allowed",
+        "steps",
+        "boundary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "patchrail.funded_issues.operator_next_steps.v1"
+        },
+        "status": {
+          "enum": [
+            "needs_buyer_intake",
+            "needs_source_expansion",
+            "ready_after_read_only_recheck",
+            "ready_for_scope_confirmation"
+          ]
+        },
+        "primary_action": {
+          "enum": [
+            "collect_buyer_intake",
+            "expand_permitted_sources",
+            "run_read_only_recheck",
+            "confirm_paid_scope"
+          ]
+        },
+        "copy_brief_facts_available": { "type": "boolean" },
+        "payment_route_allowed_now": { "const": false },
+        "external_body_allowed": { "const": false },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operator_next_step" }
+        },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "operator_next_step": {
+      "type": "object",
+      "required": [
+        "priority",
+        "action",
+        "source",
+        "reason",
+        "reference_scope",
+        "evidence_required",
+        "blocks_paid_delivery",
+        "copy_brief_allowed",
+        "external_body_allowed",
+        "payment_route_allowed_now",
+        "blocked_actions"
+      ],
+      "properties": {
+        "priority": { "enum": ["high", "medium", "low", "none"] },
+        "action": {
+          "enum": [
+            "collect_buyer_intake",
+            "confirm_paid_scope",
+            "expand_permitted_sources",
+            "preserve_no_go_evidence",
+            "run_read_only_recheck"
+          ]
+        },
+        "source": {
+          "enum": ["cash_path", "delivery_pack", "recheck_plan", "source_quality"]
+        },
+        "reason": { "type": "string", "minLength": 1 },
+        "reference_scope": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "evidence_required": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "blocks_paid_delivery": { "type": "boolean" },
+        "copy_brief_allowed": { "type": "boolean" },
+        "external_body_allowed": { "const": false },
+        "payment_route_allowed_now": { "const": false },
+        "blocked_actions": { "$ref": "#/$defs/blocked_actions" }
+      },
+      "additionalProperties": false
+    },
+    "intake_field": {
+      "type": "object",
+      "required": ["field", "reason", "required_before_paid_delivery"],
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 },
+        "required_before_paid_delivery": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "opportunity_state": {
+      "enum": ["active", "stale", "closed", "unknown"]
+    },
+    "risk_level": {
+      "enum": ["low", "medium", "high"]
+    },
+    "safe_requirements": {
+      "type": "object",
+      "required": [
+        "network_required",
+        "github_write_permission_required",
+        "external_model_required",
+        "billing_required"
+      ],
+      "properties": {
+        "network_required": { "const": false },
+        "github_write_permission_required": { "const": false },
+        "external_model_required": { "const": false },
+        "billing_required": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "scored_issue": {
+      "type": "object",
+      "required": [
+        "issue",
+        "score",
+        "confidence",
+        "rating",
+        "decision_gate",
+        "reason_codes",
+        "components",
+        "recommended_next_step"
+      ],
+      "properties": {
+        "issue": { "$ref": "#/$defs/funded_issue" },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rating": { "enum": ["go_candidate", "watchlist", "no_go"] },
+        "decision_gate": {
+          "enum": [
+            "go_after_recheck",
+            "needs_authorization",
+            "needs_funding_verification",
+            "no_go",
+            "watchlist"
+          ]
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "components": {
+          "type": "object",
+          "required": [
+            "base",
+            "funding_visible",
+            "guidelines_visible",
+            "contribution_signals",
+            "risk_penalty",
+            "safe_boundary_bonus"
+          ],
+          "properties": {
+            "base": { "type": "integer" },
+            "funding_visible": { "type": "integer" },
+            "guidelines_visible": { "type": "integer" },
+            "contribution_signals": { "type": "integer" },
+            "risk_penalty": { "type": "integer" },
+            "safe_boundary_bonus": { "type": "integer" }
+          },
+          "additionalProperties": false
+        },
+        "recommended_next_step": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

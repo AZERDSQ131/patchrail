@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import importlib.util
+import io
 import json
 import re
 import subprocess
@@ -19,10 +21,20 @@ from patchrail import __version__
 from patchrail.ci import classify_ci_log, redact_ci_log
 from patchrail.funded_issues import (
     SUPPORTED_PROVIDERS,
+    VALID_OPPORTUNITY_STATES,
+    VALID_RISK_LEVELS,
+    cash_actions_funded_issues,
     explain_issue,
+    fulfillment_packet_funded_issues,
     import_provider_export,
+    load_client_profile,
     load_funded_issues,
+    recheck_funded_issues,
+    report_funded_issues,
+    score_funded_issues,
+    shortlist_funded_issues,
     summarize_issues,
+    validate_funded_issues,
 )
 from patchrail.queue import (
     DEFAULT_QUEUE_PATH,
@@ -52,6 +64,8 @@ from patchrail.queue.status import (
     queue_review_payload,
     queue_status_payload,
 )
+from patchrail.web_metrics import render_text as render_web_metrics_text
+from patchrail.web_metrics import update_web_metrics
 
 
 def _read_log(path: Path | None) -> str:
@@ -153,6 +167,9 @@ def _load_schema(name: str) -> str:
         "ci-pilot-metrics": "ci-pilot-metrics.v1.schema.json",
         "ci-pilot-summary": "ci-pilot-summary.v1.schema.json",
         "ci-result": "ci-result.v1.schema.json",
+        "funded-issues-report": "funded-issues-report.v1.schema.json",
+        "funded-issues-recheck-queue": "funded-issues-recheck-queue.v1.schema.json",
+        "funded-issues-shortlist": "funded-issues-shortlist.v1.schema.json",
         "queue-audit-event": "queue-audit-event.v1.schema.json",
         "queue-audit-summary": "queue-audit-summary.v1.schema.json",
         "queue-gate-report": "queue-gate-report.v1.schema.json",
@@ -525,7 +542,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
         "docs/public-workflow-ledger.md",
         "docs/pilot-request-package.md",
         "docs/metrics.md",
-        "docs/oss-program-evidence.md",
+        "docs/open-source-program-evidence.md",
     ]
     missing_docs = [path for path in required_docs if not (root / path).exists()]
     read_only_workflow = (
@@ -641,7 +658,7 @@ def _render_evidence_snapshot_markdown(payload: dict[str, Any]) -> str:
     safety = payload["safety"]
     workstreams = payload["workstreams"]
     lines = [
-        "# PatchRail OSS Evidence Snapshot",
+        "# PatchRail Open Source Evidence Snapshot",
         "",
         f"- Repository: `{payload['repository']}`",
         f"- Status: `{payload['status']}`",
@@ -837,7 +854,7 @@ def _roadmap_audit_payload(root: Path) -> dict[str, Any]:
                 "focus": "reviewable agent workflows and public evidence pack",
                 "evidence": [
                     "docs/codex-workflows.md",
-                    "docs/openai-codex-for-oss-evidence.md",
+                    "docs/openai-open-source-evidence.md",
                     "docs/public-workflow-ledger.md",
                 ],
                 "gaps": ["formal visible review links remain pending"],
@@ -893,13 +910,13 @@ def _roadmap_audit_payload(root: Path) -> dict[str, Any]:
             "week_11": {
                 "status": "pending_metrics",
                 "focus": "application evidence preparation",
-                "evidence": ["docs/openai-codex-for-oss-evidence.md", "docs/metrics.md"],
+                "evidence": ["docs/openai-open-source-evidence.md", "docs/metrics.md"],
                 "gaps": ["stars/downloads/adopters/review links are insufficient"],
             },
             "week_12": {
                 "status": "not_ready",
                 "focus": "apply or wait with criteria",
-                "evidence": ["docs/oss-program-evidence.md"],
+                "evidence": ["docs/open-source-program-evidence.md"],
                 "gaps": ["do not apply from placeholder metrics"],
             },
         },
@@ -1191,7 +1208,7 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
     roadmap = _roadmap_audit_payload(root)
     review_packet = _public_review_packet_payload(root)
     application_gate = _application_gate_payload(root)
-    codex_evidence = _read_optional_text(root / "docs" / "openai-codex-for-oss-evidence.md")
+    codex_evidence = _read_optional_text(root / "docs" / "openai-open-source-evidence.md")
 
     upstream_contributions: list[dict[str, str]] = []
     if "https://github.com/jamie8johnson/cqs/pull/1650" in codex_evidence:
@@ -1300,8 +1317,8 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
         ],
         "evidence_pages": [
             "README.md",
-            "docs/openai-codex-for-oss-evidence.md",
-            "docs/oss-program-evidence.md",
+            "docs/openai-open-source-evidence.md",
+            "docs/open-source-program-evidence.md",
             "docs/public-workflow-ledger.md",
             "docs/release-v0.1.0-evidence.md",
             "docs/release-v0.2.0-evidence.md",
@@ -4162,6 +4179,122 @@ def _render_funded_issues_text(issues: list[dict[str, Any]]) -> str:
     return "\n".join(lines) + "\n"
 
 
+_CSV_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_cell(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        text = "true" if value else "false"
+    elif isinstance(value, list):
+        text = "; ".join(str(item) for item in value)
+    else:
+        text = str(value)
+    if text.startswith(_CSV_FORMULA_PREFIXES):
+        return f"'{text}"
+    return text
+
+
+def _render_funded_issues_csv(issues: list[dict[str, Any]]) -> str:
+    fieldnames = [
+        "platform",
+        "repository",
+        "reference",
+        "issue_number",
+        "title",
+        "url",
+        "funding_amount",
+        "funding_currency",
+        "funding_display",
+        "language",
+        "opportunity_state",
+        "risk_level",
+        "safe_to_list",
+        "contribution_signals",
+        "risk_flags",
+        "contribution_guidelines_url",
+        "read_only",
+    ]
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    for issue in issues:
+        funding = issue["funding"]
+        writer.writerow(
+            {
+                "platform": _csv_cell(issue["platform"]),
+                "repository": _csv_cell(issue["repository"]),
+                "reference": _csv_cell(issue["reference"]),
+                "issue_number": _csv_cell(issue["issue_number"]),
+                "title": _csv_cell(issue["title"]),
+                "url": _csv_cell(issue["url"]),
+                "funding_amount": _csv_cell(funding["amount"]),
+                "funding_currency": _csv_cell(funding["currency"]),
+                "funding_display": _csv_cell(funding["display"]),
+                "language": _csv_cell(issue["language"]),
+                "opportunity_state": _csv_cell(issue["opportunity_state"]),
+                "risk_level": _csv_cell(issue["risk_level"]),
+                "safe_to_list": _csv_cell(issue["safe_to_list"]),
+                "contribution_signals": _csv_cell(issue["contribution_signals"]),
+                "risk_flags": _csv_cell(issue["risk_flags"]),
+                "contribution_guidelines_url": _csv_cell(issue["contribution_guidelines_url"]),
+                "read_only": _csv_cell(issue["read_only"]),
+            }
+        )
+    return buffer.getvalue()
+
+
+def _render_funded_issues_jsonl(issues: list[dict[str, Any]]) -> str:
+    return "".join(json.dumps(issue, sort_keys=True) + "\n" for issue in issues)
+
+
+def _funded_issues_invalid_validation_payload(source: Path, exc: Exception) -> dict[str, Any]:
+    return {
+        "schema_version": "patchrail.funded_issues.validation.v1",
+        "source_schema_version": None,
+        "status": "invalid",
+        "read_only": True,
+        "source": str(source),
+        "total_loaded": 0,
+        "warning_count": 0,
+        "errors": [str(exc)],
+        "warnings": {
+            "duplicate_ids": [],
+            "duplicate_references": [],
+            "missing_funding": [],
+            "missing_contribution_guidelines": [],
+            "missing_contribution_signals": [],
+            "high_risk": [],
+            "stale_or_closed": [],
+        },
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "boundary": "Validation is local and read-only. Invalid sources are not usable evidence.",
+    }
+
+
+def _render_funded_issues_validate_text(payload: dict[str, Any]) -> str:
+    lines = [
+        "PatchRail Funded Issues Validation",
+        f"Status: {payload['status']}",
+        f"Loaded: {payload['total_loaded']}",
+        f"Warnings: {payload['warning_count']}",
+        "Read-only: True",
+    ]
+    errors = payload.get("errors") or []
+    for error in errors:
+        lines.append(f"ERROR {error}")
+    for warning_name, values in payload["warnings"].items():
+        if values:
+            lines.append(f"WARN {warning_name}: {', '.join(values)}")
+    return "\n".join(lines) + "\n"
+
+
 def _render_funded_issues_markdown(payload: dict[str, Any]) -> str:
     lines = [
         "# PatchRail Funded Issues",
@@ -4184,6 +4317,7 @@ def _render_funded_issues_markdown(payload: dict[str, Any]) -> str:
                 f"- Title: {issue['title']}",
                 f"- Platform: `{issue['platform']}`",
                 f"- Funding: `{issue['funding']['display']}`",
+                f"- Opportunity state: `{issue['opportunity_state']}`",
                 f"- Risk level: `{issue['risk_level']}`",
                 f"- URL: {issue['url']}",
                 "",
@@ -4211,6 +4345,7 @@ def _render_funded_issue_explain_markdown(payload: dict[str, Any]) -> str:
         f"- Title: {issue['title']}",
         f"- Platform: `{issue['platform']}`",
         f"- Funding: `{issue['funding']['display']}`",
+        f"- Opportunity state: `{issue['opportunity_state']}`",
         f"- Risk level: `{issue['risk_level']}`",
         f"- Read-only: `{payload['read_only']}`",
         f"- URL: {issue['url']}",
@@ -4274,6 +4409,7 @@ def _render_funded_issues_import_markdown(payload: dict[str, Any]) -> str:
                 "",
                 f"- Title: {issue['title']}",
                 f"- Funding: `{issue['funding']['display']}`",
+                f"- Opportunity state: `{issue['opportunity_state']}`",
                 f"- Risk level: `{issue['risk_level']}`",
                 f"- Safe to list: `{issue['safe_to_list']}`",
                 "",
@@ -4292,6 +4428,1336 @@ def _render_funded_issues_import_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
+    totals = payload["totals"]
+    moat = payload["no_go_moat"]
+    decision = payload["decision_summary"]
+    budget = payload["delivery_budget"]
+    profile_name = _funded_issues_profile_name(payload["filters"])
+    lines = [
+        "PatchRail Funded Issues Report",
+        f"Client profile: {profile_name}",
+        f"Loaded: {totals['loaded']}",
+        f"In scope: {totals['in_scope']}",
+        f"Safe to list: {totals['safe_to_list']}",
+        f"High risk: {totals['high_risk']}",
+        f"Funding unknown: {totals['funding_unknown']}",
+        (
+            "No-go moat: "
+            f"{moat['high_risk_or_excluded']} high-risk/excluded, "
+            f"{moat['missing_contribution_guidelines']} missing guidelines"
+        ),
+        (
+            "Decision summary: "
+            f"{decision['candidate_rows']} candidates, "
+            f"{decision['no_go_rows']} no-go rows, "
+            f"{decision['verification_needed']} funding/state rechecks"
+        ),
+        f"Recommended batch action: {decision['recommended_batch_action']}",
+        (
+            "Delivery budget: "
+            f"{budget['suggested_package']}, "
+            f"{budget['estimated_review_minutes']} min local review, "
+            f"within margin budget: {budget['within_margin_budget']}"
+        ),
+        _delivery_pack_summary(payload["delivery_pack"]),
+        _source_quality_summary(payload["source_quality"]),
+        _recheck_plan_summary(payload["recheck_plan"]),
+        _evidence_debt_summary(payload["evidence_debt"]),
+        _client_fit_summary_line(payload["client_fit_summary"]),
+        f"Client fit gaps: {len(payload['client_fit_gaps'])}",
+        _intake_followup_summary(payload["intake_followup"]),
+        _cash_path_summary(payload["cash_path_status"]),
+        _operator_next_steps_summary(payload["operator_next_steps"]),
+        "Read-only: True",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _source_quality_summary(source_quality: dict[str, Any]) -> str:
+    sources = source_quality["sources"]
+    summary = source_quality["summary"]
+    if not sources:
+        return f"Source quality: no source rows matched the filters, status {summary['status']}"
+    source, stats = sorted(
+        sources.items(),
+        key=lambda item: (
+            -int(item[1]["candidate_rows"]),
+            -float(item[1]["usable_signal_ratio"]),
+            -float(item[1]["average_score"]),
+            item[0],
+        ),
+    )[0]
+    return (
+        "Source quality: "
+        f"{source} has {stats['candidate_rows']}/{stats['total_rows']} candidate rows, "
+        f"{stats['usable_signal_ratio']} usable signal ratio, "
+        f"status {summary['status']}"
+    )
+
+
+def _delivery_pack_summary(delivery_pack: dict[str, Any]) -> str:
+    handoff = delivery_pack["handoff"]
+    return (
+        "Delivery pack: "
+        f"{len(handoff['candidate_references'])} candidate refs, "
+        f"{len(handoff['verification_references'])} verification refs, "
+        f"{len(handoff['no_go_references'])} no-go refs"
+    )
+
+
+def _recheck_plan_summary(recheck_plan: dict[str, Any]) -> str:
+    return (
+        "Recheck plan: "
+        f"{recheck_plan['recheck_rows']} active rechecks, "
+        f"{recheck_plan['no_go_rows']} archived no-go rows"
+    )
+
+
+def _evidence_debt_summary(evidence_debt: dict[str, Any]) -> str:
+    return (
+        "Evidence debt: "
+        f"{evidence_debt['blocking_rows']} blocking rows, "
+        f"highest priority {evidence_debt['highest_priority']}, "
+        f"next action {evidence_debt['next_action']}"
+    )
+
+
+def _client_fit_summary_line(client_fit_summary: dict[str, Any]) -> str:
+    return (
+        "Client fit summary: "
+        f"{client_fit_summary['matching_rows']}/{client_fit_summary['total_rows']} "
+        f"matching rows, {client_fit_summary['excluded_rows']} excluded, "
+        f"status {client_fit_summary['status']}"
+    )
+
+
+def _intake_followup_summary(intake_followup: dict[str, Any]) -> str:
+    return (
+        "Intake follow-up: "
+        f"{intake_followup['status']}, "
+        f"{len(intake_followup['requested_fields'])} fields, "
+        f"{intake_followup['required_before_paid_delivery']} required"
+    )
+
+
+def _cash_path_summary(cash_path_status: dict[str, Any]) -> str:
+    return (
+        "Cash path: "
+        f"{cash_path_status['next_revenue_action']}, "
+        f"buyer ready: {cash_path_status['buyer_ready']}, "
+        f"payment route allowed now: {cash_path_status['payment_route_allowed_now']}"
+    )
+
+
+def _operator_next_steps_summary(operator_next_steps: dict[str, Any]) -> str:
+    return (
+        "Operator next steps: "
+        f"{operator_next_steps['primary_action']}, "
+        f"{len(operator_next_steps['steps'])} steps, "
+        f"external body allowed: {operator_next_steps['external_body_allowed']}, "
+        f"payment route allowed now: {operator_next_steps['payment_route_allowed_now']}"
+    )
+
+
+def _funded_issues_profile_name(filters: dict[str, Any]) -> str:
+    profile = filters.get("profile")
+    if not isinstance(profile, dict):
+        return "none"
+    name = profile.get("name")
+    return str(name) if name else "unnamed"
+
+
+def _append_source_quality_markdown(
+    lines: list[str],
+    source_quality: dict[str, Any],
+) -> None:
+    summary = source_quality["summary"]
+    lines.extend(
+        [
+            "",
+            "## Source Quality",
+            "",
+            f"- Status: `{summary['status']}`",
+            f"- Sources: `{summary['source_count']}`",
+            f"- Candidate sources: `{summary['candidate_source_count']}`",
+            f"- No-go-only sources: `{summary['no_go_only_source_count']}`",
+            f"- Next tracker action: {summary['next_tracker_action']}",
+            "",
+            "| Source | Rows | Candidates | No-go | Safe | Rechecks | Auth | Avg score | Usable signal | Recommended use |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+        ]
+    )
+    sources = source_quality["sources"]
+    if sources:
+        for source, stats in sources.items():
+            lines.append(
+                f"| `{source}` | {stats['total_rows']} | {stats['candidate_rows']} | "
+                f"{stats['no_go_rows']} | {stats['safe_to_list']} | "
+                f"{stats['funding_verification_needed']} | "
+                f"{stats['authorization_needed']} | {stats['average_score']} | "
+                f"{stats['usable_signal_ratio']} | {stats['recommended_use']} |"
+            )
+    else:
+        lines.append("| n/a | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | No rows matched the filters. |")
+    lines.extend(["", summary["boundary"], "", source_quality["boundary"]])
+
+
+def _append_delivery_pack_markdown(
+    lines: list[str],
+    delivery_pack: dict[str, Any],
+) -> None:
+    handoff = delivery_pack["handoff"]
+    lines.extend(
+        [
+            "",
+            "## Delivery Pack",
+            "",
+            f"- Suggested package: `{delivery_pack['suggested_package']}`",
+            "- Candidate references: " + _format_reference_list(handoff["candidate_references"]),
+            "- Verification references: "
+            + _format_reference_list(handoff["verification_references"]),
+            "- No-go references: " + _format_reference_list(handoff["no_go_references"]),
+            "",
+            "| Phase | Rows | References | Objective | Exit criteria |",
+            "|---|---:|---|---|---|",
+        ]
+    )
+    for phase in delivery_pack["phases"]:
+        lines.append(
+            f"| `{phase['phase']}` | {phase['row_count']} | "
+            f"{_format_reference_list(phase['references'])} | "
+            f"{phase['objective']} | {phase['exit_criteria']} |"
+        )
+    lines.extend(["", delivery_pack["boundary"]])
+
+
+def _format_reference_list(references: list[str]) -> str:
+    if not references:
+        return "`none`"
+    return ", ".join(f"`{reference}`" for reference in references)
+
+
+def _append_client_fit_summary_markdown(
+    lines: list[str],
+    client_fit_summary: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Client Fit Summary",
+            "",
+            f"- Profile: `{client_fit_summary['profile_name'] or 'none'}`",
+            f"- Status: `{client_fit_summary['status']}`",
+            f"- Matching rows: `{client_fit_summary['matching_rows']}` / "
+            f"`{client_fit_summary['total_rows']}`",
+            f"- Excluded rows: `{client_fit_summary['excluded_rows']}`",
+            f"- Recommended action: {client_fit_summary['recommended_action']}",
+            "",
+            "| Gap code | Count |",
+            "|---|---:|",
+        ]
+    )
+    if client_fit_summary["gap_counts"]:
+        for gap_code, count in client_fit_summary["gap_counts"].items():
+            lines.append(f"| `{gap_code}` | {count} |")
+    else:
+        lines.append("| n/a | 0 |")
+    lines.extend(["", client_fit_summary["boundary"]])
+
+
+def _append_recheck_plan_markdown(
+    lines: list[str],
+    recheck_plan: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Recheck Plan",
+            "",
+            f"- Rows: `{recheck_plan['total_rows']}`",
+            f"- Active rechecks: `{recheck_plan['recheck_rows']}`",
+            f"- Archived no-go rows: `{recheck_plan['no_go_rows']}`",
+            "",
+            "| Priority | Count |",
+            "|---|---:|",
+        ]
+    )
+    if recheck_plan["priority_counts"]:
+        for priority, count in recheck_plan["priority_counts"].items():
+            lines.append(f"| `{priority}` | {count} |")
+    else:
+        lines.append("| n/a | 0 |")
+    lines.extend(
+        [
+            "",
+            "| Action | Count |",
+            "|---|---:|",
+        ]
+    )
+    for action, count in recheck_plan["action_counts"].items():
+        lines.append(f"| `{action}` | {count} |")
+    lines.extend(
+        [
+            "",
+            "| Reference | Priority | Action | Reason |",
+            "|---|---|---|---|",
+        ]
+    )
+    if recheck_plan["next_rows"]:
+        for row in recheck_plan["next_rows"]:
+            lines.append(
+                f"| `{row['reference']}` | `{row['priority']}` | "
+                f"`{row['action']}` | {row['reason']} |"
+            )
+    else:
+        lines.append("| n/a | n/a | n/a | No active rechecks matched the filters. |")
+    lines.extend(["", recheck_plan["boundary"]])
+
+
+def _append_evidence_debt_markdown(
+    lines: list[str],
+    evidence_debt: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Evidence Debt",
+            "",
+            f"- Status: `{evidence_debt['status']}`",
+            f"- Blocking rows: `{evidence_debt['blocking_rows']}`",
+            f"- Archive-only rows: `{evidence_debt['archive_only_rows']}`",
+            f"- Highest priority: `{evidence_debt['highest_priority']}`",
+            f"- Next action: `{evidence_debt['next_action']}`",
+            f"- Payment route allowed now: `{evidence_debt['payment_route_allowed_now']}`",
+            f"- External body allowed: `{evidence_debt['external_body_allowed']}`",
+            "",
+            "| Action | Count |",
+            "|---|---:|",
+        ]
+    )
+    if evidence_debt["action_counts"]:
+        for action, count in evidence_debt["action_counts"].items():
+            lines.append(f"| `{action}` | {count} |")
+    else:
+        lines.append("| n/a | 0 |")
+    lines.extend(["", "| Platform | Count |", "|---|---:|"])
+    if evidence_debt["platform_counts"]:
+        for platform, count in evidence_debt["platform_counts"].items():
+            lines.append(f"| `{platform}` | {count} |")
+    else:
+        lines.append("| n/a | 0 |")
+    lines.extend(
+        [
+            "",
+            "- References: " + _format_reference_list(evidence_debt["references"]),
+            "",
+            evidence_debt["boundary"],
+        ]
+    )
+
+
+def _append_client_fit_gaps_markdown(
+    lines: list[str],
+    client_fit_gaps: list[dict[str, Any]],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Client Fit Gaps",
+            "",
+            "| Reference | Gap codes | Summary |",
+            "|---|---|---|",
+        ]
+    )
+    if client_fit_gaps:
+        for row in client_fit_gaps:
+            gap_codes = ", ".join(f"`{code}`" for code in row["gap_codes"])
+            lines.append(f"| `{row['reference']}` | {gap_codes} | {row['gap_summary']} |")
+    else:
+        lines.append("| n/a | n/a | No rows were excluded by the local client profile. |")
+    lines.extend(
+        [
+            "",
+            (
+                "Client fit gaps are local decision-support evidence only. They do not "
+                "authorize claiming rewards, contacting maintainers, posting comments, or "
+                "opening pull requests."
+            ),
+        ]
+    )
+
+
+def _append_intake_followup_markdown(
+    lines: list[str],
+    intake_followup: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Intake Follow-Up",
+            "",
+            f"- Status: `{intake_followup['status']}`",
+            f"- Suggested package: `{intake_followup['suggested_package']}`",
+            "- Required before paid delivery: "
+            f"`{intake_followup['required_before_paid_delivery']}`",
+            f"- Next internal action: {intake_followup['next_internal_action']}",
+            "",
+            "| Field | Required before paid delivery | Reason |",
+            "|---|---:|---|",
+        ]
+    )
+    if intake_followup["requested_fields"]:
+        for field in intake_followup["requested_fields"]:
+            lines.append(
+                f"| `{field['field']}` | {field['required_before_paid_delivery']} | "
+                f"{field['reason']} |"
+            )
+    else:
+        lines.append("| n/a | False | No additional intake fields are required by this artifact. |")
+    lines.extend(["", intake_followup["boundary"]])
+
+
+def _append_cash_path_status_markdown(
+    lines: list[str],
+    cash_path_status: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Cash Path Status",
+            "",
+            f"- Status: `{cash_path_status['status']}`",
+            f"- Next revenue action: `{cash_path_status['next_revenue_action']}`",
+            f"- Copy-brief facts available: `{cash_path_status['copy_brief_facts_available']}`",
+            f"- Buyer ready: `{cash_path_status['buyer_ready']}`",
+            f"- Payment route allowed now: `{cash_path_status['payment_route_allowed_now']}`",
+            "- Requires written acceptance before payment route: "
+            f"`{cash_path_status['requires_written_acceptance_before_payment_route']}`",
+            "",
+            cash_path_status["boundary"],
+        ]
+    )
+
+
+def _append_operator_next_steps_markdown(
+    lines: list[str],
+    operator_next_steps: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Operator Next Steps",
+            "",
+            f"- Status: `{operator_next_steps['status']}`",
+            f"- Primary action: `{operator_next_steps['primary_action']}`",
+            f"- Copy-brief facts available: `{operator_next_steps['copy_brief_facts_available']}`",
+            f"- External body allowed: `{operator_next_steps['external_body_allowed']}`",
+            f"- Payment route allowed now: `{operator_next_steps['payment_route_allowed_now']}`",
+            "",
+            "| Priority | Action | Source | Scope | Evidence required | Blocks paid delivery | Copy brief allowed | Reason |",
+            "|---|---|---|---|---|---:|---:|---|",
+        ]
+    )
+    if operator_next_steps["steps"]:
+        for step in operator_next_steps["steps"]:
+            lines.append(
+                "| "
+                f"`{step['priority']}` | "
+                f"`{step['action']}` | "
+                f"`{step['source']}` | "
+                f"{_format_reference_list(step['reference_scope'])} | "
+                f"{_format_reference_list(step['evidence_required'])} | "
+                f"{step['blocks_paid_delivery']} | "
+                f"{step['copy_brief_allowed']} | "
+                f"{_escape_markdown_cell(step['reason'])} |"
+            )
+    else:
+        lines.append("| n/a | n/a | n/a | `none` | `none` | False | False | No steps. |")
+    lines.extend(["", operator_next_steps["boundary"]])
+
+
+def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
+    totals = payload["totals"]
+    breakdown = payload["breakdown"]
+    moat = payload["no_go_moat"]
+    decision = payload["decision_summary"]
+    budget = payload["delivery_budget"]
+    profile_name = _funded_issues_profile_name(payload["filters"])
+    lines = [
+        "# PatchRail Funded Issues Report",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Client profile: `{profile_name}`",
+        f"- Safe-only filter: `{payload['safe_only']}`",
+        f"- Loaded: `{totals['loaded']}`",
+        f"- In scope: `{totals['in_scope']}`",
+        f"- Safe to list: `{totals['safe_to_list']}`",
+        f"- High risk: `{totals['high_risk']}`",
+        f"- Funding known: `{totals['funding_known']}`",
+        f"- Funding unknown: `{totals['funding_unknown']}`",
+        "",
+        "## Decision Summary",
+        "",
+        f"- Candidate rows: `{decision['candidate_rows']}`",
+        f"- No-go rows: `{decision['no_go_rows']}`",
+        f"- Funding/state verification needed: `{decision['verification_needed']}`",
+        f"- Authorization needed: `{decision['authorization_needed']}`",
+        f"- Recommended batch action: {decision['recommended_batch_action']}",
+        "",
+        "| Decision gate | Count |",
+        "|---|---:|",
+    ]
+    for gate, count in decision["gate_counts"].items():
+        lines.append(f"| `{gate}` | {count} |")
+    lines.extend(
+        [
+            "",
+            "## Delivery Budget",
+            "",
+            f"- Suggested package: `{budget['suggested_package']}`",
+            f"- Estimated local review: `{budget['estimated_review_minutes']}` minutes",
+            f"- Estimated hours: `{budget['estimated_review_hours']}`",
+            f"- Max paid hours: `{budget['max_paid_hours']}`",
+            f"- Within margin budget: `{budget['within_margin_budget']}`",
+            "",
+            "| Analysis level | Rows |",
+            "|---|---:|",
+        ]
+    )
+    for level, count in budget["analysis_rows"].items():
+        lines.append(f"| `{level}` | {count} |")
+    _append_delivery_pack_markdown(lines, payload["delivery_pack"])
+    _append_source_quality_markdown(lines, payload["source_quality"])
+    _append_recheck_plan_markdown(lines, payload["recheck_plan"])
+    _append_evidence_debt_markdown(lines, payload["evidence_debt"])
+    _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
+    _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
+    _append_intake_followup_markdown(lines, payload["intake_followup"])
+    _append_cash_path_status_markdown(lines, payload["cash_path_status"])
+    _append_operator_next_steps_markdown(lines, payload["operator_next_steps"])
+    lines.extend(
+        [
+            "",
+            budget["boundary"],
+            "",
+            "## No-Go Moat",
+            "",
+            "| Measure | Count |",
+            "|---|---:|",
+        ]
+    )
+    lines.extend(
+        [
+            f"| High-risk or excluded | {moat['high_risk_or_excluded']} |",
+            f"| Missing contribution guidelines | {moat['missing_contribution_guidelines']} |",
+            f"| Ambiguous scope | {moat['ambiguous_scope']} |",
+            f"| Spam-attractive signals | {moat['spam_attractive']} |",
+            f"| Funding unknown | {moat['funding_unknown']} |",
+            f"| Stale or closed | {moat['stale_or_closed']} |",
+            "",
+            "## Breakdowns",
+            "",
+            "### Risk Levels",
+            "",
+        ]
+    )
+    for risk_level, count in breakdown["risk_levels"].items():
+        lines.append(f"- `{risk_level}`: `{count}`")
+    lines.extend(["", "### Platforms", ""])
+    for platform, count in breakdown["platforms"].items():
+        lines.append(f"- `{platform}`: `{count}`")
+    lines.extend(["", "### Languages", ""])
+    for language, count in breakdown["languages"].items():
+        lines.append(f"- `{language}`: `{count}`")
+    lines.extend(["", "### Opportunity States", ""])
+    for opportunity_state, count in breakdown["opportunity_states"].items():
+        lines.append(f"- `{opportunity_state}`: `{count}`")
+    lines.extend(["", "### Risk Flags", ""])
+    if breakdown["risk_flags"]:
+        for flag, count in breakdown["risk_flags"].items():
+            lines.append(f"- `{flag}`: `{count}`")
+    else:
+        lines.append("- No risk flags recorded.")
+    lines.extend(["", "## Top Safe Candidates", ""])
+    candidates = payload["top_safe_candidates"]
+    if candidates:
+        for candidate in candidates:
+            lines.extend(
+                [
+                    f"### {candidate['reference']}",
+                    "",
+                    f"- Title: {candidate['title']}",
+                    f"- Platform: `{candidate['platform']}`",
+                    f"- Funding: `{candidate['funding']}`",
+                    f"- Opportunity state: `{candidate['opportunity_state']}`",
+                    f"- Risk level: `{candidate['risk_level']}`",
+                    f"- URL: {candidate['url']}",
+                    "",
+                ]
+            )
+    else:
+        lines.append("No safe candidates matched the filters.")
+    lines.extend(
+        [
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_score_text(payload: dict[str, Any]) -> str:
+    profile_name = _funded_issues_profile_name(payload["filters"])
+    lines = [
+        "PatchRail Funded Issues Score",
+        f"Client profile: {profile_name}",
+        f"Loaded: {payload['total_loaded']}",
+        f"Scored: {payload['total_scored']}",
+        "Read-only: True",
+    ]
+    for row in payload["scores"]:
+        issue = row["issue"]
+        lines.append(
+            f"{issue['reference']}: {row['score']} ({row['rating']}) "
+            f"[confidence {row['confidence']}; {row['decision_gate']}; "
+            f"{', '.join(row['reason_codes'])}] - "
+            f"{row['recommended_next_step']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_score_markdown(payload: dict[str, Any]) -> str:
+    profile_name = _funded_issues_profile_name(payload["filters"])
+    lines = [
+        "# PatchRail Funded Issues Score",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Client profile: `{profile_name}`",
+        f"- Safe-only filter: `{payload['safe_only']}`",
+        f"- Loaded: `{payload['total_loaded']}`",
+        f"- Scored: `{payload['total_scored']}`",
+        "",
+        "## Rating Counts",
+        "",
+    ]
+    if payload["rating_counts"]:
+        lines.extend(
+            f"- `{rating}`: `{count}`" for rating, count in payload["rating_counts"].items()
+        )
+    else:
+        lines.append("- No issues matched the filters.")
+    lines.extend(["", "## Scores", ""])
+    for row in payload["scores"]:
+        issue = row["issue"]
+        lines.extend(
+            [
+                f"### {issue['reference']}",
+                "",
+                f"- Score: `{row['score']}`",
+                f"- Confidence: `{row['confidence']}`",
+                f"- Rating: `{row['rating']}`",
+                f"- Decision gate: `{row['decision_gate']}`",
+                f"- Title: {issue['title']}",
+                f"- Platform: `{issue['platform']}`",
+                f"- Funding: `{issue['funding']['display']}`",
+                f"- Opportunity state: `{issue['opportunity_state']}`",
+                f"- Risk level: `{issue['risk_level']}`",
+                f"- URL: {issue['url']}",
+                "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
+                f"- Recommended next step: {row['recommended_next_step']}",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    moat = payload["no_go_moat"]
+    decision = payload["decision_summary"]
+    budget = payload["delivery_budget"]
+    profile_name = _funded_issues_profile_name(payload["filters"])
+    lines = [
+        "PatchRail Funded Issues Shortlist",
+        f"Client profile: {profile_name}",
+        f"Loaded: {summary['total_loaded']}",
+        f"Scored: {summary['total_scored']}",
+        f"Candidates: {len(payload['shortlist'])}",
+        f"No-go evidence: {len(payload['no_go_evidence'])}",
+        (
+            "No-go moat: "
+            f"{moat['high_risk_or_excluded']} high-risk/excluded, "
+            f"{moat['ambiguous_scope']} ambiguous scope"
+        ),
+        (
+            "Decision summary: "
+            f"{decision['candidate_rows']} candidates, "
+            f"{decision['no_go_rows']} no-go rows, "
+            f"{decision['verification_needed']} funding/state rechecks"
+        ),
+        f"Recommended batch action: {decision['recommended_batch_action']}",
+        (
+            "Delivery budget: "
+            f"{budget['suggested_package']}, "
+            f"{budget['estimated_review_minutes']} min local review, "
+            f"within margin budget: {budget['within_margin_budget']}"
+        ),
+        _delivery_pack_summary(payload["delivery_pack"]),
+        _source_quality_summary(payload["source_quality"]),
+        _recheck_plan_summary(payload["recheck_plan"]),
+        _evidence_debt_summary(payload["evidence_debt"]),
+        _client_fit_summary_line(payload["client_fit_summary"]),
+        f"Client fit gaps: {len(payload['client_fit_gaps'])}",
+        _intake_followup_summary(payload["intake_followup"]),
+        _cash_path_summary(payload["cash_path_status"]),
+        _operator_next_steps_summary(payload["operator_next_steps"]),
+        "Read-only: True",
+        "Boundary: Decision support only.",
+    ]
+    for row in payload["shortlist"]:
+        issue = row["issue"]
+        lines.append(
+            f"{issue['reference']}: {row['score']} "
+            f"(confidence {row['confidence']}; {row['rating']}; {row['decision_gate']})"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    moat = payload["no_go_moat"]
+    decision = payload["decision_summary"]
+    budget = payload["delivery_budget"]
+    profile_name = _funded_issues_profile_name(payload["filters"])
+    lines = [
+        "# PatchRail Funded Issues Shortlist",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Client profile: `{profile_name}`",
+        f"- Safe-only candidate filter: `{payload['safe_only']}`",
+        f"- Limit: `{payload['limit']}`",
+        f"- Loaded: `{summary['total_loaded']}`",
+        f"- Scored: `{summary['total_scored']}`",
+        f"- Safe to list: `{summary['safe_to_list']}`",
+        f"- High risk: `{summary['high_risk']}`",
+        "",
+        "## Decision Summary",
+        "",
+        f"- Candidate rows: `{decision['candidate_rows']}`",
+        f"- No-go rows: `{decision['no_go_rows']}`",
+        f"- Funding/state verification needed: `{decision['verification_needed']}`",
+        f"- Authorization needed: `{decision['authorization_needed']}`",
+        f"- Recommended batch action: {decision['recommended_batch_action']}",
+        "",
+        "| Decision gate | Count |",
+        "|---|---:|",
+    ]
+    for gate, count in decision["gate_counts"].items():
+        lines.append(f"| `{gate}` | {count} |")
+    lines.extend(
+        [
+            "",
+            "## Delivery Budget",
+            "",
+            f"- Suggested package: `{budget['suggested_package']}`",
+            f"- Estimated local review: `{budget['estimated_review_minutes']}` minutes",
+            f"- Estimated hours: `{budget['estimated_review_hours']}`",
+            f"- Max paid hours: `{budget['max_paid_hours']}`",
+            f"- Within margin budget: `{budget['within_margin_budget']}`",
+            "",
+            "| Analysis level | Rows |",
+            "|---|---:|",
+        ]
+    )
+    for level, count in budget["analysis_rows"].items():
+        lines.append(f"| `{level}` | {count} |")
+    _append_delivery_pack_markdown(lines, payload["delivery_pack"])
+    _append_source_quality_markdown(lines, payload["source_quality"])
+    _append_recheck_plan_markdown(lines, payload["recheck_plan"])
+    _append_evidence_debt_markdown(lines, payload["evidence_debt"])
+    _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
+    _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
+    _append_intake_followup_markdown(lines, payload["intake_followup"])
+    _append_cash_path_status_markdown(lines, payload["cash_path_status"])
+    _append_operator_next_steps_markdown(lines, payload["operator_next_steps"])
+    lines.extend(
+        [
+            "",
+            budget["boundary"],
+            "",
+            "## Shortlist",
+            "",
+        ]
+    )
+    if payload["shortlist"]:
+        for row in payload["shortlist"]:
+            issue = row["issue"]
+            lines.extend(
+                [
+                    f"### {issue['reference']}",
+                    "",
+                    f"- Score: `{row['score']}`",
+                    f"- Confidence: `{row['confidence']}`",
+                    f"- Rating: `{row['rating']}`",
+                    f"- Decision gate: `{row['decision_gate']}`",
+                    f"- Title: {issue['title']}",
+                    f"- Platform: `{issue['platform']}`",
+                    f"- Funding: `{issue['funding']['display']}`",
+                    f"- Opportunity state: `{issue['opportunity_state']}`",
+                    f"- Risk level: `{issue['risk_level']}`",
+                    "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
+                    f"- Recommended next step: {row['recommended_next_step']}",
+                    f"- URL: {issue['url']}",
+                    "",
+                ]
+            )
+    else:
+        lines.append("No go-candidate or watchlist issues matched the filters.")
+    lines.extend(
+        [
+            "## No-Go Evidence",
+            "",
+        ]
+    )
+    if payload["no_go_evidence"]:
+        for row in payload["no_go_evidence"]:
+            issue = row["issue"]
+            lines.extend(
+                [
+                    f"### {issue['reference']}",
+                    "",
+                    f"- Score: `{row['score']}`",
+                    f"- Confidence: `{row['confidence']}`",
+                    f"- Rating: `{row['rating']}`",
+                    f"- Decision gate: `{row['decision_gate']}`",
+                    f"- Title: {issue['title']}",
+                    f"- Opportunity state: `{issue['opportunity_state']}`",
+                    f"- Risk level: `{issue['risk_level']}`",
+                    "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
+                    f"- Recommended next step: {row['recommended_next_step']}",
+                    "",
+                ]
+            )
+    else:
+        lines.append("No no-go rows matched the filters.")
+    lines.extend(
+        [
+            "",
+            "## No-Go Moat",
+            "",
+            "| Measure | Count |",
+            "|---|---:|",
+            f"| High-risk or excluded | {moat['high_risk_or_excluded']} |",
+            f"| Missing contribution guidelines | {moat['missing_contribution_guidelines']} |",
+            f"| Ambiguous scope | {moat['ambiguous_scope']} |",
+            f"| Spam-attractive signals | {moat['spam_attractive']} |",
+            f"| Funding unknown | {moat['funding_unknown']} |",
+            "",
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_recheck_queue_text(payload: dict[str, Any]) -> str:
+    lines = [
+        "PatchRail Funded Issues Recheck Queue",
+        f"Read-only: {payload['read_only']}",
+        f"Loaded: {payload['total_loaded']}",
+        f"Scored: {payload['total_scored']}",
+        f"Queue limit: {payload['queue_limit']}",
+        f"Queue rows before limit: {payload['queue_rows_before_limit']}",
+        f"Queue rows: {payload['queue_rows']}",
+        f"No-go archive rows: {payload['no_go_archive_rows']}",
+        f"Priority counts: {payload['priority_counts']}",
+        f"Action counts: {payload['action_counts']}",
+        _recheck_focus_batch_summary(payload["focus_batch"]),
+        f"Boundary: {payload['boundary']}",
+    ]
+    for item in payload["items"]:
+        lines.append(
+            f"{item['priority']} | {item['action']} | {item['reference']} | "
+            f"{item['decision_gate']} | {item['funding']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_recheck_queue_markdown(payload: dict[str, Any]) -> str:
+    lines = [
+        "# PatchRail Funded Issues Recheck Queue",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Safe-only: `{payload['safe_only']}`",
+        f"- Loaded: `{payload['total_loaded']}`",
+        f"- Scored: `{payload['total_scored']}`",
+        f"- Queue limit: `{payload['queue_limit']}`",
+        f"- Queue rows before limit: `{payload['queue_rows_before_limit']}`",
+        f"- Queue rows: `{payload['queue_rows']}`",
+        f"- No-go archive rows: `{payload['no_go_archive_rows']}`",
+        "",
+        "## Focus Batch",
+        "",
+        f"- Status: `{payload['focus_batch']['status']}`",
+        f"- Primary action: `{payload['focus_batch']['primary_action']}`",
+        f"- Priority: `{payload['focus_batch']['priority']}`",
+        f"- Item count: `{payload['focus_batch']['item_count']}`",
+        "- References: " + _format_reference_list(payload["focus_batch"]["references"]),
+        f"- Platform counts: `{payload['focus_batch']['platform_counts']}`",
+        "",
+        "### Evidence Checklist",
+        "",
+    ]
+    if payload["focus_batch"]["evidence_checklist"]:
+        lines.extend(f"- {item}" for item in payload["focus_batch"]["evidence_checklist"])
+    else:
+        lines.append("- No active evidence checks.")
+    lines.extend(
+        [
+            "",
+            payload["focus_batch"]["boundary"],
+            "",
+            "## Queue",
+            "",
+        ]
+    )
+    if payload["items"]:
+        lines.extend(
+            [
+                "| Priority | Action | Reference | Funding | Score | Evidence checks |",
+                "|---|---|---|---:|---:|---|",
+            ]
+        )
+        for item in payload["items"]:
+            checklist = "<br>".join(
+                _escape_markdown_cell(check) for check in item["evidence_checklist"]
+            )
+            lines.append(
+                "| "
+                f"`{item['priority']}` | "
+                f"`{item['action']}` | "
+                f"[{item['reference']}]({item['url']}) | "
+                f"`{item['funding']}` | "
+                f"`{item['score']}` | "
+                f"{checklist} |"
+            )
+    else:
+        lines.append("No active recheck rows matched the filters.")
+    lines.extend(
+        [
+            "",
+            "## Action Counts",
+            "",
+            "| Action | Count |",
+            "|---|---:|",
+        ]
+    )
+    for action, count in payload["action_counts"].items():
+        lines.append(f"| `{action}` | {count} |")
+    lines.extend(
+        [
+            "",
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _recheck_focus_batch_summary(focus_batch: dict[str, Any]) -> str:
+    return (
+        "Focus batch: "
+        f"{focus_batch['status']} | "
+        f"{focus_batch['priority']} | "
+        f"{focus_batch['primary_action']} | "
+        f"{focus_batch['item_count']} rows"
+    )
+
+
+def _render_funded_issues_cash_actions_text(payload: dict[str, Any]) -> str:
+    cash_path = payload["cash_path_status"]
+    lines = [
+        "PatchRail Funded Issues Cash Actions",
+        f"Read-only: {payload['read_only']}",
+        f"Cash-path status: {cash_path['status']}",
+        f"Next revenue action: {cash_path['next_revenue_action']}",
+        f"Action limit: {payload['action_limit']}",
+        f"Actions before limit: {payload['actions_before_limit']}",
+        f"Action rows: {payload['action_rows']}",
+        f"Payment route allowed now: {cash_path['payment_route_allowed_now']}",
+        _operator_next_steps_summary(payload["operator_next_steps"]),
+        f"Boundary: {payload['boundary']}",
+    ]
+    for item in payload["items"]:
+        facts = item["copy_brief_facts"]
+        facts_status = "none"
+        if facts:
+            facts_status = (
+                f"{len(facts['key_facts'])} facts, {len(facts['constraints'])} constraints"
+            )
+        lines.append(
+            f"{item['priority']} | {item['action']} | "
+            f"copy brief allowed: {item['copy_brief_allowed']} | "
+            f"copy brief facts: {facts_status} | "
+            f"payment route allowed now: {item['payment_route_allowed_now']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_cash_actions_markdown(payload: dict[str, Any]) -> str:
+    cash_path = payload["cash_path_status"]
+    lines = [
+        "# PatchRail Funded Issues Cash Actions",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Safe-only: `{payload['safe_only']}`",
+        f"- Cash-path status: `{cash_path['status']}`",
+        f"- Next revenue action: `{cash_path['next_revenue_action']}`",
+        f"- Action limit: `{payload['action_limit']}`",
+        f"- Actions before limit: `{payload['actions_before_limit']}`",
+        f"- Action rows: `{payload['action_rows']}`",
+        f"- Copy-brief facts available: `{cash_path['copy_brief_facts_available']}`",
+        f"- Payment route allowed now: `{cash_path['payment_route_allowed_now']}`",
+        "",
+        "## Actions",
+        "",
+    ]
+    if payload["items"]:
+        lines.extend(
+            [
+                "| Priority | Action | Package | Requested fields | Evidence refs | Copy brief facts | External body | Payment route | Reason |",
+                "|---|---|---|---|---|---|---:|---:|---|",
+            ]
+        )
+        for item in payload["items"]:
+            facts = item["copy_brief_facts"]
+            facts_summary = "not allowed"
+            if facts:
+                facts_summary = (
+                    f"{len(facts['key_facts'])} facts; "
+                    f"forbidden: {_format_reference_list(facts['forbidden_fields'])}"
+                )
+            lines.append(
+                "| "
+                f"`{item['priority']}` | "
+                f"`{item['action']}` | "
+                f"`{item['suggested_package']}` | "
+                f"{_format_reference_list(item['requested_fields'])} | "
+                f"{_format_reference_list(item['evidence_references'])} | "
+                f"{facts_summary} | "
+                f"{item['external_body_allowed']} | "
+                f"{item['payment_route_allowed_now']} | "
+                f"{_escape_markdown_cell(item['reason'])} |"
+            )
+    else:
+        lines.append("No internal cash actions matched the filters.")
+    _append_operator_next_steps_markdown(lines, payload["operator_next_steps"])
+    lines.extend(
+        [
+            "",
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            cash_path["boundary"],
+            "",
+            "Each row is internal facts-only handoff data, not external prose, and does not "
+            "create a payment route.",
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> str:
+    cash_path = payload["cash_path_status"]
+    readiness = payload["delivery_readiness"]
+    digest = payload["operations_digest"]
+    evidence = payload["evidence_manifest"]
+    report_plan = payload["report_assembly_plan"]
+    totals = payload["totals"]
+    lines = [
+        "PatchRail Funded Issues Fulfillment Packet",
+        f"Read-only: {payload['read_only']}",
+        f"Status: {payload['status']}",
+        f"Delivery readiness: {readiness['status']}",
+        f"Ready for paid delivery: {readiness['ready_for_paid_delivery']}",
+        f"Blocking gates: {readiness['blocking_gates']}",
+        f"Suggested package: {payload['suggested_package']}",
+        f"Packet limit: {payload['packet_limit']}",
+        f"Items before limit: {payload['items_before_limit']}",
+        f"Item rows: {payload['item_rows']}",
+        f"Candidate references: {totals['candidate_references']}",
+        f"Active rechecks: {totals['active_rechecks']}",
+        f"Next revenue action: {cash_path['next_revenue_action']}",
+        f"Payment route allowed now: {cash_path['payment_route_allowed_now']}",
+        f"Operations digest: {digest['status']}",
+        f"Operations blocking count: {digest['blocking_count']}",
+        f"Next safe local action: {_digest_action_summary(digest['next_safe_local_action'])}",
+        f"Evidence manifest: {evidence['status']}",
+        f"Evidence blocked artifacts: {evidence['blocked_artifacts']}",
+        f"Report assembly plan: {report_plan['status']}",
+        f"Report blocked sections: {report_plan['blocked_sections']}",
+        _operator_next_steps_summary(payload["operator_next_steps"]),
+        f"Boundary: {payload['boundary']}",
+    ]
+    for item in payload["items"]:
+        scope = ", ".join(item["reference_scope"]) or "none"
+        lines.append(
+            f"{item['priority']} | {item['stage']} | {item['action']} | "
+            f"{scope} | blocks paid delivery: {item['blocks_paid_delivery']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -> str:
+    cash_path = payload["cash_path_status"]
+    readiness = payload["delivery_readiness"]
+    digest = payload["operations_digest"]
+    evidence = payload["evidence_manifest"]
+    report_plan = payload["report_assembly_plan"]
+    totals = payload["totals"]
+    handoff = payload["handoff"]
+    lines = [
+        "# PatchRail Funded Issues Fulfillment Packet",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Safe-only: `{payload['safe_only']}`",
+        f"- Status: `{payload['status']}`",
+        f"- Suggested package: `{payload['suggested_package']}`",
+        f"- Packet limit: `{payload['packet_limit']}`",
+        f"- Items before limit: `{payload['items_before_limit']}`",
+        f"- Item rows: `{payload['item_rows']}`",
+        f"- Candidate references: `{totals['candidate_references']}`",
+        f"- Verification references: `{totals['verification_references']}`",
+        f"- No-go references: `{totals['no_go_references']}`",
+        f"- Active rechecks: `{totals['active_rechecks']}`",
+        f"- Source count: `{totals['source_count']}`",
+        "",
+        "## Cash Path",
+        "",
+        f"- Next revenue action: `{cash_path['next_revenue_action']}`",
+        f"- Buyer ready: `{cash_path['buyer_ready']}`",
+        f"- Payment route allowed now: `{cash_path['payment_route_allowed_now']}`",
+        "- Requires written acceptance before payment route: "
+        f"`{cash_path['requires_written_acceptance_before_payment_route']}`",
+        "",
+        "## QA Gates",
+        "",
+        "| Gate | Passed | Evidence | Reason |",
+        "|---|---:|---|---|",
+    ]
+    for gate in payload["qa_gates"]:
+        lines.append(
+            "| "
+            f"`{gate['gate']}` | "
+            f"{gate['passed']} | "
+            f"{_format_reference_list(gate['evidence'])} | "
+            f"{_escape_markdown_cell(gate['reason'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Delivery Readiness",
+            "",
+            f"- Status: `{readiness['status']}`",
+            f"- Ready for paid delivery: `{readiness['ready_for_paid_delivery']}`",
+            f"- Next internal action: `{readiness['next_internal_action']}`",
+            f"- Payment route allowed now: `{readiness['payment_route_allowed_now']}`",
+            f"- External body allowed: `{readiness['external_body_allowed']}`",
+            "- Blocking gates: " + _format_reference_list(readiness["blocking_gates"]),
+            "- Blocking item actions: "
+            + _format_reference_list(readiness["blocking_item_actions"]),
+            "- Blocking reference scope: "
+            + _format_reference_list(readiness["blocking_reference_scope"]),
+            "",
+            readiness["boundary"],
+            "",
+            "## Operations Digest",
+            "",
+            f"- Status: `{digest['status']}`",
+            f"- Blocking count: `{digest['blocking_count']}`",
+            f"- Gate pass rate: `{digest['gate_pass_rate']}`",
+            "- Next blocker: " + _digest_action_summary(digest["next_blocker"]),
+            "- Next safe local action: " + _digest_action_summary(digest["next_safe_local_action"]),
+            f"- Payment route allowed now: `{digest['payment_route_allowed_now']}`",
+            f"- External body allowed: `{digest['external_body_allowed']}`",
+            "- Non-blocking actions: " + _format_reference_list(digest["non_blocking_actions"]),
+            "",
+            "| Source | Owner | Priority | Action | Evidence | Blocks paid delivery |",
+            "|---|---|---|---|---|---:|",
+        ]
+    )
+    for step in digest["critical_path"]:
+        lines.append(
+            "| "
+            f"`{step['source']}` | "
+            f"`{step['owner']}` | "
+            f"`{step['priority']}` | "
+            f"`{step['action']}` | "
+            f"{_format_reference_list(step['evidence'])} | "
+            f"{step['blocks_paid_delivery']} |"
+        )
+    lines.extend(["", digest["boundary"]])
+    lines.extend(
+        [
+            "",
+            "## Evidence Manifest",
+            "",
+            f"- Status: `{evidence['status']}`",
+            f"- Artifact count: `{evidence['artifact_count']}`",
+            f"- Required artifact count: `{evidence['required_artifact_count']}`",
+            f"- Ready required artifacts: `{evidence['ready_required_artifact_count']}`",
+            "- Blocked artifacts: " + _format_reference_list(evidence["blocked_artifacts"]),
+            f"- Payment route allowed now: `{evidence['payment_route_allowed_now']}`",
+            f"- External body allowed: `{evidence['external_body_allowed']}`",
+            "",
+            "| Artifact | Status | Required | Sources | References | Next safe local action |",
+            "|---|---|---:|---|---|---|",
+        ]
+    )
+    for artifact in evidence["artifacts"]:
+        lines.append(
+            "| "
+            f"`{artifact['artifact']}` | "
+            f"`{artifact['status']}` | "
+            f"{artifact['required_before_delivery']} | "
+            f"{_format_reference_list(artifact['source_fields'])} | "
+            f"{_format_reference_list(artifact['references'])} | "
+            f"{_escape_markdown_cell(artifact['next_safe_local_action'])} |"
+        )
+    lines.extend(["", evidence["boundary"]])
+    lines.extend(
+        [
+            "",
+            "## Report Assembly Plan",
+            "",
+            f"- Status: `{report_plan['status']}`",
+            f"- Internal assembly ready: `{report_plan['internal_assembly_ready']}`",
+            f"- Customer delivery ready: `{report_plan['customer_delivery_ready']}`",
+            f"- Section count: `{report_plan['section_count']}`",
+            "- Ready sections: " + _format_reference_list(report_plan["ready_sections"]),
+            "- Blocked sections: " + _format_reference_list(report_plan["blocked_sections"]),
+            f"- Source quality status: `{report_plan['source_quality_status']}`",
+            "- Candidate references: "
+            + _format_reference_list(report_plan["candidate_references"]),
+            "- Verification references: "
+            + _format_reference_list(report_plan["verification_references"]),
+            "- No-go references: " + _format_reference_list(report_plan["no_go_references"]),
+            f"- No-go signal count: `{report_plan['no_go_signal_count']}`",
+            f"- Payment route allowed now: `{report_plan['payment_route_allowed_now']}`",
+            f"- External body allowed: `{report_plan['external_body_allowed']}`",
+            f"- Customer-facing prose allowed: `{report_plan['customer_facing_prose_allowed']}`",
+            "",
+            "| Section | Status | Sources | References | Blocked by | Next safe local action |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for section in report_plan["sections"]:
+        lines.append(
+            "| "
+            f"`{section['section']}` | "
+            f"`{section['status']}` | "
+            f"{_format_reference_list(section['source_fields'])} | "
+            f"{_format_reference_list(section['references'])} | "
+            f"{_format_reference_list(section['blocked_by'])} | "
+            f"{_escape_markdown_cell(section['next_safe_local_action'])} |"
+        )
+    lines.extend(["", report_plan["boundary"]])
+    _append_operator_next_steps_markdown(lines, payload["operator_next_steps"])
+    lines.extend(["", "## Fulfillment Items", ""])
+    if payload["items"]:
+        lines.extend(
+            [
+                "| Priority | Stage | Action | Scope | Evidence required | Blocks paid delivery |",
+                "|---|---|---|---|---|---:|",
+            ]
+        )
+        for item in payload["items"]:
+            lines.append(
+                "| "
+                f"`{item['priority']}` | "
+                f"`{item['stage']}` | "
+                f"`{item['action']}` | "
+                f"{_format_reference_list(item['reference_scope'])} | "
+                f"{_format_reference_list(item['evidence_required'])} | "
+                f"{item['blocks_paid_delivery']} |"
+            )
+    else:
+        lines.append("No internal fulfillment items matched the filters.")
+    lines.extend(
+        [
+            "",
+            "## Handoff",
+            "",
+            "- Candidate references: " + _format_reference_list(handoff["candidate_references"]),
+            "- Verification references: "
+            + _format_reference_list(handoff["verification_references"]),
+            "- No-go references: " + _format_reference_list(handoff["no_go_references"]),
+            "- Sections: " + _format_reference_list(handoff["sections"]),
+            f"- External body allowed: `{handoff['external_body_allowed']}`",
+            f"- Payment route allowed now: `{handoff['payment_route_allowed_now']}`",
+            "- Requires written acceptance before payment route: "
+            f"`{handoff['requires_written_acceptance_before_payment_route']}`",
+            "",
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            cash_path["boundary"],
+            "",
+            "Each row is internal delivery operations data, not customer-facing prose, and "
+            "does not create a payment route.",
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _digest_action_summary(action: dict[str, Any] | None) -> str:
+    if action is None:
+        return "`none`"
+    evidence = _format_reference_list(action.get("evidence") or [])
+    return f"`{action['action']}` ({action['owner']}, {action['priority']}, evidence: {evidence})"
+
+
+def _escape_markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|")
+
+
 def _default_funded_issues_source() -> Path:
     return Path("examples") / "funded-issues-readonly" / "issues.json"
 
@@ -4302,16 +5768,42 @@ def _load_funded_issues_for_cli(source: Path) -> list[Any]:
     return load_funded_issues(source)
 
 
+def _funded_issues_validate(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        payload = validate_funded_issues(issues)
+        payload["source"] = str(source)
+        payload["strict"] = bool(args.strict)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        payload = _funded_issues_invalid_validation_payload(source, exc)
+        payload["strict"] = bool(args.strict)
+    if args.format == "json":
+        text = _json_dump(payload)
+    else:
+        text = _render_funded_issues_validate_text(payload)
+    _write_or_print(text, args.out)
+    if payload["status"] == "invalid":
+        return 1
+    if args.strict and payload["warning_count"]:
+        return 1
+    return 0
+
+
 def _funded_issues_list(args: argparse.Namespace) -> int:
     source = args.source or _default_funded_issues_source()
     try:
         issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
         payload = summarize_issues(
             issues,
             safe_only=not args.include_risky,
+            profile=profile,
             platform=args.platform,
             language=args.language,
             min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue source: {exc}", file=sys.stderr)
@@ -4320,6 +5812,10 @@ def _funded_issues_list(args: argparse.Namespace) -> int:
         text = _json_dump(payload)
     elif args.format == "markdown":
         text = _render_funded_issues_markdown(payload)
+    elif args.format == "csv":
+        text = _render_funded_issues_csv(payload["issues"])
+    elif args.format == "jsonl":
+        text = _render_funded_issues_jsonl(payload["issues"])
     else:
         text = _render_funded_issues_text(payload["issues"])
     _write_or_print(text, args.out)
@@ -4359,6 +5855,198 @@ def _funded_issues_import(args: argparse.Namespace) -> int:
         text = _render_funded_issues_import_markdown(payload)
     else:
         text = _render_funded_issues_text(payload["issues"])
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_report(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
+        payload = report_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            profile=profile,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_report_markdown(payload)
+    else:
+        text = _render_funded_issues_report_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_score(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
+        payload = score_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            profile=profile,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_score_markdown(payload)
+    else:
+        text = _render_funded_issues_score_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_shortlist(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
+        payload = shortlist_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            profile=profile,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
+            limit=args.limit,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_shortlist_markdown(payload)
+    else:
+        text = _render_funded_issues_shortlist_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_recheck_queue(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
+        payload = recheck_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            profile=profile,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
+            max_rows=args.max_rows,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_recheck_queue_markdown(payload)
+    else:
+        text = _render_funded_issues_recheck_queue_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_cash_actions(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
+        payload = cash_actions_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            profile=profile,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
+            max_actions=args.max_actions,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_cash_actions_markdown(payload)
+    else:
+        text = _render_funded_issues_cash_actions_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_fulfillment_packet(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
+        payload = fulfillment_packet_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            profile=profile,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
+            max_items=args.max_items,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_fulfillment_packet_markdown(payload)
+    else:
+        text = _render_funded_issues_fulfillment_packet_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _web_metrics_update(args: argparse.Namespace) -> int:
+    try:
+        payload = update_web_metrics(
+            web_dir=args.web_dir,
+            product_repo=args.product_repo,
+            desk_dir=args.desk_dir,
+            funded_source=args.funded_source,
+            dry_run=args.dry_run,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError, OSError) as exc:
+        print(f"Invalid web metrics input: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "text":
+        text = render_web_metrics_text(payload)
+    else:
+        text = json.dumps(payload, sort_keys=True) + "\n"
     _write_or_print(text, args.out)
     return 0
 
@@ -4584,6 +6272,9 @@ def _build_parser() -> argparse.ArgumentParser:
             "ci-pilot-metrics",
             "ci-pilot-summary",
             "ci-result",
+            "funded-issues-report",
+            "funded-issues-recheck-queue",
+            "funded-issues-shortlist",
             "queue-audit-event",
             "queue-audit-summary",
             "queue-gate-report",
@@ -4613,9 +6304,57 @@ def _build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--out", type=Path, help="Optional output path.")
     doctor.set_defaults(func=_doctor)
 
+    web_metrics = subparsers.add_parser(
+        "web-metrics",
+        help="Update website metric JSON from read-only product and tracker evidence.",
+    )
+    web_metrics_subparsers = web_metrics.add_subparsers(
+        dest="web_metrics_command",
+        required=True,
+    )
+    web_metrics_update = web_metrics_subparsers.add_parser(
+        "update",
+        help="Write public/api website metric payloads only when evidence changed.",
+    )
+    web_metrics_update.add_argument(
+        "--web-dir",
+        type=Path,
+        required=True,
+        help="Website checkout containing public/api.",
+    )
+    web_metrics_update.add_argument(
+        "--product-repo",
+        type=Path,
+        default=Path("."),
+        help="PatchRail product repository. Defaults to the current directory.",
+    )
+    web_metrics_update.add_argument(
+        "--desk-dir",
+        type=Path,
+        help="Optional Opportunity Desk directory with research/prospecting evidence.",
+    )
+    web_metrics_update.add_argument(
+        "--funded-source",
+        type=Path,
+        help="Local funded issue JSON source. Defaults to product examples.",
+    )
+    web_metrics_update.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report which files would change without writing website JSON.",
+    )
+    web_metrics_update.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="json",
+        help="Output format.",
+    )
+    web_metrics_update.add_argument("--out", type=Path, help="Optional output path.")
+    web_metrics_update.set_defaults(func=_web_metrics_update)
+
     evidence = subparsers.add_parser(
         "evidence",
-        help="Summarize local OSS program evidence without network or write actions.",
+        help="Summarize local open-source program evidence without network or write actions.",
     )
     evidence_subparsers = evidence.add_subparsers(dest="evidence_command", required=True)
     evidence_snapshot = evidence_subparsers.add_parser(
@@ -4633,7 +6372,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     evidence_roadmap = evidence_subparsers.add_parser(
         "roadmap",
-        help="Audit v0.1.0-v0.4.0 and 12-week OSS roadmap progress from local artifacts.",
+        help="Audit v0.1.0-v0.4.0 and 12-week open-source roadmap progress from local artifacts.",
     )
     evidence_roadmap.add_argument(
         "--format",
@@ -5144,6 +6883,29 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_subparsers = funded.add_subparsers(dest="funded_issues_command", required=True)
 
+    funded_validate = funded_subparsers.add_parser(
+        "validate",
+        help="Validate a local funded issue dataset before using it as tracker evidence.",
+    )
+    funded_validate.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_validate.add_argument(
+        "--strict",
+        action="store_true",
+        help="Return non-zero when review warnings are present.",
+    )
+    funded_validate.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="Output format.",
+    )
+    funded_validate.add_argument("--out", type=Path, help="Optional output path.")
+    funded_validate.set_defaults(func=_funded_issues_validate)
+
     funded_list = funded_subparsers.add_parser(
         "list",
         help="List local funded issue metadata with safe-only filtering by default.",
@@ -5164,8 +6926,23 @@ def _build_parser() -> argparse.ArgumentParser:
         "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
     )
     funded_list.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before output. Read-only.",
+    )
+    funded_list.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_list.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_list.add_argument(
         "--format",
-        choices=["json", "markdown", "text"],
+        choices=["csv", "json", "jsonl", "markdown", "text"],
         default="text",
         help="Output format.",
     )
@@ -5215,6 +6992,285 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_import.add_argument("--out", type=Path, help="Optional output path.")
     funded_import.set_defaults(func=_funded_issues_import)
+
+    funded_report = funded_subparsers.add_parser(
+        "report",
+        help="Summarize local funded issue coverage and no-go moat metrics.",
+    )
+    funded_report.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_report.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Limit candidate rows to safe-to-list issues while still reporting total coverage.",
+    )
+    funded_report.add_argument("--platform", help="Filter by funding platform.")
+    funded_report.add_argument("--language", help="Filter by repository language.")
+    funded_report.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_report.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before reporting. Read-only.",
+    )
+    funded_report.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_report.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_report.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_report.add_argument("--out", type=Path, help="Optional output path.")
+    funded_report.set_defaults(func=_funded_issues_report)
+
+    funded_score = funded_subparsers.add_parser(
+        "score",
+        help="Score local funded issue readiness with read-only reason codes.",
+    )
+    funded_score.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_score.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only score safe-to-list issues while preserving read-only boundaries.",
+    )
+    funded_score.add_argument("--platform", help="Filter by funding platform.")
+    funded_score.add_argument("--language", help="Filter by repository language.")
+    funded_score.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_score.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before scoring. Read-only.",
+    )
+    funded_score.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_score.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_score.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="json",
+        help="Output format.",
+    )
+    funded_score.add_argument("--out", type=Path, help="Optional output path.")
+    funded_score.set_defaults(func=_funded_issues_score)
+
+    funded_shortlist = funded_subparsers.add_parser(
+        "shortlist",
+        help="Build a local read-only shortlist artifact with no-go evidence.",
+    )
+    funded_shortlist.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_shortlist.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only allow safe-to-list issues in shortlist candidates.",
+    )
+    funded_shortlist.add_argument("--platform", help="Filter by funding platform.")
+    funded_shortlist.add_argument("--language", help="Filter by repository language.")
+    funded_shortlist.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_shortlist.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before shortlisting. Read-only.",
+    )
+    funded_shortlist.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_shortlist.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_shortlist.add_argument(
+        "--limit",
+        type=int,
+        default=5,
+        help="Maximum shortlist candidate rows to include.",
+    )
+    funded_shortlist.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_shortlist.add_argument("--out", type=Path, help="Optional output path.")
+    funded_shortlist.set_defaults(func=_funded_issues_shortlist)
+
+    funded_recheck_queue = funded_subparsers.add_parser(
+        "recheck-queue",
+        help="Build a local read-only recheck queue for funded issue tracker maintenance.",
+    )
+    funded_recheck_queue.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_recheck_queue.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only include safe-to-list issues before building the recheck queue.",
+    )
+    funded_recheck_queue.add_argument("--platform", help="Filter by funding platform.")
+    funded_recheck_queue.add_argument("--language", help="Filter by repository language.")
+    funded_recheck_queue.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_recheck_queue.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before queueing. Read-only.",
+    )
+    funded_recheck_queue.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_recheck_queue.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_recheck_queue.add_argument(
+        "--max-rows",
+        type=int,
+        help="Limit active recheck rows after priority sorting. Must be at least 1.",
+    )
+    funded_recheck_queue.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_recheck_queue.add_argument("--out", type=Path, help="Optional output path.")
+    funded_recheck_queue.set_defaults(func=_funded_issues_recheck_queue)
+
+    funded_cash_actions = funded_subparsers.add_parser(
+        "cash-actions",
+        help="Build an internal read-only next-action queue for Opportunity Desk cash path work.",
+    )
+    funded_cash_actions.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_cash_actions.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only include safe-to-list issues before building cash-path actions.",
+    )
+    funded_cash_actions.add_argument("--platform", help="Filter by funding platform.")
+    funded_cash_actions.add_argument("--language", help="Filter by repository language.")
+    funded_cash_actions.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_cash_actions.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before action planning. Read-only.",
+    )
+    funded_cash_actions.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_cash_actions.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_cash_actions.add_argument(
+        "--max-actions",
+        type=int,
+        help="Limit internal action rows after priority sorting. Must be at least 1.",
+    )
+    funded_cash_actions.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_cash_actions.add_argument("--out", type=Path, help="Optional output path.")
+    funded_cash_actions.set_defaults(func=_funded_issues_cash_actions)
+
+    funded_fulfillment_packet = funded_subparsers.add_parser(
+        "fulfillment-packet",
+        help="Build an internal read-only fulfillment packet for paid delivery operations.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only include safe-to-list issues before building the fulfillment packet.",
+    )
+    funded_fulfillment_packet.add_argument("--platform", help="Filter by funding platform.")
+    funded_fulfillment_packet.add_argument("--language", help="Filter by repository language.")
+    funded_fulfillment_packet.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_fulfillment_packet.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before packet planning. Read-only.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--max-items",
+        type=int,
+        help="Limit internal fulfillment items after priority sorting. Must be at least 1.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_fulfillment_packet.add_argument("--out", type=Path, help="Optional output path.")
+    funded_fulfillment_packet.set_defaults(func=_funded_issues_fulfillment_packet)
 
     return parser
 

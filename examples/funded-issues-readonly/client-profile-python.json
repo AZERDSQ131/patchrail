@@ -1,0 +1,10 @@
+{
+  "schema_version": "patchrail.funded_issues.client_profile.v1",
+  "name": "Async Python buyer",
+  "languages": ["python"],
+  "min_usd": 200,
+  "allowed_opportunity_states": ["active"],
+  "allowed_risk_levels": ["low"],
+  "excluded_risk_flags": ["spam_attractive"],
+  "read_only": true
+}

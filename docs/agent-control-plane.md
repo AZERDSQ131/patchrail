@@ -157,7 +157,7 @@ execution, redacts absolute local paths, and preserves historical queue data.
 `patchrail queue policy-resolve` is the explicit local follow-up when
 `policy-scan` finds active blocked records. It marks matching work items as
 `status=skipped`, rejects matching proposal records, stores the decision note
-`no money goal, OSS-only #3217` by default, appends normal local audit events,
+`revenue-safety policy: local-only human approval required` by default, appends normal local audit events,
 and then re-runs the scan so reviewers can see whether the policy state is now
 clear. It does not delete history, execute proposals, open pull requests, post
 comments, contact repositories, call external models, require billing, or ask

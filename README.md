@@ -125,7 +125,7 @@ Example output:
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| CI failure triage | Beta | GitHub Actions-style logs and common OSS toolchains |
+| CI failure triage | Beta | GitHub Actions-style logs and common open-source toolchains |
 | Markdown/JSON reports | Beta | Suitable for local review or manually pasted reports |
 | Local queue/control plane | Experimental | SQLite-backed work items with human approval states |
 | Funded issue discovery | Planned | Read-only, later, and explicitly anti-abuse |
@@ -191,8 +191,8 @@ See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
 - [v0.2.0 release evidence](docs/release-v0.2.0-evidence.md)
 - [v0.3.0 release evidence](docs/release-v0.3.0-evidence.md)
 - [v0.4.0 release evidence](docs/release-v0.4.0-evidence.md)
-- [Codex for Open Source evidence](docs/openai-codex-for-oss-evidence.md)
-- [Open source evidence tracker](docs/oss-program-evidence.md)
+- [Codex for Open Source evidence](docs/openai-open-source-evidence.md)
+- [Open source evidence tracker](docs/open-source-program-evidence.md)
 
 ## Contributing
 

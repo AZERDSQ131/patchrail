@@ -40,8 +40,8 @@ PatchRail-owned infrastructure. They do not claim:
 
 | Area | Issue | Pull request | Evidence type |
 | --- | --- | --- | --- |
-| OSS evidence artifact maintenance | [#69](https://github.com/patchrail/patchrail/issues/69) | [#79](https://github.com/patchrail/patchrail/pull/79) | workflow runtime review |
-| OSS evidence artifact publication | [#69](https://github.com/patchrail/patchrail/issues/69) | [#78](https://github.com/patchrail/patchrail/pull/78) | CI artifact evidence |
+| open-source evidence artifact maintenance | [#69](https://github.com/patchrail/patchrail/issues/69) | [#79](https://github.com/patchrail/patchrail/pull/79) | workflow runtime review |
+| open-source evidence artifact publication | [#69](https://github.com/patchrail/patchrail/issues/69) | [#78](https://github.com/patchrail/patchrail/pull/78) | CI artifact evidence |
 | Evidence snapshot command | [#69](https://github.com/patchrail/patchrail/issues/69) | [#77](https://github.com/patchrail/patchrail/pull/77) | program evidence automation |
 | Consent-only pilot request package | [#69](https://github.com/patchrail/patchrail/issues/69) | [#76](https://github.com/patchrail/patchrail/pull/76) | adopter readiness docs |
 | Own-repo CI pilot outcome | [#68](https://github.com/patchrail/patchrail/issues/68) | [#75](https://github.com/patchrail/patchrail/pull/75) | own-repo triage evidence |

@@ -22,6 +22,7 @@
       "type": "string",
       "enum": [
         "unknown",
+        "runner_resource_exhaustion",
         "python_dependency_resolution",
         "python_test_failure",
         "node_dependency_install",
