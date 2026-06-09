@@ -8,6 +8,7 @@ from typing import Any
 
 
 SCHEMA_VERSION = "patchrail.funded_issues.v1"
+CLIENT_PROFILE_SCHEMA_VERSION = "patchrail.funded_issues.client_profile.v1"
 VALIDATION_SCHEMA_VERSION = "patchrail.funded_issues.validation.v1"
 SHORTLIST_SCHEMA_VERSION = "patchrail.funded_issues.shortlist.v1"
 BLOCKED_ACTIONS = [
@@ -112,12 +113,72 @@ class FundedIssue:
         }
 
 
+@dataclass(frozen=True)
+class ClientProfile:
+    name: str | None = None
+    languages: tuple[str, ...] = ()
+    min_usd: float | None = None
+    allowed_opportunity_states: tuple[str, ...] = ()
+    allowed_risk_levels: tuple[str, ...] = ()
+    excluded_risk_flags: tuple[str, ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": CLIENT_PROFILE_SCHEMA_VERSION,
+            "name": self.name,
+            "languages": list(self.languages),
+            "min_usd": self.min_usd,
+            "allowed_opportunity_states": list(self.allowed_opportunity_states),
+            "allowed_risk_levels": list(self.allowed_risk_levels),
+            "excluded_risk_flags": list(self.excluded_risk_flags),
+            "read_only": True,
+        }
+
+
 def _as_string_list(value: Any) -> list[str]:
     if value is None:
         return []
     if not isinstance(value, list):
         raise ValueError("expected a list")
     return [str(item) for item in value]
+
+
+def _as_normalized_tuple(value: Any) -> tuple[str, ...]:
+    return tuple(sorted({item.strip().lower() for item in _as_string_list(value) if item.strip()}))
+
+
+def _profile_from_mapping(raw: dict[str, Any]) -> ClientProfile:
+    schema_version = raw.get("schema_version")
+    if schema_version != CLIENT_PROFILE_SCHEMA_VERSION:
+        raise ValueError(f"profile must use schema_version {CLIENT_PROFILE_SCHEMA_VERSION}")
+    min_usd = raw.get("min_usd")
+    if min_usd is not None:
+        min_usd = float(min_usd)
+        if min_usd < 0:
+            raise ValueError("profile min_usd must be >= 0")
+    states = tuple(
+        _normalize_opportunity_state_filter(state)
+        for state in _as_normalized_tuple(raw.get("allowed_opportunity_states"))
+    )
+    risk_levels = tuple(
+        _normalize_risk_level_filter(risk_level)
+        for risk_level in _as_normalized_tuple(raw.get("allowed_risk_levels"))
+    )
+    return ClientProfile(
+        name=str(raw["name"]) if raw.get("name") else None,
+        languages=_as_normalized_tuple(raw.get("languages")),
+        min_usd=min_usd,
+        allowed_opportunity_states=states,
+        allowed_risk_levels=risk_levels,
+        excluded_risk_flags=_as_normalized_tuple(raw.get("excluded_risk_flags")),
+    )
+
+
+def load_client_profile(source: Path) -> ClientProfile:
+    payload = json.loads(source.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("profile source must contain an object")
+    return _profile_from_mapping(payload)
 
 
 def _issue_from_mapping(raw: dict[str, Any]) -> FundedIssue:
@@ -261,6 +322,7 @@ def summarize_issues(
     issues: list[FundedIssue],
     *,
     safe_only: bool = True,
+    profile: ClientProfile | None = None,
     platform: str | None = None,
     language: str | None = None,
     min_usd: float | None = None,
@@ -273,18 +335,15 @@ def summarize_issues(
     for issue in issues:
         if safe_only and not issue.safe_to_list:
             continue
-        if platform and issue.platform.lower() != platform.lower():
-            continue
-        if language and (issue.language or "").lower() != language.lower():
-            continue
-        if min_usd is not None:
-            if issue.funding_currency != "USD" or issue.funding_amount is None:
-                continue
-            if issue.funding_amount < min_usd:
-                continue
-        if opportunity_state and issue.opportunity_state != opportunity_state:
-            continue
-        if risk_level and issue.risk_level != risk_level:
+        if not _matches_report_filter(
+            issue,
+            profile=profile,
+            platform=platform,
+            language=language,
+            min_usd=min_usd,
+            opportunity_state=opportunity_state,
+            risk_level=risk_level,
+        ):
             continue
         filtered.append(issue)
     return {
@@ -294,6 +353,14 @@ def summarize_issues(
         "blocked_actions": BLOCKED_ACTIONS,
         "total_loaded": len(issues),
         "total_returned": len(filtered),
+        "filters": {
+            "profile": profile.to_dict() if profile else None,
+            "platform": platform,
+            "language": language,
+            "min_usd": min_usd,
+            "opportunity_state": opportunity_state,
+            "risk_level": risk_level,
+        },
         "issues": [issue.to_dict() for issue in filtered],
         "requirements": {
             "network_required": False,
@@ -308,6 +375,7 @@ def report_funded_issues(
     issues: list[FundedIssue],
     *,
     safe_only: bool = False,
+    profile: ClientProfile | None = None,
     platform: str | None = None,
     language: str | None = None,
     min_usd: float | None = None,
@@ -319,6 +387,7 @@ def report_funded_issues(
     summary = summarize_issues(
         issues,
         safe_only=safe_only,
+        profile=profile,
         platform=platform,
         language=language,
         min_usd=min_usd,
@@ -330,6 +399,7 @@ def report_funded_issues(
         for issue in issues
         if _matches_report_filter(
             issue,
+            profile=profile,
             platform=platform,
             language=language,
             min_usd=min_usd,
@@ -357,6 +427,7 @@ def report_funded_issues(
         "safe_only": safe_only,
         "blocked_actions": BLOCKED_ACTIONS,
         "filters": {
+            "profile": profile.to_dict() if profile else None,
             "platform": platform,
             "language": language,
             "min_usd": min_usd,
@@ -424,6 +495,7 @@ def score_funded_issues(
     issues: list[FundedIssue],
     *,
     safe_only: bool = False,
+    profile: ClientProfile | None = None,
     platform: str | None = None,
     language: str | None = None,
     min_usd: float | None = None,
@@ -437,6 +509,7 @@ def score_funded_issues(
         for issue in issues
         if _matches_report_filter(
             issue,
+            profile=profile,
             platform=platform,
             language=language,
             min_usd=min_usd,
@@ -454,6 +527,7 @@ def score_funded_issues(
         "safe_only": safe_only,
         "blocked_actions": BLOCKED_ACTIONS,
         "filters": {
+            "profile": profile.to_dict() if profile else None,
             "platform": platform,
             "language": language,
             "min_usd": min_usd,
@@ -484,6 +558,7 @@ def shortlist_funded_issues(
     issues: list[FundedIssue],
     *,
     safe_only: bool = False,
+    profile: ClientProfile | None = None,
     platform: str | None = None,
     language: str | None = None,
     min_usd: float | None = None,
@@ -496,6 +571,7 @@ def shortlist_funded_issues(
     score_payload = score_funded_issues(
         issues,
         safe_only=False,
+        profile=profile,
         platform=platform,
         language=language,
         min_usd=min_usd,
@@ -505,6 +581,7 @@ def shortlist_funded_issues(
     report_payload = report_funded_issues(
         issues,
         safe_only=safe_only,
+        profile=profile,
         platform=platform,
         language=language,
         min_usd=min_usd,
@@ -662,9 +739,7 @@ def _source_quality(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
     sources: dict[str, dict[str, Any]] = {}
     for source, rows in sorted(grouped.items()):
         total_rows = len(rows)
-        candidate_rows = sum(
-            1 for row in rows if row["rating"] in {"go_candidate", "watchlist"}
-        )
+        candidate_rows = sum(1 for row in rows if row["rating"] in {"go_candidate", "watchlist"})
         no_go_rows = sum(1 for row in rows if row["rating"] == "no_go")
         safe_to_list = sum(1 for row in rows if row["issue"]["safe_to_list"])
         funding_verification_needed = sum(
@@ -907,12 +982,33 @@ def _normalize_risk_level_filter(value: str | None) -> str | None:
 def _matches_report_filter(
     issue: FundedIssue,
     *,
+    profile: ClientProfile | None,
     platform: str | None,
     language: str | None,
     min_usd: float | None,
     opportunity_state: str | None,
     risk_level: str | None,
 ) -> bool:
+    if profile:
+        if profile.languages and (issue.language or "").lower() not in profile.languages:
+            return False
+        effective_min_usd = profile.min_usd
+        if effective_min_usd is not None:
+            if issue.funding_currency != "USD" or issue.funding_amount is None:
+                return False
+            if issue.funding_amount < effective_min_usd:
+                return False
+        if (
+            profile.allowed_opportunity_states
+            and issue.opportunity_state not in profile.allowed_opportunity_states
+        ):
+            return False
+        if profile.allowed_risk_levels and issue.risk_level not in profile.allowed_risk_levels:
+            return False
+        if profile.excluded_risk_flags and set(issue.risk_flags).intersection(
+            profile.excluded_risk_flags
+        ):
+            return False
     if platform and issue.platform.lower() != platform.lower():
         return False
     if language and (issue.language or "").lower() != language.lower():

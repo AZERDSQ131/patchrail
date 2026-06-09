@@ -120,13 +120,64 @@
     },
     "filters": {
       "type": "object",
-      "required": ["platform", "language", "min_usd", "opportunity_state", "risk_level"],
+      "required": [
+        "profile",
+        "platform",
+        "language",
+        "min_usd",
+        "opportunity_state",
+        "risk_level"
+      ],
       "properties": {
+        "profile": {
+          "anyOf": [
+            { "$ref": "#/$defs/client_profile" },
+            { "type": "null" }
+          ]
+        },
         "platform": { "type": ["string", "null"] },
         "language": { "type": ["string", "null"] },
         "min_usd": { "type": ["number", "null"], "minimum": 0 },
         "opportunity_state": { "anyOf": [{ "$ref": "#/$defs/opportunity_state" }, { "type": "null" }] },
         "risk_level": { "anyOf": [{ "$ref": "#/$defs/risk_level" }, { "type": "null" }] }
+      },
+      "additionalProperties": false
+    },
+    "client_profile": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "name",
+        "languages",
+        "min_usd",
+        "allowed_opportunity_states",
+        "allowed_risk_levels",
+        "excluded_risk_flags",
+        "read_only"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "patchrail.funded_issues.client_profile.v1"
+        },
+        "name": { "type": ["string", "null"] },
+        "languages": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "min_usd": { "type": ["number", "null"], "minimum": 0 },
+        "allowed_opportunity_states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/opportunity_state" }
+        },
+        "allowed_risk_levels": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/risk_level" }
+        },
+        "excluded_risk_flags": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "read_only": { "const": true }
       },
       "additionalProperties": false
     },

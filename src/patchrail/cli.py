@@ -25,6 +25,7 @@ from patchrail.funded_issues import (
     VALID_RISK_LEVELS,
     explain_issue,
     import_provider_export,
+    load_client_profile,
     load_funded_issues,
     report_funded_issues,
     score_funded_issues,
@@ -4428,8 +4429,10 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
     moat = payload["no_go_moat"]
     decision = payload["decision_summary"]
     budget = payload["delivery_budget"]
+    profile_name = _funded_issues_profile_name(payload["filters"])
     lines = [
         "PatchRail Funded Issues Report",
+        f"Client profile: {profile_name}",
         f"Loaded: {totals['loaded']}",
         f"In scope: {totals['in_scope']}",
         f"Safe to list: {totals['safe_to_list']}",
@@ -4479,6 +4482,14 @@ def _source_quality_summary(source_quality: dict[str, Any]) -> str:
     )
 
 
+def _funded_issues_profile_name(filters: dict[str, Any]) -> str:
+    profile = filters.get("profile")
+    if not isinstance(profile, dict):
+        return "none"
+    name = profile.get("name")
+    return str(name) if name else "unnamed"
+
+
 def _append_source_quality_markdown(
     lines: list[str],
     source_quality: dict[str, Any],
@@ -4513,10 +4524,12 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     moat = payload["no_go_moat"]
     decision = payload["decision_summary"]
     budget = payload["delivery_budget"]
+    profile_name = _funded_issues_profile_name(payload["filters"])
     lines = [
         "# PatchRail Funded Issues Report",
         "",
         f"- Read-only: `{payload['read_only']}`",
+        f"- Client profile: `{profile_name}`",
         f"- Safe-only filter: `{payload['safe_only']}`",
         f"- Loaded: `{totals['loaded']}`",
         f"- In scope: `{totals['in_scope']}`",
@@ -4633,8 +4646,10 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
 
 
 def _render_funded_issues_score_text(payload: dict[str, Any]) -> str:
+    profile_name = _funded_issues_profile_name(payload["filters"])
     lines = [
         "PatchRail Funded Issues Score",
+        f"Client profile: {profile_name}",
         f"Loaded: {payload['total_loaded']}",
         f"Scored: {payload['total_scored']}",
         "Read-only: True",
@@ -4651,10 +4666,12 @@ def _render_funded_issues_score_text(payload: dict[str, Any]) -> str:
 
 
 def _render_funded_issues_score_markdown(payload: dict[str, Any]) -> str:
+    profile_name = _funded_issues_profile_name(payload["filters"])
     lines = [
         "# PatchRail Funded Issues Score",
         "",
         f"- Read-only: `{payload['read_only']}`",
+        f"- Client profile: `{profile_name}`",
         f"- Safe-only filter: `{payload['safe_only']}`",
         f"- Loaded: `{payload['total_loaded']}`",
         f"- Scored: `{payload['total_scored']}`",
@@ -4709,8 +4726,10 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
     moat = payload["no_go_moat"]
     decision = payload["decision_summary"]
     budget = payload["delivery_budget"]
+    profile_name = _funded_issues_profile_name(payload["filters"])
     lines = [
         "PatchRail Funded Issues Shortlist",
+        f"Client profile: {profile_name}",
         f"Loaded: {summary['total_loaded']}",
         f"Scored: {summary['total_scored']}",
         f"Candidates: {len(payload['shortlist'])}",
@@ -4751,10 +4770,12 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     moat = payload["no_go_moat"]
     decision = payload["decision_summary"]
     budget = payload["delivery_budget"]
+    profile_name = _funded_issues_profile_name(payload["filters"])
     lines = [
         "# PatchRail Funded Issues Shortlist",
         "",
         f"- Read-only: `{payload['read_only']}`",
+        f"- Client profile: `{profile_name}`",
         f"- Safe-only candidate filter: `{payload['safe_only']}`",
         f"- Limit: `{payload['limit']}`",
         f"- Loaded: `{summary['total_loaded']}`",
@@ -4914,9 +4935,11 @@ def _funded_issues_list(args: argparse.Namespace) -> int:
     source = args.source or _default_funded_issues_source()
     try:
         issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
         payload = summarize_issues(
             issues,
             safe_only=not args.include_risky,
+            profile=profile,
             platform=args.platform,
             language=args.language,
             min_usd=args.min_usd,
@@ -4981,9 +5004,11 @@ def _funded_issues_report(args: argparse.Namespace) -> int:
     source = args.source or _default_funded_issues_source()
     try:
         issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
         payload = report_funded_issues(
             issues,
             safe_only=args.safe_only,
+            profile=profile,
             platform=args.platform,
             language=args.language,
             min_usd=args.min_usd,
@@ -5007,9 +5032,11 @@ def _funded_issues_score(args: argparse.Namespace) -> int:
     source = args.source or _default_funded_issues_source()
     try:
         issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
         payload = score_funded_issues(
             issues,
             safe_only=args.safe_only,
+            profile=profile,
             platform=args.platform,
             language=args.language,
             min_usd=args.min_usd,
@@ -5033,9 +5060,11 @@ def _funded_issues_shortlist(args: argparse.Namespace) -> int:
     source = args.source or _default_funded_issues_source()
     try:
         issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
         payload = shortlist_funded_issues(
             issues,
             safe_only=args.safe_only,
+            profile=profile,
             platform=args.platform,
             language=args.language,
             min_usd=args.min_usd,
@@ -5950,6 +5979,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
     )
     funded_list.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before output. Read-only.",
+    )
+    funded_list.add_argument(
         "--opportunity-state",
         choices=sorted(VALID_OPPORTUNITY_STATES),
         help="Filter by normalized opportunity state.",
@@ -6032,6 +6066,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
     )
     funded_report.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before reporting. Read-only.",
+    )
+    funded_report.add_argument(
         "--opportunity-state",
         choices=sorted(VALID_OPPORTUNITY_STATES),
         help="Filter by normalized opportunity state.",
@@ -6070,6 +6109,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
     )
     funded_score.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before scoring. Read-only.",
+    )
+    funded_score.add_argument(
         "--opportunity-state",
         choices=sorted(VALID_OPPORTUNITY_STATES),
         help="Filter by normalized opportunity state.",
@@ -6106,6 +6150,11 @@ def _build_parser() -> argparse.ArgumentParser:
     funded_shortlist.add_argument("--language", help="Filter by repository language.")
     funded_shortlist.add_argument(
         "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_shortlist.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before shortlisting. Read-only.",
     )
     funded_shortlist.add_argument(
         "--opportunity-state",

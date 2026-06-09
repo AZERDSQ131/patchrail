@@ -576,6 +576,55 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["no_go_moat"]["high_risk_or_excluded"], 1)
         self.assertEqual(payload["top_safe_candidates"], [])
 
+    def test_funded_issues_report_accepts_read_only_client_profile(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "report",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--profile",
+                "examples/funded-issues-readonly/client-profile-python.json",
+                "--format",
+                "markdown",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Client profile: `Async Python buyer`", proc.stdout)
+        self.assertIn("In scope: `1`", proc.stdout)
+        self.assertIn("example/project#42", proc.stdout)
+        self.assertNotIn("example/toolkit#17", proc.stdout)
+        self.assertIn("does not claim rewards", proc.stdout)
+
+    def test_funded_issues_list_profile_preserves_filters_in_json(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "list",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--profile",
+                "examples/funded-issues-readonly/client-profile-python.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["total_loaded"], 2)
+        self.assertEqual(payload["total_returned"], 1)
+        self.assertEqual(payload["filters"]["profile"]["name"], "Async Python buyer")
+        self.assertEqual(
+            payload["filters"]["profile"]["schema_version"],
+            "patchrail.funded_issues.client_profile.v1",
+        )
+        self.assertEqual(payload["filters"]["profile"]["languages"], ["python"])
+        self.assertEqual(payload["filters"]["profile"]["min_usd"], 200.0)
+        self.assertTrue(payload["filters"]["profile"]["read_only"])
+        self.assertEqual(payload["issues"][0]["reference"], "example/project#42")
+
     def test_schema_command_exposes_funded_issues_report_and_shortlist_contracts(self) -> None:
         expected_versions = {
             "funded-issues-report": "patchrail.funded_issues.report.v1",
@@ -608,6 +657,17 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 self.assertIn("opportunity_state", filters["properties"])
                 self.assertIn("risk_level", filters["required"])
                 self.assertIn("risk_level", filters["properties"])
+                self.assertIn("profile", filters["required"])
+                self.assertIn("profile", filters["properties"])
+                profile_schema = schema["$defs"]["client_profile"]
+                self.assertEqual(
+                    profile_schema["properties"]["schema_version"]["const"],
+                    "patchrail.funded_issues.client_profile.v1",
+                )
+                self.assertIn("allowed_opportunity_states", profile_schema["required"])
+                self.assertIn("allowed_risk_levels", profile_schema["required"])
+                self.assertIn("excluded_risk_flags", profile_schema["required"])
+                self.assertEqual(profile_schema["properties"]["read_only"]["const"], True)
 
                 blocked_actions = schema["$defs"]["blocked_actions"]["items"]["enum"]
                 self.assertIn("automatic_claims", blocked_actions)
@@ -1088,6 +1148,73 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(len(payload["no_go_evidence"]), 1)
         self.assertEqual(payload["no_go_evidence"][0]["issue"]["reference"], "example/toolkit#17")
         self.assertEqual(payload["no_go_moat"]["high_risk_or_excluded"], 1)
+
+    def test_funded_issues_shortlist_filters_with_client_profile(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "shortlist",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--profile",
+                "examples/funded-issues-readonly/client-profile-python.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["filters"]["profile"]["name"], "Async Python buyer")
+        self.assertTrue(payload["filters"]["profile"]["read_only"])
+        self.assertEqual(payload["summary"]["in_scope"], 1)
+        self.assertEqual(payload["summary"]["safe_to_list"], 1)
+        self.assertEqual(payload["summary"]["high_risk"], 0)
+        self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/project#42")
+        self.assertEqual(payload["no_go_evidence"], [])
+        self.assertFalse(payload["requirements"]["network_required"])
+        self.assertFalse(payload["requirements"]["github_write_permission_required"])
+
+    def test_funded_issues_shortlist_profile_can_exclude_all_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            profile = Path(tmp) / "profile.json"
+            profile.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.client_profile.v1",
+                        "name": "High threshold Python buyer",
+                        "languages": ["python"],
+                        "min_usd": 1000,
+                        "allowed_opportunity_states": ["active"],
+                        "allowed_risk_levels": ["low"],
+                        "excluded_risk_flags": [],
+                        "read_only": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "shortlist",
+                    "--source",
+                    "examples/funded-issues-readonly/issues.json",
+                    "--profile",
+                    str(profile),
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["filters"]["profile"]["name"], "High threshold Python buyer")
+        self.assertEqual(payload["summary"]["in_scope"], 0)
+        self.assertEqual(payload["summary"]["total_scored"], 0)
+        self.assertEqual(payload["shortlist"], [])
+        self.assertEqual(payload["no_go_evidence"], [])
+        self.assertEqual(payload["delivery_budget"]["suggested_package"], "none")
 
     def test_funded_issues_shortlist_rejects_invalid_limit(self) -> None:
         proc = run_patchrail(
