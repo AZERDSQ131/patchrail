@@ -36,6 +36,16 @@ from patchrail.funded_issues.discovery import (
     validate_funded_issues,
 )
 from patchrail.funded_issues.importers import SUPPORTED_PROVIDERS, import_provider_export
+from patchrail.funded_issues.store import (
+    STORE_SCHEMA_VERSION,
+    STORE_STATUS_SCHEMA_VERSION,
+    MergeSummary,
+    empty_store,
+    load_store,
+    merge_into_store,
+    save_store,
+    store_status,
+)
 
 __all__ = [
     "FundedIssue",
@@ -46,9 +56,12 @@ __all__ = [
     "PAYOUT_EFFORT_SIGNAL_SCHEMA_VERSION",
     "STALENESS_BATCH_SCHEMA_VERSION",
     "STALENESS_SIGNAL_SCHEMA_VERSION",
+    "STORE_SCHEMA_VERSION",
+    "STORE_STATUS_SCHEMA_VERSION",
     "TESTABILITY_BATCH_SCHEMA_VERSION",
     "TESTABILITY_SIGNAL_SCHEMA_VERSION",
     "ClientProfile",
+    "MergeSummary",
     "SUPPORTED_PROVIDERS",
     "VALID_OPPORTUNITY_STATES",
     "VALID_RISK_LEVELS",
@@ -61,16 +74,21 @@ __all__ = [
     "assess_staleness_batch",
     "assess_testability_batch",
     "cash_actions_funded_issues",
+    "empty_store",
     "explain_issue",
     "fulfillment_packet_funded_issues",
     "funded_issues_payload",
     "import_provider_export",
     "load_client_profile",
     "load_funded_issues",
+    "load_store",
+    "merge_into_store",
     "recheck_funded_issues",
     "report_funded_issues",
+    "save_store",
     "score_funded_issues",
     "shortlist_funded_issues",
+    "store_status",
     "summarize_issues",
     "validate_funded_issues",
 ]
