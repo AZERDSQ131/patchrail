@@ -393,6 +393,7 @@ def report_funded_issues(
         },
         "decision_summary": _decision_summary(scored_rows),
         "delivery_budget": _delivery_budget(scored_rows),
+        "source_quality": _source_quality(scored_rows),
         "top_safe_candidates": [
             {
                 "reference": issue.reference,
@@ -544,6 +545,7 @@ def shortlist_funded_issues(
             "no_go_rows": len(no_go_rows),
         },
         "delivery_budget": _delivery_budget(score_payload["scores"]),
+        "source_quality": _source_quality(score_payload["scores"]),
         "requirements": {
             "network_required": False,
             "github_write_permission_required": False,
@@ -649,6 +651,72 @@ def _delivery_budget(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "contact maintainers, claim rewards, or open pull requests before paid scope."
         ),
     }
+
+
+def _source_quality(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in scored_rows:
+        source = str(row["issue"]["platform"])
+        grouped.setdefault(source, []).append(row)
+
+    sources: dict[str, dict[str, Any]] = {}
+    for source, rows in sorted(grouped.items()):
+        total_rows = len(rows)
+        candidate_rows = sum(
+            1 for row in rows if row["rating"] in {"go_candidate", "watchlist"}
+        )
+        no_go_rows = sum(1 for row in rows if row["rating"] == "no_go")
+        safe_to_list = sum(1 for row in rows if row["issue"]["safe_to_list"])
+        funding_verification_needed = sum(
+            1 for row in rows if row["decision_gate"] == "needs_funding_verification"
+        )
+        authorization_needed = sum(
+            1 for row in rows if row["decision_gate"] == "needs_authorization"
+        )
+        scores = [int(row["score"]) for row in rows]
+        usable_signal_ratio = round(candidate_rows / total_rows, 2) if total_rows else 0
+        sources[source] = {
+            "total_rows": total_rows,
+            "candidate_rows": candidate_rows,
+            "no_go_rows": no_go_rows,
+            "safe_to_list": safe_to_list,
+            "funding_verification_needed": funding_verification_needed,
+            "authorization_needed": authorization_needed,
+            "average_score": round(sum(scores) / total_rows, 2) if total_rows else 0,
+            "usable_signal_ratio": usable_signal_ratio,
+            "recommended_use": _recommended_source_use(
+                candidate_rows=candidate_rows,
+                no_go_rows=no_go_rows,
+                funding_verification_needed=funding_verification_needed,
+                authorization_needed=authorization_needed,
+            ),
+        }
+    return {
+        "sources": sources,
+        "boundary": (
+            "Source quality is read-only benchmarking for Opportunity Desk triage. It is not "
+            "permission to scrape aggressively, claim rewards, contact maintainers, comment, "
+            "or open pull requests."
+        ),
+    }
+
+
+def _recommended_source_use(
+    *,
+    candidate_rows: int,
+    no_go_rows: int,
+    funding_verification_needed: int,
+    authorization_needed: int,
+) -> str:
+    if candidate_rows:
+        return "Prioritize for L2 review after public-state recheck."
+    if funding_verification_needed:
+        return "Use only after funding and current-state verification."
+    if authorization_needed:
+        return "Park until a client separately authorizes bounded review."
+    if no_go_rows:
+        return "Use as no-go moat evidence before expanding this source."
+    return "Collect more rows before ranking this source."
 
 
 def _suggested_package_for_rows(row_count: int) -> str:

@@ -18,6 +18,7 @@
     "no_go_moat",
     "decision_summary",
     "delivery_budget",
+    "source_quality",
     "requirements",
     "boundary"
   ],
@@ -82,6 +83,9 @@
     },
     "delivery_budget": {
       "$ref": "#/$defs/delivery_budget"
+    },
+    "source_quality": {
+      "$ref": "#/$defs/source_quality"
     },
     "requirements": {
       "$ref": "#/$defs/safe_requirements"
@@ -274,6 +278,44 @@
           "additionalProperties": false
         },
         "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "source_quality": {
+      "type": "object",
+      "required": ["sources", "boundary"],
+      "properties": {
+        "sources": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/source_quality_source" }
+        },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "source_quality_source": {
+      "type": "object",
+      "required": [
+        "total_rows",
+        "candidate_rows",
+        "no_go_rows",
+        "safe_to_list",
+        "funding_verification_needed",
+        "authorization_needed",
+        "average_score",
+        "usable_signal_ratio",
+        "recommended_use"
+      ],
+      "properties": {
+        "total_rows": { "type": "integer", "minimum": 0 },
+        "candidate_rows": { "type": "integer", "minimum": 0 },
+        "no_go_rows": { "type": "integer", "minimum": 0 },
+        "safe_to_list": { "type": "integer", "minimum": 0 },
+        "funding_verification_needed": { "type": "integer", "minimum": 0 },
+        "authorization_needed": { "type": "integer", "minimum": 0 },
+        "average_score": { "type": "number", "minimum": 0, "maximum": 100 },
+        "usable_signal_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
+        "recommended_use": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },

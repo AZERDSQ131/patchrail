@@ -4453,9 +4453,58 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
             f"{budget['estimated_review_minutes']} min local review, "
             f"within margin budget: {budget['within_margin_budget']}"
         ),
+        _source_quality_summary(payload["source_quality"]),
         "Read-only: True",
     ]
     return "\n".join(lines) + "\n"
+
+
+def _source_quality_summary(source_quality: dict[str, Any]) -> str:
+    sources = source_quality["sources"]
+    if not sources:
+        return "Source quality: no source rows matched the filters"
+    source, stats = sorted(
+        sources.items(),
+        key=lambda item: (
+            -int(item[1]["candidate_rows"]),
+            -float(item[1]["usable_signal_ratio"]),
+            -float(item[1]["average_score"]),
+            item[0],
+        ),
+    )[0]
+    return (
+        "Source quality: "
+        f"{source} has {stats['candidate_rows']}/{stats['total_rows']} candidate rows, "
+        f"{stats['usable_signal_ratio']} usable signal ratio"
+    )
+
+
+def _append_source_quality_markdown(
+    lines: list[str],
+    source_quality: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Source Quality",
+            "",
+            "| Source | Rows | Candidates | No-go | Safe | Rechecks | Auth | Avg score | Usable signal | Recommended use |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|",
+        ]
+    )
+    sources = source_quality["sources"]
+    if sources:
+        for source, stats in sources.items():
+            lines.append(
+                f"| `{source}` | {stats['total_rows']} | {stats['candidate_rows']} | "
+                f"{stats['no_go_rows']} | {stats['safe_to_list']} | "
+                f"{stats['funding_verification_needed']} | "
+                f"{stats['authorization_needed']} | {stats['average_score']} | "
+                f"{stats['usable_signal_ratio']} | {stats['recommended_use']} |"
+            )
+    else:
+        lines.append("| n/a | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | No rows matched the filters. |")
+    lines.extend(["", source_quality["boundary"]])
 
 
 def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
@@ -4506,6 +4555,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     )
     for level, count in budget["analysis_rows"].items():
         lines.append(f"| `{level}` | {count} |")
+    _append_source_quality_markdown(lines, payload["source_quality"])
     lines.extend(
         [
             "",
@@ -4683,6 +4733,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
             f"{budget['estimated_review_minutes']} min local review, "
             f"within margin budget: {budget['within_margin_budget']}"
         ),
+        _source_quality_summary(payload["source_quality"]),
         "Read-only: True",
         "Boundary: Decision support only.",
     ]
@@ -4741,6 +4792,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     )
     for level, count in budget["analysis_rows"].items():
         lines.append(f"| `{level}` | {count} |")
+    _append_source_quality_markdown(lines, payload["source_quality"])
     lines.extend(
         [
             "",
