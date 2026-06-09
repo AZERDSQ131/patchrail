@@ -112,6 +112,32 @@ RULES: list[dict[str, Any]] = [
         ),
     },
     {
+        "failure_class": "ci_job_timeout",
+        "likely_subsystem": "CI job execution time limit or cancellation",
+        "patterns": [
+            r"has exceeded the maximum execution time of \d+ minutes",
+            r"The job running on runner .+ has exceeded",
+            r"##\[error\]The operation was canceled",
+            r"The operation was canceled",
+            r"ERROR: Job failed: execution took longer than",
+            r"execution took longer than \S+ seconds",
+            r"Too long with no output",
+            r"\(exceeded \d+m\d*s?\)",
+            r"exceeded the maximum time limit for jobs",
+            r"ran longer than the maximum time of \d+ minutes",
+            r"\btimeout-minutes\b",
+        ],
+        "reproduction_command": (
+            "re-run the job and compare step durations against the configured job/step "
+            "time limit (e.g. timeout-minutes)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the job hit a time limit or was canceled (manual or matrix fail-fast) "
+            "rather than a code defect, then cache dependencies, split or parallelize the "
+            "slowest steps, or raise the limit deliberately before rerunning."
+        ),
+    },
+    {
         "failure_class": "python_dependency_resolution",
         "likely_subsystem": "Python dependency installation",
         "patterns": [
@@ -377,6 +403,30 @@ RULES: list[dict[str, Any]] = [
         "minimal_repair_strategy": (
             "Reproduce the failing image build locally, then fix the narrow Dockerfile, "
             "build context, compose healthcheck, or base-image reference drift."
+        ),
+    },
+    {
+        "failure_class": "cpp_build_failure",
+        "likely_subsystem": "C/C++ native build toolchain",
+        "patterns": [
+            r"CMake Error",
+            r"ninja: build stopped",
+            r"g?make(?:\[\d+\])?: \*\*\* \[[^\]]*\] Error \d+",
+            r"undefined reference to",
+            r"collect2: error: ld returned",
+            r"error: ld returned \d+ exit status",
+            r"fatal error: [^\s:]+\.(?:h|hpp|hxx): No such file or directory",
+            r"was not declared in this scope",
+            r"use of undeclared identifier",
+            r"clang(?:\+\+)?: error:",
+            r"\bcc1plus\b",
+            r"undefined symbols for architecture",
+        ],
+        "reproduction_command": "cmake --build build || make",
+        "minimal_repair_strategy": (
+            "Reproduce the failing compile or link target, then fix the narrow drift "
+            "(missing header or include path, undeclared symbol, or linker reference) "
+            "before rerunning the same target."
         ),
     },
     {

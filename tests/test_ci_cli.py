@@ -134,6 +134,80 @@ class PatchRailCITests(unittest.TestCase):
             self.assertEqual(payload["failure_class"], "network_transient_failure")
             self.assertIn("re-run", payload["reproduction_command"])
 
+    def test_ci_classify_detects_github_actions_job_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run python -m pytest -q\n"
+                "The job running on runner GitHub Actions 12 has exceeded "
+                "the maximum execution time of 360 minutes.\n"
+                "##[error]The operation was canceled.\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "ci_job_timeout")
+            self.assertIn("time limit", payload["reproduction_command"])
+            self.assertEqual(payload["requirements"]["external_model_required"], False)
+
+    def test_ci_classify_detects_gitlab_job_timeout(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Running with gitlab-runner 17.4.0\n"
+                "ERROR: Job failed: execution took longer than 1h0m0s seconds\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "ci_job_timeout")
+
+    def test_ci_classify_circleci_no_output_timeout_wins_over_network_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Too long with no output (exceeded 10m0s): context deadline exceeded\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "ci_job_timeout")
+
+    def test_ci_classify_job_timeout_wins_over_passing_pytest_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "python -m pytest -q\n"
+                "tests/test_app.py ........................                [ 64%]\n"
+                "The job running on runner ubuntu-latest-8core has exceeded "
+                "the maximum execution time of 90 minutes.\n"
+                "##[error]The operation was canceled.\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "ci_job_timeout")
+
     def test_ci_classify_detects_pytest_coverage_threshold_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             log = Path(tmpdir) / "failed.log"
@@ -311,6 +385,8 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("code_coverage_threshold", schema["properties"]["failure_class"]["enum"])
         self.assertIn("python_type_check", schema["properties"]["failure_class"]["enum"])
         self.assertIn("python_lint", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("ci_job_timeout", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("cpp_build_failure", schema["properties"]["failure_class"]["enum"])
         self.assertEqual(
             schema["properties"]["requirements"]["properties"]["billing_required"]["const"], False
         )
@@ -660,6 +736,77 @@ class PatchRailCITests(unittest.TestCase):
             self.assertEqual(payload["failure_class"], "docker_build_failure")
             self.assertIn("docker build", payload["reproduction_command"])
             self.assertEqual(payload["requirements"]["external_model_required"], False)
+
+    def test_ci_classify_detects_cmake_build_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "CMake Error at CMakeLists.txt:42 (find_package)\n"
+                "ninja: build stopped: subcommand failed.\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "cpp_build_failure")
+            self.assertIn("cmake --build", payload["reproduction_command"])
+            self.assertEqual(payload["requirements"]["external_model_required"], False)
+
+    def test_ci_classify_detects_gcc_link_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "app.o: in function `main': undefined reference to `foo::bar()'\n"
+                "collect2: error: ld returned 1 exit status\n"
+                "make: *** [app] Error 1\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "cpp_build_failure")
+
+    def test_ci_classify_detects_clang_compile_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "src/widget.cpp:18:5: error: use of undeclared identifier 'widget'\n"
+                "clang++: error: unable to execute command: linker command failed\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "cpp_build_failure")
+
+    def test_ci_classify_cpp_header_failure_wins_over_docker_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "src/widget.cpp:3:10: fatal error: widget.h: No such file or directory\n"
+                "make: *** [obj/widget.o] Error 1\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "cpp_build_failure")
 
     def test_ci_classify_detects_browser_test_failures(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
