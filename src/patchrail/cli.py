@@ -23,6 +23,7 @@ from patchrail.funded_issues import (
     SUPPORTED_PROVIDERS,
     VALID_OPPORTUNITY_STATES,
     VALID_RISK_LEVELS,
+    cash_actions_funded_issues,
     explain_issue,
     import_provider_export,
     load_client_profile,
@@ -5250,6 +5251,88 @@ def _render_funded_issues_recheck_queue_markdown(payload: dict[str, Any]) -> str
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_cash_actions_text(payload: dict[str, Any]) -> str:
+    cash_path = payload["cash_path_status"]
+    lines = [
+        "PatchRail Funded Issues Cash Actions",
+        f"Read-only: {payload['read_only']}",
+        f"Cash-path status: {cash_path['status']}",
+        f"Next revenue action: {cash_path['next_revenue_action']}",
+        f"Action limit: {payload['action_limit']}",
+        f"Actions before limit: {payload['actions_before_limit']}",
+        f"Action rows: {payload['action_rows']}",
+        f"Payment route allowed now: {cash_path['payment_route_allowed_now']}",
+        f"Boundary: {payload['boundary']}",
+    ]
+    for item in payload["items"]:
+        lines.append(
+            f"{item['priority']} | {item['action']} | "
+            f"copy brief allowed: {item['copy_brief_allowed']} | "
+            f"payment route allowed now: {item['payment_route_allowed_now']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_cash_actions_markdown(payload: dict[str, Any]) -> str:
+    cash_path = payload["cash_path_status"]
+    lines = [
+        "# PatchRail Funded Issues Cash Actions",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Safe-only: `{payload['safe_only']}`",
+        f"- Cash-path status: `{cash_path['status']}`",
+        f"- Next revenue action: `{cash_path['next_revenue_action']}`",
+        f"- Action limit: `{payload['action_limit']}`",
+        f"- Actions before limit: `{payload['actions_before_limit']}`",
+        f"- Action rows: `{payload['action_rows']}`",
+        f"- Copy-brief facts available: `{cash_path['copy_brief_facts_available']}`",
+        f"- Payment route allowed now: `{cash_path['payment_route_allowed_now']}`",
+        "",
+        "## Actions",
+        "",
+    ]
+    if payload["items"]:
+        lines.extend(
+            [
+                "| Priority | Action | Package | Requested fields | Evidence refs | Copy brief | External body | Payment route | Reason |",
+                "|---|---|---|---|---|---:|---:|---:|---|",
+            ]
+        )
+        for item in payload["items"]:
+            lines.append(
+                "| "
+                f"`{item['priority']}` | "
+                f"`{item['action']}` | "
+                f"`{item['suggested_package']}` | "
+                f"{_format_reference_list(item['requested_fields'])} | "
+                f"{_format_reference_list(item['evidence_references'])} | "
+                f"{item['copy_brief_allowed']} | "
+                f"{item['external_body_allowed']} | "
+                f"{item['payment_route_allowed_now']} | "
+                f"{_escape_markdown_cell(item['reason'])} |"
+            )
+    else:
+        lines.append("No internal cash actions matched the filters.")
+    lines.extend(
+        [
+            "",
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            cash_path["boundary"],
+            "",
+            "Each row is internal facts-only handoff data, not external prose, and does not "
+            "create a payment route.",
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
 def _escape_markdown_cell(value: str) -> str:
     return value.replace("|", "\\|")
 
@@ -5465,6 +5548,35 @@ def _funded_issues_recheck_queue(args: argparse.Namespace) -> int:
         text = _render_funded_issues_recheck_queue_markdown(payload)
     else:
         text = _render_funded_issues_recheck_queue_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_cash_actions(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
+        payload = cash_actions_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            profile=profile,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
+            max_actions=args.max_actions,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_cash_actions_markdown(payload)
+    else:
+        text = _render_funded_issues_cash_actions_text(payload)
     _write_or_print(text, args.out)
     return 0
 
@@ -6612,6 +6724,54 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_recheck_queue.add_argument("--out", type=Path, help="Optional output path.")
     funded_recheck_queue.set_defaults(func=_funded_issues_recheck_queue)
+
+    funded_cash_actions = funded_subparsers.add_parser(
+        "cash-actions",
+        help="Build an internal read-only next-action queue for Opportunity Desk cash path work.",
+    )
+    funded_cash_actions.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_cash_actions.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only include safe-to-list issues before building cash-path actions.",
+    )
+    funded_cash_actions.add_argument("--platform", help="Filter by funding platform.")
+    funded_cash_actions.add_argument("--language", help="Filter by repository language.")
+    funded_cash_actions.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_cash_actions.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before action planning. Read-only.",
+    )
+    funded_cash_actions.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_cash_actions.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_cash_actions.add_argument(
+        "--max-actions",
+        type=int,
+        help="Limit internal action rows after priority sorting. Must be at least 1.",
+    )
+    funded_cash_actions.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_cash_actions.add_argument("--out", type=Path, help="Optional output path.")
+    funded_cash_actions.set_defaults(func=_funded_issues_cash_actions)
 
     return parser
 

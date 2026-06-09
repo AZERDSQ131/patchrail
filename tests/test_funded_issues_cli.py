@@ -790,6 +790,105 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("automatic_claims", proc.stdout)
         self.assertIn("automatic_pull_requests", proc.stdout)
 
+    def test_funded_issues_cash_actions_builds_internal_revenue_queue(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "cash-actions",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["schema_version"], "patchrail.funded_issues.cash_actions.v1")
+        self.assertEqual(payload["source_schema_version"], "patchrail.funded_issues.v1")
+        self.assertTrue(payload["read_only"])
+        self.assertFalse(payload["safe_only"])
+        self.assertIsNone(payload["action_limit"])
+        self.assertEqual(payload["actions_before_limit"], 2)
+        self.assertEqual(payload["action_rows"], 2)
+        self.assertEqual(
+            payload["cash_path_status"]["next_revenue_action"],
+            "collect_buyer_intake",
+        )
+        self.assertFalse(payload["cash_path_status"]["payment_route_allowed_now"])
+        self.assertFalse(payload["requirements"]["network_required"])
+        self.assertFalse(payload["requirements"]["github_write_permission_required"])
+        self.assertFalse(payload["requirements"]["external_model_required"])
+        self.assertFalse(payload["requirements"]["billing_required"])
+        self.assertIn("automatic_pull_requests", payload["blocked_actions"])
+        self.assertIn("mass_outreach", payload["blocked_actions"])
+        first = payload["items"][0]
+        self.assertEqual(first["action"], "collect_buyer_intake")
+        self.assertEqual(first["priority"], "high")
+        self.assertEqual(first["suggested_package"], "mini_diagnostic")
+        self.assertTrue(first["copy_brief_allowed"])
+        self.assertFalse(first["external_body_allowed"])
+        self.assertFalse(first["payment_route_allowed_now"])
+        self.assertTrue(first["requires_written_acceptance_before_payment_route"])
+        self.assertIn("preferred_languages", first["requested_fields"])
+        self.assertIn("minimum_payout_usd", first["requested_fields"])
+        self.assertIn("example/project#42", first["evidence_references"])
+        self.assertIn("Do not write external prose", first["boundary"])
+        second = payload["items"][1]
+        self.assertEqual(second["action"], "run_read_only_recheck")
+        self.assertEqual(second["priority"], "medium")
+        self.assertFalse(second["copy_brief_allowed"])
+        self.assertIn("example/project#42", second["evidence_references"])
+        self.assertIn("not external prose", payload["boundary"])
+        self.assertIn("do not create a payment route", payload["boundary"])
+        self.assertIn("guarantee merge or payout outcomes", payload["boundary"])
+
+    def test_funded_issues_cash_actions_markdown_preserves_boundaries(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "cash-actions",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--max-actions",
+                "1",
+                "--format",
+                "markdown",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("# PatchRail Funded Issues Cash Actions", proc.stdout)
+        self.assertIn("- Read-only: `True`", proc.stdout)
+        self.assertIn("- Action limit: `1`", proc.stdout)
+        self.assertIn("- Actions before limit: `2`", proc.stdout)
+        self.assertIn("- Action rows: `1`", proc.stdout)
+        self.assertIn("Next revenue action: `collect_buyer_intake`", proc.stdout)
+        self.assertIn("Payment route allowed now: `False`", proc.stdout)
+        self.assertIn("`collect_buyer_intake`", proc.stdout)
+        self.assertIn("`mini_diagnostic`", proc.stdout)
+        self.assertIn("`preferred_languages`", proc.stdout)
+        self.assertIn("not external prose", proc.stdout)
+        self.assertIn("does not create a payment route", proc.stdout)
+        self.assertIn("automatic_pull_requests", proc.stdout)
+
+    def test_funded_issues_cash_actions_rejects_zero_limit(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "cash-actions",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--max-actions",
+                "0",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("max_actions must be at least 1", proc.stderr)
+
     def test_funded_issues_report_accepts_read_only_client_profile(self) -> None:
         proc = run_patchrail(
             [

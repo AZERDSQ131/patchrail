@@ -12,6 +12,7 @@ CLIENT_PROFILE_SCHEMA_VERSION = "patchrail.funded_issues.client_profile.v1"
 VALIDATION_SCHEMA_VERSION = "patchrail.funded_issues.validation.v1"
 SHORTLIST_SCHEMA_VERSION = "patchrail.funded_issues.shortlist.v1"
 RECHECK_QUEUE_SCHEMA_VERSION = "patchrail.funded_issues.recheck_queue.v1"
+CASH_ACTIONS_SCHEMA_VERSION = "patchrail.funded_issues.cash_actions.v1"
 BLOCKED_ACTIONS = [
     "automatic_claims",
     "automatic_pull_requests",
@@ -740,6 +741,187 @@ def recheck_funded_issues(
             "Recheck queue is local read-only tracker work. It schedules evidence review only; "
             "it does not claim rewards, post comments, contact maintainers, open pull requests, "
             "or guarantee merge or payout outcomes."
+        ),
+    }
+
+
+def cash_actions_funded_issues(
+    issues: list[FundedIssue],
+    *,
+    safe_only: bool = False,
+    profile: ClientProfile | None = None,
+    platform: str | None = None,
+    language: str | None = None,
+    min_usd: float | None = None,
+    opportunity_state: str | None = None,
+    risk_level: str | None = None,
+    max_actions: int | None = None,
+) -> dict[str, Any]:
+    if max_actions is not None and max_actions < 1:
+        raise ValueError("max_actions must be at least 1")
+    report_payload = report_funded_issues(
+        issues,
+        safe_only=safe_only,
+        profile=profile,
+        platform=platform,
+        language=language,
+        min_usd=min_usd,
+        opportunity_state=opportunity_state,
+        risk_level=risk_level,
+    )
+    actions = _cash_action_rows(report_payload)
+    actions_before_limit = len(actions)
+    if max_actions is not None:
+        actions = actions[:max_actions]
+    return {
+        "schema_version": CASH_ACTIONS_SCHEMA_VERSION,
+        "source_schema_version": SCHEMA_VERSION,
+        "read_only": True,
+        "safe_only": safe_only,
+        "blocked_actions": BLOCKED_ACTIONS,
+        "filters": report_payload["filters"],
+        "cash_path_status": report_payload["cash_path_status"],
+        "intake_followup": report_payload["intake_followup"],
+        "delivery_pack": report_payload["delivery_pack"],
+        "source_quality": report_payload["source_quality"],
+        "action_limit": max_actions,
+        "actions_before_limit": actions_before_limit,
+        "action_rows": len(actions),
+        "items": actions,
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "boundary": (
+            "Cash actions are internal structured handoff only, not external prose. They do "
+            "not create a payment route, claim rewards, post comments, contact maintainers, "
+            "open pull requests, or guarantee merge or payout outcomes."
+        ),
+    }
+
+
+def _cash_action_rows(report_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    cash_path_status = report_payload["cash_path_status"]
+    intake_followup = report_payload["intake_followup"]
+    recheck_plan = report_payload["recheck_plan"]
+    delivery_pack = report_payload["delivery_pack"]
+    source_quality = report_payload["source_quality"]
+
+    if cash_path_status["next_revenue_action"] == "collect_buyer_intake":
+        rows.append(
+            _cash_action_row(
+                action="collect_buyer_intake",
+                priority="high",
+                reason="Required buyer-fit fields are missing before paid delivery.",
+                requested_fields=[
+                    field["field"]
+                    for field in intake_followup["requested_fields"]
+                    if field["required_before_paid_delivery"]
+                ],
+                evidence_references=delivery_pack["handoff"]["candidate_references"],
+                suggested_package=intake_followup["suggested_package"],
+                copy_brief_allowed=True,
+            )
+        )
+
+    if recheck_plan["recheck_rows"]:
+        rows.append(
+            _cash_action_row(
+                action="run_read_only_recheck",
+                priority="high"
+                if cash_path_status["next_revenue_action"] == "run_read_only_recheck"
+                else "medium",
+                reason="Candidate or watchlist rows need current public-state evidence.",
+                requested_fields=[
+                    field["field"]
+                    for field in intake_followup["requested_fields"]
+                    if field["field"] == "public_state_recheck_window"
+                ],
+                evidence_references=[row["reference"] for row in recheck_plan["next_rows"]],
+                suggested_package=intake_followup["suggested_package"],
+                copy_brief_allowed=False,
+            )
+        )
+
+    if cash_path_status["next_revenue_action"] == "confirm_paid_scope":
+        rows.append(
+            _cash_action_row(
+                action="confirm_paid_scope",
+                priority="high",
+                reason="Rows are buyer-ready after local checks; confirm package and written scope.",
+                requested_fields=[],
+                evidence_references=delivery_pack["handoff"]["candidate_references"],
+                suggested_package=intake_followup["suggested_package"],
+                copy_brief_allowed=True,
+            )
+        )
+
+    if cash_path_status["next_revenue_action"] == "expand_permitted_sources":
+        rows.append(
+            _cash_action_row(
+                action="expand_permitted_sources",
+                priority="medium",
+                reason="Current filters produced no buyer-ready candidates.",
+                requested_fields=[
+                    field["field"]
+                    for field in intake_followup["requested_fields"]
+                    if field["field"] in {"permitted_sources", "source_expansion_preferences"}
+                ],
+                evidence_references=[],
+                suggested_package=intake_followup["suggested_package"],
+                copy_brief_allowed=False,
+                source_names=sorted(source_quality["sources"].keys()),
+            )
+        )
+
+    if not rows:
+        rows.append(
+            _cash_action_row(
+                action="expand_permitted_sources",
+                priority="medium",
+                reason="No internal cash action matched this batch; expand permitted sources.",
+                requested_fields=[],
+                evidence_references=[],
+                suggested_package=intake_followup["suggested_package"],
+                copy_brief_allowed=False,
+                source_names=sorted(source_quality["sources"].keys()),
+            )
+        )
+
+    return sorted(rows, key=lambda row: (_recheck_priority_rank(row["priority"]), row["action"]))
+
+
+def _cash_action_row(
+    *,
+    action: str,
+    priority: str,
+    reason: str,
+    requested_fields: list[str],
+    evidence_references: list[str],
+    suggested_package: str,
+    copy_brief_allowed: bool,
+    source_names: list[str] | None = None,
+) -> dict[str, Any]:
+    return {
+        "action": action,
+        "priority": priority,
+        "reason": reason,
+        "requested_fields": requested_fields,
+        "evidence_references": evidence_references,
+        "source_names": source_names or [],
+        "suggested_package": suggested_package,
+        "copy_brief_allowed": copy_brief_allowed,
+        "external_body_allowed": False,
+        "payment_route_allowed_now": False,
+        "requires_written_acceptance_before_payment_route": True,
+        "blocked_actions": BLOCKED_ACTIONS,
+        "boundary": (
+            "Internal facts-only handoff. Do not write external prose here, create a payment "
+            "route, claim rewards, post comments, contact maintainers, open pull requests, "
+            "or imply merge/payout certainty."
         ),
     }
 
