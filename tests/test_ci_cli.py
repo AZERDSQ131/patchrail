@@ -387,6 +387,11 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("python_lint", schema["properties"]["failure_class"]["enum"])
         self.assertIn("ci_job_timeout", schema["properties"]["failure_class"]["enum"])
         self.assertIn("cpp_build_failure", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("node_test_failure", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("node_dependency_install", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("rust_lint", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("go_lint", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("typescript_typecheck", schema["properties"]["failure_class"]["enum"])
         self.assertEqual(
             schema["properties"]["requirements"]["properties"]["billing_required"]["const"], False
         )

@@ -26,6 +26,13 @@ REDACTION_PATTERNS: list[tuple[str, str, str]] = [
     ),
     ("jwt", r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b", "<jwt>"),
     ("bearer_token", r"\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b", "Bearer <token>"),
+    ("sendgrid_api_key", r"\bSG\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b", "<sendgrid-api-key>"),
+    ("telegram_bot_token", r"\b\d{8,10}:AA[A-Za-z0-9_-]{30,}\b", "<telegram-bot-token>"),
+    (
+        "url_credentials",
+        r"\b([a-z][a-z0-9+.-]*://)[^\s:/@]+:[^\s/@]+@",
+        r"\1<credentials>@",
+    ),
     (
         "env_secret_assignment",
         r"\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|KEY))=([^\s'\"]+)",
@@ -266,7 +273,26 @@ RULES: list[dict[str, Any]] = [
     {
         "failure_class": "node_dependency_install",
         "likely_subsystem": "Node package installation",
-        "patterns": [r"npm ERR!", r"ERR_PNPM", r"YN\d{4}", r"lockfile", r"peer dep"],
+        "patterns": [
+            r"npm ERR!",
+            r"npm error\b",
+            r"ERR_PNPM",
+            r"ERR_PNPM_NO_MATCHING_VERSION",
+            r"YN\d{4}",
+            r"lockfile",
+            r"peer dep",
+            r"\bERESOLVE\b",
+            r"unable to resolve dependency tree",
+            r"could not resolve dependency",
+            r"Conflicting peer dependency",
+            r"Fix the upstream dependency conflict",
+            r"npm ci can only install packages when your package\.json and package-lock\.json",
+            r"404 Not Found - GET https?://registry\.npmjs\.org",
+            r"is not in this registry",
+            r"yarn install v\d",
+            r"error An unexpected error occurred",
+            r"info Visit https://yarnpkg\.com",
+        ],
         "reproduction_command": "corepack pnpm install --frozen-lockfile || npm ci",
         "minimal_repair_strategy": (
             "Reconcile lockfile and package metadata without upgrading unrelated dependencies."
@@ -278,8 +304,18 @@ RULES: list[dict[str, Any]] = [
         "patterns": [
             r"\bTS\d{4}\b",
             r"\btsc\b",
+            r"tsc --noEmit",
+            r"vue-tsc --noEmit",
+            r"TSError: .* Unable to compile TypeScript",
             r"Type '.*' is not assignable",
             r"Cannot find name",
+            r"Property '.*' does not exist on type",
+            r"No overload matches this call",
+            r"Argument of type '.*' is not assignable to parameter of type",
+            r"Object is possibly '(?:null|undefined)'",
+            r"is declared but its value is never read",
+            r"tsc exited with code [1-9]",
+            r"Type checking failed",
         ],
         "reproduction_command": "pnpm typecheck || npm run typecheck",
         "minimal_repair_strategy": (
@@ -516,6 +552,78 @@ RULES: list[dict[str, Any]] = [
         "minimal_repair_strategy": (
             "Run the failing package test and make the smallest compile or runtime fix in "
             "that package."
+        ),
+    },
+    {
+        "failure_class": "node_test_failure",
+        "likely_subsystem": "Node test runner (jest, vitest, or mocha)",
+        "patterns": [
+            r"\bjest\b",
+            r"\bvitest\b",
+            r"\bmocha\b",
+            r"\bjasmine\b",
+            r"jest --",
+            r"vitest run",
+            r"npx (?:jest|vitest|mocha)",
+            r"npm (?:run )?test",
+            r"Tests:\s+\d+ failed",
+            r"Test Suites:\s+\d+ failed",
+            r"\d+ failing",
+            r"\d+ passing",
+            r"^\s*FAIL\s+(?:src|test|tests|spec|__tests__)/",
+            r"\bFAIL\b .*\.(?:test|spec)\.(?:[jt]sx?)\b",
+            r"× .*\.(?:test|spec)\.(?:[jt]sx?)\b",
+            r"Expected:.*Received:",
+            r"expect\(.*\)\.to(?:Equal|Be|Match|Have)",
+            r"AssertionError \[ERR_ASSERTION\]",
+            r"toMatchSnapshot",
+            r"● .* > ",
+        ],
+        "reproduction_command": "npx jest || npx vitest run || npx mocha",
+        "minimal_repair_strategy": (
+            "Confirm a Node unit-test runner (jest, vitest, or mocha) failed rather than a "
+            "browser end-to-end suite, then reproduce the failing spec, patch the narrow "
+            "assertion or behavior drift, and rerun that spec before the full suite."
+        ),
+    },
+    {
+        "failure_class": "rust_lint",
+        "likely_subsystem": "Rust linting (clippy)",
+        "patterns": [
+            r"\bclippy\b",
+            r"cargo clippy",
+            r"error\[clippy::",
+            r"warning: clippy::",
+            r"could not compile due to clippy",
+            r"-D warnings",
+            r"unneeded `return` statement",
+        ],
+        "reproduction_command": "cargo clippy --all-targets -- -D warnings",
+        "minimal_repair_strategy": (
+            "Confirm clippy failed rather than the tests, then apply the reported fix only in "
+            "the touched files and rerun cargo clippy."
+        ),
+    },
+    {
+        "failure_class": "go_lint",
+        "likely_subsystem": "Go linting (golangci-lint)",
+        "patterns": [
+            r"\bgolangci-lint\b",
+            r"golangci-lint run",
+            r"\(gofmt\)",
+            r"\(govet\)",
+            r"\(staticcheck\)",
+            r"\(errcheck\)",
+            r"\(ineffassign\)",
+            r"\(gosimple\)",
+            r"\(revive\)",
+            r"\(unused\)\s*$",
+            r"^\s*\S+\.go:\d+:\d+: .* \(\w+\)\s*$",
+        ],
+        "reproduction_command": "golangci-lint run ./...",
+        "minimal_repair_strategy": (
+            "Confirm golangci-lint failed rather than the tests, then apply the reported fix "
+            "only in the touched files and rerun golangci-lint."
         ),
     },
 ]
