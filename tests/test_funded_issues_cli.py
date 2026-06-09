@@ -542,6 +542,16 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         )
         self.assertIn("PatchRail copy-brief", intake_followup["next_internal_action"])
         self.assertIn("not customer-facing email copy", intake_followup["boundary"])
+        cash_path_status = payload["cash_path_status"]
+        self.assertEqual(cash_path_status["status"], "needs_buyer_intake")
+        self.assertEqual(cash_path_status["next_revenue_action"], "collect_buyer_intake")
+        self.assertTrue(cash_path_status["copy_brief_facts_available"])
+        self.assertFalse(cash_path_status["payment_route_allowed_now"])
+        self.assertTrue(cash_path_status["requires_written_acceptance_before_payment_route"])
+        self.assertFalse(cash_path_status["buyer_ready"])
+        self.assertIn("internal structured handoff only", cash_path_status["boundary"])
+        self.assertIn("does not create a payment route", cash_path_status["boundary"])
+        self.assertIn("does not authorize claims", cash_path_status["boundary"])
         self.assertEqual(payload["top_safe_candidates"][0]["reference"], "example/project#42")
         self.assertEqual(payload["top_safe_candidates"][0]["opportunity_state"], "active")
         self.assertIn("ranking_by_money_only", payload["blocked_actions"])
@@ -590,6 +600,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Status: `needs_buyer_intake`", proc.stdout)
         self.assertIn("`preferred_languages`", proc.stdout)
         self.assertIn("not customer-facing email copy", proc.stdout)
+        self.assertIn("## Cash Path Status", proc.stdout)
+        self.assertIn("Next revenue action: `collect_buyer_intake`", proc.stdout)
+        self.assertIn("Payment route allowed now: `False`", proc.stdout)
+        self.assertIn("does not create a payment route", proc.stdout)
         self.assertIn("paid scope", proc.stdout)
         self.assertIn("## No-Go Moat", proc.stdout)
         self.assertIn("High-risk or excluded | 1", proc.stdout)
@@ -867,6 +881,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 self.assertIn("client_fit_gaps", schema["required"])
                 self.assertIn("client_fit_summary", schema["required"])
                 self.assertIn("intake_followup", schema["required"])
+                self.assertIn("cash_path_status", schema["required"])
                 intake_followup = schema["$defs"]["intake_followup"]
                 self.assertIn("requested_fields", intake_followup["required"])
                 self.assertIn(
@@ -879,6 +894,22 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 )
                 intake_field = schema["$defs"]["intake_field"]
                 self.assertIn("required_before_paid_delivery", intake_field["required"])
+                cash_path_status = schema["$defs"]["cash_path_status"]
+                self.assertIn("next_revenue_action", cash_path_status["required"])
+                self.assertIn(
+                    "collect_buyer_intake",
+                    cash_path_status["properties"]["next_revenue_action"]["enum"],
+                )
+                self.assertEqual(
+                    cash_path_status["properties"]["payment_route_allowed_now"]["const"],
+                    False,
+                )
+                self.assertEqual(
+                    cash_path_status["properties"][
+                        "requires_written_acceptance_before_payment_route"
+                    ]["const"],
+                    True,
+                )
                 client_fit_summary = schema["$defs"]["client_fit_summary"]
                 self.assertIn("matching_rows", client_fit_summary["required"])
                 self.assertIn("partial_match", client_fit_summary["properties"]["status"]["enum"])
@@ -1272,6 +1303,15 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             intake_followup["requested_fields"][0]["field"],
             "preferred_languages",
         )
+        cash_path_status = payload["cash_path_status"]
+        self.assertEqual(cash_path_status["status"], "needs_buyer_intake")
+        self.assertEqual(cash_path_status["next_revenue_action"], "collect_buyer_intake")
+        self.assertTrue(cash_path_status["copy_brief_facts_available"])
+        self.assertFalse(cash_path_status["payment_route_allowed_now"])
+        self.assertTrue(cash_path_status["requires_written_acceptance_before_payment_route"])
+        self.assertFalse(cash_path_status["buyer_ready"])
+        self.assertIn("internal structured handoff only", cash_path_status["boundary"])
+        self.assertIn("does not authorize claims", cash_path_status["boundary"])
         self.assertIn("automatic_claims", payload["blocked_actions"])
         self.assertIn("automatic_issue_comments", payload["blocked_actions"])
         self.assertFalse(payload["requirements"]["network_required"])
@@ -1315,6 +1355,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("## Intake Follow-Up", proc.stdout)
         self.assertIn("Status: `needs_buyer_intake`", proc.stdout)
         self.assertIn("`minimum_payout_usd`", proc.stdout)
+        self.assertIn("## Cash Path Status", proc.stdout)
+        self.assertIn("Next revenue action: `collect_buyer_intake`", proc.stdout)
+        self.assertIn("Payment route allowed now: `False`", proc.stdout)
+        self.assertIn("does not create a payment route", proc.stdout)
         self.assertIn("## Shortlist", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
         self.assertIn("Confidence: `0.99`", proc.stdout)

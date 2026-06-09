@@ -4463,6 +4463,7 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
         _client_fit_summary_line(payload["client_fit_summary"]),
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         _intake_followup_summary(payload["intake_followup"]),
+        _cash_path_summary(payload["cash_path_status"]),
         "Read-only: True",
     ]
     return "\n".join(lines) + "\n"
@@ -4521,6 +4522,15 @@ def _intake_followup_summary(intake_followup: dict[str, Any]) -> str:
         f"{intake_followup['status']}, "
         f"{len(intake_followup['requested_fields'])} fields, "
         f"{intake_followup['required_before_paid_delivery']} required"
+    )
+
+
+def _cash_path_summary(cash_path_status: dict[str, Any]) -> str:
+    return (
+        "Cash path: "
+        f"{cash_path_status['next_revenue_action']}, "
+        f"buyer ready: {cash_path_status['buyer_ready']}, "
+        f"payment route allowed now: {cash_path_status['payment_route_allowed_now']}"
     )
 
 
@@ -4733,6 +4743,28 @@ def _append_intake_followup_markdown(
     lines.extend(["", intake_followup["boundary"]])
 
 
+def _append_cash_path_status_markdown(
+    lines: list[str],
+    cash_path_status: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Cash Path Status",
+            "",
+            f"- Status: `{cash_path_status['status']}`",
+            f"- Next revenue action: `{cash_path_status['next_revenue_action']}`",
+            f"- Copy-brief facts available: `{cash_path_status['copy_brief_facts_available']}`",
+            f"- Buyer ready: `{cash_path_status['buyer_ready']}`",
+            f"- Payment route allowed now: `{cash_path_status['payment_route_allowed_now']}`",
+            "- Requires written acceptance before payment route: "
+            f"`{cash_path_status['requires_written_acceptance_before_payment_route']}`",
+            "",
+            cash_path_status["boundary"],
+        ]
+    )
+
+
 def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     totals = payload["totals"]
     breakdown = payload["breakdown"]
@@ -4789,6 +4821,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     _append_intake_followup_markdown(lines, payload["intake_followup"])
+    _append_cash_path_status_markdown(lines, payload["cash_path_status"])
     lines.extend(
         [
             "",
@@ -4978,6 +5011,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
         _client_fit_summary_line(payload["client_fit_summary"]),
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         _intake_followup_summary(payload["intake_followup"]),
+        _cash_path_summary(payload["cash_path_status"]),
         "Read-only: True",
         "Boundary: Decision support only.",
     ]
@@ -5044,6 +5078,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     _append_intake_followup_markdown(lines, payload["intake_followup"])
+    _append_cash_path_status_markdown(lines, payload["cash_path_status"])
     lines.extend(
         [
             "",

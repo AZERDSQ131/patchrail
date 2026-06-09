@@ -22,6 +22,7 @@
     "client_fit_summary",
     "client_fit_gaps",
     "intake_followup",
+    "cash_path_status",
     "top_safe_candidates",
     "requirements",
     "boundary"
@@ -105,6 +106,9 @@
     },
     "intake_followup": {
       "$ref": "#/$defs/intake_followup"
+    },
+    "cash_path_status": {
+      "$ref": "#/$defs/cash_path_status"
     },
     "top_safe_candidates": {
       "type": "array",
@@ -576,6 +580,42 @@
           "items": { "$ref": "#/$defs/intake_field" }
         },
         "next_internal_action": { "type": "string", "minLength": 1 },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "cash_path_status": {
+      "type": "object",
+      "required": [
+        "status",
+        "next_revenue_action",
+        "copy_brief_facts_available",
+        "payment_route_allowed_now",
+        "requires_written_acceptance_before_payment_route",
+        "buyer_ready",
+        "boundary"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "needs_buyer_intake",
+            "needs_source_expansion",
+            "ready_after_read_only_recheck",
+            "ready_for_scope_confirmation"
+          ]
+        },
+        "next_revenue_action": {
+          "enum": [
+            "collect_buyer_intake",
+            "expand_permitted_sources",
+            "run_read_only_recheck",
+            "confirm_paid_scope"
+          ]
+        },
+        "copy_brief_facts_available": { "type": "boolean" },
+        "payment_route_allowed_now": { "const": false },
+        "requires_written_acceptance_before_payment_route": { "const": true },
+        "buyer_ready": { "type": "boolean" },
         "boundary": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false

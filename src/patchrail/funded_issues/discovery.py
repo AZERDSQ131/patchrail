@@ -423,6 +423,13 @@ def report_funded_issues(
     source_quality = _source_quality(scored_rows)
     recheck_plan = _recheck_plan(scored_rows)
     client_fit_summary = _client_fit_summary(issues, profile, client_fit_gaps)
+    intake_followup = _intake_followup(
+        client_fit_summary=client_fit_summary,
+        recheck_plan=recheck_plan,
+        delivery_budget=delivery_budget,
+        source_quality=source_quality,
+        decision_summary=decision_summary,
+    )
     safe_candidates = sorted(
         (issue for issue in returned_issues if issue.safe_to_list),
         key=_candidate_sort_key,
@@ -476,13 +483,8 @@ def report_funded_issues(
         "recheck_plan": recheck_plan,
         "client_fit_summary": client_fit_summary,
         "client_fit_gaps": client_fit_gaps,
-        "intake_followup": _intake_followup(
-            client_fit_summary=client_fit_summary,
-            recheck_plan=recheck_plan,
-            delivery_budget=delivery_budget,
-            source_quality=source_quality,
-            decision_summary=decision_summary,
-        ),
+        "intake_followup": intake_followup,
+        "cash_path_status": _cash_path_status(intake_followup),
         "top_safe_candidates": [
             {
                 "reference": issue.reference,
@@ -618,6 +620,13 @@ def shortlist_funded_issues(
     source_quality = _source_quality(score_payload["scores"])
     recheck_plan = _recheck_plan(score_payload["scores"])
     client_fit_summary = _client_fit_summary(issues, profile, report_payload["client_fit_gaps"])
+    intake_followup = _intake_followup(
+        client_fit_summary=client_fit_summary,
+        recheck_plan=recheck_plan,
+        delivery_budget=delivery_budget,
+        source_quality=source_quality,
+        decision_summary=decision_summary,
+    )
     return {
         "schema_version": SHORTLIST_SCHEMA_VERSION,
         "source_schema_version": SCHEMA_VERSION,
@@ -649,13 +658,8 @@ def shortlist_funded_issues(
         "recheck_plan": recheck_plan,
         "client_fit_summary": client_fit_summary,
         "client_fit_gaps": report_payload["client_fit_gaps"],
-        "intake_followup": _intake_followup(
-            client_fit_summary=client_fit_summary,
-            recheck_plan=recheck_plan,
-            delivery_budget=delivery_budget,
-            source_quality=source_quality,
-            decision_summary=decision_summary,
-        ),
+        "intake_followup": intake_followup,
+        "cash_path_status": _cash_path_status(intake_followup),
         "requirements": {
             "network_required": False,
             "github_write_permission_required": False,
@@ -1285,6 +1289,30 @@ def _intake_next_internal_action(status: str) -> str:
             "Expand permitted read-only sources before pitching this batch as buyer-ready."
         ),
     }[status]
+
+
+def _cash_path_status(intake_followup: dict[str, Any]) -> dict[str, Any]:
+    status = str(intake_followup["status"])
+    next_actions = {
+        "needs_buyer_intake": "collect_buyer_intake",
+        "ready_after_read_only_recheck": "run_read_only_recheck",
+        "ready_for_scope_confirmation": "confirm_paid_scope",
+        "needs_source_expansion": "expand_permitted_sources",
+    }
+    return {
+        "status": status,
+        "next_revenue_action": next_actions[status],
+        "copy_brief_facts_available": status
+        in {"needs_buyer_intake", "ready_for_scope_confirmation"},
+        "payment_route_allowed_now": False,
+        "requires_written_acceptance_before_payment_route": True,
+        "buyer_ready": status == "ready_for_scope_confirmation",
+        "boundary": (
+            "Cash-path status is internal structured handoff only. It is not external prose, "
+            "does not create a payment route, and does not authorize claims, comments, pull "
+            "requests, maintainer outreach, or payout/merge guarantees."
+        ),
+    }
 
 
 def _client_fit_gap_codes(issue: FundedIssue, profile: ClientProfile) -> list[str]:
