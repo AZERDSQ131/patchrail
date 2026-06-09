@@ -1,0 +1,34 @@
+{
+  "schema_version": "patchrail.funded_issues.testability_observations.v1",
+  "note": "Observable issue-body signals only. PatchRail never claims, comments, or contacts maintainers; testability drives a read-only verifiability recommendation, not a no-go on its own.",
+  "observations": [
+    {
+      "reference": "example/project#42",
+      "has_failing_test": true,
+      "has_reproduction_steps": true
+    },
+    {
+      "reference": "example/toolkit#17",
+      "has_failing_test": false,
+      "has_reproduction_steps": true,
+      "has_stack_trace_or_logs": false,
+      "has_expected_vs_actual": false
+    },
+    {
+      "reference": "example/api#88",
+      "has_failing_test": false,
+      "has_reproduction_steps": false,
+      "has_expected_vs_actual": true
+    },
+    {
+      "reference": "example/cli#210",
+      "has_failing_test": false,
+      "has_reproduction_steps": false,
+      "has_stack_trace_or_logs": false,
+      "has_expected_vs_actual": false
+    },
+    {
+      "reference": "example/docs#5"
+    }
+  ]
+}
