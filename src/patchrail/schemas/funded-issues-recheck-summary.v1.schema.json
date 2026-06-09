@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/funded-issues-recheck-summary.v1.schema.json",
+  "title": "PatchRail Funded Issues Recheck Summary",
+  "description": "Read-only summary of applying recheck observations to a funded-issues tracker store, emitted by patchrail funded-issues apply-recheck. Records state transitions only; never triggers a third-party write.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_schema_version",
+    "read_only",
+    "blocked_actions",
+    "requirements",
+    "store",
+    "input",
+    "now",
+    "stale_after_days",
+    "dry_run",
+    "total_entries",
+    "summary"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.funded_issues.recheck_summary.v1"
+    },
+    "source_schema_version": {
+      "const": "patchrail.funded_issues.v1"
+    },
+    "read_only": {
+      "const": true
+    },
+    "blocked_actions": {
+      "$ref": "#/$defs/blocked_actions"
+    },
+    "requirements": {
+      "$ref": "#/$defs/safe_requirements"
+    },
+    "store": {
+      "type": "string"
+    },
+    "input": {
+      "type": "string"
+    },
+    "now": {
+      "type": "string"
+    },
+    "stale_after_days": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "dry_run": {
+      "type": "boolean"
+    },
+    "total_entries": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "summary": {
+      "$ref": "#/$defs/recheck_summary"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "blocked_actions": {
+      "type": "array",
+      "contains": { "const": "automatic_claims" },
+      "items": {
+        "enum": [
+          "automatic_claims",
+          "automatic_pull_requests",
+          "automatic_issue_comments",
+          "mass_outreach",
+          "ranking_by_money_only"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "safe_requirements": {
+      "type": "object",
+      "required": [
+        "network_required",
+        "github_write_permission_required",
+        "external_model_required",
+        "billing_required"
+      ],
+      "properties": {
+        "network_required": { "const": false },
+        "github_write_permission_required": { "const": false },
+        "external_model_required": { "const": false },
+        "billing_required": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "recheck_summary": {
+      "type": "object",
+      "required": [
+        "checked",
+        "matched",
+        "unmatched",
+        "transitions",
+        "unchanged",
+        "transition_log"
+      ],
+      "properties": {
+        "checked": { "type": "integer", "minimum": 0 },
+        "matched": { "type": "integer", "minimum": 0 },
+        "unmatched": { "type": "integer", "minimum": 0 },
+        "unchanged": { "type": "integer", "minimum": 0 },
+        "transitions": {
+          "type": "object",
+          "required": ["to_closed", "to_stale", "to_active"],
+          "properties": {
+            "to_closed": { "type": "integer", "minimum": 0 },
+            "to_stale": { "type": "integer", "minimum": 0 },
+            "to_active": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "transition_log": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["url", "state", "at", "from"],
+            "properties": {
+              "url": { "type": "string" },
+              "state": { "type": "string" },
+              "at": { "type": "string" },
+              "from": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
