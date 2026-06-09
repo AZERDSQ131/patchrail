@@ -25,6 +25,7 @@ from patchrail.funded_issues import (
     VALID_RISK_LEVELS,
     cash_actions_funded_issues,
     explain_issue,
+    fulfillment_packet_funded_issues,
     import_provider_export,
     load_client_profile,
     load_funded_issues,
@@ -5333,6 +5334,131 @@ def _render_funded_issues_cash_actions_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> str:
+    cash_path = payload["cash_path_status"]
+    totals = payload["totals"]
+    lines = [
+        "PatchRail Funded Issues Fulfillment Packet",
+        f"Read-only: {payload['read_only']}",
+        f"Status: {payload['status']}",
+        f"Suggested package: {payload['suggested_package']}",
+        f"Packet limit: {payload['packet_limit']}",
+        f"Items before limit: {payload['items_before_limit']}",
+        f"Item rows: {payload['item_rows']}",
+        f"Candidate references: {totals['candidate_references']}",
+        f"Active rechecks: {totals['active_rechecks']}",
+        f"Next revenue action: {cash_path['next_revenue_action']}",
+        f"Payment route allowed now: {cash_path['payment_route_allowed_now']}",
+        f"Boundary: {payload['boundary']}",
+    ]
+    for item in payload["items"]:
+        scope = ", ".join(item["reference_scope"]) or "none"
+        lines.append(
+            f"{item['priority']} | {item['stage']} | {item['action']} | "
+            f"{scope} | blocks paid delivery: {item['blocks_paid_delivery']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -> str:
+    cash_path = payload["cash_path_status"]
+    totals = payload["totals"]
+    handoff = payload["handoff"]
+    lines = [
+        "# PatchRail Funded Issues Fulfillment Packet",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Safe-only: `{payload['safe_only']}`",
+        f"- Status: `{payload['status']}`",
+        f"- Suggested package: `{payload['suggested_package']}`",
+        f"- Packet limit: `{payload['packet_limit']}`",
+        f"- Items before limit: `{payload['items_before_limit']}`",
+        f"- Item rows: `{payload['item_rows']}`",
+        f"- Candidate references: `{totals['candidate_references']}`",
+        f"- Verification references: `{totals['verification_references']}`",
+        f"- No-go references: `{totals['no_go_references']}`",
+        f"- Active rechecks: `{totals['active_rechecks']}`",
+        f"- Source count: `{totals['source_count']}`",
+        "",
+        "## Cash Path",
+        "",
+        f"- Next revenue action: `{cash_path['next_revenue_action']}`",
+        f"- Buyer ready: `{cash_path['buyer_ready']}`",
+        f"- Payment route allowed now: `{cash_path['payment_route_allowed_now']}`",
+        "- Requires written acceptance before payment route: "
+        f"`{cash_path['requires_written_acceptance_before_payment_route']}`",
+        "",
+        "## QA Gates",
+        "",
+        "| Gate | Passed | Evidence | Reason |",
+        "|---|---:|---|---|",
+    ]
+    for gate in payload["qa_gates"]:
+        lines.append(
+            "| "
+            f"`{gate['gate']}` | "
+            f"{gate['passed']} | "
+            f"{_format_reference_list(gate['evidence'])} | "
+            f"{_escape_markdown_cell(gate['reason'])} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Fulfillment Items",
+            "",
+        ]
+    )
+    if payload["items"]:
+        lines.extend(
+            [
+                "| Priority | Stage | Action | Scope | Evidence required | Blocks paid delivery |",
+                "|---|---|---|---|---|---:|",
+            ]
+        )
+        for item in payload["items"]:
+            lines.append(
+                "| "
+                f"`{item['priority']}` | "
+                f"`{item['stage']}` | "
+                f"`{item['action']}` | "
+                f"{_format_reference_list(item['reference_scope'])} | "
+                f"{_format_reference_list(item['evidence_required'])} | "
+                f"{item['blocks_paid_delivery']} |"
+            )
+    else:
+        lines.append("No internal fulfillment items matched the filters.")
+    lines.extend(
+        [
+            "",
+            "## Handoff",
+            "",
+            "- Candidate references: " + _format_reference_list(handoff["candidate_references"]),
+            "- Verification references: "
+            + _format_reference_list(handoff["verification_references"]),
+            "- No-go references: " + _format_reference_list(handoff["no_go_references"]),
+            "- Sections: " + _format_reference_list(handoff["sections"]),
+            f"- External body allowed: `{handoff['external_body_allowed']}`",
+            f"- Payment route allowed now: `{handoff['payment_route_allowed_now']}`",
+            "- Requires written acceptance before payment route: "
+            f"`{handoff['requires_written_acceptance_before_payment_route']}`",
+            "",
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            cash_path["boundary"],
+            "",
+            "Each row is internal delivery operations data, not customer-facing prose, and "
+            "does not create a payment route.",
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
 def _escape_markdown_cell(value: str) -> str:
     return value.replace("|", "\\|")
 
@@ -5577,6 +5703,35 @@ def _funded_issues_cash_actions(args: argparse.Namespace) -> int:
         text = _render_funded_issues_cash_actions_markdown(payload)
     else:
         text = _render_funded_issues_cash_actions_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_fulfillment_packet(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
+        payload = fulfillment_packet_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            profile=profile,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
+            max_items=args.max_items,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_fulfillment_packet_markdown(payload)
+    else:
+        text = _render_funded_issues_fulfillment_packet_text(payload)
     _write_or_print(text, args.out)
     return 0
 
@@ -6772,6 +6927,54 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_cash_actions.add_argument("--out", type=Path, help="Optional output path.")
     funded_cash_actions.set_defaults(func=_funded_issues_cash_actions)
+
+    funded_fulfillment_packet = funded_subparsers.add_parser(
+        "fulfillment-packet",
+        help="Build an internal read-only fulfillment packet for paid delivery operations.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only include safe-to-list issues before building the fulfillment packet.",
+    )
+    funded_fulfillment_packet.add_argument("--platform", help="Filter by funding platform.")
+    funded_fulfillment_packet.add_argument("--language", help="Filter by repository language.")
+    funded_fulfillment_packet.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_fulfillment_packet.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before packet planning. Read-only.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--max-items",
+        type=int,
+        help="Limit internal fulfillment items after priority sorting. Must be at least 1.",
+    )
+    funded_fulfillment_packet.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_fulfillment_packet.add_argument("--out", type=Path, help="Optional output path.")
+    funded_fulfillment_packet.set_defaults(func=_funded_issues_fulfillment_packet)
 
     return parser
 

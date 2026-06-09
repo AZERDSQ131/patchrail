@@ -889,6 +889,131 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("max_actions must be at least 1", proc.stderr)
 
+    def test_funded_issues_fulfillment_packet_builds_internal_delivery_packet(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "fulfillment-packet",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(
+            payload["schema_version"],
+            "patchrail.funded_issues.fulfillment_packet.v1",
+        )
+        self.assertEqual(payload["source_schema_version"], "patchrail.funded_issues.v1")
+        self.assertTrue(payload["read_only"])
+        self.assertFalse(payload["safe_only"])
+        self.assertEqual(payload["status"], "needs_buyer_intake")
+        self.assertEqual(payload["suggested_package"], "mini_diagnostic")
+        self.assertIsNone(payload["packet_limit"])
+        self.assertEqual(payload["items_before_limit"], 3)
+        self.assertEqual(payload["item_rows"], 3)
+        self.assertEqual(payload["totals"]["loaded"], 2)
+        self.assertEqual(payload["totals"]["candidate_references"], 1)
+        self.assertEqual(payload["totals"]["no_go_references"], 1)
+        self.assertEqual(payload["totals"]["active_rechecks"], 1)
+        self.assertEqual(payload["totals"]["source_count"], 2)
+        self.assertEqual(
+            payload["cash_path_status"]["next_revenue_action"],
+            "collect_buyer_intake",
+        )
+        self.assertFalse(payload["cash_path_status"]["payment_route_allowed_now"])
+        gate_map = {gate["gate"]: gate for gate in payload["qa_gates"]}
+        self.assertFalse(gate_map["buyer_intake_fields_complete"]["passed"])
+        self.assertIn("preferred_languages", gate_map["buyer_intake_fields_complete"]["evidence"])
+        self.assertFalse(gate_map["public_state_recheck_complete"]["passed"])
+        self.assertIn("example/project#42", gate_map["public_state_recheck_complete"]["evidence"])
+        self.assertTrue(gate_map["source_quality_recorded"]["passed"])
+        self.assertTrue(gate_map["third_party_write_boundary"]["passed"])
+        self.assertFalse(gate_map["payment_route_written_acceptance"]["passed"])
+        self.assertFalse(payload["handoff"]["external_body_allowed"])
+        self.assertFalse(payload["handoff"]["payment_route_allowed_now"])
+        self.assertTrue(payload["handoff"]["requires_written_acceptance_before_payment_route"])
+        self.assertIn("cash_actions", payload["handoff"]["sections"])
+        self.assertFalse(payload["requirements"]["network_required"])
+        self.assertFalse(payload["requirements"]["github_write_permission_required"])
+        self.assertFalse(payload["requirements"]["external_model_required"])
+        self.assertFalse(payload["requirements"]["billing_required"])
+        self.assertIn("automatic_pull_requests", payload["blocked_actions"])
+        self.assertIn("mass_outreach", payload["blocked_actions"])
+        actions = [item["action"] for item in payload["items"]]
+        self.assertEqual(
+            actions,
+            ["collect_buyer_intake", "recheck_public_issue_state", "run_read_only_recheck"],
+        )
+        first = payload["items"][0]
+        self.assertEqual(first["stage"], "cash_path")
+        self.assertIn("preferred_languages", first["evidence_required"])
+        self.assertTrue(first["blocks_paid_delivery"])
+        self.assertFalse(first["external_body_allowed"])
+        self.assertFalse(first["payment_route_allowed_now"])
+        self.assertFalse(first["github_write_permission_required"])
+        self.assertFalse(first["network_required"])
+        self.assertIn("Do not write customer prose", first["boundary"])
+        self.assertIn("not customer-facing prose", payload["boundary"])
+        self.assertIn("does not create a payment route", payload["boundary"])
+        self.assertIn("guarantee merge or payout outcomes", payload["boundary"])
+
+    def test_funded_issues_fulfillment_packet_markdown_preserves_boundaries(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "fulfillment-packet",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--max-items",
+                "2",
+                "--format",
+                "markdown",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("# PatchRail Funded Issues Fulfillment Packet", proc.stdout)
+        self.assertIn("- Read-only: `True`", proc.stdout)
+        self.assertIn("- Status: `needs_buyer_intake`", proc.stdout)
+        self.assertIn("- Packet limit: `2`", proc.stdout)
+        self.assertIn("- Items before limit: `3`", proc.stdout)
+        self.assertIn("- Item rows: `2`", proc.stdout)
+        self.assertIn("## QA Gates", proc.stdout)
+        self.assertIn("`buyer_intake_fields_complete`", proc.stdout)
+        self.assertIn("`public_state_recheck_complete`", proc.stdout)
+        self.assertIn("`payment_route_written_acceptance`", proc.stdout)
+        self.assertIn("## Fulfillment Items", proc.stdout)
+        self.assertIn("`collect_buyer_intake`", proc.stdout)
+        self.assertIn("`recheck_public_issue_state`", proc.stdout)
+        self.assertIn("`preferred_languages`", proc.stdout)
+        self.assertIn("## Handoff", proc.stdout)
+        self.assertIn("- External body allowed: `False`", proc.stdout)
+        self.assertIn("- Payment route allowed now: `False`", proc.stdout)
+        self.assertIn("not customer-facing prose", proc.stdout)
+        self.assertIn("does not create a payment route", proc.stdout)
+        self.assertIn("automatic_pull_requests", proc.stdout)
+
+    def test_funded_issues_fulfillment_packet_rejects_zero_limit(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "fulfillment-packet",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--max-items",
+                "0",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("max_items must be at least 1", proc.stderr)
+
     def test_funded_issues_report_accepts_read_only_client_profile(self) -> None:
         proc = run_patchrail(
             [

@@ -13,6 +13,7 @@ VALIDATION_SCHEMA_VERSION = "patchrail.funded_issues.validation.v1"
 SHORTLIST_SCHEMA_VERSION = "patchrail.funded_issues.shortlist.v1"
 RECHECK_QUEUE_SCHEMA_VERSION = "patchrail.funded_issues.recheck_queue.v1"
 CASH_ACTIONS_SCHEMA_VERSION = "patchrail.funded_issues.cash_actions.v1"
+FULFILLMENT_PACKET_SCHEMA_VERSION = "patchrail.funded_issues.fulfillment_packet.v1"
 BLOCKED_ACTIONS = [
     "automatic_claims",
     "automatic_pull_requests",
@@ -802,6 +803,120 @@ def cash_actions_funded_issues(
     }
 
 
+def fulfillment_packet_funded_issues(
+    issues: list[FundedIssue],
+    *,
+    safe_only: bool = False,
+    profile: ClientProfile | None = None,
+    platform: str | None = None,
+    language: str | None = None,
+    min_usd: float | None = None,
+    opportunity_state: str | None = None,
+    risk_level: str | None = None,
+    max_items: int | None = None,
+) -> dict[str, Any]:
+    if max_items is not None and max_items < 1:
+        raise ValueError("max_items must be at least 1")
+    report_payload = report_funded_issues(
+        issues,
+        safe_only=safe_only,
+        profile=profile,
+        platform=platform,
+        language=language,
+        min_usd=min_usd,
+        opportunity_state=opportunity_state,
+        risk_level=risk_level,
+    )
+    recheck_payload = recheck_funded_issues(
+        issues,
+        safe_only=safe_only,
+        profile=profile,
+        platform=platform,
+        language=language,
+        min_usd=min_usd,
+        opportunity_state=opportunity_state,
+        risk_level=risk_level,
+    )
+    cash_payload = cash_actions_funded_issues(
+        issues,
+        safe_only=safe_only,
+        profile=profile,
+        platform=platform,
+        language=language,
+        min_usd=min_usd,
+        opportunity_state=opportunity_state,
+        risk_level=risk_level,
+    )
+    items = _fulfillment_items(
+        report_payload=report_payload,
+        recheck_payload=recheck_payload,
+        cash_payload=cash_payload,
+    )
+    items_before_limit = len(items)
+    if max_items is not None:
+        items = items[:max_items]
+    return {
+        "schema_version": FULFILLMENT_PACKET_SCHEMA_VERSION,
+        "source_schema_version": SCHEMA_VERSION,
+        "read_only": True,
+        "safe_only": safe_only,
+        "blocked_actions": BLOCKED_ACTIONS,
+        "filters": report_payload["filters"],
+        "packet_limit": max_items,
+        "items_before_limit": items_before_limit,
+        "item_rows": len(items),
+        "status": _fulfillment_status(report_payload),
+        "suggested_package": report_payload["delivery_budget"]["suggested_package"],
+        "cash_path_status": report_payload["cash_path_status"],
+        "totals": {
+            "loaded": report_payload["totals"]["loaded"],
+            "in_scope": report_payload["totals"]["in_scope"],
+            "candidate_references": len(
+                report_payload["delivery_pack"]["handoff"]["candidate_references"]
+            ),
+            "verification_references": len(
+                report_payload["delivery_pack"]["handoff"]["verification_references"]
+            ),
+            "no_go_references": len(report_payload["delivery_pack"]["handoff"]["no_go_references"]),
+            "active_rechecks": report_payload["recheck_plan"]["recheck_rows"],
+            "source_count": len(report_payload["source_quality"]["sources"]),
+        },
+        "qa_gates": _fulfillment_qa_gates(report_payload),
+        "handoff": {
+            "candidate_references": report_payload["delivery_pack"]["handoff"][
+                "candidate_references"
+            ],
+            "verification_references": report_payload["delivery_pack"]["handoff"][
+                "verification_references"
+            ],
+            "no_go_references": report_payload["delivery_pack"]["handoff"]["no_go_references"],
+            "sections": [
+                "client_fit_summary",
+                "source_quality",
+                "delivery_pack",
+                "recheck_queue",
+                "cash_actions",
+            ],
+            "external_body_allowed": False,
+            "payment_route_allowed_now": False,
+            "requires_written_acceptance_before_payment_route": True,
+        },
+        "items": items,
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "boundary": (
+            "Fulfillment packet is internal delivery operations data for read-only decision "
+            "support. It is not customer-facing prose, does not create a payment route, "
+            "does not claim rewards, post comments, contact maintainers, open pull requests, "
+            "or guarantee merge or payout outcomes."
+        ),
+    }
+
+
 def _cash_action_rows(report_payload: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     cash_path_status = report_payload["cash_path_status"]
@@ -922,6 +1037,165 @@ def _cash_action_row(
             "Internal facts-only handoff. Do not write external prose here, create a payment "
             "route, claim rewards, post comments, contact maintainers, open pull requests, "
             "or imply merge/payout certainty."
+        ),
+    }
+
+
+def _fulfillment_status(report_payload: dict[str, Any]) -> str:
+    status = str(report_payload["intake_followup"]["status"])
+    return {
+        "needs_buyer_intake": "needs_buyer_intake",
+        "ready_after_read_only_recheck": "needs_read_only_recheck",
+        "ready_for_scope_confirmation": "ready_for_scope_confirmation",
+        "needs_source_expansion": "needs_source_expansion",
+    }[status]
+
+
+def _fulfillment_qa_gates(report_payload: dict[str, Any]) -> list[dict[str, Any]]:
+    intake_followup = report_payload["intake_followup"]
+    recheck_plan = report_payload["recheck_plan"]
+    source_quality = report_payload["source_quality"]
+    delivery_pack = report_payload["delivery_pack"]
+    return [
+        _fulfillment_qa_gate(
+            gate="buyer_intake_fields_complete",
+            passed=intake_followup["required_before_paid_delivery"] == 0,
+            reason=("Required buyer-fit fields must be present before paid delivery can start."),
+            evidence=[
+                field["field"]
+                for field in intake_followup["requested_fields"]
+                if field["required_before_paid_delivery"]
+            ],
+        ),
+        _fulfillment_qa_gate(
+            gate="public_state_recheck_complete",
+            passed=recheck_plan["recheck_rows"] == 0,
+            reason="Candidate rows need current public-state evidence before delivery use.",
+            evidence=[row["reference"] for row in recheck_plan["next_rows"]],
+        ),
+        _fulfillment_qa_gate(
+            gate="source_quality_recorded",
+            passed=bool(source_quality["sources"]),
+            reason="The packet needs at least one permitted local source row.",
+            evidence=sorted(source_quality["sources"].keys()),
+        ),
+        _fulfillment_qa_gate(
+            gate="no_go_evidence_preserved",
+            passed=True,
+            reason="No-go rows stay in the packet as exclusion evidence, not work targets.",
+            evidence=delivery_pack["handoff"]["no_go_references"],
+        ),
+        _fulfillment_qa_gate(
+            gate="payment_route_written_acceptance",
+            passed=False,
+            reason="Payment routes require written buyer acceptance or a buyer-requested route.",
+            evidence=[],
+        ),
+        _fulfillment_qa_gate(
+            gate="third_party_write_boundary",
+            passed=True,
+            reason=("Fulfillment is local read-only work and does not authorize external writes."),
+            evidence=BLOCKED_ACTIONS,
+        ),
+    ]
+
+
+def _fulfillment_qa_gate(
+    *,
+    gate: str,
+    passed: bool,
+    reason: str,
+    evidence: list[str],
+) -> dict[str, Any]:
+    return {
+        "gate": gate,
+        "passed": passed,
+        "reason": reason,
+        "evidence": evidence,
+    }
+
+
+def _fulfillment_items(
+    *,
+    report_payload: dict[str, Any],
+    recheck_payload: dict[str, Any],
+    cash_payload: dict[str, Any],
+) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for row in cash_payload["items"]:
+        items.append(
+            _fulfillment_item(
+                stage="cash_path",
+                priority=row["priority"],
+                action=row["action"],
+                reference_scope=row["evidence_references"] or row["source_names"],
+                evidence_required=row["requested_fields"],
+                reason=row["reason"],
+                blocks_paid_delivery=row["action"]
+                in {"collect_buyer_intake", "confirm_paid_scope"},
+            )
+        )
+    for row in recheck_payload["items"]:
+        items.append(
+            _fulfillment_item(
+                stage="public_state_recheck",
+                priority=row["priority"],
+                action=row["action"],
+                reference_scope=[row["reference"]],
+                evidence_required=row["evidence_checklist"],
+                reason=row["reason"],
+                blocks_paid_delivery=True,
+            )
+        )
+    if not report_payload["source_quality"]["sources"]:
+        items.append(
+            _fulfillment_item(
+                stage="source_expansion",
+                priority="high",
+                action="expand_permitted_sources",
+                reference_scope=[],
+                evidence_required=["permitted public/API source name", "source URL"],
+                reason="No permitted source rows matched this packet.",
+                blocks_paid_delivery=True,
+            )
+        )
+    return sorted(
+        items,
+        key=lambda item: (
+            _recheck_priority_rank(str(item["priority"])),
+            str(item["stage"]),
+            str(item["action"]),
+        ),
+    )
+
+
+def _fulfillment_item(
+    *,
+    stage: str,
+    priority: str,
+    action: str,
+    reference_scope: list[str],
+    evidence_required: list[str],
+    reason: str,
+    blocks_paid_delivery: bool,
+) -> dict[str, Any]:
+    return {
+        "stage": stage,
+        "priority": priority,
+        "action": action,
+        "reference_scope": reference_scope,
+        "evidence_required": evidence_required,
+        "reason": reason,
+        "blocks_paid_delivery": blocks_paid_delivery,
+        "external_body_allowed": False,
+        "payment_route_allowed_now": False,
+        "github_write_permission_required": False,
+        "network_required": False,
+        "blocked_actions": BLOCKED_ACTIONS,
+        "boundary": (
+            "Internal read-only fulfillment item. Do not write customer prose here, create "
+            "a payment route, claim rewards, post comments, contact maintainers, open pull "
+            "requests, or imply merge/payout certainty."
         ),
     }
 
