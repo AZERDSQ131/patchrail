@@ -4457,6 +4457,7 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
             f"within margin budget: {budget['within_margin_budget']}"
         ),
         _source_quality_summary(payload["source_quality"]),
+        f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         "Read-only: True",
     ]
     return "\n".join(lines) + "\n"
@@ -4518,6 +4519,37 @@ def _append_source_quality_markdown(
     lines.extend(["", source_quality["boundary"]])
 
 
+def _append_client_fit_gaps_markdown(
+    lines: list[str],
+    client_fit_gaps: list[dict[str, Any]],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Client Fit Gaps",
+            "",
+            "| Reference | Gap codes | Summary |",
+            "|---|---|---|",
+        ]
+    )
+    if client_fit_gaps:
+        for row in client_fit_gaps:
+            gap_codes = ", ".join(f"`{code}`" for code in row["gap_codes"])
+            lines.append(f"| `{row['reference']}` | {gap_codes} | {row['gap_summary']} |")
+    else:
+        lines.append("| n/a | n/a | No rows were excluded by the local client profile. |")
+    lines.extend(
+        [
+            "",
+            (
+                "Client fit gaps are local decision-support evidence only. They do not "
+                "authorize claiming rewards, contacting maintainers, posting comments, or "
+                "opening pull requests."
+            ),
+        ]
+    )
+
+
 def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     totals = payload["totals"]
     breakdown = payload["breakdown"]
@@ -4569,6 +4601,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     for level, count in budget["analysis_rows"].items():
         lines.append(f"| `{level}` | {count} |")
     _append_source_quality_markdown(lines, payload["source_quality"])
+    _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     lines.extend(
         [
             "",
@@ -4753,6 +4786,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
             f"within margin budget: {budget['within_margin_budget']}"
         ),
         _source_quality_summary(payload["source_quality"]),
+        f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         "Read-only: True",
         "Boundary: Decision support only.",
     ]
@@ -4814,6 +4848,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     for level, count in budget["analysis_rows"].items():
         lines.append(f"| `{level}` | {count} |")
     _append_source_quality_markdown(lines, payload["source_quality"])
+    _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     lines.extend(
         [
             "",

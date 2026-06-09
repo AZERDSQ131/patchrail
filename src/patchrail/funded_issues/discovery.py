@@ -384,6 +384,7 @@ def report_funded_issues(
 ) -> dict[str, Any]:
     opportunity_state = _normalize_opportunity_state_filter(opportunity_state)
     risk_level = _normalize_risk_level_filter(risk_level)
+    client_fit_gaps = _client_fit_gaps(issues, profile)
     summary = summarize_issues(
         issues,
         safe_only=safe_only,
@@ -465,6 +466,7 @@ def report_funded_issues(
         "decision_summary": _decision_summary(scored_rows),
         "delivery_budget": _delivery_budget(scored_rows),
         "source_quality": _source_quality(scored_rows),
+        "client_fit_gaps": client_fit_gaps,
         "top_safe_candidates": [
             {
                 "reference": issue.reference,
@@ -623,6 +625,7 @@ def shortlist_funded_issues(
         },
         "delivery_budget": _delivery_budget(score_payload["scores"]),
         "source_quality": _source_quality(score_payload["scores"]),
+        "client_fit_gaps": report_payload["client_fit_gaps"],
         "requirements": {
             "network_required": False,
             "github_write_permission_required": False,
@@ -774,6 +777,77 @@ def _source_quality(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "or open pull requests."
         ),
     }
+
+
+def _client_fit_gaps(
+    issues: list[FundedIssue],
+    profile: ClientProfile | None,
+) -> list[dict[str, Any]]:
+    if profile is None:
+        return []
+
+    rows: list[dict[str, Any]] = []
+    for issue in issues:
+        gaps = _client_fit_gap_codes(issue, profile)
+        if not gaps:
+            continue
+        rows.append(
+            {
+                "reference": issue.reference,
+                "title": issue.title,
+                "url": issue.url,
+                "platform": issue.platform,
+                "gap_codes": gaps,
+                "gap_summary": _client_fit_gap_summary(gaps),
+            }
+        )
+    return rows
+
+
+def _client_fit_gap_codes(issue: FundedIssue, profile: ClientProfile) -> list[str]:
+    gaps: list[str] = []
+    if profile.languages and (issue.language or "").lower() not in profile.languages:
+        gaps.append("LANGUAGE_MISMATCH")
+    if profile.min_usd is not None:
+        if issue.funding_amount is None:
+            gaps.append("FUNDING_UNKNOWN")
+        elif issue.funding_currency != "USD":
+            gaps.append("FUNDING_CURRENCY_NOT_USD")
+        elif issue.funding_amount < profile.min_usd:
+            gaps.append("FUNDING_BELOW_MIN_USD")
+    if (
+        profile.allowed_opportunity_states
+        and issue.opportunity_state not in profile.allowed_opportunity_states
+    ):
+        gaps.append("OPPORTUNITY_STATE_NOT_ALLOWED")
+    if profile.allowed_risk_levels and issue.risk_level not in profile.allowed_risk_levels:
+        gaps.append("RISK_LEVEL_NOT_ALLOWED")
+    if profile.excluded_risk_flags:
+        excluded_flags = sorted(
+            set(issue.risk_flags).intersection(profile.excluded_risk_flags)
+        )
+        gaps.extend(f"EXCLUDED_RISK_FLAG:{flag}" for flag in excluded_flags)
+    return gaps
+
+
+def _client_fit_gap_summary(gaps: list[str]) -> str:
+    if not gaps:
+        return "Matches the local client profile."
+    labels = {
+        "LANGUAGE_MISMATCH": "language outside the profile",
+        "FUNDING_UNKNOWN": "funding is unknown",
+        "FUNDING_CURRENCY_NOT_USD": "funding is not in USD",
+        "FUNDING_BELOW_MIN_USD": "funding below profile minimum",
+        "OPPORTUNITY_STATE_NOT_ALLOWED": "opportunity state outside the profile",
+        "RISK_LEVEL_NOT_ALLOWED": "risk level outside the profile",
+    }
+    rendered = [
+        labels.get(gap, f"excluded risk flag {gap.split(':', 1)[1]}")
+        if gap.startswith("EXCLUDED_RISK_FLAG:")
+        else labels.get(gap, gap.lower())
+        for gap in gaps
+    ]
+    return "; ".join(rendered)
 
 
 def _recommended_source_use(

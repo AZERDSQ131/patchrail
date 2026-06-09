@@ -594,7 +594,12 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Client profile: `Async Python buyer`", proc.stdout)
         self.assertIn("In scope: `1`", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
-        self.assertNotIn("example/toolkit#17", proc.stdout)
+        self.assertIn("## Client Fit Gaps", proc.stdout)
+        self.assertIn("example/toolkit#17", proc.stdout)
+        self.assertIn("LANGUAGE_MISMATCH", proc.stdout)
+        self.assertIn("OPPORTUNITY_STATE_NOT_ALLOWED", proc.stdout)
+        self.assertIn("RISK_LEVEL_NOT_ALLOWED", proc.stdout)
+        self.assertIn("EXCLUDED_RISK_FLAG:spam_attractive", proc.stdout)
         self.assertIn("does not claim rewards", proc.stdout)
 
     def test_funded_issues_list_profile_preserves_filters_in_json(self) -> None:
@@ -644,6 +649,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 self.assertIn("requirements", schema["required"])
                 self.assertIn("source_quality", schema["required"])
                 self.assertIn("sources", schema["$defs"]["source_quality"]["required"])
+                self.assertIn("client_fit_gaps", schema["required"])
+                client_fit_gap = schema["$defs"]["client_fit_gap"]
+                self.assertIn("gap_codes", client_fit_gap["required"])
+                self.assertIn("gap_summary", client_fit_gap["required"])
                 source_stats = schema["$defs"]["source_quality_source"]
                 self.assertIn("usable_signal_ratio", source_stats["required"])
                 self.assertIn("recommended_use", source_stats["required"])
@@ -951,6 +960,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["schema_version"], "patchrail.funded_issues.shortlist.v1")
         self.assertEqual(payload["read_only"], True)
         self.assertEqual(payload["summary"]["total_loaded"], 2)
+        self.assertEqual(payload["client_fit_gaps"], [])
         self.assertEqual(payload["summary"]["opportunity_states"], {"active": 1, "closed": 1})
         self.assertEqual(payload["summary"]["rating_counts"], {"go_candidate": 1, "no_go": 1})
         self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/project#42")
@@ -1172,6 +1182,18 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["summary"]["high_risk"], 0)
         self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/project#42")
         self.assertEqual(payload["no_go_evidence"], [])
+        self.assertEqual(len(payload["client_fit_gaps"]), 1)
+        self.assertEqual(payload["client_fit_gaps"][0]["reference"], "example/toolkit#17")
+        self.assertEqual(
+            payload["client_fit_gaps"][0]["gap_codes"],
+            [
+                "LANGUAGE_MISMATCH",
+                "OPPORTUNITY_STATE_NOT_ALLOWED",
+                "RISK_LEVEL_NOT_ALLOWED",
+                "EXCLUDED_RISK_FLAG:spam_attractive",
+            ],
+        )
+        self.assertIn("language outside", payload["client_fit_gaps"][0]["gap_summary"])
         self.assertFalse(payload["requirements"]["network_required"])
         self.assertFalse(payload["requirements"]["github_write_permission_required"])
 
@@ -1214,6 +1236,12 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["summary"]["total_scored"], 0)
         self.assertEqual(payload["shortlist"], [])
         self.assertEqual(payload["no_go_evidence"], [])
+        self.assertEqual(len(payload["client_fit_gaps"]), 2)
+        self.assertEqual(payload["client_fit_gaps"][0]["reference"], "example/project#42")
+        self.assertEqual(
+            payload["client_fit_gaps"][0]["gap_codes"],
+            ["FUNDING_BELOW_MIN_USD"],
+        )
         self.assertEqual(payload["delivery_budget"]["suggested_package"], "none")
 
     def test_funded_issues_shortlist_rejects_invalid_limit(self) -> None:

@@ -19,6 +19,7 @@
     "decision_summary",
     "delivery_budget",
     "source_quality",
+    "client_fit_gaps",
     "requirements",
     "boundary"
   ],
@@ -86,6 +87,9 @@
     },
     "source_quality": {
       "$ref": "#/$defs/source_quality"
+    },
+    "client_fit_gaps": {
+      "$ref": "#/$defs/client_fit_gaps"
     },
     "requirements": {
       "$ref": "#/$defs/safe_requirements"
@@ -367,6 +371,27 @@
         "average_score": { "type": "number", "minimum": 0, "maximum": 100 },
         "usable_signal_ratio": { "type": "number", "minimum": 0, "maximum": 1 },
         "recommended_use": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "client_fit_gaps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/client_fit_gap" }
+    },
+    "client_fit_gap": {
+      "type": "object",
+      "required": ["reference", "title", "url", "platform", "gap_codes", "gap_summary"],
+      "properties": {
+        "reference": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "format": "uri" },
+        "platform": { "type": "string", "minLength": 1 },
+        "gap_codes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "gap_summary": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },
