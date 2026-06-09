@@ -75,6 +75,65 @@ class PatchRailCITests(unittest.TestCase):
             self.assertEqual(payload["failure_class"], "runner_resource_exhaustion")
             self.assertIn("disk", payload["minimal_repair_strategy"])
 
+    def test_ci_classify_detects_dns_network_transient_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run python -m pip install -r requirements.txt\n"
+                "WARNING: Retrying after connection broken by 'NewConnectionError'\n"
+                "Could not resolve host: pypi.org\n"
+                "Temporary failure in name resolution\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "network_transient_failure")
+            self.assertIn("retry", payload["minimal_repair_strategy"])
+            self.assertEqual(payload["requirements"]["external_model_required"], False)
+
+    def test_ci_classify_transient_registry_outage_wins_over_install_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "npm ERR! code E503\n"
+                "npm ERR! 503 Service Unavailable - GET https://registry.npmjs.org/react\n"
+                "npm ERR! Connection reset by peer\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "network_transient_failure")
+
+    def test_ci_classify_detects_git_network_transient_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run actions/checkout@v4\n"
+                "fatal: unable to access 'https://github.com/org/repo/': "
+                "Failed to connect to github.com port 443: Connection timed out\n"
+                "The remote end hung up unexpectedly\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "network_transient_failure")
+            self.assertIn("re-run", payload["reproduction_command"])
+
     def test_schema_command_emits_ci_result_contract(self) -> None:
         proc = subprocess.run(
             [sys.executable, "-m", "patchrail", "schema", "ci-result"],
@@ -95,6 +154,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("ruby_bundle_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("php_composer_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("runner_resource_exhaustion", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("network_transient_failure", schema["properties"]["failure_class"]["enum"])
         self.assertEqual(
             schema["properties"]["requirements"]["properties"]["billing_required"]["const"], False
         )

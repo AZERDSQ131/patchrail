@@ -67,6 +67,51 @@ RULES: list[dict[str, Any]] = [
         ),
     },
     {
+        "failure_class": "network_transient_failure",
+        "likely_subsystem": "Network connectivity or upstream service availability",
+        "patterns": [
+            r"Could not resolve host",
+            r"Temporary failure in name resolution",
+            r"Name or service not known",
+            r"getaddrinfo ENOTFOUND",
+            r"getaddrinfo EAI_AGAIN",
+            r"\bno such host\b",
+            r"Connection timed out",
+            r"\bETIMEDOUT\b",
+            r"\bECONNREFUSED\b",
+            r"Connection refused",
+            r"\bECONNRESET\b",
+            r"Connection reset by peer",
+            r"Network is unreachable",
+            r"\bENETUNREACH\b",
+            r"TLS handshake timeout",
+            r"\bESOCKETTIMEDOUT\b",
+            r"\bi/o timeout\b",
+            r"context deadline exceeded",
+            r"\bdial tcp\b",
+            r"429 Too Many Requests",
+            r"API rate limit exceeded",
+            r"503 Service Unavailable",
+            r"502 Bad Gateway",
+            r"504 Gateway Time-?out",
+            r"The remote end hung up unexpectedly",
+            r"RPC failed",
+            r"fetch-pack: unexpected disconnect",
+            r"early EOF",
+            r"fatal: unable to access",
+            r"Failed to connect to .* port",
+        ],
+        "reproduction_command": (
+            "re-run the failing job; if it fails again, probe the endpoint "
+            "(e.g. curl -sSf <url> or nslookup <host>) from the runner"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the failure is a transient network or upstream-service outage rather than a "
+            "code defect, then retry the job; if it persists, pin a reachable mirror, add a "
+            "bounded retry, or wait for the upstream service to recover before changing code."
+        ),
+    },
+    {
         "failure_class": "python_dependency_resolution",
         "likely_subsystem": "Python dependency installation",
         "patterns": [
