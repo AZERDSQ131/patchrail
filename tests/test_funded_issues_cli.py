@@ -1351,6 +1351,20 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                         schema["$defs"]["scored_issue"]["required"],
                     )
                     self.assertIn(
+                        "source_review",
+                        schema["$defs"]["funded_issue"]["required"],
+                    )
+                    self.assertIn(
+                        "primary_source_required",
+                        schema["$defs"]["source_review"]["required"],
+                    )
+                    self.assertIn(
+                        "discovery_only_source",
+                        schema["$defs"]["source_review"]["properties"]["risk_flags"]["items"][
+                            "enum"
+                        ],
+                    )
+                    self.assertIn(
                         "needs_funding_verification",
                         schema["$defs"]["scored_issue"]["properties"]["decision_gate"]["enum"],
                     )
@@ -1521,6 +1535,112 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["scores"][0]["decision_gate"], "needs_funding_verification")
         self.assertIn("FUNDING_STATE_UNCLEAR", payload["scores"][0]["reason_codes"])
         self.assertIn("OPPORTUNITY_STATE_UNCLEAR", payload["scores"][0]["reason_codes"])
+
+    def test_funded_issues_score_requires_primary_source_for_discovery_only_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "issues.json"
+            source.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.v1",
+                        "issues": [
+                            {
+                                "id": "discovery-only",
+                                "platform": "github_l0_l1_review",
+                                "repository": "example/discovery",
+                                "issue_number": 51,
+                                "title": "Funded signal seen through aggregator only",
+                                "url": "https://github.com/example/discovery/issues/51",
+                                "funding": {"amount": 400, "currency": "USD"},
+                                "language": "python",
+                                "labels": ["bug"],
+                                "opportunity_state": "active",
+                                "contribution_signals": [
+                                    "reproduction included",
+                                    "tests referenced",
+                                    "clear failure mode",
+                                ],
+                                "risk_flags": ["discovery_only_source"],
+                                "contribution_guidelines_url": (
+                                    "https://github.com/example/discovery/blob/main/CONTRIBUTING.md"
+                                ),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            score_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "score",
+                    "--source",
+                    str(source),
+                    "--format",
+                    "json",
+                ]
+            )
+            report_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "report",
+                    "--source",
+                    str(source),
+                    "--format",
+                    "json",
+                ]
+            )
+            shortlist_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "shortlist",
+                    "--source",
+                    str(source),
+                    "--safe-only",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(score_proc.returncode, 0, score_proc.stderr)
+        score_payload = json.loads(score_proc.stdout)
+        row = score_payload["scores"][0]
+        self.assertEqual(row["issue"]["reference"], "example/discovery#51")
+        self.assertEqual(row["rating"], "watchlist")
+        self.assertEqual(row["decision_gate"], "needs_funding_verification")
+        self.assertFalse(row["issue"]["safe_to_list"])
+        self.assertTrue(row["issue"]["source_review"]["primary_source_required"])
+        self.assertTrue(row["issue"]["source_review"]["required_before_shortlist"])
+        self.assertEqual(row["issue"]["source_review"]["risk_flags"], ["discovery_only_source"])
+        self.assertIn("DISCOVERY_ONLY_SOURCE", row["reason_codes"])
+        self.assertIn("permitted primary public/API source", row["recommended_next_step"])
+
+        self.assertEqual(report_proc.returncode, 0, report_proc.stderr)
+        report_payload = json.loads(report_proc.stdout)
+        self.assertEqual(report_payload["totals"]["safe_to_list"], 0)
+        self.assertEqual(report_payload["decision_summary"]["verification_needed"], 1)
+        self.assertEqual(
+            report_payload["source_quality"]["summary"]["funding_verification_needed"],
+            1,
+        )
+        self.assertEqual(
+            report_payload["source_quality"]["summary"]["status"],
+            "needs_funding_verification",
+        )
+        self.assertEqual(
+            report_payload["recheck_plan"]["action_counts"],
+            {"verify_funding_visibility": 1},
+        )
+        self.assertEqual(
+            report_payload["recheck_plan"]["next_rows"][0]["action"],
+            "verify_funding_visibility",
+        )
+
+        self.assertEqual(shortlist_proc.returncode, 0, shortlist_proc.stderr)
+        shortlist_payload = json.loads(shortlist_proc.stdout)
+        self.assertEqual(shortlist_payload["shortlist"], [])
+        self.assertEqual(shortlist_payload["decision_summary"]["verification_needed"], 1)
 
     def test_funded_issues_score_marks_authorization_gate(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

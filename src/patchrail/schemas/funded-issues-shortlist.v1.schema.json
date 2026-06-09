@@ -226,6 +226,7 @@
         "risk_flags",
         "risk_level",
         "safe_to_list",
+        "source_review",
         "opportunity_state",
         "maintainer_permission",
         "contribution_guidelines_url",
@@ -265,11 +266,38 @@
         },
         "risk_level": { "enum": ["low", "medium", "high"] },
         "safe_to_list": { "type": "boolean" },
+        "source_review": { "$ref": "#/$defs/source_review" },
         "opportunity_state": { "$ref": "#/$defs/opportunity_state" },
         "maintainer_permission": { "type": "string", "minLength": 1 },
         "contribution_guidelines_url": { "type": ["string", "null"], "format": "uri" },
         "read_only": { "const": true },
         "blocked_actions": { "$ref": "#/$defs/blocked_actions" }
+      },
+      "additionalProperties": false
+    },
+    "source_review": {
+      "type": "object",
+      "required": [
+        "primary_source_required",
+        "risk_flags",
+        "required_before_shortlist",
+        "next_step"
+      ],
+      "properties": {
+        "primary_source_required": { "type": "boolean" },
+        "risk_flags": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "aggregator_only_source",
+              "discovery_only_source",
+              "primary_source_required"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "required_before_shortlist": { "type": "boolean" },
+        "next_step": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },

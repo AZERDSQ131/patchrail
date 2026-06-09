@@ -31,6 +31,11 @@ HIGH_RISK_FLAGS = {
     "spam_attractive",
     "stale_no_maintainer_signal",
 }
+PRIMARY_SOURCE_REVIEW_FLAGS = {
+    "aggregator_only_source",
+    "discovery_only_source",
+    "primary_source_required",
+}
 
 VALID_OPPORTUNITY_STATES = {"active", "closed", "stale", "unknown"}
 VALID_RISK_LEVELS = {"high", "low", "medium"}
@@ -86,7 +91,28 @@ class FundedIssue:
 
     @property
     def safe_to_list(self) -> bool:
-        return self.risk_level != "high" and self.opportunity_state not in {"closed", "stale"}
+        return (
+            self.risk_level != "high"
+            and self.opportunity_state not in {"closed", "stale"}
+            and not self.primary_source_required
+        )
+
+    @property
+    def primary_source_required(self) -> bool:
+        return bool(set(self.risk_flags).intersection(PRIMARY_SOURCE_REVIEW_FLAGS))
+
+    @property
+    def source_review(self) -> dict[str, Any]:
+        return {
+            "primary_source_required": self.primary_source_required,
+            "risk_flags": sorted(set(self.risk_flags).intersection(PRIMARY_SOURCE_REVIEW_FLAGS)),
+            "required_before_shortlist": self.primary_source_required,
+            "next_step": (
+                "verify funding and current state from a permitted primary public/API source"
+                if self.primary_source_required
+                else "standard public-state recheck"
+            ),
+        }
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -108,6 +134,7 @@ class FundedIssue:
             "risk_flags": self.risk_flags,
             "risk_level": self.risk_level,
             "safe_to_list": self.safe_to_list,
+            "source_review": self.source_review,
             "opportunity_state": self.opportunity_state,
             "maintainer_permission": self.maintainer_permission,
             "contribution_guidelines_url": self.contribution_guidelines_url,
@@ -621,7 +648,7 @@ def shortlist_funded_issues(
     candidate_rows = [
         row
         for row in score_payload["scores"]
-        if row["rating"] in {"go_candidate", "watchlist"}
+        if _is_shortlist_candidate_row(row)
         and (not safe_only or row["issue"]["safe_to_list"])
     ]
     no_go_rows = [row for row in score_payload["scores"] if row["rating"] == "no_go"]
@@ -1366,7 +1393,7 @@ def _recheck_evidence_checklist(action: str) -> list[str]:
 def _decision_summary(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
     gate_counts = Counter(str(row["decision_gate"]) for row in scored_rows)
     gate_counts = Counter({gate: gate_counts.get(gate, 0) for gate in sorted(VALID_DECISION_GATES)})
-    candidate_rows = sum(1 for row in scored_rows if row["rating"] in {"go_candidate", "watchlist"})
+    candidate_rows = sum(1 for row in scored_rows if _is_shortlist_candidate_row(row))
     no_go_rows = sum(1 for row in scored_rows if row["rating"] == "no_go")
     return {
         "total_rows": len(scored_rows),
@@ -1435,7 +1462,7 @@ def _delivery_budget(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
         minutes_by_gate.get(str(row["decision_gate"]), 3) for row in scored_rows
     )
     estimated_hours = round(estimated_minutes / 60, 2)
-    l2_rows = sum(1 for row in scored_rows if row["rating"] in {"go_candidate", "watchlist"})
+    l2_rows = sum(1 for row in scored_rows if _is_shortlist_candidate_row(row))
     l1_rows = len(scored_rows) - l2_rows
     return {
         "suggested_package": package,
@@ -1459,7 +1486,7 @@ def _delivery_budget(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 def _delivery_pack(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
     candidate_rows = [
-        row for row in scored_rows if row["decision_gate"] in {"go_after_recheck", "watchlist"}
+        row for row in scored_rows if _is_shortlist_candidate_row(row)
     ]
     verification_rows = [
         row
@@ -1533,7 +1560,7 @@ def _source_quality(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
     sources: dict[str, dict[str, Any]] = {}
     for source, rows in sorted(grouped.items()):
         total_rows = len(rows)
-        candidate_rows = sum(1 for row in rows if row["rating"] in {"go_candidate", "watchlist"})
+        candidate_rows = sum(1 for row in rows if _is_shortlist_candidate_row(row))
         no_go_rows = sum(1 for row in rows if row["rating"] == "no_go")
         safe_to_list = sum(1 for row in rows if row["issue"]["safe_to_list"])
         funding_verification_needed = sum(
@@ -1569,6 +1596,10 @@ def _source_quality(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "or open pull requests."
         ),
     }
+
+
+def _is_shortlist_candidate_row(row: dict[str, Any]) -> bool:
+    return row["decision_gate"] in {"go_after_recheck", "watchlist"}
 
 
 def _source_quality_rollup(sources: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -2279,7 +2310,12 @@ def _decision_gate_for_score(
         return "no_go"
     if "NEEDS_AUTHORIZATION" in reason_code_set:
         return "needs_authorization"
-    if "FUNDING_STATE_UNCLEAR" in reason_code_set or issue.opportunity_state == "unknown":
+    if (
+        "FUNDING_STATE_UNCLEAR" in reason_code_set
+        or "PRIMARY_SOURCE_REQUIRED" in reason_code_set
+        or "DISCOVERY_ONLY_SOURCE" in reason_code_set
+        or issue.opportunity_state == "unknown"
+    ):
         return "needs_funding_verification"
     if issue.risk_level == "high":
         return "no_go"
@@ -2300,6 +2336,11 @@ def _recommended_next_step_for_score(
         return "Do not engage unless public project evidence shows the opportunity is live again."
     if issue.risk_level == "high":
         return "Keep as no-go evidence unless the client separately authorizes a bounded review."
+    if "PRIMARY_SOURCE_REQUIRED" in reason_code_set or "DISCOVERY_ONLY_SOURCE" in reason_code_set:
+        return (
+            "Verify funding and current issue state from a permitted primary public/API source "
+            "before shortlist ranking."
+        )
     if "FUNDING_STATE_UNCLEAR" in reason_code_set or issue.opportunity_state == "unknown":
         return "Verify funding and current issue state from permitted public/API sources before ranking."
     if "NO_CONTRIBUTION_GUIDELINES" in reason_code_set:
@@ -2317,6 +2358,9 @@ def _risk_reason_code(flag: str) -> str:
         "bounty_farming_language": "BOUNTY_FARMING_RISK",
         "requires_external_contact": "NEEDS_AUTHORIZATION",
         "no_contribution_guidelines": "NO_CONTRIBUTION_GUIDELINES",
+        "aggregator_only_source": "PRIMARY_SOURCE_REQUIRED",
+        "discovery_only_source": "DISCOVERY_ONLY_SOURCE",
+        "primary_source_required": "PRIMARY_SOURCE_REQUIRED",
         "spam_attractive": "SPAM_ATTRACTIVE",
         "stale_no_maintainer_signal": "STALE_NO_MAINTAINER_SIGNAL",
         "closed_or_inactive": "CLOSED_OR_INACTIVE",
