@@ -215,6 +215,176 @@ class TypescriptTypecheckClassification(unittest.TestCase):
         self.assertEqual(result["failure_class"], "python_type_check")
 
 
+class ReleasePublishFailureClassification(unittest.TestCase):
+    def test_npm_publish_e403_classifies_as_release_publish_failure(self) -> None:
+        log = (
+            "Run npm publish --access public\n"
+            "npm notice Publishing to https://registry.npmjs.org with tag latest\n"
+            "npm error code E403\n"
+            "npm error 403 403 Forbidden - PUT https://registry.npmjs.org/demo\n"
+            "npm error 403 You cannot publish over the previously published versions: 1.2.3.\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "release_publish_failure")
+        self.assertIn("publish", result["reproduction_command"])
+
+    def test_twine_file_already_exists_classifies_as_release_publish_failure(self) -> None:
+        log = (
+            "Run twine upload dist/*\n"
+            "Uploading distributions to https://upload.pypi.org/legacy/\n"
+            "Uploading demo-1.2.3-py3-none-any.whl\n"
+            "HTTPError: 400 Bad Request from https://upload.pypi.org/legacy/\n"
+            "File already exists. See https://pypi.org/help/#file-name-reuse for more.\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "release_publish_failure")
+
+    def test_cargo_publish_already_uploaded_classifies_as_release_publish_failure(self) -> None:
+        log = (
+            "Run cargo publish\n"
+            "Packaging demo v0.3.1\n"
+            "Uploading demo v0.3.1 to registry https://crates.io\n"
+            "error: failed to publish to registry at https://crates.io\n"
+            "crate version 0.3.1 is already uploaded\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "release_publish_failure")
+
+    def test_npm_publish_e403_wins_over_node_dependency_install(self) -> None:
+        log = (
+            "Run npm publish\n"
+            "npm error code E403\n"
+            "npm error 403 You cannot publish over the previously published versions: 2.0.0.\n"
+            "npm ERR! A complete log of this run can be found in npm-debug.log\n"
+            "npm error EPUBLISHCONFLICT cannot modify pre-existing version: 2.0.0\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "release_publish_failure")
+
+    def test_publish_log_with_npm_token_redacts_and_still_classifies(self) -> None:
+        token = "npm_" + "abcdefghijklmnopqrstuvwxyz1234"
+        log = (
+            "Run npm publish\n"
+            f"//registry.npmjs.org/:_authToken={token}\n"
+            "npm error code ENEEDAUTH\n"
+            "npm error need auth This command requires you to be logged in.\n"
+            "File already exists\n"
+        )
+        redacted = redact_ci_log(log)
+        self.assertNotIn(token, redacted["text"])
+        self.assertEqual(redacted["redactions"].get("npm_token"), 1)
+        self.assertEqual(
+            classify_ci_log(redacted["text"])["failure_class"], "release_publish_failure"
+        )
+
+
+class GitCheckoutFailureClassification(unittest.TestCase):
+    def test_checkout_auth_failure_classifies_as_git_checkout_failure(self) -> None:
+        log = (
+            "Run actions/checkout@v4\n"
+            "Syncing repository: acme/private\n"
+            "fatal: could not read Username for 'https://github.com': terminal prompts disabled\n"
+            "Repository not found\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "git_checkout_failure")
+        self.assertIn("checkout", result["reproduction_command"])
+
+    def test_submodule_clone_failure_classifies_as_git_checkout_failure(self) -> None:
+        log = (
+            "Run actions/checkout@v4 with submodules: recursive\n"
+            "fatal: clone of 'git@github.com:acme/private.git' into submodule path failed\n"
+            "Failed to recurse into submodule path vendor/lib\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "git_checkout_failure")
+
+    def test_git_lfs_smudge_failure_classifies_as_git_checkout_failure(self) -> None:
+        log = (
+            "Run actions/checkout@v4 with lfs: true\n"
+            "Downloading lfs objects for repository\n"
+            "smudge filter lfs failed\n"
+            "error downloading object: assets/model.bin (a1b2c3)\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "git_checkout_failure")
+
+    def test_checkout_failure_wins_over_github_actions_workflow(self) -> None:
+        log = (
+            "Run actions/checkout@v4\n"
+            "Job defined in .github/workflows/ci.yml started the checkout step\n"
+            "fatal: could not read Username for 'https://github.com'\n"
+            "error: pathspec 'release-ref' did not match any file(s) known to git\n"
+            "reference is not a tree: 0123456789abcdef\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "git_checkout_failure")
+
+    def test_checkout_log_with_token_url_redacts_and_still_classifies(self) -> None:
+        token = "ghp_" + "abcdefghijklmnopqrstuvwxyz123456"
+        log = (
+            "Run actions/checkout@v4\n"
+            "fatal: unable to access "
+            f"'https://x-access-token:{token}@github.com/acme/repo.git/'\n"
+            "fatal: could not read Username for 'https://github.com'\n"
+            "Repository not found\n"
+        )
+        redacted = redact_ci_log(log)
+        self.assertNotIn(token, redacted["text"])
+        self.assertEqual(redacted["redactions"].get("url_credentials"), 1)
+        self.assertEqual(classify_ci_log(redacted["text"])["failure_class"], "git_checkout_failure")
+
+
+class SecretsOrPermissionsFailureClassification(unittest.TestCase):
+    def test_resource_not_accessible_token_scope_classifies_as_secrets(self) -> None:
+        log = (
+            "Run gh pr comment 5 --body-file out.md\n"
+            "Resource not accessible by integration\n"
+            "gh: this token lacks the pull-requests: write permission\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "secrets_or_permissions_failure")
+        self.assertIn("permission", result["minimal_repair_strategy"])
+
+    def test_missing_input_classifies_as_secrets_or_permissions_failure(self) -> None:
+        log = (
+            "Run acme/deploy-action@v1\n"
+            "Error: Input required and not supplied: token\n"
+            "the DEPLOY_KEY secret is not set for this environment\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "secrets_or_permissions_failure")
+
+    def test_push_permission_denied_classifies_as_secrets_or_permissions_failure(self) -> None:
+        log = (
+            "Run git push origin HEAD:main\n"
+            "remote: Permission to acme/repo.git denied to github-actions[bot].\n"
+            "refusing to allow a GitHub App to create or update workflow "
+            ".github/workflows/release.yml without workflows permission\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "secrets_or_permissions_failure")
+
+    def test_permissions_failure_wins_over_github_actions_workflow(self) -> None:
+        log = (
+            "Run git push\n"
+            "Job from .github/workflows/release.yml attempted to push tags\n"
+            "Resource not accessible by integration\n"
+            "remote: Permission to acme/repo.git denied to github-actions[bot].\n"
+            "refusing to allow a GitHub App to create or update workflow "
+            "without workflows permission\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "secrets_or_permissions_failure")
+
+    def test_secret_value_in_log_redacts_and_still_classifies(self) -> None:
+        secret = "ghp_" + "ZYXWVUTSRQPONMLKJIHGFEDCBA987654"
+        log = (
+            "Run acme/deploy-action@v1\n"
+            f"DEPLOY_TOKEN={secret}\n"
+            "Error: Input required and not supplied: api-key\n"
+            "the API_KEY secret is not set for this environment\n"
+        )
+        redacted = redact_ci_log(log)
+        self.assertNotIn(secret, redacted["text"])
+        self.assertIn("DEPLOY_TOKEN=<redacted>", redacted["text"])
+        self.assertEqual(
+            classify_ci_log(redacted["text"])["failure_class"],
+            "secrets_or_permissions_failure",
+        )
+
+
 class RedactionExpansion(unittest.TestCase):
     def test_url_credentials_redacted_in_git_clone_with_token(self) -> None:
         token = "ghp_" + "abcdefghijklmnopqrstuvwxyz123456"
@@ -272,9 +442,15 @@ class SchemaContractExpansion(unittest.TestCase):
         self.assertIn("rust_lint", enum)
         self.assertIn("go_lint", enum)
         self.assertIn("typescript_typecheck", enum)
+        self.assertIn("release_publish_failure", enum)
+        self.assertIn("git_checkout_failure", enum)
+        self.assertIn("secrets_or_permissions_failure", enum)
         self.assertNotIn("node_dependency_failure", enum)
         self.assertNotIn("lint_failure", enum)
         self.assertNotIn("typecheck_failure", enum)
+        self.assertNotIn("publish_failure", enum)
+        self.assertNotIn("checkout_failure", enum)
+        self.assertNotIn("permissions_failure", enum)
 
 
 if __name__ == "__main__":

@@ -36,7 +36,10 @@
         "rust_test_failure",
         "ruby_bundle_failure",
         "php_composer_failure",
-        "go_test_failure"
+        "go_test_failure",
+        "release_publish_failure",
+        "git_checkout_failure",
+        "secrets_or_permissions_failure"
       ]
     },
     "likely_subsystem": {
