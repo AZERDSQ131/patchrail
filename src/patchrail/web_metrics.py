@@ -17,6 +17,7 @@ from patchrail.funded_issues import (
     report_funded_issues,
     score_funded_issues,
 )
+from patchrail.funded_issues.store import load_store, store_status
 
 
 SOURCE_NAMES = [
@@ -259,6 +260,42 @@ def known_usd_from_issues(issues: list[FundedIssue]) -> int:
     )
 
 
+def load_tracker_store_status(desk_dir: Path | None, now_iso: str) -> dict[str, Any] | None:
+    """Load the canonical tracker store and return its status plus live volumes.
+
+    Returns ``None`` when ``desk_dir`` is ``None``, the store file does not
+    exist, or the store cannot be read. Otherwise returns a mapping with the
+    ``store_status`` payload, the source file ``mtime``, and the volume of live
+    entries (states ``open`` / ``active``) per ``SOURCE_NAMES`` source.
+    """
+
+    if desk_dir is None:
+        return None
+    store_path = desk_dir / "tracker" / "funded-issues-store.json"
+    if not store_path.exists():
+        return None
+    try:
+        store = load_store(store_path)
+        status = store_status(store, now=now_iso)
+        mtime = store_path.stat().st_mtime
+    except (ValueError, OSError):
+        return None
+
+    live_by_source = {name: 0 for name in SOURCE_NAMES}
+    for entry in store.get("entries", {}).values():
+        if entry.get("state") not in ("open", "active"):
+            continue
+        platform = str((entry.get("issue") or {}).get("platform", "")).lower()
+        source_name = PLATFORM_TO_SOURCE.get(platform, "GitHub Issues")
+        live_by_source[source_name] += 1
+
+    return {
+        "status": status,
+        "mtime": mtime,
+        "live_by_source": live_by_source,
+    }
+
+
 def build_payloads(
     *,
     web_dir: Path,
@@ -274,18 +311,39 @@ def build_payloads(
     commit = product_commit(product_repo)
 
     now_epoch = datetime.now(tz=timezone.utc).timestamp()
+    now_iso = utc_iso(now_epoch)
     day_ago = now_epoch - 86400
     week_ago = now_epoch - (7 * 86400)
 
+    tracker = load_tracker_store_status(desk_dir, now_iso)
+
     product_usd = known_usd_from_issues(issues)
     evidence_usd_week = sum(signal.bounty_usd for signal in signals if signal.mtime >= week_ago)
-    active_bounties = sum(volumes.values())
+    heuristic_usd_week = product_usd + evidence_usd_week
     new_24h = sum(signal.active_count for signal in signals if signal.mtime >= day_ago)
     if funded_source.stat().st_mtime >= day_ago:
         new_24h += report["totals"]["loaded"]
 
+    if tracker is not None:
+        store_summary = tracker["status"]
+        live_volumes = tracker["live_by_source"]
+        volumes = live_volumes
+        active_bounties = sum(live_volumes.values())
+        if store_summary["added_24h"] is not None:
+            new_24h = store_summary["added_24h"]
+        if store_summary["usd_entries"] > 0:
+            tracked_this_week_usd = int(round(store_summary["total_usd"]))
+        else:
+            tracked_this_week_usd = heuristic_usd_week
+    else:
+        active_bounties = sum(volumes.values())
+        tracked_this_week_usd = heuristic_usd_week
+
     signal_mtimes = [signal.mtime for signal in signals]
-    as_of_epoch = max([funded_source.stat().st_mtime, *signal_mtimes] or [now_epoch])
+    as_of_inputs = [funded_source.stat().st_mtime, *signal_mtimes]
+    if tracker is not None:
+        as_of_inputs.append(tracker["mtime"])
+    as_of_epoch = max(as_of_inputs or [now_epoch])
     as_of = utc_iso(as_of_epoch)
 
     fingerprint_input = {
@@ -304,14 +362,35 @@ def build_payloads(
         "product_commit": commit["hash"],
         "volumes": volumes,
     }
+    if tracker is not None:
+        store_status_payload = {
+            key: value for key, value in tracker["status"].items() if key != "now"
+        }
+        fingerprint_input["tracker_store"] = {
+            "store_status": store_status_payload,
+            "mtime": int(tracker["mtime"]),
+        }
     fingerprint = source_fingerprint(fingerprint_input)
 
     values = {
-        "tracked_this_week_usd": product_usd + evidence_usd_week,
+        "tracked_this_week_usd": tracked_this_week_usd,
         "active_bounties": active_bounties,
         "sources_monitored": sum(1 for volume in volumes.values() if volume > 0),
         "new_24h": new_24h,
     }
+
+    if tracker is not None:
+        tracker_store_block = {
+            "present": True,
+            "total_entries": tracker["status"]["total_entries"],
+            "states": tracker["status"]["states"],
+            "added_24h": tracker["status"]["added_24h"],
+            "total_usd": tracker["status"]["total_usd"],
+            "usd_entries": tracker["status"]["usd_entries"],
+            "live_by_source": tracker["live_by_source"],
+        }
+    else:
+        tracker_store_block = {"present": False}
 
     evidence = {
         "schema_version": "patchrail.web_evidence_metrics.v1",
@@ -339,6 +418,7 @@ def build_payloads(
             ),
             "known_bounty_usd_week": evidence_usd_week,
         },
+        "tracker_store": tracker_store_block,
     }
 
     existing_landing = load_json(web_dir / "public" / "api" / "landing-metrics.json") or {}
@@ -406,6 +486,7 @@ def build_payloads(
             "active_count_from_evidence": sum(signal.active_count for signal in signals),
             "known_bounty_usd_week": evidence_usd_week,
         },
+        "tracker_store": tracker_store_block,
         "automation": {
             "generated_by": "patchrail web-metrics update",
             "static_api_files": [
