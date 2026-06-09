@@ -4427,6 +4427,7 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
     totals = payload["totals"]
     moat = payload["no_go_moat"]
     decision = payload["decision_summary"]
+    budget = payload["delivery_budget"]
     lines = [
         "PatchRail Funded Issues Report",
         f"Loaded: {totals['loaded']}",
@@ -4446,6 +4447,12 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
             f"{decision['verification_needed']} funding/state rechecks"
         ),
         f"Recommended batch action: {decision['recommended_batch_action']}",
+        (
+            "Delivery budget: "
+            f"{budget['suggested_package']}, "
+            f"{budget['estimated_review_minutes']} min local review, "
+            f"within margin budget: {budget['within_margin_budget']}"
+        ),
         "Read-only: True",
     ]
     return "\n".join(lines) + "\n"
@@ -4456,6 +4463,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     breakdown = payload["breakdown"]
     moat = payload["no_go_moat"]
     decision = payload["decision_summary"]
+    budget = payload["delivery_budget"]
     lines = [
         "# PatchRail Funded Issues Report",
         "",
@@ -4483,6 +4491,25 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
         lines.append(f"| `{gate}` | {count} |")
     lines.extend(
         [
+            "",
+            "## Delivery Budget",
+            "",
+            f"- Suggested package: `{budget['suggested_package']}`",
+            f"- Estimated local review: `{budget['estimated_review_minutes']}` minutes",
+            f"- Estimated hours: `{budget['estimated_review_hours']}`",
+            f"- Max paid hours: `{budget['max_paid_hours']}`",
+            f"- Within margin budget: `{budget['within_margin_budget']}`",
+            "",
+            "| Analysis level | Rows |",
+            "|---|---:|",
+        ]
+    )
+    for level, count in budget["analysis_rows"].items():
+        lines.append(f"| `{level}` | {count} |")
+    lines.extend(
+        [
+            "",
+            budget["boundary"],
             "",
             "## No-Go Moat",
             "",
@@ -4629,6 +4656,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
     summary = payload["summary"]
     moat = payload["no_go_moat"]
     decision = payload["decision_summary"]
+    budget = payload["delivery_budget"]
     lines = [
         "PatchRail Funded Issues Shortlist",
         f"Loaded: {summary['total_loaded']}",
@@ -4647,6 +4675,12 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
             f"{decision['verification_needed']} funding/state rechecks"
         ),
         f"Recommended batch action: {decision['recommended_batch_action']}",
+        (
+            "Delivery budget: "
+            f"{budget['suggested_package']}, "
+            f"{budget['estimated_review_minutes']} min local review, "
+            f"within margin budget: {budget['within_margin_budget']}"
+        ),
         "Read-only: True",
         "Boundary: Decision support only.",
     ]
@@ -4662,6 +4696,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     summary = payload["summary"]
     moat = payload["no_go_moat"]
     decision = payload["decision_summary"]
+    budget = payload["delivery_budget"]
     lines = [
         "# PatchRail Funded Issues Shortlist",
         "",
@@ -4688,6 +4723,25 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
         lines.append(f"| `{gate}` | {count} |")
     lines.extend(
         [
+            "",
+            "## Delivery Budget",
+            "",
+            f"- Suggested package: `{budget['suggested_package']}`",
+            f"- Estimated local review: `{budget['estimated_review_minutes']}` minutes",
+            f"- Estimated hours: `{budget['estimated_review_hours']}`",
+            f"- Max paid hours: `{budget['max_paid_hours']}`",
+            f"- Within margin budget: `{budget['within_margin_budget']}`",
+            "",
+            "| Analysis level | Rows |",
+            "|---|---:|",
+        ]
+    )
+    for level, count in budget["analysis_rows"].items():
+        lines.append(f"| `{level}` | {count} |")
+    lines.extend(
+        [
+            "",
+            budget["boundary"],
             "",
             "## Shortlist",
             "",

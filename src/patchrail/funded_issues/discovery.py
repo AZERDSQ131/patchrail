@@ -392,6 +392,7 @@ def report_funded_issues(
             ),
         },
         "decision_summary": _decision_summary(scored_rows),
+        "delivery_budget": _delivery_budget(scored_rows),
         "top_safe_candidates": [
             {
                 "reference": issue.reference,
@@ -542,6 +543,7 @@ def shortlist_funded_issues(
             "candidate_rows": len(candidate_rows),
             "no_go_rows": len(no_go_rows),
         },
+        "delivery_budget": _delivery_budget(score_payload["scores"]),
         "requirements": {
             "network_required": False,
             "github_write_permission_required": False,
@@ -605,6 +607,60 @@ def _recommended_batch_action(
     if no_go_rows:
         return "Do not spend engineering time on this batch; use no-go rows as evidence."
     return "No in-scope rows; expand permitted read-only sources before ranking."
+
+
+def _delivery_budget(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    minutes_by_gate = {
+        "go_after_recheck": 10,
+        "watchlist": 10,
+        "needs_funding_verification": 4,
+        "needs_authorization": 3,
+        "no_go": 3,
+    }
+    package = _suggested_package_for_rows(len(scored_rows))
+    max_paid_hours = {
+        "none": 0,
+        "mini_diagnostic": 3,
+        "validation_sprint": 5,
+        "opportunity_shortlist": 10,
+        "custom_batch": None,
+    }[package]
+    estimated_minutes = sum(
+        minutes_by_gate.get(str(row["decision_gate"]), 3) for row in scored_rows
+    )
+    estimated_hours = round(estimated_minutes / 60, 2)
+    l2_rows = sum(1 for row in scored_rows if row["rating"] in {"go_candidate", "watchlist"})
+    l1_rows = len(scored_rows) - l2_rows
+    return {
+        "suggested_package": package,
+        "estimated_review_minutes": estimated_minutes,
+        "estimated_review_hours": estimated_hours,
+        "max_paid_hours": max_paid_hours,
+        "within_margin_budget": (
+            True if max_paid_hours is None else estimated_hours <= max_paid_hours
+        ),
+        "analysis_rows": {
+            "l1_state_and_noise_review": l1_rows,
+            "l2_scope_and_readiness_review": l2_rows,
+            "l3_deep_dive_deferred": 0,
+        },
+        "boundary": (
+            "Budget is for local read-only triage. Do not clone repos, run deep repro, "
+            "contact maintainers, claim rewards, or open pull requests before paid scope."
+        ),
+    }
+
+
+def _suggested_package_for_rows(row_count: int) -> str:
+    if row_count == 0:
+        return "none"
+    if row_count <= 5:
+        return "mini_diagnostic"
+    if row_count <= 20:
+        return "validation_sprint"
+    if row_count <= 50:
+        return "opportunity_shortlist"
+    return "custom_batch"
 
 
 def _score_issue(issue: FundedIssue) -> dict[str, Any]:

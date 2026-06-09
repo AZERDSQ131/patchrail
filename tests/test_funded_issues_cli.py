@@ -457,6 +457,20 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             payload["decision_summary"]["recommended_batch_action"],
         )
         self.assertIn("do not claim", payload["decision_summary"]["safety_boundary"])
+        self.assertEqual(payload["delivery_budget"]["suggested_package"], "mini_diagnostic")
+        self.assertEqual(payload["delivery_budget"]["estimated_review_minutes"], 13)
+        self.assertEqual(payload["delivery_budget"]["estimated_review_hours"], 0.22)
+        self.assertEqual(payload["delivery_budget"]["max_paid_hours"], 3)
+        self.assertTrue(payload["delivery_budget"]["within_margin_budget"])
+        self.assertEqual(
+            payload["delivery_budget"]["analysis_rows"],
+            {
+                "l1_state_and_noise_review": 1,
+                "l2_scope_and_readiness_review": 1,
+                "l3_deep_dive_deferred": 0,
+            },
+        )
+        self.assertIn("paid scope", payload["delivery_budget"]["boundary"])
         self.assertEqual(payload["top_safe_candidates"][0]["reference"], "example/project#42")
         self.assertEqual(payload["top_safe_candidates"][0]["opportunity_state"], "active")
         self.assertIn("ranking_by_money_only", payload["blocked_actions"])
@@ -482,6 +496,11 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Candidate rows: `1`", proc.stdout)
         self.assertIn("Recommended batch action", proc.stdout)
         self.assertIn("`go_after_recheck` | 1", proc.stdout)
+        self.assertIn("## Delivery Budget", proc.stdout)
+        self.assertIn("Suggested package: `mini_diagnostic`", proc.stdout)
+        self.assertIn("Estimated local review: `13` minutes", proc.stdout)
+        self.assertIn("l2_scope_and_readiness_review", proc.stdout)
+        self.assertIn("paid scope", proc.stdout)
         self.assertIn("## No-Go Moat", proc.stdout)
         self.assertIn("High-risk or excluded | 1", proc.stdout)
         self.assertIn("Stale or closed | 1", proc.stdout)
@@ -575,9 +594,20 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
 
                 if schema_name == "funded-issues-shortlist":
                     self.assertIn("decision_summary", schema["required"])
+                    self.assertIn("delivery_budget", schema["required"])
                     self.assertIn(
                         "recommended_batch_action",
                         schema["$defs"]["decision_summary"]["required"],
+                    )
+                    self.assertIn(
+                        "suggested_package",
+                        schema["$defs"]["delivery_budget"]["required"],
+                    )
+                    self.assertIn(
+                        "opportunity_shortlist",
+                        schema["$defs"]["delivery_budget"]["properties"]["suggested_package"][
+                            "enum"
+                        ],
                     )
                     self.assertIn("shortlist", schema["required"])
                     self.assertIn("no_go_evidence", schema["required"])
@@ -598,9 +628,14 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                     )
                 else:
                     self.assertIn("decision_summary", schema["required"])
+                    self.assertIn("delivery_budget", schema["required"])
                     self.assertIn(
                         "safety_boundary",
                         schema["$defs"]["decision_summary"]["required"],
+                    )
+                    self.assertIn(
+                        "within_margin_budget",
+                        schema["$defs"]["delivery_budget"]["required"],
                     )
                     self.assertIn("top_safe_candidates", schema["required"])
                     self.assertIn("no_go_moat", schema["required"])
@@ -845,6 +880,15 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             payload["decision_summary"]["recommended_batch_action"],
         )
         self.assertIn("do not claim", payload["decision_summary"]["safety_boundary"])
+        self.assertEqual(payload["delivery_budget"]["suggested_package"], "mini_diagnostic")
+        self.assertEqual(payload["delivery_budget"]["estimated_review_minutes"], 13)
+        self.assertTrue(payload["delivery_budget"]["within_margin_budget"])
+        self.assertEqual(
+            payload["delivery_budget"]["analysis_rows"]["l1_state_and_noise_review"], 1
+        )
+        self.assertEqual(
+            payload["delivery_budget"]["analysis_rows"]["l2_scope_and_readiness_review"], 1
+        )
         self.assertIn("automatic_claims", payload["blocked_actions"])
         self.assertIn("automatic_issue_comments", payload["blocked_actions"])
         self.assertFalse(payload["requirements"]["network_required"])
@@ -871,6 +915,9 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Candidate rows: `1`", proc.stdout)
         self.assertIn("No-go rows: `1`", proc.stdout)
         self.assertIn("`no_go` | 1", proc.stdout)
+        self.assertIn("## Delivery Budget", proc.stdout)
+        self.assertIn("Suggested package: `mini_diagnostic`", proc.stdout)
+        self.assertIn("Estimated local review: `13` minutes", proc.stdout)
         self.assertIn("## Shortlist", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
         self.assertIn("Decision gate", proc.stdout)

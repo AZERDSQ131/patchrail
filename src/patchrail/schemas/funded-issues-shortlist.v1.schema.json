@@ -17,6 +17,7 @@
     "no_go_evidence",
     "no_go_moat",
     "decision_summary",
+    "delivery_budget",
     "requirements",
     "boundary"
   ],
@@ -78,6 +79,9 @@
     },
     "decision_summary": {
       "$ref": "#/$defs/decision_summary"
+    },
+    "delivery_budget": {
+      "$ref": "#/$defs/delivery_budget"
     },
     "requirements": {
       "$ref": "#/$defs/safe_requirements"
@@ -227,6 +231,49 @@
         "authorization_needed": { "type": "integer", "minimum": 0 },
         "recommended_batch_action": { "type": "string", "minLength": 1 },
         "safety_boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "delivery_budget": {
+      "type": "object",
+      "required": [
+        "suggested_package",
+        "estimated_review_minutes",
+        "estimated_review_hours",
+        "max_paid_hours",
+        "within_margin_budget",
+        "analysis_rows",
+        "boundary"
+      ],
+      "properties": {
+        "suggested_package": {
+          "enum": [
+            "none",
+            "mini_diagnostic",
+            "validation_sprint",
+            "opportunity_shortlist",
+            "custom_batch"
+          ]
+        },
+        "estimated_review_minutes": { "type": "integer", "minimum": 0 },
+        "estimated_review_hours": { "type": "number", "minimum": 0 },
+        "max_paid_hours": { "type": ["number", "null"], "minimum": 0 },
+        "within_margin_budget": { "type": "boolean" },
+        "analysis_rows": {
+          "type": "object",
+          "required": [
+            "l1_state_and_noise_review",
+            "l2_scope_and_readiness_review",
+            "l3_deep_dive_deferred"
+          ],
+          "properties": {
+            "l1_state_and_noise_review": { "type": "integer", "minimum": 0 },
+            "l2_scope_and_readiness_review": { "type": "integer", "minimum": 0 },
+            "l3_deep_dive_deferred": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "boundary": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },
