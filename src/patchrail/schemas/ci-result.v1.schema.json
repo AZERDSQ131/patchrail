@@ -23,6 +23,7 @@
       "enum": [
         "unknown",
         "runner_resource_exhaustion",
+        "network_transient_failure",
         "python_dependency_resolution",
         "python_test_failure",
         "node_dependency_install",
