@@ -46,7 +46,10 @@
         "go_test_failure",
         "node_test_failure",
         "rust_lint",
-        "go_lint"
+        "go_lint",
+        "release_publish_failure",
+        "git_checkout_failure",
+        "secrets_or_permissions_failure"
       ]
     },
     "likely_subsystem": {

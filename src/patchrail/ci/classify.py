@@ -346,6 +346,107 @@ RULES: list[dict[str, Any]] = [
         ),
     },
     {
+        "failure_class": "release_publish_failure",
+        "likely_subsystem": "Package or release publishing",
+        "patterns": [
+            r"npm publish",
+            r"You cannot publish over the previously published versions?",
+            r"\bEPUBLISHCONFLICT\b",
+            r"\bENEEDAUTH\b",
+            r"npm error code E403",
+            r"403 Forbidden.*(?:upload|pypi|package)",
+            r"(?:upload|pypi|package).*403 Forbidden",
+            r"\btwine upload\b",
+            r"HTTPError: 400.*File already exists",
+            r"File already exists",
+            r"This filename has already been used",
+            r"cargo publish",
+            r"crate version .* is already uploaded",
+            r"is already uploaded",
+            r"the remote server responded with an error.*already exists",
+            r"gh release create",
+            r"a release with the same tag .* already exists",
+            r"Validation Failed.*already_exists",
+            r"already_exists",
+        ],
+        "reproduction_command": (
+            "rerun the publish step locally with the same registry credentials "
+            "(e.g. npm publish --dry-run, twine upload, cargo publish --dry-run, "
+            "or gh release create)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the failure is a release or package publish conflict (a version/tag already "
+            "exists or the publish step lacked auth) rather than a build or test defect, then bump "
+            "the version, restore the missing publish credential, or skip the already-published "
+            "artifact before rerunning only the publish step."
+        ),
+    },
+    {
+        "failure_class": "git_checkout_failure",
+        "likely_subsystem": "Git checkout, clone, or submodule fetch",
+        "patterns": [
+            r"fatal: could not read Username",
+            r"fatal: Authentication failed",
+            r"Repository not found",
+            r"fatal: repository '.*' not found",
+            r"fatal: clone of '.*' (?:into submodule path|failed)",
+            r"Fetched in submodule path",
+            r"Failed to (?:clone|fetch|recurse into) submodule",
+            r"git submodule",
+            r"git-lfs",
+            r"smudge filter lfs failed",
+            r"error downloading object",
+            r"reference is not a tree",
+            r"fatal: reference is not a tree",
+            r"error: pathspec '.*' did not match",
+            r"fatal: not a git repository",
+            r"actions/checkout",
+        ],
+        "reproduction_command": (
+            "reproduce the checkout locally with the same ref and credentials "
+            "(e.g. git clone --recurse-submodules <repo> && git checkout <ref>)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the failure is a git checkout, clone, submodule, or LFS fetch problem rather "
+            "than a build or test defect, then fix the narrow ref, submodule URL, LFS pointer, or "
+            "checkout credential before rerunning only the checkout step."
+        ),
+    },
+    {
+        "failure_class": "secrets_or_permissions_failure",
+        "likely_subsystem": "CI secrets, tokens, or workflow permissions",
+        "patterns": [
+            r"Resource not accessible by integration",
+            r"Error: Input required and not supplied",
+            r"Input required and not supplied",
+            r"is not set\b",
+            r"secret .* (?:is )?(?:not set|missing|empty|required)",
+            r"\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}",
+            r"context access might be invalid",
+            r"Permission to .* denied to github-actions",
+            r"remote: Permission to .* denied",
+            r"refusing to allow a(?:n)? (?:GitHub App|OAuth App|integration) to create or "
+            r"update workflow",
+            r"without (?:the )?workflows? permission",
+            r"403.*write_packages",
+            r"insufficient (?:permission|scope|privileges)",
+            r"missing or insufficient permissions",
+            r"(?:token|app|integration) lacks the .*(?:permission|scope)",
+            r"lacks the .*(?:permission|scope)",
+            r"requires the .* permission",
+            r"\bpermissions:\b.*\bwrite\b",
+        ],
+        "reproduction_command": (
+            "inspect the workflow permissions and required secrets "
+            "(e.g. gh secret list and the permissions: block in the workflow)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the failure is a missing secret, unset input, or insufficient workflow "
+            "permission rather than a code defect, then provision the missing secret or widen the "
+            "narrow permissions/token scope the failing step needs before rerunning it."
+        ),
+    },
+    {
         "failure_class": "security_scan_failure",
         "likely_subsystem": "Security scanner or dependency audit",
         "patterns": [
