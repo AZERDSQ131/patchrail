@@ -11,6 +11,7 @@ SCHEMA_VERSION = "patchrail.funded_issues.v1"
 CLIENT_PROFILE_SCHEMA_VERSION = "patchrail.funded_issues.client_profile.v1"
 VALIDATION_SCHEMA_VERSION = "patchrail.funded_issues.validation.v1"
 SHORTLIST_SCHEMA_VERSION = "patchrail.funded_issues.shortlist.v1"
+RECHECK_QUEUE_SCHEMA_VERSION = "patchrail.funded_issues.recheck_queue.v1"
 BLOCKED_ACTIONS = [
     "automatic_claims",
     "automatic_pull_requests",
@@ -668,6 +669,122 @@ def shortlist_funded_issues(
     }
 
 
+def recheck_funded_issues(
+    issues: list[FundedIssue],
+    *,
+    safe_only: bool = False,
+    profile: ClientProfile | None = None,
+    platform: str | None = None,
+    language: str | None = None,
+    min_usd: float | None = None,
+    opportunity_state: str | None = None,
+    risk_level: str | None = None,
+) -> dict[str, Any]:
+    score_payload = score_funded_issues(
+        issues,
+        safe_only=safe_only,
+        profile=profile,
+        platform=platform,
+        language=language,
+        min_usd=min_usd,
+        opportunity_state=opportunity_state,
+        risk_level=risk_level,
+    )
+    scored_rows = score_payload["scores"]
+    recheck_plan = _recheck_plan(scored_rows)
+    queue_rows = [
+        _recheck_queue_row(row)
+        for row in scored_rows
+        if _recheck_action_for_gate(str(row["decision_gate"])) != "archive_as_no_go_evidence"
+    ]
+    queue_rows.sort(
+        key=lambda row: (
+            _recheck_priority_rank(row["priority"]),
+            row["platform"],
+            row["reference"],
+        )
+    )
+    return {
+        "schema_version": RECHECK_QUEUE_SCHEMA_VERSION,
+        "source_schema_version": SCHEMA_VERSION,
+        "read_only": True,
+        "safe_only": safe_only,
+        "blocked_actions": BLOCKED_ACTIONS,
+        "filters": score_payload["filters"],
+        "total_loaded": score_payload["total_loaded"],
+        "total_scored": score_payload["total_scored"],
+        "queue_rows": len(queue_rows),
+        "no_go_archive_rows": recheck_plan["no_go_rows"],
+        "priority_counts": recheck_plan["priority_counts"],
+        "action_counts": recheck_plan["action_counts"],
+        "items": queue_rows,
+        "requirements": {
+            "network_required": False,
+            "github_write_permission_required": False,
+            "external_model_required": False,
+            "billing_required": False,
+        },
+        "boundary": (
+            "Recheck queue is local read-only tracker work. It schedules evidence review only; "
+            "it does not claim rewards, post comments, contact maintainers, open pull requests, "
+            "or guarantee merge or payout outcomes."
+        ),
+    }
+
+
+def _recheck_queue_row(row: dict[str, Any]) -> dict[str, Any]:
+    issue = row["issue"]
+    decision_gate = str(row["decision_gate"])
+    action = _recheck_action_for_gate(decision_gate)
+    return {
+        "reference": issue["reference"],
+        "title": issue["title"],
+        "url": issue["url"],
+        "platform": issue["platform"],
+        "funding": issue["funding"]["display"],
+        "opportunity_state": issue["opportunity_state"],
+        "risk_level": issue["risk_level"],
+        "score": row["score"],
+        "confidence": row["confidence"],
+        "decision_gate": decision_gate,
+        "priority": _recheck_priority_for_gate(decision_gate),
+        "action": action,
+        "reason": _recheck_reason_for_gate(decision_gate),
+        "evidence_checklist": _recheck_evidence_checklist(action),
+        "recommended_next_step": row["recommended_next_step"],
+        "blocked_actions": BLOCKED_ACTIONS,
+    }
+
+
+def _recheck_evidence_checklist(action: str) -> list[str]:
+    checklists = {
+        "recheck_public_issue_state": [
+            "confirm issue is still open from permitted public/API source",
+            "confirm no assignee or active competing pull request",
+            "confirm funding is still visible before paid shortlist use",
+        ],
+        "recheck_scope_and_noise": [
+            "confirm scope is still narrow enough for paid review",
+            "confirm recent maintainer signal or clear acceptance criteria",
+            "confirm row is not only useful as no-go evidence",
+        ],
+        "verify_funding_visibility": [
+            "confirm visible amount and currency from permitted public/API source",
+            "record funding source URL or park as funding unclear",
+            "do not rank by amount until funding is verified",
+        ],
+        "confirm_client_authorization": [
+            "keep row parked unless buyer authorizes bounded review",
+            "do not contact maintainers or touch third-party repositories",
+            "record authorization boundary before any deeper analysis",
+        ],
+    }
+    return checklists.get(
+        action,
+        ["review public evidence locally and preserve read-only boundaries"],
+    )
+
+
 def _decision_summary(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
     gate_counts = Counter(str(row["decision_gate"]) for row in scored_rows)
     gate_counts = Counter({gate: gate_counts.get(gate, 0) for gate in sorted(VALID_DECISION_GATES)})
@@ -986,9 +1103,7 @@ def _client_fit_summary(
     total_rows = len(issues)
     excluded_rows = len(client_fit_gaps) if profile else 0
     matching_rows = max(0, total_rows - excluded_rows)
-    gap_counts = Counter(
-        gap_code for row in client_fit_gaps for gap_code in row["gap_codes"]
-    )
+    gap_counts = Counter(gap_code for row in client_fit_gaps for gap_code in row["gap_codes"])
     return {
         "profile_name": profile.name if profile and profile.name else None,
         "status": _client_fit_status(profile, total_rows, matching_rows, excluded_rows),
@@ -1038,7 +1153,9 @@ def _client_fit_recommended_action(
     if total_rows == 0:
         return "Expand permitted read-only sources before buyer-fit ranking."
     if matching_rows == 0:
-        return "Do not pitch this batch as buyer-ready; expand sources or adjust the client profile."
+        return (
+            "Do not pitch this batch as buyer-ready; expand sources or adjust the client profile."
+        )
     if excluded_rows:
         return "Use matching rows for shortlist review and keep excluded rows as fit-gap evidence."
     return "Use this batch for buyer-specific shortlist review after public-state recheck."
@@ -1181,9 +1298,7 @@ def _client_fit_gap_codes(issue: FundedIssue, profile: ClientProfile) -> list[st
     if profile.allowed_risk_levels and issue.risk_level not in profile.allowed_risk_levels:
         gaps.append("RISK_LEVEL_NOT_ALLOWED")
     if profile.excluded_risk_flags:
-        excluded_flags = sorted(
-            set(issue.risk_flags).intersection(profile.excluded_risk_flags)
-        )
+        excluded_flags = sorted(set(issue.risk_flags).intersection(profile.excluded_risk_flags))
         gaps.extend(f"EXCLUDED_RISK_FLAG:{flag}" for flag in excluded_flags)
     return gaps
 

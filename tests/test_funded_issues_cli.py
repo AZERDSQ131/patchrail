@@ -516,9 +516,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         )
         self.assertEqual(recheck_plan["next_rows"][0]["reference"], "example/project#42")
         self.assertEqual(recheck_plan["next_rows"][0]["priority"], "high")
-        self.assertEqual(
-            recheck_plan["next_rows"][0]["action"], "recheck_public_issue_state"
-        )
+        self.assertEqual(recheck_plan["next_rows"][0]["action"], "recheck_public_issue_state")
         self.assertIn("read-only tracker triage", recheck_plan["boundary"])
         client_fit_summary = payload["client_fit_summary"]
         self.assertIsNone(client_fit_summary["profile_name"])
@@ -648,6 +646,79 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["breakdown"]["opportunity_states"], {"closed": 1})
         self.assertEqual(payload["no_go_moat"]["high_risk_or_excluded"], 1)
         self.assertEqual(payload["top_safe_candidates"], [])
+
+    def test_funded_issues_recheck_queue_builds_local_read_only_work_queue(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "recheck-queue",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["schema_version"], "patchrail.funded_issues.recheck_queue.v1")
+        self.assertEqual(payload["source_schema_version"], "patchrail.funded_issues.v1")
+        self.assertTrue(payload["read_only"])
+        self.assertFalse(payload["safe_only"])
+        self.assertEqual(payload["total_loaded"], 2)
+        self.assertEqual(payload["total_scored"], 2)
+        self.assertEqual(payload["queue_rows"], 1)
+        self.assertEqual(payload["no_go_archive_rows"], 1)
+        self.assertEqual(payload["priority_counts"], {"high": 1})
+        self.assertEqual(
+            payload["action_counts"],
+            {"archive_as_no_go_evidence": 1, "recheck_public_issue_state": 1},
+        )
+        self.assertFalse(payload["requirements"]["network_required"])
+        self.assertFalse(payload["requirements"]["github_write_permission_required"])
+        self.assertFalse(payload["requirements"]["external_model_required"])
+        self.assertFalse(payload["requirements"]["billing_required"])
+        self.assertIn("automatic_pull_requests", payload["blocked_actions"])
+        self.assertIn("mass_outreach", payload["blocked_actions"])
+        row = payload["items"][0]
+        self.assertEqual(row["reference"], "example/project#42")
+        self.assertEqual(row["platform"], "polar")
+        self.assertEqual(row["funding"], "250 USD")
+        self.assertEqual(row["priority"], "high")
+        self.assertEqual(row["action"], "recheck_public_issue_state")
+        self.assertEqual(row["decision_gate"], "go_after_recheck")
+        self.assertIn("confirm issue is still open", row["evidence_checklist"][0])
+        self.assertIn("confirm funding is still visible", row["evidence_checklist"][2])
+        self.assertIn("does not claim rewards", payload["boundary"])
+        self.assertIn("guarantee merge or payout outcomes", payload["boundary"])
+
+    def test_funded_issues_recheck_queue_markdown_preserves_boundaries(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "recheck-queue",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--safe-only",
+                "--format",
+                "markdown",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("# PatchRail Funded Issues Recheck Queue", proc.stdout)
+        self.assertIn("- Read-only: `True`", proc.stdout)
+        self.assertIn("- Safe-only: `True`", proc.stdout)
+        self.assertIn("- Queue rows: `1`", proc.stdout)
+        self.assertIn("- No-go archive rows: `0`", proc.stdout)
+        self.assertIn("| `high` | `recheck_public_issue_state` |", proc.stdout)
+        self.assertIn("example/project#42", proc.stdout)
+        self.assertIn("confirm issue is still open", proc.stdout)
+        self.assertIn("confirm funding is still visible", proc.stdout)
+        self.assertIn("`recheck_public_issue_state` | 1", proc.stdout)
+        self.assertIn("does not claim rewards", proc.stdout)
+        self.assertIn("automatic_claims", proc.stdout)
+        self.assertIn("automatic_pull_requests", proc.stdout)
 
     def test_funded_issues_report_accepts_read_only_client_profile(self) -> None:
         proc = run_patchrail(
@@ -1343,9 +1414,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["client_fit_summary"]["status"], "partial_match")
         self.assertEqual(payload["client_fit_summary"]["matching_rows"], 1)
         self.assertEqual(payload["client_fit_summary"]["excluded_rows"], 1)
-        self.assertEqual(
-            payload["client_fit_summary"]["gap_counts"]["LANGUAGE_MISMATCH"], 1
-        )
+        self.assertEqual(payload["client_fit_summary"]["gap_counts"]["LANGUAGE_MISMATCH"], 1)
         self.assertEqual(payload["client_fit_gaps"][0]["reference"], "example/toolkit#17")
         self.assertEqual(
             payload["client_fit_gaps"][0]["gap_codes"],

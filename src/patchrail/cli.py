@@ -27,6 +27,7 @@ from patchrail.funded_issues import (
     import_provider_export,
     load_client_profile,
     load_funded_issues,
+    recheck_funded_issues,
     report_funded_issues,
     score_funded_issues,
     shortlist_funded_issues,
@@ -4570,12 +4571,10 @@ def _append_delivery_pack_markdown(
             "## Delivery Pack",
             "",
             f"- Suggested package: `{delivery_pack['suggested_package']}`",
-            "- Candidate references: "
-            + _format_reference_list(handoff["candidate_references"]),
+            "- Candidate references: " + _format_reference_list(handoff["candidate_references"]),
             "- Verification references: "
             + _format_reference_list(handoff["verification_references"]),
-            "- No-go references: "
-            + _format_reference_list(handoff["no_go_references"]),
+            "- No-go references: " + _format_reference_list(handoff["no_go_references"]),
             "",
             "| Phase | Rows | References | Objective | Exit criteria |",
             "|---|---:|---|---|---|",
@@ -5130,6 +5129,92 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_recheck_queue_text(payload: dict[str, Any]) -> str:
+    lines = [
+        "PatchRail Funded Issues Recheck Queue",
+        f"Read-only: {payload['read_only']}",
+        f"Loaded: {payload['total_loaded']}",
+        f"Scored: {payload['total_scored']}",
+        f"Queue rows: {payload['queue_rows']}",
+        f"No-go archive rows: {payload['no_go_archive_rows']}",
+        f"Priority counts: {payload['priority_counts']}",
+        f"Action counts: {payload['action_counts']}",
+        f"Boundary: {payload['boundary']}",
+    ]
+    for item in payload["items"]:
+        lines.append(
+            f"{item['priority']} | {item['action']} | {item['reference']} | "
+            f"{item['decision_gate']} | {item['funding']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_recheck_queue_markdown(payload: dict[str, Any]) -> str:
+    lines = [
+        "# PatchRail Funded Issues Recheck Queue",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Safe-only: `{payload['safe_only']}`",
+        f"- Loaded: `{payload['total_loaded']}`",
+        f"- Scored: `{payload['total_scored']}`",
+        f"- Queue rows: `{payload['queue_rows']}`",
+        f"- No-go archive rows: `{payload['no_go_archive_rows']}`",
+        "",
+        "## Queue",
+        "",
+    ]
+    if payload["items"]:
+        lines.extend(
+            [
+                "| Priority | Action | Reference | Funding | Score | Evidence checks |",
+                "|---|---|---|---:|---:|---|",
+            ]
+        )
+        for item in payload["items"]:
+            checklist = "<br>".join(
+                _escape_markdown_cell(check) for check in item["evidence_checklist"]
+            )
+            lines.append(
+                "| "
+                f"`{item['priority']}` | "
+                f"`{item['action']}` | "
+                f"[{item['reference']}]({item['url']}) | "
+                f"`{item['funding']}` | "
+                f"`{item['score']}` | "
+                f"{checklist} |"
+            )
+    else:
+        lines.append("No active recheck rows matched the filters.")
+    lines.extend(
+        [
+            "",
+            "## Action Counts",
+            "",
+            "| Action | Count |",
+            "|---|---:|",
+        ]
+    )
+    for action, count in payload["action_counts"].items():
+        lines.append(f"| `{action}` | {count} |")
+    lines.extend(
+        [
+            "",
+            "## Boundary",
+            "",
+            payload["boundary"],
+            "",
+            "## Blocked Actions",
+            "",
+        ]
+    )
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _escape_markdown_cell(value: str) -> str:
+    return value.replace("|", "\\|")
+
+
 def _default_funded_issues_source() -> Path:
     return Path("examples") / "funded-issues-readonly" / "issues.json"
 
@@ -5312,6 +5397,34 @@ def _funded_issues_shortlist(args: argparse.Namespace) -> int:
         text = _render_funded_issues_shortlist_markdown(payload)
     else:
         text = _render_funded_issues_shortlist_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_recheck_queue(args: argparse.Namespace) -> int:
+    source = args.source or _default_funded_issues_source()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        profile = load_client_profile(args.profile) if args.profile else None
+        payload = recheck_funded_issues(
+            issues,
+            safe_only=args.safe_only,
+            profile=profile,
+            platform=args.platform,
+            language=args.language,
+            min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_recheck_queue_markdown(payload)
+    else:
+        text = _render_funded_issues_recheck_queue_text(payload)
     _write_or_print(text, args.out)
     return 0
 
@@ -6411,6 +6524,49 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_shortlist.add_argument("--out", type=Path, help="Optional output path.")
     funded_shortlist.set_defaults(func=_funded_issues_shortlist)
+
+    funded_recheck_queue = funded_subparsers.add_parser(
+        "recheck-queue",
+        help="Build a local read-only recheck queue for funded issue tracker maintenance.",
+    )
+    funded_recheck_queue.add_argument(
+        "--source",
+        type=Path,
+        help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_recheck_queue.add_argument(
+        "--safe-only",
+        action="store_true",
+        help="Only include safe-to-list issues before building the recheck queue.",
+    )
+    funded_recheck_queue.add_argument("--platform", help="Filter by funding platform.")
+    funded_recheck_queue.add_argument("--language", help="Filter by repository language.")
+    funded_recheck_queue.add_argument(
+        "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_recheck_queue.add_argument(
+        "--profile",
+        type=Path,
+        help="Local client profile JSON used to reduce rows before queueing. Read-only.",
+    )
+    funded_recheck_queue.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_recheck_queue.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_recheck_queue.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_recheck_queue.add_argument("--out", type=Path, help="Optional output path.")
+    funded_recheck_queue.set_defaults(func=_funded_issues_recheck_queue)
 
     return parser
 
