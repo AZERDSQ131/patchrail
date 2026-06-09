@@ -1026,6 +1026,15 @@ def _cash_action_row(
     copy_brief_allowed: bool,
     source_names: list[str] | None = None,
 ) -> dict[str, Any]:
+    copy_brief_facts = _copy_brief_facts_for_action(
+        action=action,
+        reason=reason,
+        requested_fields=requested_fields,
+        evidence_references=evidence_references,
+        suggested_package=suggested_package,
+        copy_brief_allowed=copy_brief_allowed,
+        source_names=source_names or [],
+    )
     return {
         "action": action,
         "priority": priority,
@@ -1035,6 +1044,7 @@ def _cash_action_row(
         "source_names": source_names or [],
         "suggested_package": suggested_package,
         "copy_brief_allowed": copy_brief_allowed,
+        "copy_brief_facts": copy_brief_facts,
         "external_body_allowed": False,
         "payment_route_allowed_now": False,
         "requires_written_acceptance_before_payment_route": True,
@@ -1044,6 +1054,53 @@ def _cash_action_row(
             "route, claim rewards, post comments, contact maintainers, open pull requests, "
             "or imply merge/payout certainty."
         ),
+    }
+
+
+def _copy_brief_facts_for_action(
+    *,
+    action: str,
+    reason: str,
+    requested_fields: list[str],
+    evidence_references: list[str],
+    suggested_package: str,
+    copy_brief_allowed: bool,
+    source_names: list[str],
+) -> dict[str, Any] | None:
+    if not copy_brief_allowed:
+        return None
+    key_facts = [
+        f"internal_action={action}",
+        f"suggested_package={suggested_package}",
+        f"reason={reason}",
+        "payment_route_allowed_now=false",
+        "requires_written_acceptance_before_payment_route=true",
+    ]
+    if requested_fields:
+        key_facts.append(f"requested_fields={','.join(requested_fields)}")
+    if evidence_references:
+        key_facts.append(f"evidence_references={','.join(evidence_references)}")
+    if source_names:
+        key_facts.append(f"source_names={','.join(source_names)}")
+    return {
+        "schema_version": "patchrail.funded_issues.copy_brief_facts.v1",
+        "type": "reply",
+        "lead": "buyer_or_active_thread",
+        "goal": action,
+        "key_facts": key_facts,
+        "tone": "concise, async-only, commercial, brand-safe",
+        "constraints": [
+            "facts-only packet for OpenClaw/Opus",
+            "do not include a customer-facing body in this payload",
+            "no calls, demos, calendar links, claims, comments, pull requests, maintainer outreach",
+            "no merge, payout, legal, financial, availability, or maintainer-response guarantees",
+            "do not create or offer a payment route before written buyer acceptance",
+        ],
+        "urgency": "normal",
+        "thread_ref": "fill_from_live_reply_or_pipeline_record",
+        "forbidden_fields": ["body", "draft", "email_body"],
+        "external_body_allowed": False,
+        "payment_route_allowed_now": False,
     }
 
 

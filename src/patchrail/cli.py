@@ -5275,9 +5275,16 @@ def _render_funded_issues_cash_actions_text(payload: dict[str, Any]) -> str:
         f"Boundary: {payload['boundary']}",
     ]
     for item in payload["items"]:
+        facts = item["copy_brief_facts"]
+        facts_status = "none"
+        if facts:
+            facts_status = (
+                f"{len(facts['key_facts'])} facts, {len(facts['constraints'])} constraints"
+            )
         lines.append(
             f"{item['priority']} | {item['action']} | "
             f"copy brief allowed: {item['copy_brief_allowed']} | "
+            f"copy brief facts: {facts_status} | "
             f"payment route allowed now: {item['payment_route_allowed_now']}"
         )
     return "\n".join(lines) + "\n"
@@ -5304,11 +5311,18 @@ def _render_funded_issues_cash_actions_markdown(payload: dict[str, Any]) -> str:
     if payload["items"]:
         lines.extend(
             [
-                "| Priority | Action | Package | Requested fields | Evidence refs | Copy brief | External body | Payment route | Reason |",
-                "|---|---|---|---|---|---:|---:|---:|---|",
+                "| Priority | Action | Package | Requested fields | Evidence refs | Copy brief facts | External body | Payment route | Reason |",
+                "|---|---|---|---|---|---|---:|---:|---|",
             ]
         )
         for item in payload["items"]:
+            facts = item["copy_brief_facts"]
+            facts_summary = "not allowed"
+            if facts:
+                facts_summary = (
+                    f"{len(facts['key_facts'])} facts; "
+                    f"forbidden: {_format_reference_list(facts['forbidden_fields'])}"
+                )
             lines.append(
                 "| "
                 f"`{item['priority']}` | "
@@ -5316,7 +5330,7 @@ def _render_funded_issues_cash_actions_markdown(payload: dict[str, Any]) -> str:
                 f"`{item['suggested_package']}` | "
                 f"{_format_reference_list(item['requested_fields'])} | "
                 f"{_format_reference_list(item['evidence_references'])} | "
-                f"{item['copy_brief_allowed']} | "
+                f"{facts_summary} | "
                 f"{item['external_body_allowed']} | "
                 f"{item['payment_route_allowed_now']} | "
                 f"{_escape_markdown_cell(item['reason'])} |"

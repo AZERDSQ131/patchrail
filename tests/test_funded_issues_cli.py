@@ -855,6 +855,29 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(first["priority"], "high")
         self.assertEqual(first["suggested_package"], "mini_diagnostic")
         self.assertTrue(first["copy_brief_allowed"])
+        self.assertEqual(
+            first["copy_brief_facts"]["schema_version"],
+            "patchrail.funded_issues.copy_brief_facts.v1",
+        )
+        self.assertEqual(first["copy_brief_facts"]["type"], "reply")
+        self.assertEqual(first["copy_brief_facts"]["goal"], "collect_buyer_intake")
+        self.assertIn(
+            "requested_fields=preferred_languages,minimum_payout_usd,allowed_risk_levels",
+            first["copy_brief_facts"]["key_facts"],
+        )
+        self.assertIn(
+            "evidence_references=example/project#42",
+            first["copy_brief_facts"]["key_facts"],
+        )
+        self.assertEqual(
+            first["copy_brief_facts"]["forbidden_fields"],
+            ["body", "draft", "email_body"],
+        )
+        self.assertNotIn("body", first["copy_brief_facts"])
+        self.assertNotIn("draft", first["copy_brief_facts"])
+        self.assertNotIn("email_body", first["copy_brief_facts"])
+        self.assertFalse(first["copy_brief_facts"]["external_body_allowed"])
+        self.assertFalse(first["copy_brief_facts"]["payment_route_allowed_now"])
         self.assertFalse(first["external_body_allowed"])
         self.assertFalse(first["payment_route_allowed_now"])
         self.assertTrue(first["requires_written_acceptance_before_payment_route"])
@@ -866,6 +889,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(second["action"], "run_read_only_recheck")
         self.assertEqual(second["priority"], "medium")
         self.assertFalse(second["copy_brief_allowed"])
+        self.assertIsNone(second["copy_brief_facts"])
         self.assertIn("example/project#42", second["evidence_references"])
         self.assertIn("not external prose", payload["boundary"])
         self.assertIn("do not create a payment route", payload["boundary"])
@@ -896,6 +920,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("`collect_buyer_intake`", proc.stdout)
         self.assertIn("`mini_diagnostic`", proc.stdout)
         self.assertIn("`preferred_languages`", proc.stdout)
+        self.assertIn("7 facts; forbidden:", proc.stdout)
+        self.assertIn("`body`, `draft`, `email_body`", proc.stdout)
         self.assertIn("not external prose", proc.stdout)
         self.assertIn("does not create a payment route", proc.stdout)
         self.assertIn("automatic_pull_requests", proc.stdout)
