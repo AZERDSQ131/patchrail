@@ -763,6 +763,7 @@ def recheck_funded_issues(
     queue_rows_before_limit = len(queue_rows)
     if max_rows is not None:
         queue_rows = queue_rows[:max_rows]
+    focus_batch = _recheck_focus_batch(queue_rows)
     return {
         "schema_version": RECHECK_QUEUE_SCHEMA_VERSION,
         "source_schema_version": SCHEMA_VERSION,
@@ -778,6 +779,7 @@ def recheck_funded_issues(
         "no_go_archive_rows": recheck_plan["no_go_rows"],
         "priority_counts": recheck_plan["priority_counts"],
         "action_counts": recheck_plan["action_counts"],
+        "focus_batch": focus_batch,
         "items": queue_rows,
         "requirements": {
             "network_required": False,
@@ -1362,6 +1364,47 @@ def _recheck_queue_row(row: dict[str, Any]) -> dict[str, Any]:
         "evidence_checklist": _recheck_evidence_checklist(action),
         "recommended_next_step": row["recommended_next_step"],
         "blocked_actions": BLOCKED_ACTIONS,
+    }
+
+
+def _recheck_focus_batch(queue_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    if not queue_rows:
+        return {
+            "status": "clear",
+            "primary_action": "none",
+            "priority": "none",
+            "item_count": 0,
+            "references": [],
+            "platform_counts": {},
+            "evidence_checklist": [],
+            "boundary": (
+                "No active recheck batch exists. Do not invent outreach, claims, comments, "
+                "pull requests, payment routes, or payout/merge guarantees."
+            ),
+        }
+
+    first = queue_rows[0]
+    primary_action = str(first["action"])
+    priority = str(first["priority"])
+    focused_rows = [
+        row
+        for row in queue_rows
+        if row["action"] == primary_action and row["priority"] == priority
+    ]
+    platform_counts = Counter(str(row["platform"]) for row in focused_rows)
+    return {
+        "status": "active_recheck_batch",
+        "primary_action": primary_action,
+        "priority": priority,
+        "item_count": len(focused_rows),
+        "references": [str(row["reference"]) for row in focused_rows],
+        "platform_counts": dict(sorted(platform_counts.items())),
+        "evidence_checklist": list(first["evidence_checklist"]),
+        "boundary": (
+            "Focus batch is the next local read-only tracker maintenance slice. It schedules "
+            "evidence checks only and does not authorize external prose, payment routes, claims, "
+            "comments, maintainer contact, pull requests, or payout/merge guarantees."
+        ),
     }
 
 

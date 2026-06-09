@@ -5293,6 +5293,7 @@ def _render_funded_issues_recheck_queue_text(payload: dict[str, Any]) -> str:
         f"No-go archive rows: {payload['no_go_archive_rows']}",
         f"Priority counts: {payload['priority_counts']}",
         f"Action counts: {payload['action_counts']}",
+        _recheck_focus_batch_summary(payload["focus_batch"]),
         f"Boundary: {payload['boundary']}",
     ]
     for item in payload["items"]:
@@ -5316,9 +5317,31 @@ def _render_funded_issues_recheck_queue_markdown(payload: dict[str, Any]) -> str
         f"- Queue rows: `{payload['queue_rows']}`",
         f"- No-go archive rows: `{payload['no_go_archive_rows']}`",
         "",
-        "## Queue",
+        "## Focus Batch",
+        "",
+        f"- Status: `{payload['focus_batch']['status']}`",
+        f"- Primary action: `{payload['focus_batch']['primary_action']}`",
+        f"- Priority: `{payload['focus_batch']['priority']}`",
+        f"- Item count: `{payload['focus_batch']['item_count']}`",
+        "- References: " + _format_reference_list(payload["focus_batch"]["references"]),
+        f"- Platform counts: `{payload['focus_batch']['platform_counts']}`",
+        "",
+        "### Evidence Checklist",
         "",
     ]
+    if payload["focus_batch"]["evidence_checklist"]:
+        lines.extend(f"- {item}" for item in payload["focus_batch"]["evidence_checklist"])
+    else:
+        lines.append("- No active evidence checks.")
+    lines.extend(
+        [
+            "",
+            payload["focus_batch"]["boundary"],
+            "",
+            "## Queue",
+            "",
+        ]
+    )
     if payload["items"]:
         lines.extend(
             [
@@ -5365,6 +5388,16 @@ def _render_funded_issues_recheck_queue_markdown(payload: dict[str, Any]) -> str
     )
     lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
     return "\n".join(lines) + "\n"
+
+
+def _recheck_focus_batch_summary(focus_batch: dict[str, Any]) -> str:
+    return (
+        "Focus batch: "
+        f"{focus_batch['status']} | "
+        f"{focus_batch['priority']} | "
+        f"{focus_batch['primary_action']} | "
+        f"{focus_batch['item_count']} rows"
+    )
 
 
 def _render_funded_issues_cash_actions_text(payload: dict[str, Any]) -> str:

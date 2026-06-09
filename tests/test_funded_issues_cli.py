@@ -766,6 +766,15 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             payload["action_counts"],
             {"archive_as_no_go_evidence": 1, "recheck_public_issue_state": 1},
         )
+        focus_batch = payload["focus_batch"]
+        self.assertEqual(focus_batch["status"], "active_recheck_batch")
+        self.assertEqual(focus_batch["primary_action"], "recheck_public_issue_state")
+        self.assertEqual(focus_batch["priority"], "high")
+        self.assertEqual(focus_batch["item_count"], 1)
+        self.assertEqual(focus_batch["references"], ["example/project#42"])
+        self.assertEqual(focus_batch["platform_counts"], {"polar": 1})
+        self.assertIn("confirm issue is still open", focus_batch["evidence_checklist"][0])
+        self.assertIn("does not authorize external prose", focus_batch["boundary"])
         self.assertFalse(payload["requirements"]["network_required"])
         self.assertFalse(payload["requirements"]["github_write_permission_required"])
         self.assertFalse(payload["requirements"]["external_model_required"])
@@ -857,6 +866,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("- Queue rows before limit: `1`", proc.stdout)
         self.assertIn("- Queue rows: `1`", proc.stdout)
         self.assertIn("- No-go archive rows: `0`", proc.stdout)
+        self.assertIn("## Focus Batch", proc.stdout)
+        self.assertIn("- Primary action: `recheck_public_issue_state`", proc.stdout)
+        self.assertIn("- References: `example/project#42`", proc.stdout)
+        self.assertIn("Focus batch is the next local read-only tracker maintenance slice", proc.stdout)
         self.assertIn("| `high` | `recheck_public_issue_state` |", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
         self.assertIn("confirm issue is still open", proc.stdout)
