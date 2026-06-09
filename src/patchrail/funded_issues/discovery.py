@@ -943,6 +943,11 @@ def fulfillment_packet_funded_issues(
             items=items,
             report_payload=report_payload,
         ),
+        "evidence_manifest": _fulfillment_evidence_manifest(
+            report_payload=report_payload,
+            recheck_payload=recheck_payload,
+            cash_payload=cash_payload,
+        ),
         "report_assembly_plan": _fulfillment_report_assembly_plan(
             qa_gates=qa_gates,
             report_payload=report_payload,
@@ -961,6 +966,7 @@ def fulfillment_packet_funded_issues(
                 "delivery_pack",
                 "recheck_queue",
                 "cash_actions",
+                "evidence_manifest",
                 "report_assembly_plan",
             ],
             "external_body_allowed": False,
@@ -980,6 +986,128 @@ def fulfillment_packet_funded_issues(
             "does not claim rewards, post comments, contact maintainers, open pull requests, "
             "or guarantee merge or payout outcomes."
         ),
+    }
+
+
+def _fulfillment_evidence_manifest(
+    *,
+    report_payload: dict[str, Any],
+    recheck_payload: dict[str, Any],
+    cash_payload: dict[str, Any],
+) -> dict[str, Any]:
+    source_quality = report_payload["source_quality"]
+    handoff = report_payload["delivery_pack"]["handoff"]
+    recheck_plan = report_payload["recheck_plan"]
+    intake_followup = report_payload["intake_followup"]
+    cash_actions = cash_payload["items"]
+    required_intake_fields = [
+        field["field"]
+        for field in intake_followup["requested_fields"]
+        if field["required_before_paid_delivery"]
+    ]
+    copy_brief_actions = [
+        str(row["action"]) for row in cash_actions if row.get("copy_brief_facts") is not None
+    ]
+    artifacts = [
+        _evidence_manifest_artifact(
+            artifact="source_batch",
+            status="ready" if source_quality["sources"] else "blocked",
+            source_fields=["source_quality.sources", "filters"],
+            references=sorted(source_quality["sources"].keys()),
+            required_before_delivery=True,
+            next_safe_local_action="add permitted public/API source rows",
+        ),
+        _evidence_manifest_artifact(
+            artifact="scored_candidate_set",
+            status="ready" if handoff["candidate_references"] else "blocked",
+            source_fields=["delivery_pack.handoff.candidate_references", "scores"],
+            references=handoff["candidate_references"],
+            required_before_delivery=True,
+            next_safe_local_action="expand permitted sources or run scoring before shortlist assembly",
+        ),
+        _evidence_manifest_artifact(
+            artifact="public_state_recheck_queue",
+            status="blocked" if recheck_plan["recheck_rows"] else "ready",
+            source_fields=["recheck_plan.next_rows"],
+            references=[row["reference"] for row in recheck_plan["next_rows"]],
+            required_before_delivery=True,
+            next_safe_local_action="complete read-only public-state rechecks for active candidates",
+        ),
+        _evidence_manifest_artifact(
+            artifact="no_go_archive",
+            status="ready",
+            source_fields=["delivery_pack.handoff.no_go_references", "no_go_moat"],
+            references=handoff["no_go_references"],
+            required_before_delivery=False,
+            next_safe_local_action="preserve no-go rows as exclusion evidence",
+        ),
+        _evidence_manifest_artifact(
+            artifact="buyer_intake_record",
+            status="blocked" if required_intake_fields else "ready",
+            source_fields=["intake_followup.requested_fields"],
+            references=required_intake_fields,
+            required_before_delivery=True,
+            next_safe_local_action="collect missing buyer-fit fields through a facts-only copy brief",
+        ),
+        _evidence_manifest_artifact(
+            artifact="copy_brief_facts",
+            status="ready" if copy_brief_actions else "not_needed",
+            source_fields=["cash_actions.items.copy_brief_facts"],
+            references=copy_brief_actions,
+            required_before_delivery=False,
+            next_safe_local_action="hand facts-only payload to OpenClaw/Opus only after a real reply branch exists",
+        ),
+        _evidence_manifest_artifact(
+            artifact="payment_acceptance_record",
+            status="blocked",
+            source_fields=["cash_path_status"],
+            references=[],
+            required_before_delivery=True,
+            next_safe_local_action="wait for written buyer acceptance before creating any payment route",
+        ),
+    ]
+    required_artifacts = [
+        artifact for artifact in artifacts if artifact["required_before_delivery"]
+    ]
+    blocked_artifacts = [
+        artifact["artifact"] for artifact in required_artifacts if artifact["status"] != "ready"
+    ]
+    return {
+        "schema_version": "patchrail.funded_issues.evidence_manifest.v1",
+        "status": "ready_for_paid_delivery" if not blocked_artifacts else "blocked_internal",
+        "artifact_count": len(artifacts),
+        "required_artifact_count": len(required_artifacts),
+        "ready_required_artifact_count": len(required_artifacts) - len(blocked_artifacts),
+        "blocked_artifacts": blocked_artifacts,
+        "artifacts": artifacts,
+        "external_body_allowed": False,
+        "payment_route_allowed_now": False,
+        "boundary": (
+            "Evidence manifest is internal readiness data. It does not write customer prose, "
+            "create payment routes, claim rewards, contact maintainers, post comments, open "
+            "pull requests, or guarantee merge/payout outcomes."
+        ),
+    }
+
+
+def _evidence_manifest_artifact(
+    *,
+    artifact: str,
+    status: str,
+    source_fields: list[str],
+    references: list[str],
+    required_before_delivery: bool,
+    next_safe_local_action: str,
+) -> dict[str, Any]:
+    return {
+        "artifact": artifact,
+        "status": status,
+        "source_fields": source_fields,
+        "references": sorted(set(references)),
+        "required_before_delivery": required_before_delivery,
+        "next_safe_local_action": next_safe_local_action,
+        "external_body_allowed": False,
+        "payment_route_allowed_now": False,
     }
 
 

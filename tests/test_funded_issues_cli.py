@@ -1151,6 +1151,42 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertFalse(digest["payment_route_allowed_now"])
         self.assertFalse(digest["external_body_allowed"])
         self.assertIn("does not write customer prose", digest["boundary"])
+        evidence_manifest = payload["evidence_manifest"]
+        self.assertEqual(
+            evidence_manifest["schema_version"],
+            "patchrail.funded_issues.evidence_manifest.v1",
+        )
+        self.assertEqual(evidence_manifest["status"], "blocked_internal")
+        self.assertEqual(evidence_manifest["artifact_count"], 7)
+        self.assertEqual(evidence_manifest["required_artifact_count"], 5)
+        self.assertEqual(evidence_manifest["ready_required_artifact_count"], 2)
+        self.assertEqual(
+            evidence_manifest["blocked_artifacts"],
+            [
+                "public_state_recheck_queue",
+                "buyer_intake_record",
+                "payment_acceptance_record",
+            ],
+        )
+        artifact_map = {
+            artifact["artifact"]: artifact for artifact in evidence_manifest["artifacts"]
+        }
+        self.assertEqual(artifact_map["source_batch"]["status"], "ready")
+        self.assertEqual(artifact_map["source_batch"]["references"], ["algora", "polar"])
+        self.assertEqual(artifact_map["scored_candidate_set"]["references"], ["example/project#42"])
+        self.assertEqual(
+            artifact_map["public_state_recheck_queue"]["references"],
+            ["example/project#42"],
+        )
+        self.assertIn(
+            "preferred_languages",
+            artifact_map["buyer_intake_record"]["references"],
+        )
+        self.assertEqual(artifact_map["copy_brief_facts"]["status"], "ready")
+        self.assertEqual(artifact_map["copy_brief_facts"]["references"], ["collect_buyer_intake"])
+        self.assertFalse(evidence_manifest["payment_route_allowed_now"])
+        self.assertFalse(evidence_manifest["external_body_allowed"])
+        self.assertIn("does not write customer prose", evidence_manifest["boundary"])
         report_plan = payload["report_assembly_plan"]
         self.assertEqual(
             report_plan["schema_version"],
@@ -1197,6 +1233,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertFalse(payload["handoff"]["payment_route_allowed_now"])
         self.assertTrue(payload["handoff"]["requires_written_acceptance_before_payment_route"])
         self.assertIn("cash_actions", payload["handoff"]["sections"])
+        self.assertIn("evidence_manifest", payload["handoff"]["sections"])
         self.assertFalse(payload["requirements"]["network_required"])
         self.assertFalse(payload["requirements"]["github_write_permission_required"])
         self.assertFalse(payload["requirements"]["external_model_required"])
@@ -1260,6 +1297,14 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("`patchrail_operator`", proc.stdout)
         self.assertIn("`run_read_only_recheck`", proc.stdout)
         self.assertIn("does not write customer prose", proc.stdout)
+        self.assertIn("## Evidence Manifest", proc.stdout)
+        self.assertIn("- Status: `blocked_internal`", proc.stdout)
+        self.assertIn("- Artifact count: `7`", proc.stdout)
+        self.assertIn("- Ready required artifacts: `2`", proc.stdout)
+        self.assertIn("`public_state_recheck_queue`", proc.stdout)
+        self.assertIn("`buyer_intake_record`", proc.stdout)
+        self.assertIn("`payment_acceptance_record`", proc.stdout)
+        self.assertIn("`copy_brief_facts`", proc.stdout)
         self.assertIn("## Report Assembly Plan", proc.stdout)
         self.assertIn("- Status: `blocked_before_customer_delivery`", proc.stdout)
         self.assertIn("- Internal assembly ready: `True`", proc.stdout)

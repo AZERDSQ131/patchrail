@@ -5503,6 +5503,7 @@ def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> st
     cash_path = payload["cash_path_status"]
     readiness = payload["delivery_readiness"]
     digest = payload["operations_digest"]
+    evidence = payload["evidence_manifest"]
     report_plan = payload["report_assembly_plan"]
     totals = payload["totals"]
     lines = [
@@ -5523,6 +5524,8 @@ def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> st
         f"Operations digest: {digest['status']}",
         f"Operations blocking count: {digest['blocking_count']}",
         f"Next safe local action: {_digest_action_summary(digest['next_safe_local_action'])}",
+        f"Evidence manifest: {evidence['status']}",
+        f"Evidence blocked artifacts: {evidence['blocked_artifacts']}",
         f"Report assembly plan: {report_plan['status']}",
         f"Report blocked sections: {report_plan['blocked_sections']}",
         _operator_next_steps_summary(payload["operator_next_steps"]),
@@ -5541,6 +5544,7 @@ def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -
     cash_path = payload["cash_path_status"]
     readiness = payload["delivery_readiness"]
     digest = payload["operations_digest"]
+    evidence = payload["evidence_manifest"]
     report_plan = payload["report_assembly_plan"]
     totals = payload["totals"]
     handoff = payload["handoff"]
@@ -5625,6 +5629,34 @@ def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -
             f"{step['blocks_paid_delivery']} |"
         )
     lines.extend(["", digest["boundary"]])
+    lines.extend(
+        [
+            "",
+            "## Evidence Manifest",
+            "",
+            f"- Status: `{evidence['status']}`",
+            f"- Artifact count: `{evidence['artifact_count']}`",
+            f"- Required artifact count: `{evidence['required_artifact_count']}`",
+            f"- Ready required artifacts: `{evidence['ready_required_artifact_count']}`",
+            "- Blocked artifacts: " + _format_reference_list(evidence["blocked_artifacts"]),
+            f"- Payment route allowed now: `{evidence['payment_route_allowed_now']}`",
+            f"- External body allowed: `{evidence['external_body_allowed']}`",
+            "",
+            "| Artifact | Status | Required | Sources | References | Next safe local action |",
+            "|---|---|---:|---|---|---|",
+        ]
+    )
+    for artifact in evidence["artifacts"]:
+        lines.append(
+            "| "
+            f"`{artifact['artifact']}` | "
+            f"`{artifact['status']}` | "
+            f"{artifact['required_before_delivery']} | "
+            f"{_format_reference_list(artifact['source_fields'])} | "
+            f"{_format_reference_list(artifact['references'])} | "
+            f"{_escape_markdown_cell(artifact['next_safe_local_action'])} |"
+        )
+    lines.extend(["", evidence["boundary"]])
     lines.extend(
         [
             "",
