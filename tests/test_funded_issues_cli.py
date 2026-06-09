@@ -667,6 +667,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertFalse(payload["safe_only"])
         self.assertEqual(payload["total_loaded"], 2)
         self.assertEqual(payload["total_scored"], 2)
+        self.assertIsNone(payload["queue_limit"])
+        self.assertEqual(payload["queue_rows_before_limit"], 1)
         self.assertEqual(payload["queue_rows"], 1)
         self.assertEqual(payload["no_go_archive_rows"], 1)
         self.assertEqual(payload["priority_counts"], {"high": 1})
@@ -692,6 +694,58 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("does not claim rewards", payload["boundary"])
         self.assertIn("guarantee merge or payout outcomes", payload["boundary"])
 
+    def test_funded_issues_recheck_queue_can_limit_active_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "issues.json"
+            payload = json.loads(
+                Path("examples/funded-issues-readonly/issues.json").read_text(encoding="utf-8")
+            )
+            second_active = json.loads(json.dumps(payload["issues"][0]))
+            second_active["id"] = "polar-example-project-43"
+            second_active["issue_number"] = 43
+            second_active["url"] = "https://github.com/example/project/issues/43"
+            second_active["title"] = "Document flaky integration test repro"
+            payload["issues"].append(second_active)
+            source.write_text(json.dumps(payload), encoding="utf-8")
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "recheck-queue",
+                    "--source",
+                    str(source),
+                    "--max-rows",
+                    "1",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        result = json.loads(proc.stdout)
+        self.assertEqual(result["queue_limit"], 1)
+        self.assertEqual(result["queue_rows_before_limit"], 2)
+        self.assertEqual(result["queue_rows"], 1)
+        self.assertEqual(len(result["items"]), 1)
+        self.assertEqual(result["items"][0]["reference"], "example/project#42")
+
+    def test_funded_issues_recheck_queue_rejects_zero_limit(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "recheck-queue",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--max-rows",
+                "0",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("max_rows must be at least 1", proc.stderr)
+
     def test_funded_issues_recheck_queue_markdown_preserves_boundaries(self) -> None:
         proc = run_patchrail(
             [
@@ -709,6 +763,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("# PatchRail Funded Issues Recheck Queue", proc.stdout)
         self.assertIn("- Read-only: `True`", proc.stdout)
         self.assertIn("- Safe-only: `True`", proc.stdout)
+        self.assertIn("- Queue limit: `None`", proc.stdout)
+        self.assertIn("- Queue rows before limit: `1`", proc.stdout)
         self.assertIn("- Queue rows: `1`", proc.stdout)
         self.assertIn("- No-go archive rows: `0`", proc.stdout)
         self.assertIn("| `high` | `recheck_public_issue_state` |", proc.stdout)

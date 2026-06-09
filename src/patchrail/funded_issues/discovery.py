@@ -679,7 +679,10 @@ def recheck_funded_issues(
     min_usd: float | None = None,
     opportunity_state: str | None = None,
     risk_level: str | None = None,
+    max_rows: int | None = None,
 ) -> dict[str, Any]:
+    if max_rows is not None and max_rows < 1:
+        raise ValueError("max_rows must be at least 1")
     score_payload = score_funded_issues(
         issues,
         safe_only=safe_only,
@@ -704,6 +707,9 @@ def recheck_funded_issues(
             row["reference"],
         )
     )
+    queue_rows_before_limit = len(queue_rows)
+    if max_rows is not None:
+        queue_rows = queue_rows[:max_rows]
     return {
         "schema_version": RECHECK_QUEUE_SCHEMA_VERSION,
         "source_schema_version": SCHEMA_VERSION,
@@ -711,8 +717,10 @@ def recheck_funded_issues(
         "safe_only": safe_only,
         "blocked_actions": BLOCKED_ACTIONS,
         "filters": score_payload["filters"],
+        "queue_limit": max_rows,
         "total_loaded": score_payload["total_loaded"],
         "total_scored": score_payload["total_scored"],
+        "queue_rows_before_limit": queue_rows_before_limit,
         "queue_rows": len(queue_rows),
         "no_go_archive_rows": recheck_plan["no_go_rows"],
         "priority_counts": recheck_plan["priority_counts"],

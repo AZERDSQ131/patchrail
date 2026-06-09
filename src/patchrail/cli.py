@@ -5135,6 +5135,8 @@ def _render_funded_issues_recheck_queue_text(payload: dict[str, Any]) -> str:
         f"Read-only: {payload['read_only']}",
         f"Loaded: {payload['total_loaded']}",
         f"Scored: {payload['total_scored']}",
+        f"Queue limit: {payload['queue_limit']}",
+        f"Queue rows before limit: {payload['queue_rows_before_limit']}",
         f"Queue rows: {payload['queue_rows']}",
         f"No-go archive rows: {payload['no_go_archive_rows']}",
         f"Priority counts: {payload['priority_counts']}",
@@ -5157,6 +5159,8 @@ def _render_funded_issues_recheck_queue_markdown(payload: dict[str, Any]) -> str
         f"- Safe-only: `{payload['safe_only']}`",
         f"- Loaded: `{payload['total_loaded']}`",
         f"- Scored: `{payload['total_scored']}`",
+        f"- Queue limit: `{payload['queue_limit']}`",
+        f"- Queue rows before limit: `{payload['queue_rows_before_limit']}`",
         f"- Queue rows: `{payload['queue_rows']}`",
         f"- No-go archive rows: `{payload['no_go_archive_rows']}`",
         "",
@@ -5415,6 +5419,7 @@ def _funded_issues_recheck_queue(args: argparse.Namespace) -> int:
             min_usd=args.min_usd,
             opportunity_state=args.opportunity_state,
             risk_level=args.risk_level,
+            max_rows=args.max_rows,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue source: {exc}", file=sys.stderr)
@@ -6558,6 +6563,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--risk-level",
         choices=sorted(VALID_RISK_LEVELS),
         help="Filter by normalized local risk level.",
+    )
+    funded_recheck_queue.add_argument(
+        "--max-rows",
+        type=int,
+        help="Limit active recheck rows after priority sorting. Must be at least 1.",
     )
     funded_recheck_queue.add_argument(
         "--format",
