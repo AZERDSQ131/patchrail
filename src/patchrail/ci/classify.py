@@ -141,6 +141,34 @@ RULES: list[dict[str, Any]] = [
         ),
     },
     {
+        "failure_class": "code_coverage_threshold",
+        "likely_subsystem": "Test coverage gate",
+        "patterns": [
+            r"Required test coverage of \d",
+            r"Coverage failure: total of",
+            r"\bfail[_-]under\b",
+            r"coverage threshold",
+            r"does not meet (?:the )?(?:global )?threshold",
+            r"is below the (?:expected )?minimum coverage",
+            r"below the (?:minimum )?coverage threshold",
+            r"Coverage for \w+ \(\d+(?:\.\d+)?%\) does not meet",
+            r"SimpleCov failed",
+            r"project coverage.*(?:target|failed)",
+            r"total coverage.*(?:decreased|below)",
+            r"\bTotal coverage:",
+            r"coverage .*(?:is )?less than",
+        ],
+        "reproduction_command": (
+            "re-run the suite with coverage locally "
+            "(e.g. pytest --cov, npm test -- --coverage, or go test -cover)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the tests passed but coverage fell under the configured threshold, then add "
+            "focused tests for the uncovered lines named in the coverage summary; only lower the "
+            "threshold deliberately when the uncovered code is intentionally excluded."
+        ),
+    },
+    {
         "failure_class": "python_test_failure",
         "likely_subsystem": "Python tests",
         "patterns": [r"\bpytest\b", r"FAILED .*::", r"AssertionError", r"ModuleNotFoundError"],

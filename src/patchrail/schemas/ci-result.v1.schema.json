@@ -25,6 +25,7 @@
         "runner_resource_exhaustion",
         "network_transient_failure",
         "python_dependency_resolution",
+        "code_coverage_threshold",
         "python_test_failure",
         "node_dependency_install",
         "typescript_typecheck",
