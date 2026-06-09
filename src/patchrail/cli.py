@@ -21,6 +21,7 @@ from patchrail import __version__
 from patchrail.ci import classify_ci_log, redact_ci_log
 from patchrail.funded_issues import (
     SUPPORTED_PROVIDERS,
+    VALID_OPPORTUNITY_STATES,
     explain_issue,
     import_provider_export,
     load_funded_issues,
@@ -4742,6 +4743,7 @@ def _funded_issues_list(args: argparse.Namespace) -> int:
             platform=args.platform,
             language=args.language,
             min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue source: {exc}", file=sys.stderr)
@@ -4807,6 +4809,7 @@ def _funded_issues_report(args: argparse.Namespace) -> int:
             platform=args.platform,
             language=args.language,
             min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue source: {exc}", file=sys.stderr)
@@ -4831,6 +4834,7 @@ def _funded_issues_score(args: argparse.Namespace) -> int:
             platform=args.platform,
             language=args.language,
             min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue source: {exc}", file=sys.stderr)
@@ -4855,6 +4859,7 @@ def _funded_issues_shortlist(args: argparse.Namespace) -> int:
             platform=args.platform,
             language=args.language,
             min_usd=args.min_usd,
+            opportunity_state=args.opportunity_state,
             limit=args.limit,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
@@ -5764,6 +5769,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
     )
     funded_list.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_list.add_argument(
         "--format",
         choices=["csv", "json", "jsonl", "markdown", "text"],
         default="text",
@@ -5836,6 +5846,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
     )
     funded_report.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_report.add_argument(
         "--format",
         choices=["json", "markdown", "text"],
         default="markdown",
@@ -5864,6 +5879,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
     )
     funded_score.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
+    )
+    funded_score.add_argument(
         "--format",
         choices=["json", "markdown", "text"],
         default="json",
@@ -5890,6 +5910,11 @@ def _build_parser() -> argparse.ArgumentParser:
     funded_shortlist.add_argument("--language", help="Filter by repository language.")
     funded_shortlist.add_argument(
         "--min-usd", type=float, help="Filter to USD-funded issues at least this amount."
+    )
+    funded_shortlist.add_argument(
+        "--opportunity-state",
+        choices=sorted(VALID_OPPORTUNITY_STATES),
+        help="Filter by normalized opportunity state.",
     )
     funded_shortlist.add_argument(
         "--limit",

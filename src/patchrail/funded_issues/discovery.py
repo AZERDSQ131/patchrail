@@ -256,7 +256,9 @@ def summarize_issues(
     platform: str | None = None,
     language: str | None = None,
     min_usd: float | None = None,
+    opportunity_state: str | None = None,
 ) -> dict[str, Any]:
+    opportunity_state = _normalize_opportunity_state_filter(opportunity_state)
     filtered: list[FundedIssue] = []
     for issue in issues:
         if safe_only and not issue.safe_to_list:
@@ -270,6 +272,8 @@ def summarize_issues(
                 continue
             if issue.funding_amount < min_usd:
                 continue
+        if opportunity_state and issue.opportunity_state != opportunity_state:
+            continue
         filtered.append(issue)
     return {
         "schema_version": SCHEMA_VERSION,
@@ -295,18 +299,27 @@ def report_funded_issues(
     platform: str | None = None,
     language: str | None = None,
     min_usd: float | None = None,
+    opportunity_state: str | None = None,
 ) -> dict[str, Any]:
+    opportunity_state = _normalize_opportunity_state_filter(opportunity_state)
     summary = summarize_issues(
         issues,
         safe_only=safe_only,
         platform=platform,
         language=language,
         min_usd=min_usd,
+        opportunity_state=opportunity_state,
     )
     scoped_issues = [
         issue
         for issue in issues
-        if _matches_report_filter(issue, platform=platform, language=language, min_usd=min_usd)
+        if _matches_report_filter(
+            issue,
+            platform=platform,
+            language=language,
+            min_usd=min_usd,
+            opportunity_state=opportunity_state,
+        )
     ]
     returned_issues = [_issue_from_mapping(issue) for issue in summary["issues"]]
     risk_levels = Counter(issue.risk_level for issue in scoped_issues)
@@ -330,6 +343,7 @@ def report_funded_issues(
             "platform": platform,
             "language": language,
             "min_usd": min_usd,
+            "opportunity_state": opportunity_state,
         },
         "totals": {
             "loaded": len(issues),
@@ -392,11 +406,19 @@ def score_funded_issues(
     platform: str | None = None,
     language: str | None = None,
     min_usd: float | None = None,
+    opportunity_state: str | None = None,
 ) -> dict[str, Any]:
+    opportunity_state = _normalize_opportunity_state_filter(opportunity_state)
     scored = [
         _score_issue(issue)
         for issue in issues
-        if _matches_report_filter(issue, platform=platform, language=language, min_usd=min_usd)
+        if _matches_report_filter(
+            issue,
+            platform=platform,
+            language=language,
+            min_usd=min_usd,
+            opportunity_state=opportunity_state,
+        )
     ]
     if safe_only:
         scored = [row for row in scored if row["issue"]["safe_to_list"]]
@@ -411,6 +433,7 @@ def score_funded_issues(
             "platform": platform,
             "language": language,
             "min_usd": min_usd,
+            "opportunity_state": opportunity_state,
         },
         "total_loaded": len(issues),
         "total_scored": len(scored),
@@ -439,6 +462,7 @@ def shortlist_funded_issues(
     platform: str | None = None,
     language: str | None = None,
     min_usd: float | None = None,
+    opportunity_state: str | None = None,
     limit: int = 5,
 ) -> dict[str, Any]:
     if limit < 1:
@@ -449,6 +473,7 @@ def shortlist_funded_issues(
         platform=platform,
         language=language,
         min_usd=min_usd,
+        opportunity_state=opportunity_state,
     )
     report_payload = report_funded_issues(
         issues,
@@ -456,6 +481,7 @@ def shortlist_funded_issues(
         platform=platform,
         language=language,
         min_usd=min_usd,
+        opportunity_state=opportunity_state,
     )
     candidate_rows = [
         row
@@ -586,12 +612,22 @@ def _normalize_opportunity_state(value: Any) -> str:
     return normalized if normalized in VALID_OPPORTUNITY_STATES else "unknown"
 
 
+def _normalize_opportunity_state_filter(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = _normalize_opportunity_state(value)
+    if normalized not in VALID_OPPORTUNITY_STATES:
+        raise ValueError(f"invalid opportunity_state: {value}")
+    return normalized
+
+
 def _matches_report_filter(
     issue: FundedIssue,
     *,
     platform: str | None,
     language: str | None,
     min_usd: float | None,
+    opportunity_state: str | None,
 ) -> bool:
     if platform and issue.platform.lower() != platform.lower():
         return False
@@ -602,6 +638,8 @@ def _matches_report_filter(
             return False
         if issue.funding_amount < min_usd:
             return False
+    if opportunity_state and issue.opportunity_state != opportunity_state:
+        return False
     return True
 
 

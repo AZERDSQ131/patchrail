@@ -137,11 +137,12 @@
     },
     "filters": {
       "type": "object",
-      "required": ["platform", "language", "min_usd"],
+      "required": ["platform", "language", "min_usd", "opportunity_state"],
       "properties": {
         "platform": { "type": ["string", "null"] },
         "language": { "type": ["string", "null"] },
-        "min_usd": { "type": ["number", "null"], "minimum": 0 }
+        "min_usd": { "type": ["number", "null"], "minimum": 0 },
+        "opportunity_state": { "anyOf": [{ "$ref": "#/$defs/opportunity_state" }, { "type": "null" }] }
       },
       "additionalProperties": false
     },

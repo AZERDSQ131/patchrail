@@ -118,6 +118,29 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("automatic_pull_requests", row["blocked_actions"])
         self.assertIn("reproduction included", row["contribution_signals"])
 
+    def test_funded_issues_list_can_filter_by_opportunity_state(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "list",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--include-risky",
+                "--opportunity-state",
+                "closed",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["total_loaded"], 2)
+        self.assertEqual(payload["total_returned"], 1)
+        self.assertEqual(payload["issues"][0]["reference"], "example/toolkit#17")
+        self.assertEqual(payload["issues"][0]["opportunity_state"], "closed")
+        self.assertFalse(payload["issues"][0]["safe_to_list"])
+
     def test_funded_issues_list_csv_neutralizes_formula_cells(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "issues.json"
@@ -431,6 +454,28 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("does not claim rewards", proc.stdout)
         self.assertIn("automatic_issue_comments", proc.stdout)
 
+    def test_funded_issues_report_filters_by_active_state_for_tracker_metrics(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "report",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--opportunity-state",
+                "active",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["filters"]["opportunity_state"], "active")
+        self.assertEqual(payload["totals"]["in_scope"], 1)
+        self.assertEqual(payload["totals"]["safe_to_list"], 1)
+        self.assertEqual(payload["breakdown"]["opportunity_states"], {"active": 1})
+        self.assertEqual(payload["no_go_moat"]["stale_or_closed"], 0)
+
     def test_schema_command_exposes_funded_issues_report_and_shortlist_contracts(self) -> None:
         expected_versions = {
             "funded-issues-report": "patchrail.funded_issues.report.v1",
@@ -453,6 +498,9 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 self.assertEqual(requirements["github_write_permission_required"]["const"], False)
                 self.assertEqual(requirements["external_model_required"]["const"], False)
                 self.assertEqual(requirements["billing_required"]["const"], False)
+                filters = schema["$defs"]["filters"]
+                self.assertIn("opportunity_state", filters["required"])
+                self.assertIn("opportunity_state", filters["properties"])
 
                 blocked_actions = schema["$defs"]["blocked_actions"]["items"]["enum"]
                 self.assertIn("automatic_claims", blocked_actions)
@@ -526,6 +574,28 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertNotIn("example/toolkit#17", proc.stdout)
         self.assertIn("claim rewards", proc.stdout)
         self.assertIn("automatic_pull_requests", proc.stdout)
+
+    def test_funded_issues_score_filters_by_closed_state(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "score",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--opportunity-state",
+                "closed",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["filters"]["opportunity_state"], "closed")
+        self.assertEqual(payload["total_scored"], 1)
+        self.assertEqual(payload["rating_counts"], {"no_go": 1})
+        self.assertEqual(payload["scores"][0]["issue"]["reference"], "example/toolkit#17")
+        self.assertIn("CLOSED_OR_INACTIVE", payload["scores"][0]["reason_codes"])
 
     def test_funded_issues_shortlist_builds_decision_support_artifact(self) -> None:
         proc = run_patchrail(
@@ -652,6 +722,28 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(len(payload["shortlist"]), 1)
         self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/two#2")
         self.assertEqual(payload["summary"]["rating_counts"], {"go_candidate": 2})
+
+    def test_funded_issues_shortlist_filters_no_go_evidence_by_state(self) -> None:
+        proc = run_patchrail(
+            [
+                "funded-issues",
+                "shortlist",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--opportunity-state",
+                "closed",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["filters"]["opportunity_state"], "closed")
+        self.assertEqual(payload["summary"]["in_scope"], 1)
+        self.assertEqual(payload["shortlist"], [])
+        self.assertEqual(len(payload["no_go_evidence"]), 1)
+        self.assertEqual(payload["no_go_evidence"][0]["issue"]["reference"], "example/toolkit#17")
 
     def test_funded_issues_shortlist_rejects_invalid_limit(self) -> None:
         proc = run_patchrail(
