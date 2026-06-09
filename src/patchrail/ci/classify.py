@@ -40,6 +40,33 @@ REDACTION_PATTERNS: list[tuple[str, str, str]] = [
 
 RULES: list[dict[str, Any]] = [
     {
+        "failure_class": "runner_resource_exhaustion",
+        "likely_subsystem": "CI runner memory or disk capacity",
+        "patterns": [
+            r"OOMKilled",
+            r"Out of memory",
+            r"Cannot allocate memory",
+            r"JavaScript heap out of memory",
+            r"runtime: out of memory",
+            r"signal: killed",
+            r"Process completed with exit code 137",
+            r"\bexit code 137\b",
+            r"No space left on device",
+            r"\bENOSPC\b",
+            r"disk quota exceeded",
+            r"received a shutdown signal",
+            r"exceeded memory limit",
+        ],
+        "reproduction_command": (
+            "rerun the failing job while watching runner memory and disk "
+            "(e.g. /usr/bin/time -v and df -h)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the runner hit a memory or disk limit rather than a code defect, then lower "
+            "peak memory use, free disk space, or raise the runner resource class before rerunning."
+        ),
+    },
+    {
         "failure_class": "python_dependency_resolution",
         "likely_subsystem": "Python dependency installation",
         "patterns": [

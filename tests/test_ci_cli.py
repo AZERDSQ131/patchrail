@@ -33,6 +33,48 @@ class PatchRailCITests(unittest.TestCase):
             self.assertEqual(payload["requirements"]["external_model_required"], False)
             self.assertIn("pytest", payload["reproduction_command"])
 
+    def test_ci_classify_detects_runner_memory_exhaustion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "Run pytest -q\n"
+                "collected 412 items\n"
+                "##[error]The operation was canceled.\n"
+                "Process completed with exit code 137.\n"
+                "Container app was OOMKilled (exceeded memory limit).\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "runner_resource_exhaustion")
+            self.assertEqual(payload["requirements"]["external_model_required"], False)
+            self.assertIn("memory", payload["minimal_repair_strategy"])
+
+    def test_ci_classify_detects_runner_disk_exhaustion(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "npm error code ENOSPC\n"
+                "npm error syscall write\n"
+                "npm error errno -28\n"
+                "npm error nospc ENOSPC: No space left on device, write\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "classify", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["failure_class"], "runner_resource_exhaustion")
+            self.assertIn("disk", payload["minimal_repair_strategy"])
+
     def test_schema_command_emits_ci_result_contract(self) -> None:
         proc = subprocess.run(
             [sys.executable, "-m", "patchrail", "schema", "ci-result"],
@@ -52,6 +94,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("security_scan_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("ruby_bundle_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("php_composer_failure", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("runner_resource_exhaustion", schema["properties"]["failure_class"]["enum"])
         self.assertEqual(
             schema["properties"]["requirements"]["properties"]["billing_required"]["const"], False
         )
