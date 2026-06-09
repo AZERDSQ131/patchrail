@@ -446,6 +446,17 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["no_go_moat"]["ambiguous_scope"], 1)
         self.assertEqual(payload["no_go_moat"]["spam_attractive"], 1)
         self.assertEqual(payload["no_go_moat"]["stale_or_closed"], 1)
+        self.assertEqual(payload["decision_summary"]["candidate_rows"], 1)
+        self.assertEqual(payload["decision_summary"]["no_go_rows"], 1)
+        self.assertEqual(payload["decision_summary"]["verification_needed"], 0)
+        self.assertEqual(payload["decision_summary"]["authorization_needed"], 0)
+        self.assertEqual(payload["decision_summary"]["gate_counts"]["go_after_recheck"], 1)
+        self.assertEqual(payload["decision_summary"]["gate_counts"]["no_go"], 1)
+        self.assertIn(
+            "Review go-after-recheck",
+            payload["decision_summary"]["recommended_batch_action"],
+        )
+        self.assertIn("do not claim", payload["decision_summary"]["safety_boundary"])
         self.assertEqual(payload["top_safe_candidates"][0]["reference"], "example/project#42")
         self.assertEqual(payload["top_safe_candidates"][0]["opportunity_state"], "active")
         self.assertIn("ranking_by_money_only", payload["blocked_actions"])
@@ -467,6 +478,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
 
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("# PatchRail Funded Issues Report", proc.stdout)
+        self.assertIn("## Decision Summary", proc.stdout)
+        self.assertIn("Candidate rows: `1`", proc.stdout)
+        self.assertIn("Recommended batch action", proc.stdout)
+        self.assertIn("`go_after_recheck` | 1", proc.stdout)
         self.assertIn("## No-Go Moat", proc.stdout)
         self.assertIn("High-risk or excluded | 1", proc.stdout)
         self.assertIn("Stale or closed | 1", proc.stdout)
@@ -559,6 +574,11 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 self.assertIn("ranking_by_money_only", blocked_actions)
 
                 if schema_name == "funded-issues-shortlist":
+                    self.assertIn("decision_summary", schema["required"])
+                    self.assertIn(
+                        "recommended_batch_action",
+                        schema["$defs"]["decision_summary"]["required"],
+                    )
                     self.assertIn("shortlist", schema["required"])
                     self.assertIn("no_go_evidence", schema["required"])
                     self.assertEqual(
@@ -577,6 +597,11 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                         schema["$defs"]["scored_issue"]["properties"]["decision_gate"]["enum"],
                     )
                 else:
+                    self.assertIn("decision_summary", schema["required"])
+                    self.assertIn(
+                        "safety_boundary",
+                        schema["$defs"]["decision_summary"]["required"],
+                    )
                     self.assertIn("top_safe_candidates", schema["required"])
                     self.assertIn("no_go_moat", schema["required"])
 
@@ -811,6 +836,15 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Do not engage", payload["no_go_evidence"][0]["recommended_next_step"])
         self.assertEqual(payload["no_go_moat"]["ambiguous_scope"], 1)
         self.assertEqual(payload["no_go_moat"]["stale_or_closed"], 1)
+        self.assertEqual(payload["decision_summary"]["candidate_rows"], 1)
+        self.assertEqual(payload["decision_summary"]["no_go_rows"], 1)
+        self.assertEqual(payload["decision_summary"]["gate_counts"]["go_after_recheck"], 1)
+        self.assertEqual(payload["decision_summary"]["gate_counts"]["no_go"], 1)
+        self.assertIn(
+            "verify public state",
+            payload["decision_summary"]["recommended_batch_action"],
+        )
+        self.assertIn("do not claim", payload["decision_summary"]["safety_boundary"])
         self.assertIn("automatic_claims", payload["blocked_actions"])
         self.assertIn("automatic_issue_comments", payload["blocked_actions"])
         self.assertFalse(payload["requirements"]["network_required"])
@@ -833,6 +867,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
 
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("# PatchRail Funded Issues Shortlist", proc.stdout)
+        self.assertIn("## Decision Summary", proc.stdout)
+        self.assertIn("Candidate rows: `1`", proc.stdout)
+        self.assertIn("No-go rows: `1`", proc.stdout)
+        self.assertIn("`no_go` | 1", proc.stdout)
         self.assertIn("## Shortlist", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
         self.assertIn("Decision gate", proc.stdout)

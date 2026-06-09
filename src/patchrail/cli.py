@@ -4426,6 +4426,7 @@ def _render_funded_issues_import_markdown(payload: dict[str, Any]) -> str:
 def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
     totals = payload["totals"]
     moat = payload["no_go_moat"]
+    decision = payload["decision_summary"]
     lines = [
         "PatchRail Funded Issues Report",
         f"Loaded: {totals['loaded']}",
@@ -4438,6 +4439,13 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
             f"{moat['high_risk_or_excluded']} high-risk/excluded, "
             f"{moat['missing_contribution_guidelines']} missing guidelines"
         ),
+        (
+            "Decision summary: "
+            f"{decision['candidate_rows']} candidates, "
+            f"{decision['no_go_rows']} no-go rows, "
+            f"{decision['verification_needed']} funding/state rechecks"
+        ),
+        f"Recommended batch action: {decision['recommended_batch_action']}",
         "Read-only: True",
     ]
     return "\n".join(lines) + "\n"
@@ -4447,6 +4455,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     totals = payload["totals"]
     breakdown = payload["breakdown"]
     moat = payload["no_go_moat"]
+    decision = payload["decision_summary"]
     lines = [
         "# PatchRail Funded Issues Report",
         "",
@@ -4459,22 +4468,43 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
         f"- Funding known: `{totals['funding_known']}`",
         f"- Funding unknown: `{totals['funding_unknown']}`",
         "",
-        "## No-Go Moat",
+        "## Decision Summary",
         "",
-        "| Measure | Count |",
+        f"- Candidate rows: `{decision['candidate_rows']}`",
+        f"- No-go rows: `{decision['no_go_rows']}`",
+        f"- Funding/state verification needed: `{decision['verification_needed']}`",
+        f"- Authorization needed: `{decision['authorization_needed']}`",
+        f"- Recommended batch action: {decision['recommended_batch_action']}",
+        "",
+        "| Decision gate | Count |",
         "|---|---:|",
-        f"| High-risk or excluded | {moat['high_risk_or_excluded']} |",
-        f"| Missing contribution guidelines | {moat['missing_contribution_guidelines']} |",
-        f"| Ambiguous scope | {moat['ambiguous_scope']} |",
-        f"| Spam-attractive signals | {moat['spam_attractive']} |",
-        f"| Funding unknown | {moat['funding_unknown']} |",
-        f"| Stale or closed | {moat['stale_or_closed']} |",
-        "",
-        "## Breakdowns",
-        "",
-        "### Risk Levels",
-        "",
     ]
+    for gate, count in decision["gate_counts"].items():
+        lines.append(f"| `{gate}` | {count} |")
+    lines.extend(
+        [
+            "",
+            "## No-Go Moat",
+            "",
+            "| Measure | Count |",
+            "|---|---:|",
+        ]
+    )
+    lines.extend(
+        [
+            f"| High-risk or excluded | {moat['high_risk_or_excluded']} |",
+            f"| Missing contribution guidelines | {moat['missing_contribution_guidelines']} |",
+            f"| Ambiguous scope | {moat['ambiguous_scope']} |",
+            f"| Spam-attractive signals | {moat['spam_attractive']} |",
+            f"| Funding unknown | {moat['funding_unknown']} |",
+            f"| Stale or closed | {moat['stale_or_closed']} |",
+            "",
+            "## Breakdowns",
+            "",
+            "### Risk Levels",
+            "",
+        ]
+    )
     for risk_level, count in breakdown["risk_levels"].items():
         lines.append(f"- `{risk_level}`: `{count}`")
     lines.extend(["", "### Platforms", ""])
@@ -4598,6 +4628,7 @@ def _render_funded_issues_score_markdown(payload: dict[str, Any]) -> str:
 def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
     summary = payload["summary"]
     moat = payload["no_go_moat"]
+    decision = payload["decision_summary"]
     lines = [
         "PatchRail Funded Issues Shortlist",
         f"Loaded: {summary['total_loaded']}",
@@ -4609,6 +4640,13 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
             f"{moat['high_risk_or_excluded']} high-risk/excluded, "
             f"{moat['ambiguous_scope']} ambiguous scope"
         ),
+        (
+            "Decision summary: "
+            f"{decision['candidate_rows']} candidates, "
+            f"{decision['no_go_rows']} no-go rows, "
+            f"{decision['verification_needed']} funding/state rechecks"
+        ),
+        f"Recommended batch action: {decision['recommended_batch_action']}",
         "Read-only: True",
         "Boundary: Decision support only.",
     ]
@@ -4623,6 +4661,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
 def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     summary = payload["summary"]
     moat = payload["no_go_moat"]
+    decision = payload["decision_summary"]
     lines = [
         "# PatchRail Funded Issues Shortlist",
         "",
@@ -4634,9 +4673,26 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
         f"- Safe to list: `{summary['safe_to_list']}`",
         f"- High risk: `{summary['high_risk']}`",
         "",
-        "## Shortlist",
+        "## Decision Summary",
         "",
+        f"- Candidate rows: `{decision['candidate_rows']}`",
+        f"- No-go rows: `{decision['no_go_rows']}`",
+        f"- Funding/state verification needed: `{decision['verification_needed']}`",
+        f"- Authorization needed: `{decision['authorization_needed']}`",
+        f"- Recommended batch action: {decision['recommended_batch_action']}",
+        "",
+        "| Decision gate | Count |",
+        "|---|---:|",
     ]
+    for gate, count in decision["gate_counts"].items():
+        lines.append(f"| `{gate}` | {count} |")
+    lines.extend(
+        [
+            "",
+            "## Shortlist",
+            "",
+        ]
+    )
     if payload["shortlist"]:
         for row in payload["shortlist"]:
             issue = row["issue"]

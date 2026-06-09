@@ -345,6 +345,7 @@ def report_funded_issues(
     opportunity_states = Counter(issue.opportunity_state for issue in scoped_issues)
     funding_known = sum(1 for issue in scoped_issues if issue.funding_amount is not None)
     funding_unknown = len(scoped_issues) - funding_known
+    scored_rows = [_score_issue(issue) for issue in scoped_issues]
     safe_candidates = sorted(
         (issue for issue in returned_issues if issue.safe_to_list),
         key=_candidate_sort_key,
@@ -390,6 +391,7 @@ def report_funded_issues(
                 1 for issue in scoped_issues if issue.opportunity_state in {"closed", "stale"}
             ),
         },
+        "decision_summary": _decision_summary(scored_rows),
         "top_safe_candidates": [
             {
                 "reference": issue.reference,
@@ -514,6 +516,7 @@ def shortlist_funded_issues(
         and (not safe_only or row["issue"]["safe_to_list"])
     ]
     no_go_rows = [row for row in score_payload["scores"] if row["rating"] == "no_go"]
+    decision_summary = _decision_summary(score_payload["scores"])
     return {
         "schema_version": SHORTLIST_SCHEMA_VERSION,
         "source_schema_version": SCHEMA_VERSION,
@@ -534,6 +537,11 @@ def shortlist_funded_issues(
         "shortlist": candidate_rows[:limit],
         "no_go_evidence": no_go_rows,
         "no_go_moat": report_payload["no_go_moat"],
+        "decision_summary": {
+            **decision_summary,
+            "candidate_rows": len(candidate_rows),
+            "no_go_rows": len(no_go_rows),
+        },
         "requirements": {
             "network_required": False,
             "github_write_permission_required": False,
@@ -545,6 +553,58 @@ def shortlist_funded_issues(
             "requests, contact maintainers, or guarantee merge or payout outcomes."
         ),
     }
+
+
+def _decision_summary(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    gate_counts = Counter(str(row["decision_gate"]) for row in scored_rows)
+    gate_counts = Counter({gate: gate_counts.get(gate, 0) for gate in sorted(VALID_DECISION_GATES)})
+    candidate_rows = sum(1 for row in scored_rows if row["rating"] in {"go_candidate", "watchlist"})
+    no_go_rows = sum(1 for row in scored_rows if row["rating"] == "no_go")
+    return {
+        "total_rows": len(scored_rows),
+        "candidate_rows": candidate_rows,
+        "no_go_rows": no_go_rows,
+        "gate_counts": dict(gate_counts),
+        "verification_needed": gate_counts["needs_funding_verification"],
+        "authorization_needed": gate_counts["needs_authorization"],
+        "recommended_batch_action": _recommended_batch_action(
+            candidate_rows=candidate_rows,
+            no_go_rows=no_go_rows,
+            verification_needed=gate_counts["needs_funding_verification"],
+            authorization_needed=gate_counts["needs_authorization"],
+        ),
+        "safety_boundary": (
+            "Use for local decision support only; re-check public state before any engagement "
+            "decision and do not claim, comment, pull-request, or contact maintainers automatically."
+        ),
+    }
+
+
+def _recommended_batch_action(
+    *,
+    candidate_rows: int,
+    no_go_rows: int,
+    verification_needed: int,
+    authorization_needed: int,
+) -> str:
+    if candidate_rows:
+        return (
+            "Review go-after-recheck and watchlist candidates locally; keep no-go rows as "
+            "exclusion evidence and verify public state before any engagement decision."
+        )
+    if verification_needed:
+        return (
+            "Verify funding and current issue state from permitted public/API sources before "
+            "ranking this batch."
+        )
+    if authorization_needed:
+        return (
+            "Keep authorization-gated rows parked unless the client separately requests a "
+            "bounded review."
+        )
+    if no_go_rows:
+        return "Do not spend engineering time on this batch; use no-go rows as evidence."
+    return "No in-scope rows; expand permitted read-only sources before ranking."
 
 
 def _score_issue(issue: FundedIssue) -> dict[str, Any]:

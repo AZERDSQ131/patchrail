@@ -14,6 +14,7 @@
     "totals",
     "breakdown",
     "no_go_moat",
+    "decision_summary",
     "top_safe_candidates",
     "requirements",
     "boundary"
@@ -73,6 +74,9 @@
     },
     "no_go_moat": {
       "$ref": "#/$defs/no_go_moat"
+    },
+    "decision_summary": {
+      "$ref": "#/$defs/decision_summary"
     },
     "top_safe_candidates": {
       "type": "array",
@@ -164,6 +168,30 @@
         "spam_attractive": { "type": "integer", "minimum": 0 },
         "funding_unknown": { "type": "integer", "minimum": 0 },
         "stale_or_closed": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "decision_summary": {
+      "type": "object",
+      "required": [
+        "total_rows",
+        "candidate_rows",
+        "no_go_rows",
+        "gate_counts",
+        "verification_needed",
+        "authorization_needed",
+        "recommended_batch_action",
+        "safety_boundary"
+      ],
+      "properties": {
+        "total_rows": { "type": "integer", "minimum": 0 },
+        "candidate_rows": { "type": "integer", "minimum": 0 },
+        "no_go_rows": { "type": "integer", "minimum": 0 },
+        "gate_counts": { "$ref": "#/$defs/count_map" },
+        "verification_needed": { "type": "integer", "minimum": 0 },
+        "authorization_needed": { "type": "integer", "minimum": 0 },
+        "recommended_batch_action": { "type": "string", "minLength": 1 },
+        "safety_boundary": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     },
