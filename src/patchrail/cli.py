@@ -6183,9 +6183,7 @@ def _render_funded_issues_payout_effort_markdown(payload: dict[str, Any]) -> str
         for result in payload["results"]:
             observed = result["observed"]
             flags = ", ".join(result["risk_flags"]) or "none"
-            amount = (
-                f"{_format_rate(observed['funding_amount'])} {observed['funding_currency']}"
-            )
+            amount = f"{_format_rate(observed['funding_amount'])} {observed['funding_currency']}"
             lines.append(
                 "| "
                 f"{_escape_markdown_cell(result['reference'])} | "

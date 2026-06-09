@@ -136,9 +136,9 @@ class PayoutEffortFlagScoringIntegrationTests(unittest.TestCase):
 
     def test_payout_flag_lowers_score_versus_unflagged_issue(self) -> None:
         clean = score_funded_issues([self._issue([])])["scores"][0]["score"]
-        flagged = score_funded_issues(
-            [self._issue(["payout_too_low_for_effort"])]
-        )["scores"][0]["score"]
+        flagged = score_funded_issues([self._issue(["payout_too_low_for_effort"])])["scores"][0][
+            "score"
+        ]
         self.assertLess(flagged, clean)
 
 
@@ -178,16 +178,12 @@ class AssessPayoutEffortBatchTests(unittest.TestCase):
     def test_results_are_sorted_worst_payout_first(self) -> None:
         payload = assess_payout_effort_batch(self._observations())
         references = [row["reference"] for row in payload["results"]]
-        self.assertEqual(
-            references, ["underpaid/repo#2", "marginal/repo#3", "good/repo#1"]
-        )
+        self.assertEqual(references, ["underpaid/repo#2", "marginal/repo#3", "good/repo#1"])
         self.assertEqual(payload["results"][0]["level"], "low")
         self.assertEqual(payload["results"][-1]["level"], "strong")
 
     def test_missing_reference_gets_positional_label(self) -> None:
-        payload = assess_payout_effort_batch(
-            [{"funding_amount": 100, "estimated_effort_hours": 1}]
-        )
+        payload = assess_payout_effort_batch([{"funding_amount": 100, "estimated_effort_hours": 1}])
         self.assertEqual(payload["results"][0]["reference"], "observation-1")
 
     def test_id_and_url_are_accepted_as_reference_fallbacks(self) -> None:
@@ -217,9 +213,7 @@ class AssessPayoutEffortBatchTests(unittest.TestCase):
 
     def test_non_dict_observation_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
-            assess_payout_effort_batch(
-                [{"funding_amount": 1, "estimated_effort_hours": 1}, "nope"]
-            )
+            assess_payout_effort_batch([{"funding_amount": 1, "estimated_effort_hours": 1}, "nope"])
 
     def test_non_string_reference_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
