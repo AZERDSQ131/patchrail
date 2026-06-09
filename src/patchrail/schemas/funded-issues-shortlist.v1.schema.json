@@ -304,6 +304,7 @@
       "required": [
         "issue",
         "score",
+        "confidence",
         "rating",
         "decision_gate",
         "reason_codes",
@@ -313,6 +314,7 @@
       "properties": {
         "issue": { "$ref": "#/$defs/funded_issue" },
         "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
         "rating": { "enum": ["go_candidate", "watchlist", "no_go"] },
         "decision_gate": {
           "enum": [

@@ -615,6 +615,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                         schema["$defs"]["scored_issue"]["properties"]["score"]["maximum"], 100
                     )
                     self.assertIn(
+                        "confidence",
+                        schema["$defs"]["scored_issue"]["required"],
+                    )
+                    self.assertEqual(
+                        schema["$defs"]["scored_issue"]["properties"]["confidence"]["maximum"], 1
+                    )
+                    self.assertIn(
                         "recommended_next_step",
                         schema["$defs"]["scored_issue"]["required"],
                     )
@@ -661,6 +668,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["rating_counts"], {"go_candidate": 1, "no_go": 1})
         self.assertEqual(payload["scores"][0]["issue"]["reference"], "example/project#42")
         self.assertEqual(payload["scores"][0]["score"], 99)
+        self.assertEqual(payload["scores"][0]["confidence"], 0.99)
         self.assertEqual(payload["scores"][0]["rating"], "go_candidate")
         self.assertEqual(payload["scores"][0]["decision_gate"], "go_after_recheck")
         self.assertEqual(payload["scores"][0]["reason_codes"], ["NO_MAJOR_REVIEW_GAPS"])
@@ -670,6 +678,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(risky["issue"]["reference"], "example/toolkit#17")
         self.assertEqual(risky["issue"]["opportunity_state"], "closed")
         self.assertEqual(risky["score"], 0)
+        self.assertEqual(risky["confidence"], 0.3)
         self.assertEqual(risky["rating"], "no_go")
         self.assertEqual(risky["decision_gate"], "no_go")
         self.assertIn("CLOSED_OR_INACTIVE", risky["reason_codes"])
@@ -861,11 +870,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["summary"]["opportunity_states"], {"active": 1, "closed": 1})
         self.assertEqual(payload["summary"]["rating_counts"], {"go_candidate": 1, "no_go": 1})
         self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/project#42")
+        self.assertEqual(payload["shortlist"][0]["confidence"], 0.99)
         self.assertEqual(payload["shortlist"][0]["rating"], "go_candidate")
         self.assertEqual(payload["shortlist"][0]["decision_gate"], "go_after_recheck")
         self.assertIn("Reproduce locally", payload["shortlist"][0]["recommended_next_step"])
         self.assertEqual(payload["no_go_evidence"][0]["issue"]["reference"], "example/toolkit#17")
         self.assertEqual(payload["no_go_evidence"][0]["issue"]["opportunity_state"], "closed")
+        self.assertEqual(payload["no_go_evidence"][0]["confidence"], 0.3)
         self.assertEqual(payload["no_go_evidence"][0]["rating"], "no_go")
         self.assertEqual(payload["no_go_evidence"][0]["decision_gate"], "no_go")
         self.assertIn("Do not engage", payload["no_go_evidence"][0]["recommended_next_step"])
@@ -920,6 +931,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Estimated local review: `13` minutes", proc.stdout)
         self.assertIn("## Shortlist", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
+        self.assertIn("Confidence: `0.99`", proc.stdout)
         self.assertIn("Decision gate", proc.stdout)
         self.assertIn("go_after_recheck", proc.stdout)
         self.assertIn("## No-Go Evidence", proc.stdout)

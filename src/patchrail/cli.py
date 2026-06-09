@@ -4593,7 +4593,8 @@ def _render_funded_issues_score_text(payload: dict[str, Any]) -> str:
         issue = row["issue"]
         lines.append(
             f"{issue['reference']}: {row['score']} ({row['rating']}) "
-            f"[{row['decision_gate']}; {', '.join(row['reason_codes'])}] - "
+            f"[confidence {row['confidence']}; {row['decision_gate']}; "
+            f"{', '.join(row['reason_codes'])}] - "
             f"{row['recommended_next_step']}"
         )
     return "\n".join(lines) + "\n"
@@ -4625,6 +4626,7 @@ def _render_funded_issues_score_markdown(payload: dict[str, Any]) -> str:
                 f"### {issue['reference']}",
                 "",
                 f"- Score: `{row['score']}`",
+                f"- Confidence: `{row['confidence']}`",
                 f"- Rating: `{row['rating']}`",
                 f"- Decision gate: `{row['decision_gate']}`",
                 f"- Title: {issue['title']}",
@@ -4687,7 +4689,8 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
     for row in payload["shortlist"]:
         issue = row["issue"]
         lines.append(
-            f"{issue['reference']}: {row['score']} ({row['rating']}; {row['decision_gate']})"
+            f"{issue['reference']}: {row['score']} "
+            f"(confidence {row['confidence']}; {row['rating']}; {row['decision_gate']})"
         )
     return "\n".join(lines) + "\n"
 
@@ -4755,6 +4758,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
                     f"### {issue['reference']}",
                     "",
                     f"- Score: `{row['score']}`",
+                    f"- Confidence: `{row['confidence']}`",
                     f"- Rating: `{row['rating']}`",
                     f"- Decision gate: `{row['decision_gate']}`",
                     f"- Title: {issue['title']}",
@@ -4784,6 +4788,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
                     f"### {issue['reference']}",
                     "",
                     f"- Score: `{row['score']}`",
+                    f"- Confidence: `{row['confidence']}`",
                     f"- Rating: `{row['rating']}`",
                     f"- Decision gate: `{row['decision_gate']}`",
                     f"- Title: {issue['title']}",

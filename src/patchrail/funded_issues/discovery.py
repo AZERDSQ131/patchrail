@@ -721,12 +721,34 @@ def _score_issue(issue: FundedIssue) -> dict[str, Any]:
     return {
         "issue": issue.to_dict(),
         "score": score,
+        "confidence": _confidence_for_issue(issue),
         "rating": rating,
         "decision_gate": _decision_gate_for_score(issue, rating, reason_codes),
         "reason_codes": sorted(set(reason_codes)) or ["NO_MAJOR_REVIEW_GAPS"],
         "components": components,
         "recommended_next_step": _recommended_next_step_for_score(issue, rating, reason_codes),
     }
+
+
+def _confidence_for_issue(issue: FundedIssue) -> float:
+    confidence = 0.5
+    if issue.funding_amount is not None and issue.funding_currency:
+        confidence += 0.15
+    if issue.contribution_guidelines_url:
+        confidence += 0.15
+    confidence += min(len(issue.contribution_signals), 3) * 0.05
+
+    if issue.opportunity_state == "active":
+        confidence += 0.05
+    elif issue.opportunity_state == "unknown":
+        confidence -= 0.15
+    elif issue.opportunity_state in {"closed", "stale"}:
+        confidence -= 0.2
+
+    confidence -= min(len(issue.risk_flags), 4) * 0.05
+    if issue.risk_level == "high":
+        confidence -= 0.1
+    return round(max(0.05, min(0.99, confidence)), 2)
 
 
 def _decision_gate_for_score(
