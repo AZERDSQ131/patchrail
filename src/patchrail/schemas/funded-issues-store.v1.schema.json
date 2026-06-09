@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/funded-issues-store.v1.schema.json",
+  "title": "PatchRail Funded Issues Tracker Store",
+  "description": "Read-only local persistence file for the funded-issues opportunity tracker, written by patchrail funded-issues track. Entries are keyed by canonical issue URL and never trigger any third-party write.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_schema_version",
+    "read_only",
+    "blocked_actions",
+    "requirements",
+    "entries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.funded_issues.store.v1"
+    },
+    "source_schema_version": {
+      "const": "patchrail.funded_issues.v1"
+    },
+    "read_only": {
+      "const": true
+    },
+    "blocked_actions": {
+      "$ref": "#/$defs/blocked_actions"
+    },
+    "requirements": {
+      "$ref": "#/$defs/safe_requirements"
+    },
+    "entries": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/store_entry"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "blocked_actions": {
+      "type": "array",
+      "contains": { "const": "automatic_claims" },
+      "items": {
+        "enum": [
+          "automatic_claims",
+          "automatic_pull_requests",
+          "automatic_issue_comments",
+          "mass_outreach",
+          "ranking_by_money_only"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "safe_requirements": {
+      "type": "object",
+      "required": [
+        "network_required",
+        "github_write_permission_required",
+        "external_model_required",
+        "billing_required"
+      ],
+      "properties": {
+        "network_required": { "const": false },
+        "github_write_permission_required": { "const": false },
+        "external_model_required": { "const": false },
+        "billing_required": { "const": false }
+      },
+      "additionalProperties": false
+    },
+    "store_state": {
+      "enum": ["active", "closed", "stale", "unknown"]
+    },
+    "state_transition": {
+      "type": "object",
+      "required": ["state", "at", "from"],
+      "properties": {
+        "state": { "$ref": "#/$defs/store_state" },
+        "at": { "type": "string", "minLength": 1 },
+        "from": {
+          "anyOf": [
+            { "$ref": "#/$defs/store_state" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "store_entry": {
+      "type": "object",
+      "required": [
+        "issue",
+        "first_seen",
+        "last_seen",
+        "last_checked",
+        "state",
+        "state_history"
+      ],
+      "properties": {
+        "issue": { "type": "object" },
+        "first_seen": { "type": "string", "minLength": 1 },
+        "last_seen": { "type": "string", "minLength": 1 },
+        "last_checked": { "type": "string", "minLength": 1 },
+        "state": { "$ref": "#/$defs/store_state" },
+        "state_history": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/state_transition" },
+          "minItems": 1
+        },
+        "score": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

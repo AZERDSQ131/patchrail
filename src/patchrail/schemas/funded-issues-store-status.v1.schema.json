@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://patchrail.dev/schemas/funded-issues-store-status.v1.schema.json",
+  "title": "PatchRail Funded Issues Tracker Store Status",
+  "description": "Read-only summary of a funded-issues tracker store emitted by patchrail funded-issues track-status. Aggregates totals only; never triggers a third-party write.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source_schema_version",
+    "read_only",
+    "blocked_actions",
+    "requirements",
+    "now",
+    "total_entries",
+    "states",
+    "added_24h",
+    "total_usd",
+    "usd_entries"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "patchrail.funded_issues.store_status.v1"
+    },
+    "source_schema_version": {
+      "const": "patchrail.funded_issues.v1"
+    },
+    "read_only": {
+      "const": true
+    },
+    "blocked_actions": {
+      "$ref": "#/$defs/blocked_actions"
+    },
+    "requirements": {
+      "$ref": "#/$defs/safe_requirements"
+    },
+    "now": {
+      "type": ["string", "null"]
+    },
+    "total_entries": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "states": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    },
+    "added_24h": {
+      "type": ["integer", "null"],
+      "minimum": 0
+    },
+    "total_usd": {
+      "type": ["number", "null"],
+      "minimum": 0
+    },
+    "usd_entries": {
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "blocked_actions": {
+      "type": "array",
+      "contains": { "const": "automatic_claims" },
+      "items": {
+        "enum": [
+          "automatic_claims",
+          "automatic_pull_requests",
+          "automatic_issue_comments",
+          "mass_outreach",
+          "ranking_by_money_only"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "safe_requirements": {
+      "type": "object",
+      "required": [
+        "network_required",
+        "github_write_permission_required",
+        "external_model_required",
+        "billing_required"
+      ],
+      "properties": {
+        "network_required": { "const": false },
+        "github_write_permission_required": { "const": false },
+        "external_model_required": { "const": false },
+        "billing_required": { "const": false }
+      },
+      "additionalProperties": false
+    }
+  }
+}

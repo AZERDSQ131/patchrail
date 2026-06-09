@@ -11,6 +11,7 @@ import sys
 import tempfile
 import threading
 from collections import Counter
+from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
@@ -33,10 +34,14 @@ from patchrail.funded_issues import (
     import_provider_export,
     load_client_profile,
     load_funded_issues,
+    load_store,
+    merge_into_store,
     recheck_funded_issues,
     report_funded_issues,
+    save_store,
     score_funded_issues,
     shortlist_funded_issues,
+    store_status,
     summarize_issues,
     validate_funded_issues,
 )
@@ -174,6 +179,8 @@ def _load_schema(name: str) -> str:
         "funded-issues-report": "funded-issues-report.v1.schema.json",
         "funded-issues-recheck-queue": "funded-issues-recheck-queue.v1.schema.json",
         "funded-issues-shortlist": "funded-issues-shortlist.v1.schema.json",
+        "funded-issues-store": "funded-issues-store.v1.schema.json",
+        "funded-issues-store-status": "funded-issues-store-status.v1.schema.json",
         "queue-audit-event": "queue-audit-event.v1.schema.json",
         "queue-audit-summary": "queue-audit-summary.v1.schema.json",
         "queue-gate-report": "queue-gate-report.v1.schema.json",
@@ -6418,6 +6425,102 @@ def _funded_issues_testability(args: argparse.Namespace) -> int:
     return 0
 
 
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def _scored_issue_records(issues: list[Any]) -> list[dict[str, Any]]:
+    """Attach the read-only readiness score to each normalized issue record."""
+
+    records: list[dict[str, Any]] = []
+    for row in score_funded_issues(issues)["scores"]:
+        record = dict(row["issue"])
+        record["score"] = row["score"]
+        records.append(record)
+    return records
+
+
+def _render_funded_issues_track_text(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    lines = [
+        "PatchRail funded-issues tracker store update",
+        f"Store: {payload['store']}",
+        f"Now: {payload['now']}",
+        f"Loaded: {payload['total_loaded']}  Total entries: {payload['total_entries']}",
+        (
+            f"Added: {summary['added']}  Updated: {summary['updated']}  "
+            f"Transitioned: {summary['transitioned']}  Unchanged: {summary['unchanged']}"
+        ),
+    ]
+    for transition in summary["transitions"]:
+        lines.append(f"  - {transition['url']}: {transition['from']} -> {transition['state']}")
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_track_status_text(payload: dict[str, Any]) -> str:
+    lines = [
+        "PatchRail funded-issues tracker store status",
+        f"Total entries: {payload['total_entries']}",
+        "States:",
+    ]
+    for state, count in sorted(payload["states"].items()):
+        lines.append(f"  - {state}: {count}")
+    added_24h = payload["added_24h"]
+    lines.append(f"Added in last 24h: {'n/a' if added_24h is None else added_24h}")
+    total_usd = payload["total_usd"]
+    lines.append(
+        "Total USD: n/a"
+        if total_usd is None
+        else f"Total USD: {total_usd} across {payload['usd_entries']} entries"
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _funded_issues_track(args: argparse.Namespace) -> int:
+    source = args.input or _default_funded_issues_source()
+    now = args.now or _now_iso()
+    try:
+        issues = _load_funded_issues_for_cli(source)
+        store = load_store(args.store)
+        records = _scored_issue_records(issues)
+        summary = merge_into_store(store, records, now)
+        save_store(args.store, store)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue source: {exc}", file=sys.stderr)
+        return 1
+    payload = {
+        "schema_version": "patchrail.funded_issues.track.v1",
+        "store": str(args.store),
+        "input": str(source),
+        "now": now,
+        "total_loaded": len(records),
+        "total_entries": len(store["entries"]),
+        "summary": summary.to_dict(),
+    }
+    if args.format == "json":
+        text = _json_dump(payload)
+    else:
+        text = _render_funded_issues_track_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _funded_issues_track_status(args: argparse.Namespace) -> int:
+    now = args.now or _now_iso()
+    try:
+        store = load_store(args.store)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue store: {exc}", file=sys.stderr)
+        return 1
+    payload = store_status(store, now)
+    if args.format == "json":
+        text = _json_dump(payload)
+    else:
+        text = _render_funded_issues_track_status_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _web_metrics_update(args: argparse.Namespace) -> int:
     try:
         payload = update_web_metrics(
@@ -6662,6 +6765,8 @@ def _build_parser() -> argparse.ArgumentParser:
             "funded-issues-report",
             "funded-issues-recheck-queue",
             "funded-issues-shortlist",
+            "funded-issues-store",
+            "funded-issues-store-status",
             "queue-audit-event",
             "queue-audit-summary",
             "queue-gate-report",
@@ -7746,6 +7851,58 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_testability.add_argument("--out", type=Path, help="Optional output path.")
     funded_testability.set_defaults(func=_funded_issues_testability)
+
+    funded_track = funded_subparsers.add_parser(
+        "track",
+        help="Incrementally merge local funded issues into a persistent read-only tracker store.",
+    )
+    funded_track.add_argument(
+        "--store",
+        required=True,
+        type=Path,
+        help="Local JSON store file. Created when absent. PatchRail never writes to third parties.",
+    )
+    funded_track.add_argument(
+        "--input",
+        type=Path,
+        help="Local JSON source of already-discovered issues. "
+        "Defaults to examples/funded-issues-readonly/issues.json.",
+    )
+    funded_track.add_argument(
+        "--now",
+        help="ISO-8601 UTC timestamp to record. Defaults to the local clock.",
+    )
+    funded_track.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="Output format.",
+    )
+    funded_track.add_argument("--out", type=Path, help="Optional output path.")
+    funded_track.set_defaults(func=_funded_issues_track)
+
+    funded_track_status = funded_subparsers.add_parser(
+        "track-status",
+        help="Summarize a persistent read-only funded issue tracker store.",
+    )
+    funded_track_status.add_argument(
+        "--store",
+        required=True,
+        type=Path,
+        help="Local JSON store file written by funded-issues track.",
+    )
+    funded_track_status.add_argument(
+        "--now",
+        help="ISO-8601 UTC timestamp used to compute added_24h. Defaults to the local clock.",
+    )
+    funded_track_status.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="Output format.",
+    )
+    funded_track_status.add_argument("--out", type=Path, help="Optional output path.")
+    funded_track_status.set_defaults(func=_funded_issues_track_status)
 
     return parser
 
