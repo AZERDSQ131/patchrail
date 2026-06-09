@@ -451,6 +451,7 @@ def report_funded_issues(
     delivery_budget = _delivery_budget(scored_rows)
     source_quality = _source_quality(scored_rows)
     recheck_plan = _recheck_plan(scored_rows)
+    evidence_debt = _evidence_debt(recheck_plan)
     client_fit_summary = _client_fit_summary(issues, profile, client_fit_gaps)
     intake_followup = _intake_followup(
         client_fit_summary=client_fit_summary,
@@ -512,6 +513,7 @@ def report_funded_issues(
         "delivery_pack": delivery_pack,
         "source_quality": source_quality,
         "recheck_plan": recheck_plan,
+        "evidence_debt": evidence_debt,
         "client_fit_summary": client_fit_summary,
         "client_fit_gaps": client_fit_gaps,
         "intake_followup": intake_followup,
@@ -656,6 +658,7 @@ def shortlist_funded_issues(
     delivery_budget = _delivery_budget(score_payload["scores"])
     source_quality = _source_quality(score_payload["scores"])
     recheck_plan = _recheck_plan(score_payload["scores"])
+    evidence_debt = _evidence_debt(recheck_plan)
     client_fit_summary = _client_fit_summary(issues, profile, report_payload["client_fit_gaps"])
     intake_followup = _intake_followup(
         client_fit_summary=client_fit_summary,
@@ -695,6 +698,7 @@ def shortlist_funded_issues(
         "delivery_pack": delivery_pack,
         "source_quality": source_quality,
         "recheck_plan": recheck_plan,
+        "evidence_debt": evidence_debt,
         "client_fit_summary": client_fit_summary,
         "client_fit_gaps": report_payload["client_fit_gaps"],
         "intake_followup": intake_followup,
@@ -1716,6 +1720,33 @@ def _recheck_plan(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
         "boundary": (
             "Recheck plan is local read-only tracker triage. It schedules evidence review only; "
             "it does not claim, comment, contact maintainers, open pull requests, or guarantee payout."
+        ),
+    }
+
+
+def _evidence_debt(recheck_plan: dict[str, Any]) -> dict[str, Any]:
+    active_rows = list(recheck_plan["next_rows"])
+    action_counts = Counter(str(row["action"]) for row in active_rows)
+    platform_counts = Counter(str(row["platform"]) for row in active_rows)
+    priority_counts = Counter(str(row["priority"]) for row in active_rows)
+    highest_priority = active_rows[0]["priority"] if active_rows else "none"
+    next_action = active_rows[0]["action"] if active_rows else "ready_for_delivery_readiness_review"
+    return {
+        "status": "active_evidence_debt" if active_rows else "clear",
+        "blocking_rows": len(active_rows),
+        "archive_only_rows": int(recheck_plan["no_go_rows"]),
+        "highest_priority": highest_priority,
+        "next_action": next_action,
+        "action_counts": dict(sorted(action_counts.items())),
+        "platform_counts": dict(sorted(platform_counts.items())),
+        "priority_counts": dict(sorted(priority_counts.items())),
+        "references": [str(row["reference"]) for row in active_rows],
+        "payment_route_allowed_now": False,
+        "external_body_allowed": False,
+        "boundary": (
+            "Evidence debt is internal read-only delivery readiness data. It schedules public/API "
+            "evidence review only and does not authorize claims, comments, maintainer contact, "
+            "pull requests, external prose, payment routes, or payout/merge guarantees."
         ),
     }
 

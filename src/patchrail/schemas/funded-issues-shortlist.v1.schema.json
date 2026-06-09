@@ -21,6 +21,7 @@
     "delivery_pack",
     "source_quality",
     "recheck_plan",
+    "evidence_debt",
     "client_fit_summary",
     "client_fit_gaps",
     "intake_followup",
@@ -99,6 +100,9 @@
     },
     "recheck_plan": {
       "$ref": "#/$defs/recheck_plan"
+    },
+    "evidence_debt": {
+      "$ref": "#/$defs/evidence_debt"
     },
     "client_fit_summary": {
       "$ref": "#/$defs/client_fit_summary"
@@ -560,6 +564,49 @@
           "type": "array",
           "items": { "$ref": "#/$defs/recheck_row" }
         },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "evidence_debt": {
+      "type": "object",
+      "required": [
+        "status",
+        "blocking_rows",
+        "archive_only_rows",
+        "highest_priority",
+        "next_action",
+        "action_counts",
+        "platform_counts",
+        "priority_counts",
+        "references",
+        "payment_route_allowed_now",
+        "external_body_allowed",
+        "boundary"
+      ],
+      "properties": {
+        "status": { "enum": ["active_evidence_debt", "clear"] },
+        "blocking_rows": { "type": "integer", "minimum": 0 },
+        "archive_only_rows": { "type": "integer", "minimum": 0 },
+        "highest_priority": { "enum": ["high", "medium", "low", "none"] },
+        "next_action": {
+          "enum": [
+            "confirm_client_authorization",
+            "ready_for_delivery_readiness_review",
+            "recheck_public_issue_state",
+            "recheck_scope_and_noise",
+            "verify_funding_visibility"
+          ]
+        },
+        "action_counts": { "$ref": "#/$defs/count_map" },
+        "platform_counts": { "$ref": "#/$defs/count_map" },
+        "priority_counts": { "$ref": "#/$defs/count_map" },
+        "references": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "payment_route_allowed_now": { "const": false },
+        "external_body_allowed": { "const": false },
         "boundary": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false

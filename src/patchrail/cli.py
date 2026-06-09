@@ -4462,6 +4462,7 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
         _delivery_pack_summary(payload["delivery_pack"]),
         _source_quality_summary(payload["source_quality"]),
         _recheck_plan_summary(payload["recheck_plan"]),
+        _evidence_debt_summary(payload["evidence_debt"]),
         _client_fit_summary_line(payload["client_fit_summary"]),
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         _intake_followup_summary(payload["intake_followup"]),
@@ -4509,6 +4510,15 @@ def _recheck_plan_summary(recheck_plan: dict[str, Any]) -> str:
         "Recheck plan: "
         f"{recheck_plan['recheck_rows']} active rechecks, "
         f"{recheck_plan['no_go_rows']} archived no-go rows"
+    )
+
+
+def _evidence_debt_summary(evidence_debt: dict[str, Any]) -> str:
+    return (
+        "Evidence debt: "
+        f"{evidence_debt['blocking_rows']} blocking rows, "
+        f"highest priority {evidence_debt['highest_priority']}, "
+        f"next action {evidence_debt['next_action']}"
     )
 
 
@@ -4704,6 +4714,48 @@ def _append_recheck_plan_markdown(
     lines.extend(["", recheck_plan["boundary"]])
 
 
+def _append_evidence_debt_markdown(
+    lines: list[str],
+    evidence_debt: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Evidence Debt",
+            "",
+            f"- Status: `{evidence_debt['status']}`",
+            f"- Blocking rows: `{evidence_debt['blocking_rows']}`",
+            f"- Archive-only rows: `{evidence_debt['archive_only_rows']}`",
+            f"- Highest priority: `{evidence_debt['highest_priority']}`",
+            f"- Next action: `{evidence_debt['next_action']}`",
+            f"- Payment route allowed now: `{evidence_debt['payment_route_allowed_now']}`",
+            f"- External body allowed: `{evidence_debt['external_body_allowed']}`",
+            "",
+            "| Action | Count |",
+            "|---|---:|",
+        ]
+    )
+    if evidence_debt["action_counts"]:
+        for action, count in evidence_debt["action_counts"].items():
+            lines.append(f"| `{action}` | {count} |")
+    else:
+        lines.append("| n/a | 0 |")
+    lines.extend(["", "| Platform | Count |", "|---|---:|"])
+    if evidence_debt["platform_counts"]:
+        for platform, count in evidence_debt["platform_counts"].items():
+            lines.append(f"| `{platform}` | {count} |")
+    else:
+        lines.append("| n/a | 0 |")
+    lines.extend(
+        [
+            "",
+            "- References: " + _format_reference_list(evidence_debt["references"]),
+            "",
+            evidence_debt["boundary"],
+        ]
+    )
+
+
 def _append_client_fit_gaps_markdown(
     lines: list[str],
     client_fit_gaps: list[dict[str, Any]],
@@ -4877,6 +4929,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     _append_delivery_pack_markdown(lines, payload["delivery_pack"])
     _append_source_quality_markdown(lines, payload["source_quality"])
     _append_recheck_plan_markdown(lines, payload["recheck_plan"])
+    _append_evidence_debt_markdown(lines, payload["evidence_debt"])
     _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     _append_intake_followup_markdown(lines, payload["intake_followup"])
@@ -5068,6 +5121,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
         _delivery_pack_summary(payload["delivery_pack"]),
         _source_quality_summary(payload["source_quality"]),
         _recheck_plan_summary(payload["recheck_plan"]),
+        _evidence_debt_summary(payload["evidence_debt"]),
         _client_fit_summary_line(payload["client_fit_summary"]),
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         _intake_followup_summary(payload["intake_followup"]),
@@ -5136,6 +5190,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     _append_delivery_pack_markdown(lines, payload["delivery_pack"])
     _append_source_quality_markdown(lines, payload["source_quality"])
     _append_recheck_plan_markdown(lines, payload["recheck_plan"])
+    _append_evidence_debt_markdown(lines, payload["evidence_debt"])
     _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     _append_intake_followup_markdown(lines, payload["intake_followup"])

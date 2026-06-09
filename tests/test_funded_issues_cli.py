@@ -541,6 +541,19 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(recheck_plan["next_rows"][0]["priority"], "high")
         self.assertEqual(recheck_plan["next_rows"][0]["action"], "recheck_public_issue_state")
         self.assertIn("read-only tracker triage", recheck_plan["boundary"])
+        evidence_debt = payload["evidence_debt"]
+        self.assertEqual(evidence_debt["status"], "active_evidence_debt")
+        self.assertEqual(evidence_debt["blocking_rows"], 1)
+        self.assertEqual(evidence_debt["archive_only_rows"], 1)
+        self.assertEqual(evidence_debt["highest_priority"], "high")
+        self.assertEqual(evidence_debt["next_action"], "recheck_public_issue_state")
+        self.assertEqual(evidence_debt["action_counts"], {"recheck_public_issue_state": 1})
+        self.assertEqual(evidence_debt["platform_counts"], {"polar": 1})
+        self.assertEqual(evidence_debt["priority_counts"], {"high": 1})
+        self.assertEqual(evidence_debt["references"], ["example/project#42"])
+        self.assertFalse(evidence_debt["payment_route_allowed_now"])
+        self.assertFalse(evidence_debt["external_body_allowed"])
+        self.assertIn("internal read-only delivery readiness", evidence_debt["boundary"])
         client_fit_summary = payload["client_fit_summary"]
         self.assertIsNone(client_fit_summary["profile_name"])
         self.assertEqual(client_fit_summary["status"], "no_profile")
@@ -647,6 +660,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Active rechecks: `1`", proc.stdout)
         self.assertIn("`recheck_public_issue_state` | 1", proc.stdout)
         self.assertIn("read-only tracker triage", proc.stdout)
+        self.assertIn("## Evidence Debt", proc.stdout)
+        self.assertIn("Blocking rows: `1`", proc.stdout)
+        self.assertIn("Next action: `recheck_public_issue_state`", proc.stdout)
+        self.assertIn("internal read-only delivery readiness", proc.stdout)
         self.assertIn("## Client Fit Summary", proc.stdout)
         self.assertIn("Status: `no_profile`", proc.stdout)
         self.assertIn("Matching rows: `2` / `2`", proc.stdout)
@@ -1235,6 +1252,26 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                     "recheck_public_issue_state",
                     schema["$defs"]["recheck_row"]["properties"]["action"]["enum"],
                 )
+                self.assertIn("evidence_debt", schema["required"])
+                evidence_debt = schema["$defs"]["evidence_debt"]
+                self.assertIn("blocking_rows", evidence_debt["required"])
+                self.assertIn("references", evidence_debt["required"])
+                self.assertIn(
+                    "active_evidence_debt",
+                    evidence_debt["properties"]["status"]["enum"],
+                )
+                self.assertIn(
+                    "ready_for_delivery_readiness_review",
+                    evidence_debt["properties"]["next_action"]["enum"],
+                )
+                self.assertEqual(
+                    evidence_debt["properties"]["payment_route_allowed_now"]["const"],
+                    False,
+                )
+                self.assertEqual(
+                    evidence_debt["properties"]["external_body_allowed"]["const"],
+                    False,
+                )
                 self.assertIn("client_fit_gaps", schema["required"])
                 self.assertIn("client_fit_summary", schema["required"])
                 self.assertIn("intake_followup", schema["required"])
@@ -1769,6 +1806,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             payload["recheck_plan"]["next_rows"][0]["action"],
             "recheck_public_issue_state",
         )
+        evidence_debt = payload["evidence_debt"]
+        self.assertEqual(evidence_debt["status"], "active_evidence_debt")
+        self.assertEqual(evidence_debt["blocking_rows"], 1)
+        self.assertEqual(evidence_debt["next_action"], "recheck_public_issue_state")
+        self.assertEqual(evidence_debt["references"], ["example/project#42"])
+        self.assertFalse(evidence_debt["payment_route_allowed_now"])
+        self.assertFalse(evidence_debt["external_body_allowed"])
         client_fit_summary = payload["client_fit_summary"]
         self.assertEqual(client_fit_summary["status"], "no_profile")
         self.assertEqual(client_fit_summary["matching_rows"], 2)
@@ -1827,6 +1871,9 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("## Recheck Plan", proc.stdout)
         self.assertIn("Archived no-go rows: `1`", proc.stdout)
         self.assertIn("`archive_as_no_go_evidence` | 1", proc.stdout)
+        self.assertIn("## Evidence Debt", proc.stdout)
+        self.assertIn("Blocking rows: `1`", proc.stdout)
+        self.assertIn("References: `example/project#42`", proc.stdout)
         self.assertIn("## Client Fit Summary", proc.stdout)
         self.assertIn("Status: `no_profile`", proc.stdout)
         self.assertIn("## Intake Follow-Up", proc.stdout)
