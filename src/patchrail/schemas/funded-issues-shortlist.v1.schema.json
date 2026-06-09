@@ -25,6 +25,7 @@
     "client_fit_gaps",
     "intake_followup",
     "cash_path_status",
+    "operator_next_steps",
     "requirements",
     "boundary"
   ],
@@ -110,6 +111,9 @@
     },
     "cash_path_status": {
       "$ref": "#/$defs/cash_path_status"
+    },
+    "operator_next_steps": {
+      "$ref": "#/$defs/operator_next_steps"
     },
     "requirements": {
       "$ref": "#/$defs/safe_requirements"
@@ -692,6 +696,95 @@
         "requires_written_acceptance_before_payment_route": { "const": true },
         "buyer_ready": { "type": "boolean" },
         "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "operator_next_steps": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "status",
+        "primary_action",
+        "copy_brief_facts_available",
+        "payment_route_allowed_now",
+        "external_body_allowed",
+        "steps",
+        "boundary"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "patchrail.funded_issues.operator_next_steps.v1"
+        },
+        "status": {
+          "enum": [
+            "needs_buyer_intake",
+            "needs_source_expansion",
+            "ready_after_read_only_recheck",
+            "ready_for_scope_confirmation"
+          ]
+        },
+        "primary_action": {
+          "enum": [
+            "collect_buyer_intake",
+            "expand_permitted_sources",
+            "run_read_only_recheck",
+            "confirm_paid_scope"
+          ]
+        },
+        "copy_brief_facts_available": { "type": "boolean" },
+        "payment_route_allowed_now": { "const": false },
+        "external_body_allowed": { "const": false },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/operator_next_step" }
+        },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "operator_next_step": {
+      "type": "object",
+      "required": [
+        "priority",
+        "action",
+        "source",
+        "reason",
+        "reference_scope",
+        "evidence_required",
+        "blocks_paid_delivery",
+        "copy_brief_allowed",
+        "external_body_allowed",
+        "payment_route_allowed_now",
+        "blocked_actions"
+      ],
+      "properties": {
+        "priority": { "enum": ["high", "medium", "low", "none"] },
+        "action": {
+          "enum": [
+            "collect_buyer_intake",
+            "confirm_paid_scope",
+            "expand_permitted_sources",
+            "preserve_no_go_evidence",
+            "run_read_only_recheck"
+          ]
+        },
+        "source": {
+          "enum": ["cash_path", "delivery_pack", "recheck_plan", "source_quality"]
+        },
+        "reason": { "type": "string", "minLength": 1 },
+        "reference_scope": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "evidence_required": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "blocks_paid_delivery": { "type": "boolean" },
+        "copy_brief_allowed": { "type": "boolean" },
+        "external_body_allowed": { "const": false },
+        "payment_route_allowed_now": { "const": false },
+        "blocked_actions": { "$ref": "#/$defs/blocked_actions" }
       },
       "additionalProperties": false
     },

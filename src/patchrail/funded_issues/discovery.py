@@ -432,6 +432,8 @@ def report_funded_issues(
         source_quality=source_quality,
         decision_summary=decision_summary,
     )
+    cash_path_status = _cash_path_status(intake_followup)
+    delivery_pack = _delivery_pack(scored_rows)
     safe_candidates = sorted(
         (issue for issue in returned_issues if issue.safe_to_list),
         key=_candidate_sort_key,
@@ -480,13 +482,19 @@ def report_funded_issues(
         },
         "decision_summary": decision_summary,
         "delivery_budget": delivery_budget,
-        "delivery_pack": _delivery_pack(scored_rows),
+        "delivery_pack": delivery_pack,
         "source_quality": source_quality,
         "recheck_plan": recheck_plan,
         "client_fit_summary": client_fit_summary,
         "client_fit_gaps": client_fit_gaps,
         "intake_followup": intake_followup,
-        "cash_path_status": _cash_path_status(intake_followup),
+        "cash_path_status": cash_path_status,
+        "operator_next_steps": _operator_next_steps(
+            cash_path_status=cash_path_status,
+            intake_followup=intake_followup,
+            recheck_plan=recheck_plan,
+            delivery_pack=delivery_pack,
+        ),
         "top_safe_candidates": [
             {
                 "reference": issue.reference,
@@ -629,6 +637,8 @@ def shortlist_funded_issues(
         source_quality=source_quality,
         decision_summary=decision_summary,
     )
+    cash_path_status = _cash_path_status(intake_followup)
+    delivery_pack = _delivery_pack(score_payload["scores"])
     return {
         "schema_version": SHORTLIST_SCHEMA_VERSION,
         "source_schema_version": SCHEMA_VERSION,
@@ -655,13 +665,19 @@ def shortlist_funded_issues(
             "no_go_rows": len(no_go_rows),
         },
         "delivery_budget": delivery_budget,
-        "delivery_pack": _delivery_pack(score_payload["scores"]),
+        "delivery_pack": delivery_pack,
         "source_quality": source_quality,
         "recheck_plan": recheck_plan,
         "client_fit_summary": client_fit_summary,
         "client_fit_gaps": report_payload["client_fit_gaps"],
         "intake_followup": intake_followup,
-        "cash_path_status": _cash_path_status(intake_followup),
+        "cash_path_status": cash_path_status,
+        "operator_next_steps": _operator_next_steps(
+            cash_path_status=cash_path_status,
+            intake_followup=intake_followup,
+            recheck_plan=recheck_plan,
+            delivery_pack=delivery_pack,
+        ),
         "requirements": {
             "network_required": False,
             "github_write_permission_required": False,
@@ -785,6 +801,7 @@ def cash_actions_funded_issues(
         "intake_followup": report_payload["intake_followup"],
         "delivery_pack": report_payload["delivery_pack"],
         "source_quality": report_payload["source_quality"],
+        "operator_next_steps": report_payload["operator_next_steps"],
         "action_limit": max_actions,
         "actions_before_limit": actions_before_limit,
         "action_rows": len(actions),
@@ -869,6 +886,7 @@ def fulfillment_packet_funded_issues(
         "status": _fulfillment_status(report_payload),
         "suggested_package": report_payload["delivery_budget"]["suggested_package"],
         "cash_path_status": report_payload["cash_path_status"],
+        "operator_next_steps": report_payload["operator_next_steps"],
         "totals": {
             "loaded": report_payload["totals"]["loaded"],
             "in_scope": report_payload["totals"]["in_scope"],
@@ -1937,6 +1955,155 @@ def _cash_path_status(intake_followup: dict[str, Any]) -> dict[str, Any]:
             "does not create a payment route, and does not authorize claims, comments, pull "
             "requests, maintainer outreach, or payout/merge guarantees."
         ),
+    }
+
+
+def _operator_next_steps(
+    *,
+    cash_path_status: dict[str, Any],
+    intake_followup: dict[str, Any],
+    recheck_plan: dict[str, Any],
+    delivery_pack: dict[str, Any],
+) -> dict[str, Any]:
+    steps: list[dict[str, Any]] = []
+    primary_action = str(cash_path_status["next_revenue_action"])
+    required_fields = [
+        field["field"]
+        for field in intake_followup["requested_fields"]
+        if field["required_before_paid_delivery"]
+    ]
+    optional_recheck_fields = [
+        field["field"]
+        for field in intake_followup["requested_fields"]
+        if field["field"] == "public_state_recheck_window"
+    ]
+    candidate_refs = delivery_pack["handoff"]["candidate_references"]
+    no_go_refs = delivery_pack["handoff"]["no_go_references"]
+    recheck_refs = [row["reference"] for row in recheck_plan["next_rows"]]
+
+    if primary_action == "collect_buyer_intake":
+        steps.append(
+            _operator_next_step(
+                action="collect_buyer_intake",
+                priority="high",
+                source="cash_path",
+                reason="Buyer-fit fields are missing before the batch can become paid delivery.",
+                reference_scope=candidate_refs,
+                evidence_required=required_fields,
+                blocks_paid_delivery=True,
+                copy_brief_allowed=True,
+            )
+        )
+    elif primary_action == "confirm_paid_scope":
+        steps.append(
+            _operator_next_step(
+                action="confirm_paid_scope",
+                priority="high",
+                source="cash_path",
+                reason="Rows are ready for paid scope confirmation after read-only checks.",
+                reference_scope=candidate_refs,
+                evidence_required=[],
+                blocks_paid_delivery=True,
+                copy_brief_allowed=True,
+            )
+        )
+    elif primary_action == "expand_permitted_sources":
+        steps.append(
+            _operator_next_step(
+                action="expand_permitted_sources",
+                priority="high",
+                source="source_quality",
+                reason="Current permitted rows are not enough for buyer-ready delivery.",
+                reference_scope=[],
+                evidence_required=["permitted public/API source name", "source URL"],
+                blocks_paid_delivery=True,
+                copy_brief_allowed=False,
+            )
+        )
+
+    if recheck_plan["recheck_rows"]:
+        steps.append(
+            _operator_next_step(
+                action="run_read_only_recheck",
+                priority="high" if primary_action == "run_read_only_recheck" else "medium",
+                source="recheck_plan",
+                reason="Active candidate rows need current public-state evidence before delivery.",
+                reference_scope=recheck_refs,
+                evidence_required=optional_recheck_fields
+                or ["public issue state", "funding visibility", "staleness/noise check"],
+                blocks_paid_delivery=True,
+                copy_brief_allowed=False,
+            )
+        )
+
+    if no_go_refs:
+        steps.append(
+            _operator_next_step(
+                action="preserve_no_go_evidence",
+                priority="low",
+                source="delivery_pack",
+                reason="No-go rows strengthen the decision-support moat and should stay in the packet.",
+                reference_scope=no_go_refs,
+                evidence_required=["exclusion reason", "public source reference"],
+                blocks_paid_delivery=False,
+                copy_brief_allowed=False,
+            )
+        )
+
+    if not steps:
+        steps.append(
+            _operator_next_step(
+                action="expand_permitted_sources",
+                priority="medium",
+                source="source_quality",
+                reason="No operator step matched this batch; collect more permitted read-only rows.",
+                reference_scope=[],
+                evidence_required=["permitted public/API source name", "source URL"],
+                blocks_paid_delivery=True,
+                copy_brief_allowed=False,
+            )
+        )
+
+    steps.sort(key=lambda step: (_recheck_priority_rank(step["priority"]), step["action"]))
+    return {
+        "schema_version": "patchrail.funded_issues.operator_next_steps.v1",
+        "status": cash_path_status["status"],
+        "primary_action": primary_action,
+        "copy_brief_facts_available": cash_path_status["copy_brief_facts_available"],
+        "payment_route_allowed_now": False,
+        "external_body_allowed": False,
+        "steps": steps,
+        "boundary": (
+            "Operator next steps are internal structured handoff only. This handoff does "
+            "not write external prose, create payment routes, claim rewards, post comments, "
+            "contact maintainers, open pull requests, or imply merge/payout certainty."
+        ),
+    }
+
+
+def _operator_next_step(
+    *,
+    action: str,
+    priority: str,
+    source: str,
+    reason: str,
+    reference_scope: list[str],
+    evidence_required: list[str],
+    blocks_paid_delivery: bool,
+    copy_brief_allowed: bool,
+) -> dict[str, Any]:
+    return {
+        "priority": priority,
+        "action": action,
+        "source": source,
+        "reason": reason,
+        "reference_scope": reference_scope,
+        "evidence_required": evidence_required,
+        "blocks_paid_delivery": blocks_paid_delivery,
+        "copy_brief_allowed": copy_brief_allowed,
+        "external_body_allowed": False,
+        "payment_route_allowed_now": False,
+        "blocked_actions": BLOCKED_ACTIONS,
     }
 
 

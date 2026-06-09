@@ -4466,6 +4466,7 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         _intake_followup_summary(payload["intake_followup"]),
         _cash_path_summary(payload["cash_path_status"]),
+        _operator_next_steps_summary(payload["operator_next_steps"]),
         "Read-only: True",
     ]
     return "\n".join(lines) + "\n"
@@ -4535,6 +4536,16 @@ def _cash_path_summary(cash_path_status: dict[str, Any]) -> str:
         f"{cash_path_status['next_revenue_action']}, "
         f"buyer ready: {cash_path_status['buyer_ready']}, "
         f"payment route allowed now: {cash_path_status['payment_route_allowed_now']}"
+    )
+
+
+def _operator_next_steps_summary(operator_next_steps: dict[str, Any]) -> str:
+    return (
+        "Operator next steps: "
+        f"{operator_next_steps['primary_action']}, "
+        f"{len(operator_next_steps['steps'])} steps, "
+        f"external body allowed: {operator_next_steps['external_body_allowed']}, "
+        f"payment route allowed now: {operator_next_steps['payment_route_allowed_now']}"
     )
 
 
@@ -4776,6 +4787,43 @@ def _append_cash_path_status_markdown(
     )
 
 
+def _append_operator_next_steps_markdown(
+    lines: list[str],
+    operator_next_steps: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Operator Next Steps",
+            "",
+            f"- Status: `{operator_next_steps['status']}`",
+            f"- Primary action: `{operator_next_steps['primary_action']}`",
+            f"- Copy-brief facts available: `{operator_next_steps['copy_brief_facts_available']}`",
+            f"- External body allowed: `{operator_next_steps['external_body_allowed']}`",
+            f"- Payment route allowed now: `{operator_next_steps['payment_route_allowed_now']}`",
+            "",
+            "| Priority | Action | Source | Scope | Evidence required | Blocks paid delivery | Copy brief allowed | Reason |",
+            "|---|---|---|---|---|---:|---:|---|",
+        ]
+    )
+    if operator_next_steps["steps"]:
+        for step in operator_next_steps["steps"]:
+            lines.append(
+                "| "
+                f"`{step['priority']}` | "
+                f"`{step['action']}` | "
+                f"`{step['source']}` | "
+                f"{_format_reference_list(step['reference_scope'])} | "
+                f"{_format_reference_list(step['evidence_required'])} | "
+                f"{step['blocks_paid_delivery']} | "
+                f"{step['copy_brief_allowed']} | "
+                f"{_escape_markdown_cell(step['reason'])} |"
+            )
+    else:
+        lines.append("| n/a | n/a | n/a | `none` | `none` | False | False | No steps. |")
+    lines.extend(["", operator_next_steps["boundary"]])
+
+
 def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     totals = payload["totals"]
     breakdown = payload["breakdown"]
@@ -4833,6 +4881,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     _append_intake_followup_markdown(lines, payload["intake_followup"])
     _append_cash_path_status_markdown(lines, payload["cash_path_status"])
+    _append_operator_next_steps_markdown(lines, payload["operator_next_steps"])
     lines.extend(
         [
             "",
@@ -5023,6 +5072,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
         _intake_followup_summary(payload["intake_followup"]),
         _cash_path_summary(payload["cash_path_status"]),
+        _operator_next_steps_summary(payload["operator_next_steps"]),
         "Read-only: True",
         "Boundary: Decision support only.",
     ]
@@ -5090,6 +5140,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
     _append_intake_followup_markdown(lines, payload["intake_followup"])
     _append_cash_path_status_markdown(lines, payload["cash_path_status"])
+    _append_operator_next_steps_markdown(lines, payload["operator_next_steps"])
     lines.extend(
         [
             "",
@@ -5272,6 +5323,7 @@ def _render_funded_issues_cash_actions_text(payload: dict[str, Any]) -> str:
         f"Actions before limit: {payload['actions_before_limit']}",
         f"Action rows: {payload['action_rows']}",
         f"Payment route allowed now: {cash_path['payment_route_allowed_now']}",
+        _operator_next_steps_summary(payload["operator_next_steps"]),
         f"Boundary: {payload['boundary']}",
     ]
     for item in payload["items"]:
@@ -5337,6 +5389,7 @@ def _render_funded_issues_cash_actions_markdown(payload: dict[str, Any]) -> str:
             )
     else:
         lines.append("No internal cash actions matched the filters.")
+    _append_operator_next_steps_markdown(lines, payload["operator_next_steps"])
     lines.extend(
         [
             "",
@@ -5376,6 +5429,7 @@ def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> st
         f"Active rechecks: {totals['active_rechecks']}",
         f"Next revenue action: {cash_path['next_revenue_action']}",
         f"Payment route allowed now: {cash_path['payment_route_allowed_now']}",
+        _operator_next_steps_summary(payload["operator_next_steps"]),
         f"Boundary: {payload['boundary']}",
     ]
     for item in payload["items"]:
@@ -5446,12 +5500,10 @@ def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -
             + _format_reference_list(readiness["blocking_reference_scope"]),
             "",
             readiness["boundary"],
-            "",
-            "",
-            "## Fulfillment Items",
-            "",
         ]
     )
+    _append_operator_next_steps_markdown(lines, payload["operator_next_steps"])
+    lines.extend(["", "## Fulfillment Items", ""])
     if payload["items"]:
         lines.extend(
             [

@@ -575,6 +575,32 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("internal structured handoff only", cash_path_status["boundary"])
         self.assertIn("does not create a payment route", cash_path_status["boundary"])
         self.assertIn("does not authorize claims", cash_path_status["boundary"])
+        operator_next_steps = payload["operator_next_steps"]
+        self.assertEqual(
+            operator_next_steps["schema_version"],
+            "patchrail.funded_issues.operator_next_steps.v1",
+        )
+        self.assertEqual(operator_next_steps["status"], "needs_buyer_intake")
+        self.assertEqual(operator_next_steps["primary_action"], "collect_buyer_intake")
+        self.assertFalse(operator_next_steps["external_body_allowed"])
+        self.assertFalse(operator_next_steps["payment_route_allowed_now"])
+        self.assertEqual(
+            [step["action"] for step in operator_next_steps["steps"]],
+            [
+                "collect_buyer_intake",
+                "run_read_only_recheck",
+                "preserve_no_go_evidence",
+            ],
+        )
+        self.assertTrue(operator_next_steps["steps"][0]["copy_brief_allowed"])
+        self.assertTrue(operator_next_steps["steps"][0]["blocks_paid_delivery"])
+        self.assertIn(
+            "preferred_languages",
+            operator_next_steps["steps"][0]["evidence_required"],
+        )
+        self.assertIn("example/project#42", operator_next_steps["steps"][1]["reference_scope"])
+        self.assertFalse(operator_next_steps["steps"][2]["blocks_paid_delivery"])
+        self.assertIn("does not write external prose", operator_next_steps["boundary"])
         self.assertEqual(payload["top_safe_candidates"][0]["reference"], "example/project#42")
         self.assertEqual(payload["top_safe_candidates"][0]["opportunity_state"], "active")
         self.assertIn("ranking_by_money_only", payload["blocked_actions"])
@@ -628,6 +654,11 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Status: `needs_buyer_intake`", proc.stdout)
         self.assertIn("`preferred_languages`", proc.stdout)
         self.assertIn("not customer-facing email copy", proc.stdout)
+        self.assertIn("## Operator Next Steps", proc.stdout)
+        self.assertIn("Primary action: `collect_buyer_intake`", proc.stdout)
+        self.assertIn("`preserve_no_go_evidence`", proc.stdout)
+        self.assertIn("External body allowed: `False`", proc.stdout)
+        self.assertIn("does not write external prose", proc.stdout)
         self.assertIn("## Cash Path Status", proc.stdout)
         self.assertIn("Next revenue action: `collect_buyer_intake`", proc.stdout)
         self.assertIn("Payment route allowed now: `False`", proc.stdout)
@@ -891,6 +922,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertFalse(second["copy_brief_allowed"])
         self.assertIsNone(second["copy_brief_facts"])
         self.assertIn("example/project#42", second["evidence_references"])
+        self.assertEqual(
+            payload["operator_next_steps"]["primary_action"],
+            "collect_buyer_intake",
+        )
+        self.assertEqual(len(payload["operator_next_steps"]["steps"]), 3)
+        self.assertFalse(payload["operator_next_steps"]["external_body_allowed"])
+        self.assertFalse(payload["operator_next_steps"]["payment_route_allowed_now"])
         self.assertIn("not external prose", payload["boundary"])
         self.assertIn("do not create a payment route", payload["boundary"])
         self.assertIn("guarantee merge or payout outcomes", payload["boundary"])
@@ -922,6 +960,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("`preferred_languages`", proc.stdout)
         self.assertIn("7 facts; forbidden:", proc.stdout)
         self.assertIn("`body`, `draft`, `email_body`", proc.stdout)
+        self.assertIn("## Operator Next Steps", proc.stdout)
+        self.assertIn("Primary action: `collect_buyer_intake`", proc.stdout)
         self.assertIn("not external prose", proc.stdout)
         self.assertIn("does not create a payment route", proc.stdout)
         self.assertIn("automatic_pull_requests", proc.stdout)
@@ -1000,6 +1040,16 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("recheck_public_issue_state", readiness["blocking_item_actions"])
         self.assertIn("example/project#42", readiness["blocking_reference_scope"])
         self.assertIn("does not authorize", readiness["boundary"])
+        self.assertEqual(
+            payload["operator_next_steps"]["primary_action"],
+            "collect_buyer_intake",
+        )
+        self.assertEqual(
+            [step["source"] for step in payload["operator_next_steps"]["steps"]],
+            ["cash_path", "recheck_plan", "delivery_pack"],
+        )
+        self.assertFalse(payload["operator_next_steps"]["external_body_allowed"])
+        self.assertFalse(payload["operator_next_steps"]["payment_route_allowed_now"])
         self.assertFalse(payload["handoff"]["external_body_allowed"])
         self.assertFalse(payload["handoff"]["payment_route_allowed_now"])
         self.assertTrue(payload["handoff"]["requires_written_acceptance_before_payment_route"])
@@ -1059,6 +1109,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("- Payment route allowed now: `False`", proc.stdout)
         self.assertIn("- External body allowed: `False`", proc.stdout)
         self.assertIn("`collect_buyer_intake`", proc.stdout)
+        self.assertIn("## Operator Next Steps", proc.stdout)
+        self.assertIn("`preserve_no_go_evidence`", proc.stdout)
         self.assertIn("## Fulfillment Items", proc.stdout)
         self.assertIn("`collect_buyer_intake`", proc.stdout)
         self.assertIn("`recheck_public_issue_state`", proc.stdout)
