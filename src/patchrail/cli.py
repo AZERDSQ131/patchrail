@@ -4536,7 +4536,7 @@ def _render_funded_issues_score_text(payload: dict[str, Any]) -> str:
         issue = row["issue"]
         lines.append(
             f"{issue['reference']}: {row['score']} ({row['rating']}) "
-            f"[{', '.join(row['reason_codes'])}]"
+            f"[{', '.join(row['reason_codes'])}] - {row['recommended_next_step']}"
         )
     return "\n".join(lines) + "\n"
 
@@ -4575,6 +4575,7 @@ def _render_funded_issues_score_markdown(payload: dict[str, Any]) -> str:
                 f"- Risk level: `{issue['risk_level']}`",
                 f"- URL: {issue['url']}",
                 "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
+                f"- Recommended next step: {row['recommended_next_step']}",
                 "",
             ]
         )
@@ -4647,6 +4648,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
                     f"- Opportunity state: `{issue['opportunity_state']}`",
                     f"- Risk level: `{issue['risk_level']}`",
                     "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
+                    f"- Recommended next step: {row['recommended_next_step']}",
                     f"- URL: {issue['url']}",
                     "",
                 ]
@@ -4672,6 +4674,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
                     f"- Opportunity state: `{issue['opportunity_state']}`",
                     f"- Risk level: `{issue['risk_level']}`",
                     "- Reason codes: " + ", ".join(f"`{code}`" for code in row["reason_codes"]),
+                    f"- Recommended next step: {row['recommended_next_step']}",
                     "",
                 ]
             )

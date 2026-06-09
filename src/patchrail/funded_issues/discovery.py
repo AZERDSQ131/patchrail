@@ -601,7 +601,29 @@ def _score_issue(issue: FundedIssue) -> dict[str, Any]:
         "rating": rating,
         "reason_codes": sorted(set(reason_codes)) or ["NO_MAJOR_REVIEW_GAPS"],
         "components": components,
+        "recommended_next_step": _recommended_next_step_for_score(issue, rating, reason_codes),
     }
+
+
+def _recommended_next_step_for_score(
+    issue: FundedIssue,
+    rating: str,
+    reason_codes: list[str],
+) -> str:
+    reason_code_set = set(reason_codes)
+    if issue.opportunity_state in {"closed", "stale"}:
+        return "Do not engage unless public project evidence shows the opportunity is live again."
+    if issue.risk_level == "high":
+        return "Keep as no-go evidence unless the client separately authorizes a bounded review."
+    if "FUNDING_STATE_UNCLEAR" in reason_code_set or issue.opportunity_state == "unknown":
+        return "Verify funding and current issue state from permitted public/API sources before ranking."
+    if "NO_CONTRIBUTION_GUIDELINES" in reason_code_set:
+        return "Treat as watchlist until contribution rules and maintainer expectations are clear."
+    if rating == "go_candidate":
+        return "Reproduce locally and re-check assignment, active PRs, and funding before any engagement decision."
+    if rating == "watchlist":
+        return "Keep in the watchlist and wait for clearer public maintainer or testability signal."
+    return "Do not spend engineering time on this opportunity in the current batch."
 
 
 def _risk_reason_code(flag: str) -> str:

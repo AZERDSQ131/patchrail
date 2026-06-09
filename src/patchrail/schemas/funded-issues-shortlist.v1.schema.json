@@ -226,7 +226,14 @@
     },
     "scored_issue": {
       "type": "object",
-      "required": ["issue", "score", "rating", "reason_codes", "components"],
+      "required": [
+        "issue",
+        "score",
+        "rating",
+        "reason_codes",
+        "components",
+        "recommended_next_step"
+      ],
       "properties": {
         "issue": { "$ref": "#/$defs/funded_issue" },
         "score": { "type": "integer", "minimum": 0, "maximum": 100 },
@@ -254,7 +261,8 @@
             "safe_boundary_bonus": { "type": "integer" }
           },
           "additionalProperties": false
-        }
+        },
+        "recommended_next_step": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false
     }

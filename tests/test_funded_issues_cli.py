@@ -564,6 +564,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                     self.assertEqual(
                         schema["$defs"]["scored_issue"]["properties"]["score"]["maximum"], 100
                     )
+                    self.assertIn(
+                        "recommended_next_step",
+                        schema["$defs"]["scored_issue"]["required"],
+                    )
                 else:
                     self.assertIn("top_safe_candidates", schema["required"])
                     self.assertIn("no_go_moat", schema["required"])
@@ -591,6 +595,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["scores"][0]["score"], 99)
         self.assertEqual(payload["scores"][0]["rating"], "go_candidate")
         self.assertEqual(payload["scores"][0]["reason_codes"], ["NO_MAJOR_REVIEW_GAPS"])
+        self.assertIn("Reproduce locally", payload["scores"][0]["recommended_next_step"])
+        self.assertIn("re-check assignment", payload["scores"][0]["recommended_next_step"])
         risky = payload["scores"][1]
         self.assertEqual(risky["issue"]["reference"], "example/toolkit#17")
         self.assertEqual(risky["issue"]["opportunity_state"], "closed")
@@ -600,6 +606,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("SCOPE_TOO_BROAD", risky["reason_codes"])
         self.assertIn("SPAM_ATTRACTIVE", risky["reason_codes"])
         self.assertIn("NO_CONTRIBUTION_GUIDELINES", risky["reason_codes"])
+        self.assertIn("Do not engage", risky["recommended_next_step"])
+        self.assertIn("live again", risky["recommended_next_step"])
         self.assertFalse(payload["requirements"]["network_required"])
         self.assertFalse(payload["requirements"]["github_write_permission_required"])
         self.assertIn("ranking_by_money_only", payload["blocked_actions"])
@@ -621,6 +629,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("# PatchRail Funded Issues Score", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
         self.assertNotIn("example/toolkit#17", proc.stdout)
+        self.assertIn("Recommended next step", proc.stdout)
         self.assertIn("claim rewards", proc.stdout)
         self.assertIn("automatic_pull_requests", proc.stdout)
 
@@ -689,9 +698,11 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["summary"]["rating_counts"], {"go_candidate": 1, "no_go": 1})
         self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/project#42")
         self.assertEqual(payload["shortlist"][0]["rating"], "go_candidate")
+        self.assertIn("Reproduce locally", payload["shortlist"][0]["recommended_next_step"])
         self.assertEqual(payload["no_go_evidence"][0]["issue"]["reference"], "example/toolkit#17")
         self.assertEqual(payload["no_go_evidence"][0]["issue"]["opportunity_state"], "closed")
         self.assertEqual(payload["no_go_evidence"][0]["rating"], "no_go")
+        self.assertIn("Do not engage", payload["no_go_evidence"][0]["recommended_next_step"])
         self.assertEqual(payload["no_go_moat"]["ambiguous_scope"], 1)
         self.assertEqual(payload["no_go_moat"]["stale_or_closed"], 1)
         self.assertIn("automatic_claims", payload["blocked_actions"])
@@ -720,6 +731,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("example/project#42", proc.stdout)
         self.assertIn("## No-Go Evidence", proc.stdout)
         self.assertIn("example/toolkit#17", proc.stdout)
+        self.assertIn("Recommended next step", proc.stdout)
         self.assertIn("Decision support only", proc.stdout)
         self.assertIn("automatic_pull_requests", proc.stdout)
 
