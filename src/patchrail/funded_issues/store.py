@@ -218,6 +218,10 @@ def merge_into_store(
                 "last_checked": now,
                 "state": state,
                 "state_history": [{"state": state, "at": now, "from": None}],
+                # Owner-level source-noise flags are populated out of band by
+                # patchrail.funded_issues.source_noise; default empty so every
+                # entry carries the field and it survives recheck/merge.
+                "noise_flags": [],
             }
             if score is not None:
                 entry["score"] = score
@@ -226,6 +230,9 @@ def merge_into_store(
             continue
 
         previous_state = existing.get("state")
+        # Backfill the field on legacy entries without disturbing the existing
+        # owner verdict; a real re-assessment goes through source_noise.
+        existing.setdefault("noise_flags", [])
         # last_checked always advances; it is the one field allowed to move on a
         # no-op re-merge, so it never counts as an "update" by itself.
         existing["last_checked"] = now
@@ -402,9 +409,16 @@ def store_status(store: dict[str, Any], now: str | None = None) -> dict[str, Any
     states: dict[str, int] = {state: 0 for state in sorted(VALID_OPPORTUNITY_STATES)}
     total_usd = 0.0
     usd_entries = 0
+    noise_flagged = 0
+    clean_active = 0
     for entry in entries.values():
         state = _normalize_store_state(entry.get("state"))
         states[state] = states.get(state, 0) + 1
+        is_noise = bool(entry.get("noise_flags"))
+        if is_noise:
+            noise_flagged += 1
+        elif state == "active":
+            clean_active += 1
         funding = (entry.get("issue") or {}).get("funding") or {}
         amount = funding.get("amount")
         currency = funding.get("currency")
@@ -423,6 +437,12 @@ def store_status(store: dict[str, Any], now: str | None = None) -> dict[str, Any
         "now": now,
         "total_entries": len(entries),
         "states": states,
+        # Owner-level source-noise breakdown: separate the noise-flagged entries
+        # from the clean live ones instead of reporting a single inflated
+        # "active" total. ``tracked_total`` mirrors ``total_entries``.
+        "tracked_total": len(entries),
+        "noise_flagged": noise_flagged,
+        "clean_active": clean_active,
         "added_24h": added_24h,
         "total_usd": round(total_usd, 2) if usd_entries else None,
         "usd_entries": usd_entries,

@@ -384,6 +384,11 @@ def build_payloads(
             "present": True,
             "total_entries": tracker["status"]["total_entries"],
             "states": tracker["status"]["states"],
+            # Owner-level source-noise breakdown: tracked vs noise-flagged vs
+            # clean-active, so consumers stop counting trap entries as "active".
+            "tracked_total": tracker["status"]["tracked_total"],
+            "noise_flagged": tracker["status"]["noise_flagged"],
+            "clean_active": tracker["status"]["clean_active"],
             "added_24h": tracker["status"]["added_24h"],
             "total_usd": tracker["status"]["total_usd"],
             "usd_entries": tracker["status"]["usd_entries"],
