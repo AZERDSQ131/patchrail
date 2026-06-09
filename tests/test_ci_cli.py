@@ -1095,6 +1095,47 @@ class PatchRailCITests(unittest.TestCase):
         self.assertNotIn("pypi-AgEIcHlwaS5vcmcCdGVzdC12YWx1ZQ", proc.stdout)
         self.assertNotIn("npm_1234567890abcdefghijklmnopqrst", proc.stdout)
 
+    def test_redact_command_handles_cloud_and_key_material(self) -> None:
+        fake_jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.s5b3Qd7n0pXcVm9wQ1aZ2k4L8tR6yU0o"
+        fake_google_key = "AIza" + "b" * 35
+        # Build at runtime so the recognizable token prefix never appears verbatim in source.
+        fake_slack_token = "xox" + "b-123456789012-abcdefghijklmnop"
+        private_key = (
+            "-----BEGIN RSA PRIVATE KEY-----\n"
+            "MIIBVAIBADANBgkqhkiG9w0BAQEFAASCAT4wggE6AgEAAkEA\n"
+            "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKL\n"
+            "-----END RSA PRIVATE KEY-----"
+        )
+        proc = subprocess.run(
+            [sys.executable, "-m", "patchrail", "redact"],
+            input=(
+                f"Slack token {fake_slack_token}\n"
+                f"Google key {fake_google_key}\n"
+                "Google oauth ya29.A0ARrdaM-abcdefghijklmnopqrstuvwxyz0123\n"
+                "HuggingFace hf_abcdefghijklmnopqrstuvwxyz0123\n"
+                f"Auth header Authorization: Bearer {fake_jwt}\n"
+                f"{private_key}\n"
+            ),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("<slack-token>", proc.stdout)
+        self.assertIn("<google-api-key>", proc.stdout)
+        self.assertIn("<google-oauth-token>", proc.stdout)
+        self.assertIn("<huggingface-token>", proc.stdout)
+        self.assertIn("<jwt>", proc.stdout)
+        self.assertIn("<private-key>", proc.stdout)
+        self.assertNotIn(fake_slack_token, proc.stdout)
+        self.assertNotIn(fake_google_key, proc.stdout)
+        self.assertNotIn("ya29.A0ARrdaM", proc.stdout)
+        self.assertNotIn("hf_abcdefghijklmnopqrstuvwxyz0123", proc.stdout)
+        self.assertNotIn(fake_jwt, proc.stdout)
+        self.assertNotIn("MIIBVAIBADANBgkqhkiG", proc.stdout)
+        self.assertNotIn("BEGIN RSA PRIVATE KEY", proc.stdout)
+
     def test_unknown_log_is_not_repairable(self) -> None:
         result = json.loads(
             subprocess.run(

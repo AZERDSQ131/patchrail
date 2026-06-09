@@ -14,6 +14,17 @@ REDACTION_PATTERNS: list[tuple[str, str, str]] = [
     ("pypi_token", r"\bpypi-[A-Za-z0-9_.-]{20,}\b", "<pypi-token>"),
     ("aws_access_key", r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b", "<aws-access-key>"),
     ("stripe_secret_key", r"\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b", "<stripe-secret-key>"),
+    ("slack_token", r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b", "<slack-token>"),
+    ("google_api_key", r"\bAIza[0-9A-Za-z_-]{35}\b", "<google-api-key>"),
+    ("google_oauth_token", r"\bya29\.[A-Za-z0-9_-]{20,}", "<google-oauth-token>"),
+    ("huggingface_token", r"\bhf_[A-Za-z0-9]{20,}\b", "<huggingface-token>"),
+    (
+        "private_key_block",
+        r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----"
+        r"[\s\S]*?-----END (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY-----",
+        "<private-key>",
+    ),
+    ("jwt", r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b", "<jwt>"),
     ("bearer_token", r"\bBearer\s+[A-Za-z0-9._~+/=-]{16,}\b", "Bearer <token>"),
     (
         "env_secret_assignment",
