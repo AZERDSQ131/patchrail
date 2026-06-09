@@ -30,6 +30,16 @@
   total. Backed by the pure `assess_payout_effort_batch` helper and an example
   observations fixture. Strictly read-only: no claims, comments, or maintainer
   contact.
+- Added an offline owner-level `source_noise` heuristic to `funded-issues`: the
+  pure `assess_owner_source_noise` helper screens an owner's public metadata
+  (account age, public repos, followers, website, payout verifiability) plus its
+  near-identical-issue volume into `noise_flags`, flagging the owner when it
+  trips at least two strong signals. `apply_source_noise_to_store` stamps the
+  verdict onto store entries via a new `noise_flags` field that survives
+  merge/upsert and apply-recheck, and `track-status` / web metrics now report a
+  `tracked_total` / `noise_flagged` / `clean_active` breakdown instead of a
+  single inflated active count. Strictly read-only: no network, no third-party
+  writes.
 - Added `funded-issues apply-recheck`, a local-file-only command that applies
   recheck observations (a JSON list, an `{observations: [...]}` object, or a
   list of GitHub API issue objects) to a tracker store, transitioning entries

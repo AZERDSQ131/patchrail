@@ -37,6 +37,13 @@ from patchrail.funded_issues.discovery import (
     validate_funded_issues,
 )
 from patchrail.funded_issues.importers import SUPPORTED_PROVIDERS, import_provider_export
+from patchrail.funded_issues.source_noise import (
+    SOURCE_NOISE_SCHEMA_VERSION,
+    STRONG_NOISE_FLAGS,
+    apply_source_noise_to_store,
+    assess_owner_source_noise,
+    entries_by_owner,
+)
 from patchrail.funded_issues.store import (
     RECHECK_SUMMARY_SCHEMA_VERSION,
     STORE_SCHEMA_VERSION,
@@ -59,10 +66,12 @@ __all__ = [
     "PAYOUT_EFFORT_BATCH_SCHEMA_VERSION",
     "PAYOUT_EFFORT_SIGNAL_SCHEMA_VERSION",
     "RECHECK_SUMMARY_SCHEMA_VERSION",
+    "SOURCE_NOISE_SCHEMA_VERSION",
     "STALENESS_BATCH_SCHEMA_VERSION",
     "STALENESS_SIGNAL_SCHEMA_VERSION",
     "STORE_SCHEMA_VERSION",
     "STORE_STATUS_SCHEMA_VERSION",
+    "STRONG_NOISE_FLAGS",
     "TESTABILITY_BATCH_SCHEMA_VERSION",
     "TESTABILITY_SIGNAL_SCHEMA_VERSION",
     "ClientProfile",
@@ -80,9 +89,12 @@ __all__ = [
     "assess_staleness_batch",
     "assess_testability_batch",
     "apply_recheck_to_store",
+    "apply_source_noise_to_store",
+    "assess_owner_source_noise",
     "cash_actions_funded_issues",
     "client_report_funded_issues",
     "empty_store",
+    "entries_by_owner",
     "explain_issue",
     "fulfillment_packet_funded_issues",
     "funded_issues_payload",

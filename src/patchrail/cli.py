@@ -6753,6 +6753,10 @@ def _render_funded_issues_track_status_text(payload: dict[str, Any]) -> str:
     ]
     for state, count in sorted(payload["states"].items()):
         lines.append(f"  - {state}: {count}")
+    lines.append("Source-noise breakdown:")
+    lines.append(f"  - tracked total: {payload['tracked_total']}")
+    lines.append(f"  - noise flagged: {payload['noise_flagged']}")
+    lines.append(f"  - clean active: {payload['clean_active']}")
     added_24h = payload["added_24h"]
     lines.append(f"Added in last 24h: {'n/a' if added_24h is None else added_24h}")
     total_usd = payload["total_usd"]
