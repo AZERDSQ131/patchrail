@@ -9,6 +9,8 @@ import tempfile
 from pathlib import Path
 import unittest
 
+from patchrail.funded_issues.importers import import_provider_export
+
 
 def run_patchrail(args: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
@@ -311,6 +313,53 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["total_loaded"], 2)
         self.assertEqual(payload["total_returned"], 1)
         self.assertEqual(payload["issues"][0]["reference"], "example/project#42")
+
+    def _import_records(self, records: list[dict]) -> list[dict]:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "export.json"
+            source.write_text(json.dumps(records), encoding="utf-8")
+            payload = import_provider_export("github", source)
+        return payload["issues"]
+
+    def test_import_infers_currency_from_symbol(self) -> None:
+        issues = self._import_records(
+            [
+                {"repository": "ex/a", "issue_number": 1, "funding": {"amount": "€500"}},
+                {"repository": "ex/b", "issue_number": 2, "funding": {"amount": "£750"}},
+                {"repository": "ex/c", "issue_number": 3, "funding": {"amount": "¥1000"}},
+            ]
+        )
+        self.assertEqual(issues[0]["funding"]["amount"], 500.0)
+        self.assertEqual(issues[0]["funding"]["currency"], "EUR")
+        self.assertEqual(issues[1]["funding"]["currency"], "GBP")
+        self.assertEqual(issues[2]["funding"]["currency"], "JPY")
+
+    def test_import_parses_dollar_prefixed_amount_as_usd(self) -> None:
+        issues = self._import_records(
+            [{"repository": "ex/a", "issue_number": 1, "bounty_amount": "$1,000"}]
+        )
+        self.assertEqual(issues[0]["funding"]["amount"], 1000.0)
+        self.assertEqual(issues[0]["funding"]["currency"], "USD")
+
+    def test_import_reads_trailing_currency_code(self) -> None:
+        issues = self._import_records(
+            [{"repository": "ex/a", "issue_number": 1, "bounty": {"amount": "750 GBP"}}]
+        )
+        self.assertEqual(issues[0]["funding"]["amount"], 750.0)
+        self.assertEqual(issues[0]["funding"]["currency"], "GBP")
+
+    def test_import_explicit_currency_field_beats_symbol(self) -> None:
+        issues = self._import_records(
+            [
+                {
+                    "repository": "ex/a",
+                    "issue_number": 1,
+                    "funding": {"amount": "€500", "currency": "usd"},
+                }
+            ]
+        )
+        self.assertEqual(issues[0]["funding"]["amount"], 500.0)
+        self.assertEqual(issues[0]["funding"]["currency"], "USD")
 
     def test_funded_issues_validate_passes_clean_local_dataset(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

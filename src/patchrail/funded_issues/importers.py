@@ -11,6 +11,10 @@ from patchrail.funded_issues.discovery import FundedIssue, funded_issues_payload
 
 SUPPORTED_PROVIDERS = ("algora", "github", "openpledge", "polar")
 
+_CURRENCY_SYMBOLS = {"$": "USD", "€": "EUR", "£": "GBP", "¥": "JPY"}
+_CURRENCY_CODES = ("USD", "EUR", "GBP", "JPY", "CAD", "AUD")
+_CURRENCY_CODE_PATTERN = re.compile(r"(?i)\b(" + "|".join(_CURRENCY_CODES) + r")\b")
+
 _AMBIGUOUS_SCOPE_TERMS = (
     "architecture",
     "broad",
@@ -150,24 +154,27 @@ def _issue_number(raw: dict[str, Any]) -> int | None:
 def _funding(raw: dict[str, Any]) -> tuple[float | None, str | None]:
     funding = raw.get("funding")
     if isinstance(funding, dict):
-        amount = _numeric(funding.get("amount") or funding.get("value") or funding.get("usd"))
+        raw_amount = funding.get("amount") or funding.get("value") or funding.get("usd")
+        amount = _numeric(raw_amount)
         currency = _first_string(funding, "currency", "currency_code")
-        return amount, currency.upper() if currency else None
+        return amount, _normalize_currency(currency, raw_amount)
 
     bounty = raw.get("bounty")
     if isinstance(bounty, dict):
-        amount = _numeric(bounty.get("amount") or bounty.get("value") or bounty.get("usd"))
+        raw_amount = bounty.get("amount") or bounty.get("value") or bounty.get("usd")
+        amount = _numeric(raw_amount)
         currency = _first_string(bounty, "currency", "currency_code")
-        return amount, currency.upper() if currency else None
+        return amount, _normalize_currency(currency, raw_amount)
 
     for key in ("amount_usd", "reward_usd", "bounty_usd", "funding_usd"):
         amount = _numeric(raw.get(key))
         if amount is not None:
             return amount, "USD"
 
-    amount = _numeric(raw.get("amount") or raw.get("reward") or raw.get("bounty_amount"))
+    raw_amount = raw.get("amount") or raw.get("reward") or raw.get("bounty_amount")
+    amount = _numeric(raw_amount)
     currency = _first_string(raw, "currency", "currency_code")
-    return amount, currency.upper() if currency else None
+    return amount, _normalize_currency(currency, raw_amount)
 
 
 def _labels(raw: dict[str, Any]) -> list[str]:
@@ -264,12 +271,34 @@ def _numeric(value: Any) -> float | None:
     if isinstance(value, int | float):
         return float(value)
     if isinstance(value, str):
-        cleaned = value.replace("$", "").replace(",", "").strip()
+        cleaned = value
+        for symbol in _CURRENCY_SYMBOLS:
+            cleaned = cleaned.replace(symbol, "")
+        cleaned = _CURRENCY_CODE_PATTERN.sub("", cleaned)
+        cleaned = cleaned.replace(",", "").strip()
         try:
             return float(cleaned)
         except ValueError:
             return None
     return None
+
+
+def _detect_currency(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    for symbol, code in _CURRENCY_SYMBOLS.items():
+        if symbol in value:
+            return code
+    match = _CURRENCY_CODE_PATTERN.search(value)
+    if match:
+        return match.group(1).upper()
+    return None
+
+
+def _normalize_currency(explicit: str | None, raw_amount: Any) -> str | None:
+    if explicit:
+        return explicit.upper()
+    return _detect_currency(raw_amount)
 
 
 def _string_list(value: Any) -> list[str]:
