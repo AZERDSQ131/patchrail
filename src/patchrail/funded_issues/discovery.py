@@ -30,6 +30,13 @@ HIGH_RISK_FLAGS = {
 
 VALID_OPPORTUNITY_STATES = {"active", "closed", "stale", "unknown"}
 VALID_RISK_LEVELS = {"high", "low", "medium"}
+VALID_DECISION_GATES = {
+    "go_after_recheck",
+    "needs_authorization",
+    "needs_funding_verification",
+    "no_go",
+    "watchlist",
+}
 
 
 @dataclass(frozen=True)
@@ -599,10 +606,32 @@ def _score_issue(issue: FundedIssue) -> dict[str, Any]:
         "issue": issue.to_dict(),
         "score": score,
         "rating": rating,
+        "decision_gate": _decision_gate_for_score(issue, rating, reason_codes),
         "reason_codes": sorted(set(reason_codes)) or ["NO_MAJOR_REVIEW_GAPS"],
         "components": components,
         "recommended_next_step": _recommended_next_step_for_score(issue, rating, reason_codes),
     }
+
+
+def _decision_gate_for_score(
+    issue: FundedIssue,
+    rating: str,
+    reason_codes: list[str],
+) -> str:
+    reason_code_set = set(reason_codes)
+    if issue.opportunity_state in {"closed", "stale"}:
+        return "no_go"
+    if "NEEDS_AUTHORIZATION" in reason_code_set:
+        return "needs_authorization"
+    if "FUNDING_STATE_UNCLEAR" in reason_code_set or issue.opportunity_state == "unknown":
+        return "needs_funding_verification"
+    if issue.risk_level == "high":
+        return "no_go"
+    if rating == "go_candidate":
+        return "go_after_recheck"
+    if rating == "watchlist":
+        return "watchlist"
+    return "no_go"
 
 
 def _recommended_next_step_for_score(

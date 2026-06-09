@@ -230,6 +230,7 @@
         "issue",
         "score",
         "rating",
+        "decision_gate",
         "reason_codes",
         "components",
         "recommended_next_step"
@@ -238,6 +239,15 @@
         "issue": { "$ref": "#/$defs/funded_issue" },
         "score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "rating": { "enum": ["go_candidate", "watchlist", "no_go"] },
+        "decision_gate": {
+          "enum": [
+            "go_after_recheck",
+            "needs_authorization",
+            "needs_funding_verification",
+            "no_go",
+            "watchlist"
+          ]
+        },
         "reason_codes": {
           "type": "array",
           "items": { "type": "string", "minLength": 1 }

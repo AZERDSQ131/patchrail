@@ -568,6 +568,14 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                         "recommended_next_step",
                         schema["$defs"]["scored_issue"]["required"],
                     )
+                    self.assertIn(
+                        "decision_gate",
+                        schema["$defs"]["scored_issue"]["required"],
+                    )
+                    self.assertIn(
+                        "needs_funding_verification",
+                        schema["$defs"]["scored_issue"]["properties"]["decision_gate"]["enum"],
+                    )
                 else:
                     self.assertIn("top_safe_candidates", schema["required"])
                     self.assertIn("no_go_moat", schema["required"])
@@ -594,6 +602,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["scores"][0]["issue"]["reference"], "example/project#42")
         self.assertEqual(payload["scores"][0]["score"], 99)
         self.assertEqual(payload["scores"][0]["rating"], "go_candidate")
+        self.assertEqual(payload["scores"][0]["decision_gate"], "go_after_recheck")
         self.assertEqual(payload["scores"][0]["reason_codes"], ["NO_MAJOR_REVIEW_GAPS"])
         self.assertIn("Reproduce locally", payload["scores"][0]["recommended_next_step"])
         self.assertIn("re-check assignment", payload["scores"][0]["recommended_next_step"])
@@ -602,6 +611,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(risky["issue"]["opportunity_state"], "closed")
         self.assertEqual(risky["score"], 0)
         self.assertEqual(risky["rating"], "no_go")
+        self.assertEqual(risky["decision_gate"], "no_go")
         self.assertIn("CLOSED_OR_INACTIVE", risky["reason_codes"])
         self.assertIn("SCOPE_TOO_BROAD", risky["reason_codes"])
         self.assertIn("SPAM_ATTRACTIVE", risky["reason_codes"])
@@ -677,6 +687,100 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["scores"][0]["issue"]["reference"], "example/project#42")
         self.assertEqual(payload["scores"][0]["issue"]["risk_level"], "low")
 
+    def test_funded_issues_score_marks_unclear_funding_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "issues.json"
+            source.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.v1",
+                        "issues": [
+                            {
+                                "id": "unclear",
+                                "platform": "github",
+                                "repository": "example/unclear",
+                                "issue_number": 8,
+                                "title": "Investigate funded but unverified issue",
+                                "url": "https://github.com/example/unclear/issues/8",
+                                "language": "python",
+                                "labels": ["bug"],
+                                "opportunity_state": "unknown",
+                                "contribution_signals": ["reproduction included"],
+                                "risk_flags": [],
+                                "contribution_guidelines_url": (
+                                    "https://github.com/example/unclear/blob/main/CONTRIBUTING.md"
+                                ),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "score",
+                    "--source",
+                    str(source),
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["scores"][0]["decision_gate"], "needs_funding_verification")
+        self.assertIn("FUNDING_STATE_UNCLEAR", payload["scores"][0]["reason_codes"])
+        self.assertIn("OPPORTUNITY_STATE_UNCLEAR", payload["scores"][0]["reason_codes"])
+
+    def test_funded_issues_score_marks_authorization_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "issues.json"
+            source.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.v1",
+                        "issues": [
+                            {
+                                "id": "authorization",
+                                "platform": "algora",
+                                "repository": "example/authorization",
+                                "issue_number": 12,
+                                "title": "Requires private maintainer contact",
+                                "url": "https://github.com/example/authorization/issues/12",
+                                "funding": {"amount": 1000, "currency": "USD"},
+                                "language": "typescript",
+                                "labels": ["integration"],
+                                "opportunity_state": "active",
+                                "contribution_signals": ["requires maintainer confirmation"],
+                                "risk_flags": ["requires_external_contact"],
+                                "contribution_guidelines_url": (
+                                    "https://github.com/example/authorization/blob/main/CONTRIBUTING.md"
+                                ),
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "score",
+                    "--source",
+                    str(source),
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["scores"][0]["decision_gate"], "needs_authorization")
+        self.assertIn("NEEDS_AUTHORIZATION", payload["scores"][0]["reason_codes"])
+
     def test_funded_issues_shortlist_builds_decision_support_artifact(self) -> None:
         proc = run_patchrail(
             [
@@ -698,10 +802,12 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["summary"]["rating_counts"], {"go_candidate": 1, "no_go": 1})
         self.assertEqual(payload["shortlist"][0]["issue"]["reference"], "example/project#42")
         self.assertEqual(payload["shortlist"][0]["rating"], "go_candidate")
+        self.assertEqual(payload["shortlist"][0]["decision_gate"], "go_after_recheck")
         self.assertIn("Reproduce locally", payload["shortlist"][0]["recommended_next_step"])
         self.assertEqual(payload["no_go_evidence"][0]["issue"]["reference"], "example/toolkit#17")
         self.assertEqual(payload["no_go_evidence"][0]["issue"]["opportunity_state"], "closed")
         self.assertEqual(payload["no_go_evidence"][0]["rating"], "no_go")
+        self.assertEqual(payload["no_go_evidence"][0]["decision_gate"], "no_go")
         self.assertIn("Do not engage", payload["no_go_evidence"][0]["recommended_next_step"])
         self.assertEqual(payload["no_go_moat"]["ambiguous_scope"], 1)
         self.assertEqual(payload["no_go_moat"]["stale_or_closed"], 1)
@@ -729,6 +835,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("# PatchRail Funded Issues Shortlist", proc.stdout)
         self.assertIn("## Shortlist", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
+        self.assertIn("Decision gate", proc.stdout)
+        self.assertIn("go_after_recheck", proc.stdout)
         self.assertIn("## No-Go Evidence", proc.stdout)
         self.assertIn("example/toolkit#17", proc.stdout)
         self.assertIn("Recommended next step", proc.stdout)
