@@ -228,9 +228,7 @@ def _mixed_store() -> dict:
         ]
     ):
         issues.append(
-            _store_issue(
-                LEGIT_OWNER, title, f"https://github.com/{LEGIT_OWNER}/repo/issues/{i}"
-            )
+            _store_issue(LEGIT_OWNER, title, f"https://github.com/{LEGIT_OWNER}/repo/issues/{i}")
         )
     merge_into_store(store, issues, NOW)
     apply_source_noise_to_store(
