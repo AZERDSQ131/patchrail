@@ -1151,6 +1151,38 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertFalse(digest["payment_route_allowed_now"])
         self.assertFalse(digest["external_body_allowed"])
         self.assertIn("does not write customer prose", digest["boundary"])
+        report_plan = payload["report_assembly_plan"]
+        self.assertEqual(
+            report_plan["schema_version"],
+            "patchrail.funded_issues.report_assembly_plan.v1",
+        )
+        self.assertEqual(report_plan["status"], "blocked_before_customer_delivery")
+        self.assertTrue(report_plan["internal_assembly_ready"])
+        self.assertFalse(report_plan["customer_delivery_ready"])
+        self.assertEqual(report_plan["section_count"], 7)
+        self.assertIn("executive_summary", report_plan["ready_sections"])
+        self.assertIn("no_go_list", report_plan["ready_sections"])
+        self.assertIn("top_recommendations", report_plan["blocked_sections"])
+        self.assertIn("watchlist", report_plan["blocked_sections"])
+        self.assertIn("recommended_operating_procedure", report_plan["blocked_sections"])
+        self.assertEqual(report_plan["candidate_references"], ["example/project#42"])
+        self.assertEqual(report_plan["verification_references"], [])
+        self.assertEqual(report_plan["no_go_references"], ["example/toolkit#17"])
+        self.assertEqual(report_plan["source_quality_status"], "candidate_sources_available")
+        self.assertFalse(report_plan["payment_route_allowed_now"])
+        self.assertFalse(report_plan["external_body_allowed"])
+        self.assertFalse(report_plan["customer_facing_prose_allowed"])
+        section_map = {section["section"]: section for section in report_plan["sections"]}
+        self.assertEqual(
+            section_map["top_recommendations"]["blocked_by"],
+            ["public_state_recheck_complete", "buyer_intake_fields_complete"],
+        )
+        self.assertIn(
+            "delivery_pack.handoff.candidate_references",
+            section_map["top_recommendations"]["source_fields"],
+        )
+        self.assertEqual(section_map["disclaimer"]["status"], "ready_for_internal_draft")
+        self.assertIn("does not write customer prose", report_plan["boundary"])
         self.assertEqual(
             payload["operator_next_steps"]["primary_action"],
             "collect_buyer_intake",
@@ -1228,6 +1260,17 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("`patchrail_operator`", proc.stdout)
         self.assertIn("`run_read_only_recheck`", proc.stdout)
         self.assertIn("does not write customer prose", proc.stdout)
+        self.assertIn("## Report Assembly Plan", proc.stdout)
+        self.assertIn("- Status: `blocked_before_customer_delivery`", proc.stdout)
+        self.assertIn("- Internal assembly ready: `True`", proc.stdout)
+        self.assertIn("- Customer delivery ready: `False`", proc.stdout)
+        self.assertIn(
+            "- Blocked sections: `top_recommendations`, `watchlist`, `recommended_operating_procedure`",
+            proc.stdout,
+        )
+        self.assertIn("`delivery_pack.handoff.candidate_references`", proc.stdout)
+        self.assertIn("`public_state_recheck_complete`", proc.stdout)
+        self.assertIn("Customer-facing prose allowed: `False`", proc.stdout)
         self.assertIn("Payment route allowed now: `False`", proc.stdout)
         self.assertIn("## Operator Next Steps", proc.stdout)
         self.assertIn("`preserve_no_go_evidence`", proc.stdout)

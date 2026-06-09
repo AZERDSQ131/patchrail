@@ -943,6 +943,10 @@ def fulfillment_packet_funded_issues(
             items=items,
             report_payload=report_payload,
         ),
+        "report_assembly_plan": _fulfillment_report_assembly_plan(
+            qa_gates=qa_gates,
+            report_payload=report_payload,
+        ),
         "handoff": {
             "candidate_references": report_payload["delivery_pack"]["handoff"][
                 "candidate_references"
@@ -957,6 +961,7 @@ def fulfillment_packet_funded_issues(
                 "delivery_pack",
                 "recheck_queue",
                 "cash_actions",
+                "report_assembly_plan",
             ],
             "external_body_allowed": False,
             "payment_route_allowed_now": False,
@@ -975,6 +980,142 @@ def fulfillment_packet_funded_issues(
             "does not claim rewards, post comments, contact maintainers, open pull requests, "
             "or guarantee merge or payout outcomes."
         ),
+    }
+
+
+def _fulfillment_report_assembly_plan(
+    *,
+    qa_gates: list[dict[str, Any]],
+    report_payload: dict[str, Any],
+) -> dict[str, Any]:
+    gate_map = {str(gate["gate"]): gate for gate in qa_gates}
+    handoff = report_payload["delivery_pack"]["handoff"]
+    decision_summary = report_payload["decision_summary"]
+    source_quality = report_payload["source_quality"]
+    no_go_moat = report_payload["no_go_moat"]
+    sections = [
+        _report_assembly_section(
+            section="executive_summary",
+            source_fields=["decision_summary", "source_quality.summary", "cash_path_status"],
+            references=[],
+            blocked_by=[],
+            next_safe_local_action="summarize batch decision, blocker count, and cash-path status",
+        ),
+        _report_assembly_section(
+            section="top_recommendations",
+            source_fields=[
+                "delivery_pack.handoff.candidate_references",
+                "recheck_plan.next_rows",
+            ],
+            references=handoff["candidate_references"] + handoff["verification_references"],
+            blocked_by=_blocked_report_section_gates(
+                gate_map,
+                ["public_state_recheck_complete", "buyer_intake_fields_complete"],
+            ),
+            next_safe_local_action="complete public-state rechecks before turning candidates into recommendations",
+        ),
+        _report_assembly_section(
+            section="watchlist",
+            source_fields=["recheck_plan.next_rows", "source_quality.sources"],
+            references=handoff["verification_references"],
+            blocked_by=_blocked_report_section_gates(gate_map, ["public_state_recheck_complete"]),
+            next_safe_local_action="keep verification rows as watchlist until funding and state are current",
+        ),
+        _report_assembly_section(
+            section="no_go_list",
+            source_fields=["delivery_pack.handoff.no_go_references", "no_go_moat"],
+            references=handoff["no_go_references"],
+            blocked_by=[],
+            next_safe_local_action="preserve no-go rows as exclusion evidence",
+        ),
+        _report_assembly_section(
+            section="patterns_observed",
+            source_fields=["source_quality.summary", "breakdown.risk_flags", "no_go_moat"],
+            references=[],
+            blocked_by=[],
+            next_safe_local_action="summarize source quality and recurring no-go patterns internally",
+        ),
+        _report_assembly_section(
+            section="recommended_operating_procedure",
+            source_fields=["operator_next_steps", "operations_digest"],
+            references=[],
+            blocked_by=_blocked_report_section_gates(
+                gate_map,
+                ["buyer_intake_fields_complete", "payment_route_written_acceptance"],
+            ),
+            next_safe_local_action="keep the procedure internal until buyer scope and payment route preconditions are met",
+        ),
+        _report_assembly_section(
+            section="disclaimer",
+            source_fields=["boundary", "blocked_actions", "requirements"],
+            references=[],
+            blocked_by=[],
+            next_safe_local_action="keep read-only/no-guarantee boundaries visible in every delivered report",
+        ),
+    ]
+    blocked_sections = [section for section in sections if section["blocked_by"]]
+    customer_delivery_ready = not blocked_sections and bool(
+        gate_map.get("payment_route_written_acceptance", {}).get("passed")
+    )
+    return {
+        "schema_version": "patchrail.funded_issues.report_assembly_plan.v1",
+        "status": (
+            "ready_for_customer_delivery"
+            if customer_delivery_ready
+            else "blocked_before_customer_delivery"
+        ),
+        "internal_assembly_ready": bool(
+            decision_summary["total_rows"] and source_quality["summary"]["source_count"]
+        ),
+        "customer_delivery_ready": customer_delivery_ready,
+        "section_count": len(sections),
+        "ready_sections": [section["section"] for section in sections if not section["blocked_by"]],
+        "blocked_sections": [section["section"] for section in blocked_sections],
+        "source_quality_status": source_quality["summary"]["status"],
+        "candidate_references": list(handoff["candidate_references"]),
+        "verification_references": list(handoff["verification_references"]),
+        "no_go_references": list(handoff["no_go_references"]),
+        "no_go_signal_count": int(no_go_moat["high_risk_or_excluded"]),
+        "sections": sections,
+        "payment_route_allowed_now": False,
+        "external_body_allowed": False,
+        "customer_facing_prose_allowed": False,
+        "requires_written_acceptance_before_delivery": True,
+        "boundary": (
+            "Report assembly plan is internal structure only. It may organize evidence for "
+            "OpenClaw/Opus or a paid delivery workflow, but it does not write customer prose, "
+            "create payment routes, claim rewards, contact maintainers, post comments, open "
+            "pull requests, or guarantee merge/payout outcomes."
+        ),
+    }
+
+
+def _blocked_report_section_gates(
+    gate_map: dict[str, dict[str, Any]],
+    gate_names: list[str],
+) -> list[str]:
+    return [
+        gate_name for gate_name in gate_names if not bool(gate_map.get(gate_name, {}).get("passed"))
+    ]
+
+
+def _report_assembly_section(
+    *,
+    section: str,
+    source_fields: list[str],
+    references: list[str],
+    blocked_by: list[str],
+    next_safe_local_action: str,
+) -> dict[str, Any]:
+    return {
+        "section": section,
+        "status": "blocked_before_customer_delivery" if blocked_by else "ready_for_internal_draft",
+        "source_fields": source_fields,
+        "references": sorted(set(references)),
+        "blocked_by": blocked_by,
+        "next_safe_local_action": next_safe_local_action,
+        "external_body_allowed": False,
+        "payment_route_allowed_now": False,
     }
 
 

@@ -5503,6 +5503,7 @@ def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> st
     cash_path = payload["cash_path_status"]
     readiness = payload["delivery_readiness"]
     digest = payload["operations_digest"]
+    report_plan = payload["report_assembly_plan"]
     totals = payload["totals"]
     lines = [
         "PatchRail Funded Issues Fulfillment Packet",
@@ -5522,6 +5523,8 @@ def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> st
         f"Operations digest: {digest['status']}",
         f"Operations blocking count: {digest['blocking_count']}",
         f"Next safe local action: {_digest_action_summary(digest['next_safe_local_action'])}",
+        f"Report assembly plan: {report_plan['status']}",
+        f"Report blocked sections: {report_plan['blocked_sections']}",
         _operator_next_steps_summary(payload["operator_next_steps"]),
         f"Boundary: {payload['boundary']}",
     ]
@@ -5538,6 +5541,7 @@ def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -
     cash_path = payload["cash_path_status"]
     readiness = payload["delivery_readiness"]
     digest = payload["operations_digest"]
+    report_plan = payload["report_assembly_plan"]
     totals = payload["totals"]
     handoff = payload["handoff"]
     lines = [
@@ -5621,6 +5625,43 @@ def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -
             f"{step['blocks_paid_delivery']} |"
         )
     lines.extend(["", digest["boundary"]])
+    lines.extend(
+        [
+            "",
+            "## Report Assembly Plan",
+            "",
+            f"- Status: `{report_plan['status']}`",
+            f"- Internal assembly ready: `{report_plan['internal_assembly_ready']}`",
+            f"- Customer delivery ready: `{report_plan['customer_delivery_ready']}`",
+            f"- Section count: `{report_plan['section_count']}`",
+            "- Ready sections: " + _format_reference_list(report_plan["ready_sections"]),
+            "- Blocked sections: " + _format_reference_list(report_plan["blocked_sections"]),
+            f"- Source quality status: `{report_plan['source_quality_status']}`",
+            "- Candidate references: "
+            + _format_reference_list(report_plan["candidate_references"]),
+            "- Verification references: "
+            + _format_reference_list(report_plan["verification_references"]),
+            "- No-go references: " + _format_reference_list(report_plan["no_go_references"]),
+            f"- No-go signal count: `{report_plan['no_go_signal_count']}`",
+            f"- Payment route allowed now: `{report_plan['payment_route_allowed_now']}`",
+            f"- External body allowed: `{report_plan['external_body_allowed']}`",
+            f"- Customer-facing prose allowed: `{report_plan['customer_facing_prose_allowed']}`",
+            "",
+            "| Section | Status | Sources | References | Blocked by | Next safe local action |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for section in report_plan["sections"]:
+        lines.append(
+            "| "
+            f"`{section['section']}` | "
+            f"`{section['status']}` | "
+            f"{_format_reference_list(section['source_fields'])} | "
+            f"{_format_reference_list(section['references'])} | "
+            f"{_format_reference_list(section['blocked_by'])} | "
+            f"{_escape_markdown_cell(section['next_safe_local_action'])} |"
+        )
+    lines.extend(["", report_plan["boundary"]])
     _append_operator_next_steps_markdown(lines, payload["operator_next_steps"])
     lines.extend(["", "## Fulfillment Items", ""])
     if payload["items"]:
