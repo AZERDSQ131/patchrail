@@ -491,6 +491,29 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         )
         self.assertIn("paid decision support", delivery_pack["boundary"])
         source_quality = payload["source_quality"]
+        self.assertEqual(
+            source_quality["summary"],
+            {
+                "source_count": 2,
+                "total_rows": 2,
+                "candidate_rows": 1,
+                "no_go_rows": 1,
+                "candidate_source_count": 1,
+                "no_go_only_source_count": 1,
+                "funding_verification_needed": 0,
+                "authorization_needed": 0,
+                "status": "candidate_sources_available",
+                "next_tracker_action": (
+                    "Run read-only public-state recheck on candidate sources before paid "
+                    "shortlist use."
+                ),
+                "boundary": (
+                    "Source summary is local tracker evidence only. It does not authorize "
+                    "scraping, claims, comments, maintainer contact, pull requests, or "
+                    "payout/merge guarantees."
+                ),
+            },
+        )
         self.assertEqual(source_quality["sources"]["polar"]["total_rows"], 1)
         self.assertEqual(source_quality["sources"]["polar"]["candidate_rows"], 1)
         self.assertEqual(source_quality["sources"]["polar"]["no_go_rows"], 0)
@@ -586,8 +609,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Candidate references: `example/project#42`", proc.stdout)
         self.assertIn("No-go references: `example/toolkit#17`", proc.stdout)
         self.assertIn("## Source Quality", proc.stdout)
+        self.assertIn("Status: `candidate_sources_available`", proc.stdout)
+        self.assertIn("Candidate sources: `1`", proc.stdout)
+        self.assertIn("No-go-only sources: `1`", proc.stdout)
+        self.assertIn("Next tracker action: Run read-only public-state recheck", proc.stdout)
         self.assertIn("`polar` | 1 | 1 | 0 | 1", proc.stdout)
         self.assertIn("`algora` | 1 | 0 | 1 | 0", proc.stdout)
+        self.assertIn("Source summary is local tracker evidence only", proc.stdout)
         self.assertIn("read-only benchmarking", proc.stdout)
         self.assertIn("## Recheck Plan", proc.stdout)
         self.assertIn("Active rechecks: `1`", proc.stdout)
@@ -1114,6 +1142,14 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 self.assertIn("requirements", schema["required"])
                 self.assertIn("source_quality", schema["required"])
                 self.assertIn("sources", schema["$defs"]["source_quality"]["required"])
+                self.assertIn("summary", schema["$defs"]["source_quality"]["required"])
+                source_summary = schema["$defs"]["source_quality_summary"]
+                self.assertIn("candidate_source_count", source_summary["required"])
+                self.assertIn("next_tracker_action", source_summary["required"])
+                self.assertIn(
+                    "candidate_sources_available",
+                    source_summary["properties"]["status"]["enum"],
+                )
                 self.assertIn("recheck_plan", schema["required"])
                 self.assertIn("next_rows", schema["$defs"]["recheck_plan"]["required"])
                 self.assertIn("action", schema["$defs"]["recheck_row"]["required"])

@@ -1486,6 +1486,7 @@ def _source_quality(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
             ),
         }
     return {
+        "summary": _source_quality_rollup(sources),
         "sources": sources,
         "boundary": (
             "Source quality is read-only benchmarking for Opportunity Desk triage. It is not "
@@ -1493,6 +1494,82 @@ def _source_quality(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "or open pull requests."
         ),
     }
+
+
+def _source_quality_rollup(sources: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    source_count = len(sources)
+    total_rows = sum(int(source["total_rows"]) for source in sources.values())
+    candidate_rows = sum(int(source["candidate_rows"]) for source in sources.values())
+    no_go_rows = sum(int(source["no_go_rows"]) for source in sources.values())
+    funding_verification_needed = sum(
+        int(source["funding_verification_needed"]) for source in sources.values()
+    )
+    authorization_needed = sum(int(source["authorization_needed"]) for source in sources.values())
+    candidate_source_count = sum(1 for source in sources.values() if source["candidate_rows"])
+    no_go_only_source_count = sum(
+        1 for source in sources.values() if source["no_go_rows"] and not source["candidate_rows"]
+    )
+    status = _source_quality_status(
+        source_count=source_count,
+        candidate_source_count=candidate_source_count,
+        funding_verification_needed=funding_verification_needed,
+        authorization_needed=authorization_needed,
+        no_go_only_source_count=no_go_only_source_count,
+    )
+    return {
+        "source_count": source_count,
+        "total_rows": total_rows,
+        "candidate_rows": candidate_rows,
+        "no_go_rows": no_go_rows,
+        "candidate_source_count": candidate_source_count,
+        "no_go_only_source_count": no_go_only_source_count,
+        "funding_verification_needed": funding_verification_needed,
+        "authorization_needed": authorization_needed,
+        "status": status,
+        "next_tracker_action": _source_quality_next_tracker_action(status),
+        "boundary": (
+            "Source summary is local tracker evidence only. It does not authorize scraping, "
+            "claims, comments, maintainer contact, pull requests, or payout/merge guarantees."
+        ),
+    }
+
+
+def _source_quality_status(
+    *,
+    source_count: int,
+    candidate_source_count: int,
+    funding_verification_needed: int,
+    authorization_needed: int,
+    no_go_only_source_count: int,
+) -> str:
+    if source_count == 0:
+        return "no_sources"
+    if candidate_source_count:
+        return "candidate_sources_available"
+    if funding_verification_needed:
+        return "needs_funding_verification"
+    if authorization_needed:
+        return "needs_authorization"
+    if no_go_only_source_count:
+        return "no_go_only_sources"
+    return "collect_more_rows"
+
+
+def _source_quality_next_tracker_action(status: str) -> str:
+    return {
+        "no_sources": "Expand permitted public/API sources before ranking this batch.",
+        "candidate_sources_available": (
+            "Run read-only public-state recheck on candidate sources before paid shortlist use."
+        ),
+        "needs_funding_verification": (
+            "Verify visible funding and current state from permitted public/API sources."
+        ),
+        "needs_authorization": "Keep authorization-gated source rows parked until buyer scope exists.",
+        "no_go_only_sources": (
+            "Use these sources as no-go moat evidence and expand coverage before pitching."
+        ),
+        "collect_more_rows": "Collect more permitted source rows before ranking this batch.",
+    }[status]
 
 
 def _recheck_plan(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:

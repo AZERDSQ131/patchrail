@@ -4473,8 +4473,9 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
 
 def _source_quality_summary(source_quality: dict[str, Any]) -> str:
     sources = source_quality["sources"]
+    summary = source_quality["summary"]
     if not sources:
-        return "Source quality: no source rows matched the filters"
+        return f"Source quality: no source rows matched the filters, status {summary['status']}"
     source, stats = sorted(
         sources.items(),
         key=lambda item: (
@@ -4487,7 +4488,8 @@ def _source_quality_summary(source_quality: dict[str, Any]) -> str:
     return (
         "Source quality: "
         f"{source} has {stats['candidate_rows']}/{stats['total_rows']} candidate rows, "
-        f"{stats['usable_signal_ratio']} usable signal ratio"
+        f"{stats['usable_signal_ratio']} usable signal ratio, "
+        f"status {summary['status']}"
     )
 
 
@@ -4548,10 +4550,17 @@ def _append_source_quality_markdown(
     lines: list[str],
     source_quality: dict[str, Any],
 ) -> None:
+    summary = source_quality["summary"]
     lines.extend(
         [
             "",
             "## Source Quality",
+            "",
+            f"- Status: `{summary['status']}`",
+            f"- Sources: `{summary['source_count']}`",
+            f"- Candidate sources: `{summary['candidate_source_count']}`",
+            f"- No-go-only sources: `{summary['no_go_only_source_count']}`",
+            f"- Next tracker action: {summary['next_tracker_action']}",
             "",
             "| Source | Rows | Candidates | No-go | Safe | Rechecks | Auth | Avg score | Usable signal | Recommended use |",
             "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|",
@@ -4569,7 +4578,7 @@ def _append_source_quality_markdown(
             )
     else:
         lines.append("| n/a | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | No rows matched the filters. |")
-    lines.extend(["", source_quality["boundary"]])
+    lines.extend(["", summary["boundary"], "", source_quality["boundary"]])
 
 
 def _append_delivery_pack_markdown(
