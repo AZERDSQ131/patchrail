@@ -2465,5 +2465,80 @@ class PatchRailFundedIssuesCompetitionCliTests(unittest.TestCase):
         self.assertIn("Invalid competition observations source", proc.stderr)
 
 
+class PatchRailFundedIssuesPayoutEffortCliTests(unittest.TestCase):
+    def test_payout_effort_default_source_emits_sorted_json(self) -> None:
+        proc = run_patchrail(["funded-issues", "payout-effort", "--format", "json"])
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(
+            payload["schema_version"], "patchrail.funded_issues.payout_effort_batch.v1"
+        )
+        self.assertTrue(payload["read_only"])
+        self.assertEqual(payload["reviewed"], 5)
+        self.assertEqual(payload["results"][0]["reference"], "example/toolkit#17")
+        self.assertEqual(payload["results"][0]["level"], "low")
+        self.assertEqual(payload["results"][-1]["level"], "strong")
+        summary = payload["summary"]
+        self.assertEqual(summary["low"], 1)
+        self.assertEqual(summary["marginal"], 1)
+        self.assertEqual(summary["strong"], 1)
+        self.assertEqual(summary["unknown"], 1)
+        self.assertEqual(summary["unverified_currency"], 1)
+        self.assertEqual(summary["underpaid"], 1)
+        self.assertIn("automatic_claims", payload["blocked_actions"])
+
+    def test_payout_effort_accepts_bare_list_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "obs.json"
+            source.write_text(
+                json.dumps(
+                    [
+                        {
+                            "reference": "a/b#1",
+                            "funding_amount": 250,
+                            "estimated_effort_hours": 10,
+                        },
+                        {
+                            "reference": "c/d#2",
+                            "funding_amount": 2400,
+                            "estimated_effort_hours": 12,
+                        },
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            proc = run_patchrail(
+                ["funded-issues", "payout-effort", "--source", str(source), "--format", "json"]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["reviewed"], 2)
+        self.assertEqual(payload["summary"]["underpaid"], 1)
+
+    def test_payout_effort_markdown_lists_results_table(self) -> None:
+        proc = run_patchrail(["funded-issues", "payout-effort"])
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("# PatchRail Funded Issues Payout-vs-Effort Signal", proc.stdout)
+        self.assertIn("| Reference | Level | Risk flags |", proc.stdout)
+        self.assertIn("example/toolkit#17", proc.stdout)
+
+    def test_payout_effort_rejects_invalid_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "bad.json"
+            source.write_text(
+                json.dumps([{"funding_amount": -1, "estimated_effort_hours": 1}]),
+                encoding="utf-8",
+            )
+            proc = run_patchrail(
+                ["funded-issues", "payout-effort", "--source", str(source), "--format", "json"]
+            )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("Invalid payout-effort observations source", proc.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()

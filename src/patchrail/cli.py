@@ -24,6 +24,7 @@ from patchrail.funded_issues import (
     VALID_OPPORTUNITY_STATES,
     VALID_RISK_LEVELS,
     assess_competition_batch,
+    assess_payout_effort_batch,
     cash_actions_funded_issues,
     explain_issue,
     fulfillment_packet_funded_issues,
@@ -6123,6 +6124,106 @@ def _funded_issues_competition(args: argparse.Namespace) -> int:
     return 0
 
 
+def _default_payout_effort_observations_source() -> Path:
+    return Path("examples") / "funded-issues-readonly" / "payout-effort-observations.json"
+
+
+def _format_rate(value: float | None) -> str:
+    return "n/a" if value is None else f"{value:g}"
+
+
+def _render_funded_issues_payout_effort_text(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    lines = [
+        "PatchRail Funded Issues Payout-vs-Effort Signal",
+        f"Read-only: {payload['read_only']}",
+        f"Reviewed: {summary['reviewed']}",
+        f"Underpaid (below floor): {summary['underpaid']}",
+        f"Low: {summary['low']} | Marginal: {summary['marginal']} | Strong: {summary['strong']}",
+        f"Unknown: {summary['unknown']} | Unverified currency: {summary['unverified_currency']}",
+    ]
+    for result in payload["results"]:
+        observed = result["observed"]
+        flags = ", ".join(result["risk_flags"]) or "none"
+        lines.append(
+            f"{result['reference']} | {result['level']} | flags: {flags} | "
+            f"amount: {_format_rate(observed['funding_amount'])} "
+            f"{observed['funding_currency']} | "
+            f"hours: {_format_rate(observed['estimated_effort_hours'])} | "
+            f"rate: {_format_rate(observed['effective_hourly_rate'])} | "
+            f"ratio: {_format_rate(observed['payout_effort_ratio'])}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_payout_effort_markdown(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    lines = [
+        "# PatchRail Funded Issues Payout-vs-Effort Signal",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Reviewed: `{summary['reviewed']}`",
+        f"- Underpaid (below floor): `{summary['underpaid']}`",
+        f"- Low: `{summary['low']}` | Marginal: `{summary['marginal']}` | "
+        f"Strong: `{summary['strong']}`",
+        f"- Unknown: `{summary['unknown']}` | "
+        f"Unverified currency: `{summary['unverified_currency']}`",
+        "",
+        "## Results",
+        "",
+    ]
+    if payload["results"]:
+        lines.extend(
+            [
+                "| Reference | Level | Risk flags | Amount | Hours | Rate (USD/h) | "
+                "Ratio | Next step |",
+                "|---|---|---|---:|---:|---:|---:|---|",
+            ]
+        )
+        for result in payload["results"]:
+            observed = result["observed"]
+            flags = ", ".join(result["risk_flags"]) or "none"
+            amount = (
+                f"{_format_rate(observed['funding_amount'])} {observed['funding_currency']}"
+            )
+            lines.append(
+                "| "
+                f"{_escape_markdown_cell(result['reference'])} | "
+                f"`{result['level']}` | "
+                f"{_escape_markdown_cell(flags)} | "
+                f"{_escape_markdown_cell(amount)} | "
+                f"{_format_rate(observed['estimated_effort_hours'])} | "
+                f"{_format_rate(observed['effective_hourly_rate'])} | "
+                f"{_format_rate(observed['payout_effort_ratio'])} | "
+                f"{_escape_markdown_cell(result['recommended_next_step'])} |"
+            )
+    else:
+        lines.append("No payout-effort observations were provided.")
+    lines.extend(["", "## Blocked Actions", ""])
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _funded_issues_payout_effort(args: argparse.Namespace) -> int:
+    source = args.source or _default_payout_effort_observations_source()
+    try:
+        raw = json.loads(source.read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            raw = raw.get("observations", raw)
+        payload = assess_payout_effort_batch(raw)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid payout-effort observations source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_payout_effort_markdown(payload)
+    else:
+        text = _render_funded_issues_payout_effort_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _web_metrics_update(args: argparse.Namespace) -> int:
     try:
         payload = update_web_metrics(
@@ -7385,6 +7486,28 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_competition.add_argument("--out", type=Path, help="Optional output path.")
     funded_competition.set_defaults(func=_funded_issues_competition)
+
+    funded_payout_effort = funded_subparsers.add_parser(
+        "payout-effort",
+        help="Score read-only payout-vs-effort for a batch of bounties against a rate floor.",
+    )
+    funded_payout_effort.add_argument(
+        "--source",
+        type=Path,
+        help=(
+            "Local JSON file of payout-effort observations (list, or an object with an "
+            "'observations' list). Defaults to "
+            "examples/funded-issues-readonly/payout-effort-observations.json."
+        ),
+    )
+    funded_payout_effort.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_payout_effort.add_argument("--out", type=Path, help="Optional output path.")
+    funded_payout_effort.set_defaults(func=_funded_issues_payout_effort)
 
     return parser
 

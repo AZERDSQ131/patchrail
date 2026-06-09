@@ -16,6 +16,8 @@ CASH_ACTIONS_SCHEMA_VERSION = "patchrail.funded_issues.cash_actions.v1"
 FULFILLMENT_PACKET_SCHEMA_VERSION = "patchrail.funded_issues.fulfillment_packet.v1"
 COMPETITION_SIGNAL_SCHEMA_VERSION = "patchrail.funded_issues.competition.v1"
 COMPETITION_BATCH_SCHEMA_VERSION = "patchrail.funded_issues.competition_batch.v1"
+PAYOUT_EFFORT_SIGNAL_SCHEMA_VERSION = "patchrail.funded_issues.payout_effort.v1"
+PAYOUT_EFFORT_BATCH_SCHEMA_VERSION = "patchrail.funded_issues.payout_effort_batch.v1"
 BLOCKED_ACTIONS = [
     "automatic_claims",
     "automatic_pull_requests",
@@ -50,6 +52,19 @@ COMPETITION_THRESHOLDS = {
     "competing_pr_count_contested": 3,
     "distinct_claimants_contested": 3,
     "comment_count_busy": 15,
+}
+
+# Payout-vs-effort signal. The flag is intentionally NOT in HIGH_RISK_FLAGS: a
+# low-paying bounty can still be worth doing for portfolio/strategic reasons, so
+# it costs score via the generic risk penalty without forcing an automatic
+# no-go. Productizes the desk's effort-budget floor (REVENUE_PLAN §16.1: a
+# $150/h minimum effective rate before engineering time is committed).
+DEFAULT_TARGET_HOURLY_RATE_USD = 150.0
+PAYOUT_EFFORT_FLAG = "payout_too_low_for_effort"
+PAYOUT_EFFORT_THRESHOLDS = {
+    "target_hourly_rate_usd": DEFAULT_TARGET_HOURLY_RATE_USD,
+    "low_ratio": 0.5,
+    "marginal_ratio": 1.0,
 }
 
 VALID_OPPORTUNITY_STATES = {"active", "closed", "stale", "unknown"}
@@ -2836,6 +2851,7 @@ def _risk_reason_code(flag: str) -> str:
         "closed_or_inactive": "CLOSED_OR_INACTIVE",
         "contested_bounty": "CONTESTED_HIGH_COMPETITION",
         "crowded_no_assignment": "CROWDED_NO_CLEAR_OWNER",
+        "payout_too_low_for_effort": "PAYOUT_TOO_LOW_FOR_EFFORT",
     }.get(flag, f"RISK_{flag.upper()}")
 
 
@@ -2928,6 +2944,25 @@ def _coerce_count(value: Any, name: str) -> int:
         raise ValueError(f"{name} must be an integer")
     if value < 0:
         raise ValueError(f"{name} must be >= 0")
+    return value
+
+
+def _coerce_amount(
+    value: Any,
+    name: str,
+    *,
+    allow_none: bool = True,
+    allow_zero: bool = True,
+) -> float | None:
+    if value is None:
+        if allow_none:
+            return None
+        raise ValueError(f"{name} is required")
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{name} must be a number")
+    value = float(value)
+    if value < 0 or (value == 0 and not allow_zero):
+        raise ValueError(f"{name} must be {'>= 0' if allow_zero else '> 0'}")
     return value
 
 
@@ -3091,6 +3126,192 @@ def assess_competition_batch(observations: Any) -> dict[str, Any]:
             "crowded_no_assignment": crowded,
         },
         "thresholds": dict(COMPETITION_THRESHOLDS),
+        "results": results,
+        "blocked_actions": list(BLOCKED_ACTIONS),
+    }
+
+
+def assess_payout_effort(
+    *,
+    funding_amount: float | None = None,
+    funding_currency: str = "USD",
+    estimated_effort_hours: float | None = None,
+    target_hourly_rate_usd: float = DEFAULT_TARGET_HOURLY_RATE_USD,
+) -> dict[str, Any]:
+    """Derive a read-only payout-vs-effort signal for a funded issue.
+
+    Productizes the desk's effort-budget check (REVENUE_PLAN §16.1): a bounty
+    whose payout implies an effective hourly rate well below the target floor is
+    rarely worth engineering time even when the issue itself is real. Inputs are
+    public funding metadata plus the operator's own private effort estimate; this
+    never claims, comments, or contacts anyone. A ``low`` result emits the curated
+    ``PAYOUT_TOO_LOW_FOR_EFFORT`` code and a ``payout_too_low_for_effort`` flag an
+    operator can merge into a FundedIssue's ``risk_flags`` (it costs score via the
+    normal risk penalty without forcing an automatic no-go).
+    """
+    funding_amount = _coerce_amount(funding_amount, "funding_amount", allow_zero=True)
+    estimated_effort_hours = _coerce_amount(
+        estimated_effort_hours, "estimated_effort_hours", allow_zero=False
+    )
+    target_hourly_rate_usd = _coerce_amount(
+        target_hourly_rate_usd,
+        "target_hourly_rate_usd",
+        allow_none=False,
+        allow_zero=False,
+    )
+    currency = (funding_currency or "USD").strip().upper() or "USD"
+
+    effective_hourly_rate: float | None = None
+    payout_effort_ratio: float | None = None
+    flags: list[str] = []
+
+    if funding_amount is None or estimated_effort_hours is None:
+        level = "unknown"
+        reason_codes = ["FUNDING_STATE_UNCLEAR"]
+        next_step = (
+            "Provide both the public funding amount and an effort estimate before ranking; "
+            "payout-vs-effort cannot be assessed from the provided metadata."
+        )
+    elif currency != "USD":
+        level = "unverified_currency"
+        reason_codes = ["PAYOUT_CURRENCY_UNVERIFIED"]
+        next_step = (
+            f"Funding is in {currency}; convert to USD from a permitted public rate before "
+            "comparing against the effort-budget floor."
+        )
+    else:
+        effective_hourly_rate = round(funding_amount / estimated_effort_hours, 2)
+        payout_effort_ratio = round(effective_hourly_rate / target_hourly_rate_usd, 4)
+        if payout_effort_ratio >= PAYOUT_EFFORT_THRESHOLDS["marginal_ratio"]:
+            level = "strong"
+            reason_codes = ["PAYOUT_PROPORTIONATE_TO_EFFORT"]
+            next_step = (
+                "Payout is proportionate to the estimated effort against the target rate; safe "
+                "to rank on the usual liveness/scope/maintainer signals."
+            )
+        elif payout_effort_ratio >= PAYOUT_EFFORT_THRESHOLDS["low_ratio"]:
+            level = "marginal"
+            reason_codes = ["PAYOUT_NEAR_EFFORT_FLOOR"]
+            next_step = (
+                "Payout is near the effort-budget floor; only pursue if the effort estimate is "
+                "conservative or the issue carries strategic/portfolio value."
+            )
+        else:
+            level = "low"
+            flags.append(PAYOUT_EFFORT_FLAG)
+            reason_codes = [_risk_reason_code(PAYOUT_EFFORT_FLAG)]
+            next_step = (
+                "Effective hourly rate is well below the target floor; keep as no-go/watchlist "
+                "evidence unless the effort estimate is revised down from real scope review."
+            )
+
+    return {
+        "schema_version": PAYOUT_EFFORT_SIGNAL_SCHEMA_VERSION,
+        "read_only": True,
+        "level": level,
+        "risk_flags": flags,
+        "reason_codes": reason_codes,
+        "observed": {
+            "funding_amount": funding_amount,
+            "funding_currency": currency,
+            "estimated_effort_hours": estimated_effort_hours,
+            "effective_hourly_rate": effective_hourly_rate,
+            "payout_effort_ratio": payout_effort_ratio,
+        },
+        "thresholds": {
+            "target_hourly_rate_usd": target_hourly_rate_usd,
+            "low_ratio": PAYOUT_EFFORT_THRESHOLDS["low_ratio"],
+            "marginal_ratio": PAYOUT_EFFORT_THRESHOLDS["marginal_ratio"],
+        },
+        "recommended_next_step": next_step,
+    }
+
+
+_PAYOUT_EFFORT_LEVEL_ORDER = {
+    "low": 0,
+    "marginal": 1,
+    "unverified_currency": 2,
+    "unknown": 3,
+    "strong": 4,
+}
+
+
+def _payout_effort_sort_key(result: dict[str, Any]) -> tuple[int, float, str]:
+    ratio = result["observed"]["payout_effort_ratio"]
+    ratio_key = ratio if ratio is not None else float("inf")
+    return (
+        _PAYOUT_EFFORT_LEVEL_ORDER.get(result["level"], 5),
+        ratio_key,
+        result["reference"],
+    )
+
+
+def assess_payout_effort_batch(observations: Any) -> dict[str, Any]:
+    """Assess read-only payout-vs-effort across a batch of bounties.
+
+    Productizes the desk's effort-budget triage into a single pass: given public
+    funding metadata plus an effort estimate for several funded issues, surface
+    which ones pay too little for the work so an operator can drop them before
+    spending engineering time. ``observations`` is a list of dicts, each with an
+    optional ``reference`` (or ``id``/``url``) label plus the values consumed by
+    :func:`assess_payout_effort` (``funding_amount``, ``funding_currency``,
+    ``estimated_effort_hours``, optional ``target_hourly_rate_usd``). Results are
+    sorted worst-payout first. This never claims, comments on, or contacts anyone.
+    """
+    if not isinstance(observations, list):
+        raise ValueError("payout-effort observations must be a list")
+
+    results: list[dict[str, Any]] = []
+    level_counts = {
+        "low": 0,
+        "marginal": 0,
+        "strong": 0,
+        "unknown": 0,
+        "unverified_currency": 0,
+    }
+
+    for index, raw in enumerate(observations):
+        if not isinstance(raw, dict):
+            raise ValueError(f"payout-effort observation #{index} must be an object")
+        reference = raw.get("reference") or raw.get("id") or raw.get("url")
+        if reference is not None and not isinstance(reference, str):
+            raise ValueError(f"payout-effort observation #{index} reference must be a string")
+        signal = assess_payout_effort(
+            funding_amount=raw.get("funding_amount"),
+            funding_currency=raw.get("funding_currency", "USD"),
+            estimated_effort_hours=raw.get("estimated_effort_hours"),
+            target_hourly_rate_usd=raw.get(
+                "target_hourly_rate_usd", DEFAULT_TARGET_HOURLY_RATE_USD
+            ),
+        )
+        level_counts[signal["level"]] += 1
+        results.append(
+            {
+                "reference": reference or f"observation-{index + 1}",
+                "level": signal["level"],
+                "risk_flags": signal["risk_flags"],
+                "reason_codes": signal["reason_codes"],
+                "observed": signal["observed"],
+                "recommended_next_step": signal["recommended_next_step"],
+            }
+        )
+
+    results.sort(key=_payout_effort_sort_key)
+
+    return {
+        "schema_version": PAYOUT_EFFORT_BATCH_SCHEMA_VERSION,
+        "read_only": True,
+        "reviewed": len(results),
+        "summary": {
+            "reviewed": len(results),
+            "underpaid": level_counts["low"],
+            "low": level_counts["low"],
+            "marginal": level_counts["marginal"],
+            "strong": level_counts["strong"],
+            "unknown": level_counts["unknown"],
+            "unverified_currency": level_counts["unverified_currency"],
+        },
+        "thresholds": dict(PAYOUT_EFFORT_THRESHOLDS),
         "results": results,
         "blocked_actions": list(BLOCKED_ACTIONS),
     }
