@@ -198,8 +198,10 @@ def test_pre_pypi_install_docs_offer_working_source_and_wheel_paths() -> None:
 
 
 def test_pre_pypi_install_verification_is_recorded_without_pypi_claims() -> None:
-    evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(encoding="utf-8")
-    program_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
+    evidence = (ROOT / "docs" / "openai-open-source-evidence.md").read_text(encoding="utf-8")
+    program_evidence = (ROOT / "docs" / "open-source-program-evidence.md").read_text(
+        encoding="utf-8"
+    )
     combined = "\n".join([evidence, program_evidence])
     normalized = " ".join(combined.split())
 
@@ -810,11 +812,11 @@ def test_verify_reviewer_packet_fails_on_tampered_manifest_contract() -> None:
 
 def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
     api_reference = (ROOT / "docs" / "api-reference.md").read_text(encoding="utf-8")
-    oss_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
-    codex_evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(
+    open_source_evidence = (ROOT / "docs" / "open-source-program-evidence.md").read_text(
         encoding="utf-8"
     )
-    combined_evidence = "\n".join([oss_evidence, codex_evidence])
+    codex_evidence = (ROOT / "docs" / "openai-open-source-evidence.md").read_text(encoding="utf-8")
+    combined_evidence = "\n".join([open_source_evidence, codex_evidence])
     normalized_evidence = " ".join(combined_evidence.split())
     packaged_schema = json.loads(
         (
@@ -859,7 +861,7 @@ def test_reviewer_quick_check_schema_is_publicly_documented() -> None:
     assert mirrored_schema == packaged_schema
 
 
-def test_evidence_snapshot_summarizes_public_oss_signals_without_write_actions() -> None:
+def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_actions() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "patchrail", "evidence", "snapshot", "--format", "json"],
         cwd=ROOT,
@@ -913,40 +915,42 @@ def test_evidence_snapshot_summarizes_public_oss_signals_without_write_actions()
 
 def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
-    oss_program_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
+    open_source_program_evidence = (ROOT / "docs" / "open-source-program-evidence.md").read_text(
+        encoding="utf-8"
+    )
     release_v03 = (ROOT / "docs" / "release-v0.3.0-evidence.md").read_text(encoding="utf-8")
-    docs = "\n".join([oss_program_evidence, release_v03])
+    docs = "\n".join([open_source_program_evidence, release_v03])
 
     assert (
-        "uv run patchrail evidence snapshot --format json --out patchrail-oss-evidence/evidence-snapshot.json"
+        "uv run patchrail evidence snapshot --format json --out patchrail-open-source-evidence/evidence-snapshot.json"
         in workflow
     )
     assert (
-        "uv run patchrail evidence snapshot --format markdown --out patchrail-oss-evidence/evidence-snapshot.md"
+        "uv run patchrail evidence snapshot --format markdown --out patchrail-open-source-evidence/evidence-snapshot.md"
         in workflow
     )
     assert (
-        "uv run patchrail evidence control-plane --format json --out patchrail-oss-evidence/control-plane-evidence.json"
+        "uv run patchrail evidence control-plane --format json --out patchrail-open-source-evidence/control-plane-evidence.json"
         in workflow
     )
     assert (
-        "uv run patchrail evidence control-plane --format markdown --out patchrail-oss-evidence/control-plane-evidence.md"
+        "uv run patchrail evidence control-plane --format markdown --out patchrail-open-source-evidence/control-plane-evidence.md"
         in workflow
     )
     assert (
-        "uv run patchrail evidence application-dossier --format json --out patchrail-oss-evidence/application-dossier.json"
+        "uv run patchrail evidence application-dossier --format json --out patchrail-open-source-evidence/application-dossier.json"
         in workflow
     )
     assert (
-        "uv run patchrail evidence application-dossier --format markdown --out patchrail-oss-evidence/application-dossier.md"
+        "uv run patchrail evidence application-dossier --format markdown --out patchrail-open-source-evidence/application-dossier.md"
         in workflow
     )
     assert (
-        "uv run patchrail evidence reviewer-packet --out-dir patchrail-oss-evidence/reviewer-packet"
+        "uv run patchrail evidence reviewer-packet --out-dir patchrail-open-source-evidence/reviewer-packet"
         in workflow
     )
     assert (
-        "uv run patchrail evidence control-plane-demo --out-dir patchrail-oss-evidence/local-agent-queue --force --format markdown --out patchrail-oss-evidence/local-agent-queue/demo-run.md"
+        "uv run patchrail evidence control-plane-demo --out-dir patchrail-open-source-evidence/local-agent-queue --force --format markdown --out patchrail-open-source-evidence/local-agent-queue/demo-run.md"
         in workflow
     )
     assert "examples/local-agent-queue/run_demo.py --output" not in workflow
@@ -1217,11 +1221,13 @@ def test_control_plane_evidence_audits_local_demo_without_write_actions() -> Non
 
     agent_control_plane = (ROOT / "docs" / "agent-control-plane.md").read_text(encoding="utf-8")
     api_reference = (ROOT / "docs" / "api-reference.md").read_text(encoding="utf-8")
-    oss_program_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
+    open_source_program_evidence = (ROOT / "docs" / "open-source-program-evidence.md").read_text(
+        encoding="utf-8"
+    )
     roadmap = (ROOT / "docs" / "roadmap.md").read_text(encoding="utf-8")
     release_v03 = (ROOT / "docs" / "release-v0.3.0-evidence.md").read_text(encoding="utf-8")
     docs = "\n".join(
-        [agent_control_plane, api_reference, oss_program_evidence, roadmap, release_v03]
+        [agent_control_plane, api_reference, open_source_program_evidence, roadmap, release_v03]
     )
     assert "patchrail evidence control-plane --format markdown" in docs
     assert "patchrail evidence http-api --format markdown" in docs
@@ -1536,10 +1542,12 @@ def test_github_action_artifact_example_is_report_only_and_sanitized() -> None:
     assert "/home/runner/" not in serialized
 
 
-def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
+def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     codex_workflows = (ROOT / "docs" / "codex-workflows.md").read_text(encoding="utf-8")
-    evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(encoding="utf-8")
-    oss_program_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
+    evidence = (ROOT / "docs" / "openai-open-source-evidence.md").read_text(encoding="utf-8")
+    open_source_program_evidence = (ROOT / "docs" / "open-source-program-evidence.md").read_text(
+        encoding="utf-8"
+    )
     workflow_ledger = (ROOT / "docs" / "public-workflow-ledger.md").read_text(encoding="utf-8")
     api_reference = (ROOT / "docs" / "api-reference.md").read_text(encoding="utf-8")
     pilot_guide = (ROOT / "docs" / "pilot-guide.md").read_text(encoding="utf-8")
@@ -1575,7 +1583,7 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     )
 
     assert "docs/codex-workflows.md" in readme
-    assert "docs/openai-codex-for-oss-evidence.md" in readme
+    assert "docs/openai-open-source-evidence.md" in readme
     assert "docs/public-workflow-ledger.md" in readme
     assert "docs/api-reference.md" in readme
     assert "docs/pilot-guide.md" in readme
@@ -1606,7 +1614,7 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "Verified public CI evidence snapshot, 2026-06-06" in evidence
     assert "https://github.com/patchrail/patchrail/actions/runs/27062668635" in evidence
     assert "891aea7acfff9f392764542ec598b40073f93efa" in evidence
-    assert "patchrail-oss-evidence" in evidence
+    assert "patchrail-open-source-evidence" in evidence
     assert "Agent Control Plane evidence" in evidence
     assert "reviewer-facing local queue bundle" in evidence
     for artifact_name in (
@@ -1624,7 +1632,7 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
         "manifest.json",
     ):
         assert artifact_name in evidence
-        assert artifact_name in oss_program_evidence
+        assert artifact_name in open_source_program_evidence
     assert "Versioned reviewer demo" in evidence
     assert "examples/ci-triage/demo-output.md" in evidence
     assert (
@@ -1648,26 +1656,26 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "#59 -> #60" in evidence
     assert "Consent-only pilot outcome example" in evidence
     assert "examples/pilot-outcome" in evidence
-    assert "Public CI fixtures: 153 sanitized synthetic fixtures" in oss_program_evidence
+    assert "Public CI fixtures: 153 sanitized synthetic fixtures" in open_source_program_evidence
     assert "Local evidence snapshot: `patchrail evidence snapshot --format markdown`" in (
-        oss_program_evidence
+        open_source_program_evidence
     )
-    assert "Public maintenance workflow ledger" in oss_program_evidence
-    assert "owned-repo issue-to-PR cycles" in oss_program_evidence
-    assert "patchrail evidence review-packet --format markdown" in oss_program_evidence
-    assert "patchrail evidence review-packet --format json" in oss_program_evidence
-    assert "not_ready" in oss_program_evidence
-    assert "does not apply yet" not in oss_program_evidence
-    assert "do_not_apply_yet" in oss_program_evidence
-    assert 'not_ready` means "do not apply yet" rather than "stop' in (oss_program_evidence)
-    assert "blocked_dependencies" in oss_program_evidence
-    assert "safe_local_work_while_blocked" in oss_program_evidence
-    assert "#61 -> #62" in oss_program_evidence
-    assert "#59 -> #60" in oss_program_evidence
-    assert "Consent-only pilot outcome example" in oss_program_evidence
-    assert "https://github.com/patchrail/patchrail/issues/27" in oss_program_evidence
-    assert "https://github.com/patchrail/patchrail/issues/37" in oss_program_evidence
-    assert "https://github.com/patchrail/patchrail/issues/1>" not in oss_program_evidence
+    assert "Public maintenance workflow ledger" in open_source_program_evidence
+    assert "owned-repo issue-to-PR cycles" in open_source_program_evidence
+    assert "patchrail evidence review-packet --format markdown" in open_source_program_evidence
+    assert "patchrail evidence review-packet --format json" in open_source_program_evidence
+    assert "not_ready" in open_source_program_evidence
+    assert "does not apply yet" not in open_source_program_evidence
+    assert "do_not_apply_yet" in open_source_program_evidence
+    assert 'not_ready` means "do not apply yet" rather than "stop' in (open_source_program_evidence)
+    assert "blocked_dependencies" in open_source_program_evidence
+    assert "safe_local_work_while_blocked" in open_source_program_evidence
+    assert "#61 -> #62" in open_source_program_evidence
+    assert "#59 -> #60" in open_source_program_evidence
+    assert "Consent-only pilot outcome example" in open_source_program_evidence
+    assert "https://github.com/patchrail/patchrail/issues/27" in open_source_program_evidence
+    assert "https://github.com/patchrail/patchrail/issues/37" in open_source_program_evidence
+    assert "https://github.com/patchrail/patchrail/issues/1>" not in open_source_program_evidence
     assert "https://github.com/patchrail/patchrail/issues/27" in evidence
     assert "https://github.com/patchrail/patchrail/issues/37" in evidence
     assert "https://github.com/patchrail/patchrail/issues/1>" not in evidence
@@ -1757,42 +1765,42 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
         "not counted as issue-to-PR cycles, external adoption, or formal Codex review"
         in normalized_workflow_ledger
     )
-    assert "Verified public CI evidence snapshot, 2026-06-06" in oss_program_evidence
+    assert "Verified public CI evidence snapshot, 2026-06-06" in open_source_program_evidence
     assert "https://github.com/patchrail/patchrail/actions/runs/27062668635" in (
-        oss_program_evidence
+        open_source_program_evidence
     )
-    assert "891aea7acfff9f392764542ec598b40073f93efa" in oss_program_evidence
+    assert "891aea7acfff9f392764542ec598b40073f93efa" in open_source_program_evidence
     assert "patchrail evidence review-packet --format markdown" in workflow_ledger
     assert (
         "Fixture hygiene gate: `patchrail ci fixture-check examples/ci-triage --format json`"
-        in oss_program_evidence
+        in open_source_program_evidence
     )
     assert (
         "Tests: `uv run --extra dev pytest -q` -> 86 passed, 6 subtests passed."
-        in oss_program_evidence
+        in open_source_program_evidence
     )
     assert (
         "Fixture hygiene: `uv run --extra dev patchrail ci fixture-check "
         "examples/ci-triage --format json` -> 153 / 153 fixtures passed."
-    ) in oss_program_evidence
+    ) in open_source_program_evidence
     assert "GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.0>" in (
-        oss_program_evidence
+        open_source_program_evidence
     )
-    assert "Agent Control Plane demo" in oss_program_evidence
+    assert "Agent Control Plane demo" in open_source_program_evidence
     assert "Pilot pack importer: `patchrail queue add --from-pilot-pack patchrail-pilot-pack`" in (
-        oss_program_evidence
+        open_source_program_evidence
     )
     assert "validates `pilot-manifest.json`, confirms the raw log was not copied" in (
-        oss_program_evidence
+        open_source_program_evidence
     )
     assert "Local queue API: `patchrail serve --host 127.0.0.1 --port 8765`" in (
-        oss_program_evidence
+        open_source_program_evidence
     )
-    assert "human gate summary" in oss_program_evidence
-    assert "write actions remain locked" in oss_program_evidence
-    assert "Funded issue read-only demo" in oss_program_evidence
-    assert "External repositories using PatchRail: pending pilots" in oss_program_evidence
-    assert "PyPI release link after package index publish" in oss_program_evidence
+    assert "human gate summary" in open_source_program_evidence
+    assert "write actions remain locked" in open_source_program_evidence
+    assert "Funded issue read-only demo" in open_source_program_evidence
+    assert "External repositories using PatchRail: pending pilots" in open_source_program_evidence
+    assert "PyPI release link after package index publish" in open_source_program_evidence
     assert "This ledger tracks public PatchRail maintenance cycles" in workflow_ledger
     assert "it does not claim external adoption" in workflow_ledger
     assert "it does not claim formal Codex review unless a visible review link exists" in (
@@ -1907,7 +1915,7 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     assert "Pilot summary command: `patchrail ci pilot-summary`" in evidence
     assert "Pilot pack queue importer: `patchrail queue add --from-pilot-pack`" in evidence
     assert "Pilot summary command: `patchrail ci pilot-summary --pack patchrail-pilot-pack`" in (
-        oss_program_evidence
+        open_source_program_evidence
     )
     assert "no raw log copy" in evidence
     assert "Do not share raw logs that contain secrets or personal data" in pilot_guide
@@ -1945,13 +1953,13 @@ def test_oss_plan_canonical_docs_exist_and_preserve_human_gates() -> None:
     )
     assert "Countable external adopters:" in metrics
     assert "docs/pilot-request-package.md" in adopters
-    assert "Consent-only pilot request package" in oss_program_evidence
-    assert "Pilot request package" in oss_program_evidence
+    assert "Consent-only pilot request package" in open_source_program_evidence
+    assert "Pilot request package" in open_source_program_evidence
     assert "Consent-only pilot metrics: `uv run --extra dev patchrail ci pilot-metrics" in (
-        oss_program_evidence
+        open_source_program_evidence
     )
     assert "Public review packet: `uv run --extra dev patchrail evidence review-packet" in (
-        oss_program_evidence
+        open_source_program_evidence
     )
     assert "Sanitized fixture contribution path" in contributing
     assert "patchrail redact --log failed-ci.log > failed-ci.redacted.log" in contributing
@@ -2057,7 +2065,9 @@ def test_release_evidence_pages_cover_v01_to_v04_without_publish_actions() -> No
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     release_process = (ROOT / "docs" / "release-process.md").read_text(encoding="utf-8")
     roadmap = (ROOT / "docs" / "roadmap.md").read_text(encoding="utf-8")
-    oss_evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(encoding="utf-8")
+    open_source_evidence = (ROOT / "docs" / "openai-open-source-evidence.md").read_text(
+        encoding="utf-8"
+    )
 
     for version in ("v0.1.0", "v0.2.0", "v0.3.0", "v0.4.0"):
         path = ROOT / "docs" / f"release-{version}-evidence.md"
@@ -2065,7 +2075,7 @@ def test_release_evidence_pages_cover_v01_to_v04_without_publish_actions() -> No
 
         assert f"docs/release-{version}-evidence.md" in readme
         assert f"release-{version}-evidence.md" in release_process
-        assert f"release-{version}-evidence.md" in oss_evidence
+        assert f"release-{version}-evidence.md" in open_source_evidence
         assert "PyPI" in doc
         assert "external applications" in doc or "external program" in doc
 
@@ -2234,8 +2244,12 @@ def test_ci_workflow_builds_and_smokes_installable_package() -> None:
         encoding="utf-8"
     )
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    oss_evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(encoding="utf-8")
-    program_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
+    open_source_evidence = (ROOT / "docs" / "openai-open-source-evidence.md").read_text(
+        encoding="utf-8"
+    )
+    program_evidence = (ROOT / "docs" / "open-source-program-evidence.md").read_text(
+        encoding="utf-8"
+    )
     roadmap = (ROOT / "docs" / "roadmap.md").read_text(encoding="utf-8")
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     script = (ROOT / "scripts" / "release_readiness.py").read_text(encoding="utf-8")
@@ -2250,14 +2264,14 @@ def test_ci_workflow_builds_and_smokes_installable_package() -> None:
     assert "python -m pip install dist/*.whl" in workflow
     assert "patchrail doctor --format json" in workflow
     assert '"/ADOPTERS.md"' in (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert "oss-evidence-snapshot:" in workflow
+    assert "open-source-evidence-snapshot:" in workflow
     assert "needs: [test, package-smoke]" in workflow
     assert "uv run patchrail evidence snapshot --format json" in workflow
     assert "uv run patchrail evidence snapshot --format markdown" in workflow
     assert "actions/upload-artifact@v7.0.1" in workflow
-    assert "name: patchrail-oss-evidence" in workflow
-    assert "patchrail-oss-evidence/evidence-snapshot.json" in workflow
-    assert "patchrail-oss-evidence/evidence-snapshot.md" in workflow
+    assert "name: patchrail-open-source-evidence" in workflow
+    assert "patchrail-open-source-evidence/evidence-snapshot.json" in workflow
+    assert "patchrail-open-source-evidence/evidence-snapshot.md" in workflow
 
     assert "patchrail evidence release-readiness --clean-dist" in readme
     assert "patchrail evidence release-readiness --clean-dist" in release_process
@@ -2275,7 +2289,7 @@ def test_ci_workflow_builds_and_smokes_installable_package() -> None:
     assert "release-v0.1.0-evidence.md" in release_process
     assert "release-v0.2.0-evidence.md" in release_process
     assert "docs/release-v0.1.0-evidence.md" in readme
-    assert "release-v0.1.0-evidence.md" in oss_evidence
+    assert "release-v0.1.0-evidence.md" in open_source_evidence
 
     assert "dist/patchrail-0.1.0.tar.gz" in release_evidence
     assert "dist/patchrail-0.1.0-py3-none-any.whl" in release_evidence
@@ -2367,10 +2381,10 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
         check=False,
     )
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    oss_evidence = (ROOT / "docs" / "oss-program-evidence.md").read_text(encoding="utf-8")
-    codex_evidence = (ROOT / "docs" / "openai-codex-for-oss-evidence.md").read_text(
+    open_source_evidence = (ROOT / "docs" / "open-source-program-evidence.md").read_text(
         encoding="utf-8"
     )
+    codex_evidence = (ROOT / "docs" / "openai-open-source-evidence.md").read_text(encoding="utf-8")
     cli = (ROOT / "src" / "patchrail" / "cli.py").read_text(encoding="utf-8")
 
     assert help_proc.returncode == 0, help_proc.stderr
@@ -2453,7 +2467,7 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert "Maintainer tap required: `True`" in markdown_proc.stdout
     assert "Agent may submit: `False`" in markdown_proc.stdout
 
-    combined_docs = "\n".join([readme, oss_evidence, codex_evidence])
+    combined_docs = "\n".join([readme, open_source_evidence, codex_evidence])
     assert "patchrail evidence application-dossier --format markdown" in readme
     assert "patchrail evidence application-dossier --format json" in combined_docs
     assert "reviewer_quick_checks" in combined_docs
@@ -2518,7 +2532,7 @@ def test_ci_evidence_reference_refresh_script_is_local_and_guardrailed() -> None
 
     assert proc.returncode == 0, proc.stderr
     assert "validated:" in proc.stdout
-    assert "docs/openai-codex-for-oss-evidence.md" in proc.stdout
+    assert "docs/openai-open-source-evidence.md" in proc.stdout
     assert "tests/test_public_workflows.py" in proc.stdout
     assert bad_proc.returncode == 2
     assert "patchrail/patchrail GitHub Actions run URL" in bad_proc.stderr

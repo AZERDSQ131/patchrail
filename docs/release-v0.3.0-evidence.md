@@ -9,7 +9,7 @@ contact third-party maintainers, or apply to external programs.
 
 ## Scope
 
-v0.3.0 is the local agent queue milestone from the OSS plan. The current
+v0.3.0 is the local agent queue milestone from the open-source plan. The current
 candidate evidence covers:
 
 - SQLite-backed work items for reviewable maintainer tasks.
@@ -105,13 +105,13 @@ Current evidence snapshot from 2026-06-03:
   regenerates the same local queue demo artifacts from the installed CLI,
   validates the resulting `summary.json`, and fails closed if the gate-report
   or bundle contracts are not reviewer-ready.
-- The main CI `oss-evidence-snapshot` job uploads the same Control Plane
+- The main CI `open-source-evidence-snapshot` job uploads the same Control Plane
   evidence as `control-plane-evidence.json`, `control-plane-evidence.md`,
   `local-agent-queue/demo-run.md`, and the reviewer-facing
   `local-agent-queue/summary.json`,
   `local-agent-queue/gate-report.json`, `local-agent-queue/gate-report.md`,
   `local-agent-queue/bundle.json`, and `local-agent-queue/bundle.md` inside the
-  `patchrail-oss-evidence` artifact after tests and package smoke pass.
+  `patchrail-open-source-evidence` artifact after tests and package smoke pass.
 - `patchrail evidence http-api --format markdown` starts an ephemeral
   `127.0.0.1` server, creates local work items and proposals, approves and
   rejects records, reads `/status`, lists queue/proposal state, exports
@@ -149,7 +149,7 @@ Recent owned-repo public PR evidence:
 - Queue audit summary schema: [schemas/queue_audit_summary.schema.json](../schemas/queue_audit_summary.schema.json)
 - Queue gate report schema: [schemas/queue_gate_report.schema.json](../schemas/queue_gate_report.schema.json)
 - Public workflow ledger: [docs/public-workflow-ledger.md](public-workflow-ledger.md)
-- OSS evidence tracker: [docs/oss-program-evidence.md](oss-program-evidence.md)
+- open-source evidence tracker: [docs/open-source-program-evidence.md](open-source-program-evidence.md)
 
 ## Manual Gates Before Publishing
 

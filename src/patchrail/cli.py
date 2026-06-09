@@ -535,7 +535,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
         "docs/public-workflow-ledger.md",
         "docs/pilot-request-package.md",
         "docs/metrics.md",
-        "docs/oss-program-evidence.md",
+        "docs/open-source-program-evidence.md",
     ]
     missing_docs = [path for path in required_docs if not (root / path).exists()]
     read_only_workflow = (
@@ -651,7 +651,7 @@ def _render_evidence_snapshot_markdown(payload: dict[str, Any]) -> str:
     safety = payload["safety"]
     workstreams = payload["workstreams"]
     lines = [
-        "# PatchRail OSS Evidence Snapshot",
+        "# PatchRail Open Source Evidence Snapshot",
         "",
         f"- Repository: `{payload['repository']}`",
         f"- Status: `{payload['status']}`",
@@ -847,7 +847,7 @@ def _roadmap_audit_payload(root: Path) -> dict[str, Any]:
                 "focus": "reviewable agent workflows and public evidence pack",
                 "evidence": [
                     "docs/codex-workflows.md",
-                    "docs/openai-codex-for-oss-evidence.md",
+                    "docs/openai-open-source-evidence.md",
                     "docs/public-workflow-ledger.md",
                 ],
                 "gaps": ["formal visible review links remain pending"],
@@ -903,13 +903,13 @@ def _roadmap_audit_payload(root: Path) -> dict[str, Any]:
             "week_11": {
                 "status": "pending_metrics",
                 "focus": "application evidence preparation",
-                "evidence": ["docs/openai-codex-for-oss-evidence.md", "docs/metrics.md"],
+                "evidence": ["docs/openai-open-source-evidence.md", "docs/metrics.md"],
                 "gaps": ["stars/downloads/adopters/review links are insufficient"],
             },
             "week_12": {
                 "status": "not_ready",
                 "focus": "apply or wait with criteria",
-                "evidence": ["docs/oss-program-evidence.md"],
+                "evidence": ["docs/open-source-program-evidence.md"],
                 "gaps": ["do not apply from placeholder metrics"],
             },
         },
@@ -1201,7 +1201,7 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
     roadmap = _roadmap_audit_payload(root)
     review_packet = _public_review_packet_payload(root)
     application_gate = _application_gate_payload(root)
-    codex_evidence = _read_optional_text(root / "docs" / "openai-codex-for-oss-evidence.md")
+    codex_evidence = _read_optional_text(root / "docs" / "openai-open-source-evidence.md")
 
     upstream_contributions: list[dict[str, str]] = []
     if "https://github.com/jamie8johnson/cqs/pull/1650" in codex_evidence:
@@ -1310,8 +1310,8 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
         ],
         "evidence_pages": [
             "README.md",
-            "docs/openai-codex-for-oss-evidence.md",
-            "docs/oss-program-evidence.md",
+            "docs/openai-open-source-evidence.md",
+            "docs/open-source-program-evidence.md",
             "docs/public-workflow-ledger.md",
             "docs/release-v0.1.0-evidence.md",
             "docs/release-v0.2.0-evidence.md",
@@ -5192,7 +5192,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     evidence = subparsers.add_parser(
         "evidence",
-        help="Summarize local OSS program evidence without network or write actions.",
+        help="Summarize local open-source program evidence without network or write actions.",
     )
     evidence_subparsers = evidence.add_subparsers(dest="evidence_command", required=True)
     evidence_snapshot = evidence_subparsers.add_parser(
@@ -5210,7 +5210,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     evidence_roadmap = evidence_subparsers.add_parser(
         "roadmap",
-        help="Audit v0.1.0-v0.4.0 and 12-week OSS roadmap progress from local artifacts.",
+        help="Audit v0.1.0-v0.4.0 and 12-week open-source roadmap progress from local artifacts.",
     )
     evidence_roadmap.add_argument(
         "--format",

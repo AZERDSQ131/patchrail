@@ -228,7 +228,7 @@ The command emits `patchrail.queue_policy_resolution.v1`, uses `policy-scan` to
 find active blocked records, marks matching work items as skipped, rejects
 matching proposal records, records normal local audit events, and then runs the
 scan again to report the remaining blocked-record count. The default decision
-note is `no money goal, OSS-only #3217`; maintainers can override it with
+note is `no money goal, open-source-only #3217`; maintainers can override it with
 `--reason` for a narrower local policy decision.
 
 The resolution is local-only. It does not delete work items, execute proposals,

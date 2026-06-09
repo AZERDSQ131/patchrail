@@ -10,7 +10,7 @@ programs.
 
 ## Scope
 
-v0.4.0 is the funded issue scout milestone from the OSS plan, implemented only
+v0.4.0 is the funded issue scout milestone from the open-source plan, implemented only
 as local sustainability metadata. The current candidate evidence covers:
 
 - `patchrail funded-issues list` over local JSON metadata.
@@ -63,8 +63,8 @@ Current evidence snapshot from 2026-06-03:
 - Funded issue ethics: [docs/funded-issues-ethics.md](funded-issues-ethics.md)
 - Read-only demo: [examples/funded-issues-readonly](../examples/funded-issues-readonly/README.md)
 - Public workflow ledger: [docs/public-workflow-ledger.md](public-workflow-ledger.md)
-- OSS evidence tracker: [docs/oss-program-evidence.md](oss-program-evidence.md)
-- Codex for OSS evidence: [docs/openai-codex-for-oss-evidence.md](openai-codex-for-oss-evidence.md)
+- open-source evidence tracker: [docs/open-source-program-evidence.md](open-source-program-evidence.md)
+- Codex for open-source evidence: [docs/openai-open-source-evidence.md](openai-open-source-evidence.md)
 
 ## Manual Gates Before Publishing
 

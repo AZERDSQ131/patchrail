@@ -8,7 +8,7 @@ patchrail evidence control-plane --format markdown
 patchrail evidence application-gate --format markdown
 ```
 
-The audit reports progress for v0.1.0 through v0.4.0 and the 12-week OSS plan
+The audit reports progress for v0.1.0 through v0.4.0 and the 12-week open-source plan
 without network access, billing, external models, GitHub write permission,
 public announcements, or third-party repository actions. Treat it as a local
 progress check. It does not replace public PyPI download telemetry, consented

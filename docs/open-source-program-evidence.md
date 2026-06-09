@@ -65,7 +65,7 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `patchrail evidence control-plane --format markdown` verifies the checked-in
   local queue demo summary, required audit events, required artifacts, human
   approval gates, and risky proposal rejection without network or write actions
-- Public CI artifact: the main CI workflow uploads `patchrail-oss-evidence`
+- Public CI artifact: the main CI workflow uploads `patchrail-open-source-evidence`
   with `evidence-snapshot.json`, `evidence-snapshot.md`,
   `control-plane-evidence.json`, `control-plane-evidence.md`,
   `application-dossier.json`, `application-dossier.md`, the full
@@ -80,7 +80,7 @@ Pablo Guillén is the primary maintainer of PatchRail.
   <https://github.com/patchrail/patchrail/actions/runs/27062668635> completed
   successfully for commit `891aea7acfff9f392764542ec598b40073f93efa`, including
   Python 3.11/3.12/3.13 tests, package smoke, fixture benchmark, and the
-  `patchrail-oss-evidence` artifact.
+  `patchrail-open-source-evidence` artifact.
 - Adopter list: [ADOPTERS.md](../ADOPTERS.md) is permission-only and currently
   has no public external adopters listed
 - Public CI fixtures: 153 sanitized synthetic fixtures in the local benchmark

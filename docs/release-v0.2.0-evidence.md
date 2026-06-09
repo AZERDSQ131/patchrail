@@ -9,7 +9,7 @@ maintainers, or apply to external programs.
 
 ## Scope
 
-v0.2.0 is the GitHub Actions integration and benchmark milestone from the OSS
+v0.2.0 is the GitHub Actions integration and benchmark milestone from the Open Source
 plan. The current candidate evidence covers:
 
 - CI fixture zoo expanded past the 100-case v0.2 bar.
@@ -67,7 +67,7 @@ Current evidence snapshot from 2026-06-03:
 - Public workflow ledger: [docs/public-workflow-ledger.md](public-workflow-ledger.md)
 - Metrics tracker: [docs/metrics.md](metrics.md)
 - Adopter policy: [ADOPTERS.md](../ADOPTERS.md)
-- OSS evidence tracker: [docs/oss-program-evidence.md](oss-program-evidence.md)
+- open-source evidence tracker: [docs/open-source-program-evidence.md](open-source-program-evidence.md)
 
 ## Manual Gates Before Publishing
 

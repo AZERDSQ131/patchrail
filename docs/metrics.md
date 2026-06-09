@@ -86,7 +86,7 @@ permissioned external pilots/adopters, and visible review links must exist
 before application copy can be treated as ready.
 
 The main CI workflow also publishes this output as the read-only
-`patchrail-oss-evidence` artifact after tests, fixture benchmark, and package
+`patchrail-open-source-evidence` artifact after tests, fixture benchmark, and package
 smoke pass. Treat that artifact as reproducible project-health evidence, not as
 external adoption or PyPI download evidence.
 

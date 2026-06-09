@@ -27,8 +27,8 @@ Pablo Guillén is the primary maintainer of PatchRail.
   <https://github.com/patchrail/patchrail/actions/runs/27062668635> completed
   successfully for commit `891aea7acfff9f392764542ec598b40073f93efa`, including
   Python 3.11/3.12/3.13 tests, fixture benchmark, CLI smoke,
-  package-smoke, and the OSS evidence snapshot job. The uploaded
-  `patchrail-oss-evidence` artifact includes the general snapshot, Agent
+  package-smoke, and the open-source evidence snapshot job. The uploaded
+  `patchrail-open-source-evidence` artifact includes the general snapshot, Agent
   Control Plane evidence, application dossier, and the reviewer-facing local queue bundle plus the full reviewer packet.
 - Versioned reviewer demo:
   [examples/ci-triage/demo-output.md](../examples/ci-triage/demo-output.md)
