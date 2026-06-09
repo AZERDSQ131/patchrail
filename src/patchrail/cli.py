@@ -5502,6 +5502,7 @@ def _render_funded_issues_cash_actions_markdown(payload: dict[str, Any]) -> str:
 def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> str:
     cash_path = payload["cash_path_status"]
     readiness = payload["delivery_readiness"]
+    digest = payload["operations_digest"]
     totals = payload["totals"]
     lines = [
         "PatchRail Funded Issues Fulfillment Packet",
@@ -5518,6 +5519,9 @@ def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> st
         f"Active rechecks: {totals['active_rechecks']}",
         f"Next revenue action: {cash_path['next_revenue_action']}",
         f"Payment route allowed now: {cash_path['payment_route_allowed_now']}",
+        f"Operations digest: {digest['status']}",
+        f"Operations blocking count: {digest['blocking_count']}",
+        f"Next safe local action: {_digest_action_summary(digest['next_safe_local_action'])}",
         _operator_next_steps_summary(payload["operator_next_steps"]),
         f"Boundary: {payload['boundary']}",
     ]
@@ -5533,6 +5537,7 @@ def _render_funded_issues_fulfillment_packet_text(payload: dict[str, Any]) -> st
 def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -> str:
     cash_path = payload["cash_path_status"]
     readiness = payload["delivery_readiness"]
+    digest = payload["operations_digest"]
     totals = payload["totals"]
     handoff = payload["handoff"]
     lines = [
@@ -5589,8 +5594,33 @@ def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -
             + _format_reference_list(readiness["blocking_reference_scope"]),
             "",
             readiness["boundary"],
+            "",
+            "## Operations Digest",
+            "",
+            f"- Status: `{digest['status']}`",
+            f"- Blocking count: `{digest['blocking_count']}`",
+            f"- Gate pass rate: `{digest['gate_pass_rate']}`",
+            "- Next blocker: " + _digest_action_summary(digest["next_blocker"]),
+            "- Next safe local action: " + _digest_action_summary(digest["next_safe_local_action"]),
+            f"- Payment route allowed now: `{digest['payment_route_allowed_now']}`",
+            f"- External body allowed: `{digest['external_body_allowed']}`",
+            "- Non-blocking actions: " + _format_reference_list(digest["non_blocking_actions"]),
+            "",
+            "| Source | Owner | Priority | Action | Evidence | Blocks paid delivery |",
+            "|---|---|---|---|---|---:|",
         ]
     )
+    for step in digest["critical_path"]:
+        lines.append(
+            "| "
+            f"`{step['source']}` | "
+            f"`{step['owner']}` | "
+            f"`{step['priority']}` | "
+            f"`{step['action']}` | "
+            f"{_format_reference_list(step['evidence'])} | "
+            f"{step['blocks_paid_delivery']} |"
+        )
+    lines.extend(["", digest["boundary"]])
     _append_operator_next_steps_markdown(lines, payload["operator_next_steps"])
     lines.extend(["", "## Fulfillment Items", ""])
     if payload["items"]:
@@ -5642,6 +5672,13 @@ def _render_funded_issues_fulfillment_packet_markdown(payload: dict[str, Any]) -
     )
     lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
     return "\n".join(lines) + "\n"
+
+
+def _digest_action_summary(action: dict[str, Any] | None) -> str:
+    if action is None:
+        return "`none`"
+    evidence = _format_reference_list(action.get("evidence") or [])
+    return f"`{action['action']}` ({action['owner']}, {action['priority']}, evidence: {evidence})"
 
 
 def _escape_markdown_cell(value: str) -> str:

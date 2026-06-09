@@ -650,8 +650,7 @@ def shortlist_funded_issues(
     candidate_rows = [
         row
         for row in score_payload["scores"]
-        if _is_shortlist_candidate_row(row)
-        and (not safe_only or row["issue"]["safe_to_list"])
+        if _is_shortlist_candidate_row(row) and (not safe_only or row["issue"]["safe_to_list"])
     ]
     no_go_rows = [row for row in score_payload["scores"] if row["rating"] == "no_go"]
     decision_summary = _decision_summary(score_payload["scores"])
@@ -935,6 +934,11 @@ def fulfillment_packet_funded_issues(
         },
         "qa_gates": qa_gates,
         "delivery_readiness": _fulfillment_delivery_readiness(
+            qa_gates=qa_gates,
+            items=items,
+            report_payload=report_payload,
+        ),
+        "operations_digest": _fulfillment_operations_digest(
             qa_gates=qa_gates,
             items=items,
             report_payload=report_payload,
@@ -1258,6 +1262,118 @@ def _fulfillment_delivery_readiness(
     }
 
 
+def _fulfillment_operations_digest(
+    *,
+    qa_gates: list[dict[str, Any]],
+    items: list[dict[str, Any]],
+    report_payload: dict[str, Any],
+) -> dict[str, Any]:
+    blocking_gates = [
+        _operations_digest_step(
+            source="qa_gate",
+            action=str(gate["gate"]),
+            owner=_fulfillment_owner(str(gate["gate"])),
+            priority="high",
+            evidence=list(gate["evidence"]),
+            reason=str(gate["reason"]),
+            blocks_paid_delivery=True,
+        )
+        for gate in qa_gates
+        if not gate["passed"]
+    ]
+    blocking_items = [
+        _operations_digest_step(
+            source=str(item["stage"]),
+            action=str(item["action"]),
+            owner=_fulfillment_owner(str(item["action"])),
+            priority=str(item["priority"]),
+            evidence=list(item["reference_scope"]) or list(item["evidence_required"]),
+            reason=str(item["reason"]),
+            blocks_paid_delivery=True,
+        )
+        for item in items
+        if item["blocks_paid_delivery"]
+    ]
+    critical_path = blocking_gates + blocking_items
+    safe_local_actions = [
+        step
+        for step in critical_path
+        if step["owner"] == "patchrail_operator"
+        and step["action"] != "payment_route_written_acceptance"
+    ]
+    stage_counts = Counter(str(item["stage"]) for item in items)
+    blocking_stage_counts = Counter(
+        str(item["stage"]) for item in items if item["blocks_paid_delivery"]
+    )
+    passed_gates = sum(1 for gate in qa_gates if gate["passed"])
+    gate_pass_rate = round(passed_gates / len(qa_gates), 2) if qa_gates else 1.0
+    return {
+        "schema_version": "patchrail.funded_issues.operations_digest.v1",
+        "status": "ready_for_paid_delivery" if not critical_path else "blocked_internal",
+        "next_blocker": critical_path[0] if critical_path else None,
+        "next_safe_local_action": safe_local_actions[0] if safe_local_actions else None,
+        "blocking_count": len(critical_path),
+        "gate_pass_rate": gate_pass_rate,
+        "stage_counts": dict(sorted(stage_counts.items())),
+        "blocking_stage_counts": dict(sorted(blocking_stage_counts.items())),
+        "non_blocking_actions": sorted(
+            {str(item["action"]) for item in items if not item["blocks_paid_delivery"]}
+        ),
+        "critical_path": critical_path,
+        "cash_path_status": report_payload["cash_path_status"]["status"],
+        "payment_route_allowed_now": False,
+        "external_body_allowed": False,
+        "boundary": (
+            "Operations digest is internal read-only delivery triage. It may guide local "
+            "tracker work or facts-only copy-briefs, but it does not write customer prose, "
+            "create payment routes, claim rewards, contact maintainers, post comments, "
+            "open pull requests, or guarantee merge/payout outcomes."
+        ),
+    }
+
+
+def _operations_digest_step(
+    *,
+    source: str,
+    action: str,
+    owner: str,
+    priority: str,
+    evidence: list[str],
+    reason: str,
+    blocks_paid_delivery: bool,
+) -> dict[str, Any]:
+    return {
+        "source": source,
+        "action": action,
+        "owner": owner,
+        "priority": priority,
+        "evidence": evidence,
+        "reason": reason,
+        "blocks_paid_delivery": blocks_paid_delivery,
+    }
+
+
+def _fulfillment_owner(action: str) -> str:
+    if action in {
+        "public_state_recheck_complete",
+        "source_quality_recorded",
+        "no_go_evidence_preserved",
+        "run_read_only_recheck",
+        "recheck_public_issue_state",
+        "preserve_no_go_evidence",
+        "expand_permitted_sources",
+    }:
+        return "patchrail_operator"
+    if action in {
+        "buyer_intake_fields_complete",
+        "collect_buyer_intake",
+        "confirm_paid_scope",
+        "payment_route_written_acceptance",
+    }:
+        return "buyer_or_written_acceptance"
+    return "policy_boundary"
+
+
 def _fulfillment_items(
     *,
     report_payload: dict[str, Any],
@@ -1387,9 +1503,7 @@ def _recheck_focus_batch(queue_rows: list[dict[str, Any]]) -> dict[str, Any]:
     primary_action = str(first["action"])
     priority = str(first["priority"])
     focused_rows = [
-        row
-        for row in queue_rows
-        if row["action"] == primary_action and row["priority"] == priority
+        row for row in queue_rows if row["action"] == primary_action and row["priority"] == priority
     ]
     platform_counts = Counter(str(row["platform"]) for row in focused_rows)
     return {
@@ -1532,9 +1646,7 @@ def _delivery_budget(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def _delivery_pack(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
-    candidate_rows = [
-        row for row in scored_rows if _is_shortlist_candidate_row(row)
-    ]
+    candidate_rows = [row for row in scored_rows if _is_shortlist_candidate_row(row)]
     verification_rows = [
         row
         for row in scored_rows

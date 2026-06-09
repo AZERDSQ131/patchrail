@@ -828,11 +828,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             sorted(schema["$defs"]["recheck_queue_item"]["required"]),
             sorted(payload["items"][0].keys()),
         )
-        self.assertFalse(schema["$defs"]["safe_requirements"]["properties"]["network_required"]["const"])
         self.assertFalse(
-            schema["$defs"]["safe_requirements"]["properties"][
-                "github_write_permission_required"
-            ]["const"]
+            schema["$defs"]["safe_requirements"]["properties"]["network_required"]["const"]
+        )
+        self.assertFalse(
+            schema["$defs"]["safe_requirements"]["properties"]["github_write_permission_required"][
+                "const"
+            ]
         )
         self.assertIn("automatic_claims", schema["$defs"]["blocked_actions"]["contains"].values())
         self.assertIn(
@@ -920,7 +922,9 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("## Focus Batch", proc.stdout)
         self.assertIn("- Primary action: `recheck_public_issue_state`", proc.stdout)
         self.assertIn("- References: `example/project#42`", proc.stdout)
-        self.assertIn("Focus batch is the next local read-only tracker maintenance slice", proc.stdout)
+        self.assertIn(
+            "Focus batch is the next local read-only tracker maintenance slice", proc.stdout
+        )
         self.assertIn("| `high` | `recheck_public_issue_state` |", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
         self.assertIn("confirm issue is still open", proc.stdout)
@@ -1121,6 +1125,32 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("recheck_public_issue_state", readiness["blocking_item_actions"])
         self.assertIn("example/project#42", readiness["blocking_reference_scope"])
         self.assertIn("does not authorize", readiness["boundary"])
+        digest = payload["operations_digest"]
+        self.assertEqual(
+            digest["schema_version"],
+            "patchrail.funded_issues.operations_digest.v1",
+        )
+        self.assertEqual(digest["status"], "blocked_internal")
+        self.assertEqual(digest["blocking_count"], 5)
+        self.assertEqual(digest["gate_pass_rate"], 0.5)
+        self.assertEqual(digest["stage_counts"], {"cash_path": 2, "public_state_recheck": 1})
+        self.assertEqual(
+            digest["blocking_stage_counts"],
+            {"cash_path": 1, "public_state_recheck": 1},
+        )
+        self.assertEqual(digest["non_blocking_actions"], ["run_read_only_recheck"])
+        self.assertEqual(digest["next_blocker"]["action"], "buyer_intake_fields_complete")
+        self.assertEqual(digest["next_blocker"]["owner"], "buyer_or_written_acceptance")
+        self.assertIn("preferred_languages", digest["next_blocker"]["evidence"])
+        self.assertEqual(
+            digest["next_safe_local_action"]["action"],
+            "public_state_recheck_complete",
+        )
+        self.assertEqual(digest["next_safe_local_action"]["owner"], "patchrail_operator")
+        self.assertIn("example/project#42", digest["next_safe_local_action"]["evidence"])
+        self.assertFalse(digest["payment_route_allowed_now"])
+        self.assertFalse(digest["external_body_allowed"])
+        self.assertIn("does not write customer prose", digest["boundary"])
         self.assertEqual(
             payload["operator_next_steps"]["primary_action"],
             "collect_buyer_intake",
@@ -1190,6 +1220,15 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("- Payment route allowed now: `False`", proc.stdout)
         self.assertIn("- External body allowed: `False`", proc.stdout)
         self.assertIn("`collect_buyer_intake`", proc.stdout)
+        self.assertIn("## Operations Digest", proc.stdout)
+        self.assertIn("- Blocking count: `5`", proc.stdout)
+        self.assertIn("- Gate pass rate: `0.5`", proc.stdout)
+        self.assertIn("Next safe local action: `public_state_recheck_complete`", proc.stdout)
+        self.assertIn("`buyer_intake_fields_complete`", proc.stdout)
+        self.assertIn("`patchrail_operator`", proc.stdout)
+        self.assertIn("`run_read_only_recheck`", proc.stdout)
+        self.assertIn("does not write customer prose", proc.stdout)
+        self.assertIn("Payment route allowed now: `False`", proc.stdout)
         self.assertIn("## Operator Next Steps", proc.stdout)
         self.assertIn("`preserve_no_go_evidence`", proc.stdout)
         self.assertIn("## Fulfillment Items", proc.stdout)
