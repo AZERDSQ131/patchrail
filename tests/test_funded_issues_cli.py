@@ -793,6 +793,57 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("does not claim rewards", payload["boundary"])
         self.assertIn("guarantee merge or payout outcomes", payload["boundary"])
 
+    def test_funded_issues_recheck_queue_schema_matches_cli_payload_contract(self) -> None:
+        schema_proc = run_patchrail(["schema", "funded-issues-recheck-queue"])
+        payload_proc = run_patchrail(
+            [
+                "funded-issues",
+                "recheck-queue",
+                "--source",
+                "examples/funded-issues-readonly/issues.json",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(schema_proc.returncode, 0, schema_proc.stderr)
+        self.assertEqual(payload_proc.returncode, 0, payload_proc.stderr)
+        schema = json.loads(schema_proc.stdout)
+        payload = json.loads(payload_proc.stdout)
+        self.assertEqual(
+            schema["$id"],
+            "https://patchrail.dev/schemas/funded-issues-recheck-queue.v1.schema.json",
+        )
+        self.assertEqual(
+            schema["properties"]["schema_version"]["const"],
+            "patchrail.funded_issues.recheck_queue.v1",
+        )
+        self.assertFalse(schema["additionalProperties"])
+        self.assertEqual(sorted(schema["required"]), sorted(payload.keys()))
+        self.assertEqual(
+            sorted(schema["$defs"]["focus_batch"]["required"]),
+            sorted(payload["focus_batch"].keys()),
+        )
+        self.assertEqual(
+            sorted(schema["$defs"]["recheck_queue_item"]["required"]),
+            sorted(payload["items"][0].keys()),
+        )
+        self.assertFalse(schema["$defs"]["safe_requirements"]["properties"]["network_required"]["const"])
+        self.assertFalse(
+            schema["$defs"]["safe_requirements"]["properties"][
+                "github_write_permission_required"
+            ]["const"]
+        )
+        self.assertIn("automatic_claims", schema["$defs"]["blocked_actions"]["contains"].values())
+        self.assertIn(
+            "recheck_public_issue_state",
+            schema["$defs"]["recheck_queue_item"]["properties"]["action"]["enum"],
+        )
+        self.assertNotIn(
+            "archive_as_no_go_evidence",
+            schema["$defs"]["recheck_queue_item"]["properties"]["action"]["enum"],
+        )
+
     def test_funded_issues_recheck_queue_can_limit_active_rows(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             source = Path(tmp) / "issues.json"
