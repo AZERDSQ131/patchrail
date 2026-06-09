@@ -465,6 +465,7 @@ def report_funded_issues(
         },
         "decision_summary": _decision_summary(scored_rows),
         "delivery_budget": _delivery_budget(scored_rows),
+        "delivery_pack": _delivery_pack(scored_rows),
         "source_quality": _source_quality(scored_rows),
         "recheck_plan": _recheck_plan(scored_rows),
         "client_fit_summary": _client_fit_summary(issues, profile, client_fit_gaps),
@@ -626,6 +627,7 @@ def shortlist_funded_issues(
             "no_go_rows": len(no_go_rows),
         },
         "delivery_budget": _delivery_budget(score_payload["scores"]),
+        "delivery_pack": _delivery_pack(score_payload["scores"]),
         "source_quality": _source_quality(score_payload["scores"]),
         "recheck_plan": _recheck_plan(score_payload["scores"]),
         "client_fit_summary": _client_fit_summary(issues, profile, report_payload["client_fit_gaps"]),
@@ -735,6 +737,73 @@ def _delivery_budget(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
             "contact maintainers, claim rewards, or open pull requests before paid scope."
         ),
     }
+
+
+def _delivery_pack(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    candidate_rows = [
+        row for row in scored_rows if row["decision_gate"] in {"go_after_recheck", "watchlist"}
+    ]
+    verification_rows = [
+        row
+        for row in scored_rows
+        if row["decision_gate"] in {"needs_funding_verification", "needs_authorization"}
+    ]
+    no_go_rows = [row for row in scored_rows if row["decision_gate"] == "no_go"]
+    phases = [
+        _delivery_phase(
+            phase="l1_state_and_noise_review",
+            rows=verification_rows + no_go_rows,
+            objective="Confirm current public state, funding visibility, and exclusion evidence.",
+            exit_criteria="Every row is parked for missing evidence or excluded as no-go evidence.",
+        ),
+        _delivery_phase(
+            phase="l2_shortlist_readiness_review",
+            rows=candidate_rows,
+            objective="Re-check active candidate rows before using paid shortlist time.",
+            exit_criteria="Candidate rows have current public state, scope, and contribution rules checked.",
+        ),
+        _delivery_phase(
+            phase="l3_deep_dive_deferred",
+            rows=[],
+            objective="Defer reproduction and implementation research until paid scope is explicit.",
+            exit_criteria="No deep-dive work starts from this read-only tracker artifact.",
+        ),
+    ]
+    return {
+        "suggested_package": _suggested_package_for_rows(len(scored_rows)),
+        "phase_counts": {phase["phase"]: phase["row_count"] for phase in phases},
+        "phases": phases,
+        "handoff": {
+            "candidate_references": _delivery_references(candidate_rows),
+            "verification_references": _delivery_references(verification_rows),
+            "no_go_references": _delivery_references(no_go_rows),
+        },
+        "boundary": (
+            "Delivery pack is a local read-only work plan for paid decision support. It does "
+            "not authorize claiming, commenting, contacting maintainers, opening pull requests, "
+            "or guaranteeing merge or payout outcomes."
+        ),
+    }
+
+
+def _delivery_phase(
+    *,
+    phase: str,
+    rows: list[dict[str, Any]],
+    objective: str,
+    exit_criteria: str,
+) -> dict[str, Any]:
+    return {
+        "phase": phase,
+        "row_count": len(rows),
+        "references": _delivery_references(rows),
+        "objective": objective,
+        "exit_criteria": exit_criteria,
+    }
+
+
+def _delivery_references(rows: list[dict[str, Any]]) -> list[str]:
+    return sorted(str(row["issue"]["reference"]) for row in rows)
 
 
 def _source_quality(scored_rows: list[dict[str, Any]]) -> dict[str, Any]:

@@ -471,6 +471,25 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             },
         )
         self.assertIn("paid scope", payload["delivery_budget"]["boundary"])
+        delivery_pack = payload["delivery_pack"]
+        self.assertEqual(delivery_pack["suggested_package"], "mini_diagnostic")
+        self.assertEqual(
+            delivery_pack["phase_counts"],
+            {
+                "l1_state_and_noise_review": 1,
+                "l2_shortlist_readiness_review": 1,
+                "l3_deep_dive_deferred": 0,
+            },
+        )
+        self.assertEqual(
+            delivery_pack["handoff"]["candidate_references"],
+            ["example/project#42"],
+        )
+        self.assertEqual(
+            delivery_pack["handoff"]["no_go_references"],
+            ["example/toolkit#17"],
+        )
+        self.assertIn("paid decision support", delivery_pack["boundary"])
         source_quality = payload["source_quality"]
         self.assertEqual(source_quality["sources"]["polar"]["total_rows"], 1)
         self.assertEqual(source_quality["sources"]["polar"]["candidate_rows"], 1)
@@ -539,6 +558,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("Suggested package: `mini_diagnostic`", proc.stdout)
         self.assertIn("Estimated local review: `13` minutes", proc.stdout)
         self.assertIn("l2_scope_and_readiness_review", proc.stdout)
+        self.assertIn("## Delivery Pack", proc.stdout)
+        self.assertIn("l2_shortlist_readiness_review", proc.stdout)
+        self.assertIn("Candidate references: `example/project#42`", proc.stdout)
+        self.assertIn("No-go references: `example/toolkit#17`", proc.stdout)
         self.assertIn("## Source Quality", proc.stdout)
         self.assertIn("`polar` | 1 | 1 | 0 | 1", proc.stdout)
         self.assertIn("`algora` | 1 | 0 | 1 | 0", proc.stdout)
@@ -557,7 +580,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("### Opportunity States", proc.stdout)
         self.assertIn("`active`: `1`", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
-        self.assertNotIn("example/toolkit#17", proc.stdout)
+        self.assertIn("example/toolkit#17", proc.stdout)
         self.assertIn("does not claim rewards", proc.stdout)
         self.assertIn("automatic_issue_comments", proc.stdout)
 
@@ -731,10 +754,17 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 self.assertIn("automatic_issue_comments", blocked_actions)
                 self.assertIn("mass_outreach", blocked_actions)
                 self.assertIn("ranking_by_money_only", blocked_actions)
+                self.assertIn("decision_summary", schema["required"])
+                self.assertIn("delivery_budget", schema["required"])
+                self.assertIn("delivery_pack", schema["required"])
+                self.assertIn("handoff", schema["$defs"]["delivery_pack"]["required"])
+                self.assertIn("phases", schema["$defs"]["delivery_pack"]["required"])
+                self.assertIn(
+                    "l2_shortlist_readiness_review",
+                    schema["$defs"]["delivery_phase"]["properties"]["phase"]["enum"],
+                )
 
                 if schema_name == "funded-issues-shortlist":
-                    self.assertIn("decision_summary", schema["required"])
-                    self.assertIn("delivery_budget", schema["required"])
                     self.assertIn(
                         "recommended_batch_action",
                         schema["$defs"]["decision_summary"]["required"],
@@ -774,8 +804,6 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                         schema["$defs"]["scored_issue"]["properties"]["decision_gate"]["enum"],
                     )
                 else:
-                    self.assertIn("decision_summary", schema["required"])
-                    self.assertIn("delivery_budget", schema["required"])
                     self.assertIn(
                         "safety_boundary",
                         schema["$defs"]["decision_summary"]["required"],
@@ -1041,6 +1069,23 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(
             payload["delivery_budget"]["analysis_rows"]["l2_scope_and_readiness_review"], 1
         )
+        self.assertEqual(payload["delivery_pack"]["suggested_package"], "mini_diagnostic")
+        self.assertEqual(
+            payload["delivery_pack"]["handoff"]["candidate_references"],
+            ["example/project#42"],
+        )
+        self.assertEqual(
+            payload["delivery_pack"]["handoff"]["no_go_references"],
+            ["example/toolkit#17"],
+        )
+        self.assertEqual(
+            payload["delivery_pack"]["phases"][1]["phase"],
+            "l2_shortlist_readiness_review",
+        )
+        self.assertEqual(
+            payload["delivery_pack"]["phases"][1]["references"],
+            ["example/project#42"],
+        )
         source_quality = payload["source_quality"]
         self.assertEqual(source_quality["sources"]["polar"]["candidate_rows"], 1)
         self.assertEqual(source_quality["sources"]["polar"]["usable_signal_ratio"], 1)
@@ -1086,6 +1131,9 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("## Delivery Budget", proc.stdout)
         self.assertIn("Suggested package: `mini_diagnostic`", proc.stdout)
         self.assertIn("Estimated local review: `13` minutes", proc.stdout)
+        self.assertIn("## Delivery Pack", proc.stdout)
+        self.assertIn("Candidate references: `example/project#42`", proc.stdout)
+        self.assertIn("No-go references: `example/toolkit#17`", proc.stdout)
         self.assertIn("## Source Quality", proc.stdout)
         self.assertIn("`polar` | 1 | 1 | 0 | 1", proc.stdout)
         self.assertIn("`algora` | 1 | 0 | 1 | 0", proc.stdout)

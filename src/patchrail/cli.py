@@ -4456,6 +4456,7 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
             f"{budget['estimated_review_minutes']} min local review, "
             f"within margin budget: {budget['within_margin_budget']}"
         ),
+        _delivery_pack_summary(payload["delivery_pack"]),
         _source_quality_summary(payload["source_quality"]),
         _recheck_plan_summary(payload["recheck_plan"]),
         _client_fit_summary_line(payload["client_fit_summary"]),
@@ -4482,6 +4483,16 @@ def _source_quality_summary(source_quality: dict[str, Any]) -> str:
         "Source quality: "
         f"{source} has {stats['candidate_rows']}/{stats['total_rows']} candidate rows, "
         f"{stats['usable_signal_ratio']} usable signal ratio"
+    )
+
+
+def _delivery_pack_summary(delivery_pack: dict[str, Any]) -> str:
+    handoff = delivery_pack["handoff"]
+    return (
+        "Delivery pack: "
+        f"{len(handoff['candidate_references'])} candidate refs, "
+        f"{len(handoff['verification_references'])} verification refs, "
+        f"{len(handoff['no_go_references'])} no-go refs"
     )
 
 
@@ -4536,6 +4547,43 @@ def _append_source_quality_markdown(
     else:
         lines.append("| n/a | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | No rows matched the filters. |")
     lines.extend(["", source_quality["boundary"]])
+
+
+def _append_delivery_pack_markdown(
+    lines: list[str],
+    delivery_pack: dict[str, Any],
+) -> None:
+    handoff = delivery_pack["handoff"]
+    lines.extend(
+        [
+            "",
+            "## Delivery Pack",
+            "",
+            f"- Suggested package: `{delivery_pack['suggested_package']}`",
+            "- Candidate references: "
+            + _format_reference_list(handoff["candidate_references"]),
+            "- Verification references: "
+            + _format_reference_list(handoff["verification_references"]),
+            "- No-go references: "
+            + _format_reference_list(handoff["no_go_references"]),
+            "",
+            "| Phase | Rows | References | Objective | Exit criteria |",
+            "|---|---:|---|---|---|",
+        ]
+    )
+    for phase in delivery_pack["phases"]:
+        lines.append(
+            f"| `{phase['phase']}` | {phase['row_count']} | "
+            f"{_format_reference_list(phase['references'])} | "
+            f"{phase['objective']} | {phase['exit_criteria']} |"
+        )
+    lines.extend(["", delivery_pack["boundary"]])
+
+
+def _format_reference_list(references: list[str]) -> str:
+    if not references:
+        return "`none`"
+    return ", ".join(f"`{reference}`" for reference in references)
 
 
 def _append_client_fit_summary_markdown(
@@ -4696,6 +4744,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     )
     for level, count in budget["analysis_rows"].items():
         lines.append(f"| `{level}` | {count} |")
+    _append_delivery_pack_markdown(lines, payload["delivery_pack"])
     _append_source_quality_markdown(lines, payload["source_quality"])
     _append_recheck_plan_markdown(lines, payload["recheck_plan"])
     _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
@@ -4883,6 +4932,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
             f"{budget['estimated_review_minutes']} min local review, "
             f"within margin budget: {budget['within_margin_budget']}"
         ),
+        _delivery_pack_summary(payload["delivery_pack"]),
         _source_quality_summary(payload["source_quality"]),
         _recheck_plan_summary(payload["recheck_plan"]),
         _client_fit_summary_line(payload["client_fit_summary"]),
@@ -4947,6 +4997,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     )
     for level, count in budget["analysis_rows"].items():
         lines.append(f"| `{level}` | {count} |")
+    _append_delivery_pack_markdown(lines, payload["delivery_pack"])
     _append_source_quality_markdown(lines, payload["source_quality"])
     _append_recheck_plan_markdown(lines, payload["recheck_plan"])
     _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])

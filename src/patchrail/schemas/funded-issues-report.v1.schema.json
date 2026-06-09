@@ -16,6 +16,7 @@
     "no_go_moat",
     "decision_summary",
     "delivery_budget",
+    "delivery_pack",
     "source_quality",
     "recheck_plan",
     "client_fit_summary",
@@ -85,6 +86,9 @@
     },
     "delivery_budget": {
       "$ref": "#/$defs/delivery_budget"
+    },
+    "delivery_pack": {
+      "$ref": "#/$defs/delivery_pack"
     },
     "source_quality": {
       "$ref": "#/$defs/source_quality"
@@ -306,6 +310,79 @@
           "additionalProperties": false
         },
         "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "delivery_pack": {
+      "type": "object",
+      "required": [
+        "suggested_package",
+        "phase_counts",
+        "phases",
+        "handoff",
+        "boundary"
+      ],
+      "properties": {
+        "suggested_package": {
+          "enum": [
+            "none",
+            "mini_diagnostic",
+            "validation_sprint",
+            "opportunity_shortlist",
+            "custom_batch"
+          ]
+        },
+        "phase_counts": { "$ref": "#/$defs/count_map" },
+        "phases": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/delivery_phase" }
+        },
+        "handoff": { "$ref": "#/$defs/delivery_handoff" },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "delivery_phase": {
+      "type": "object",
+      "required": ["phase", "row_count", "references", "objective", "exit_criteria"],
+      "properties": {
+        "phase": {
+          "enum": [
+            "l1_state_and_noise_review",
+            "l2_shortlist_readiness_review",
+            "l3_deep_dive_deferred"
+          ]
+        },
+        "row_count": { "type": "integer", "minimum": 0 },
+        "references": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "objective": { "type": "string", "minLength": 1 },
+        "exit_criteria": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "delivery_handoff": {
+      "type": "object",
+      "required": [
+        "candidate_references",
+        "verification_references",
+        "no_go_references"
+      ],
+      "properties": {
+        "candidate_references": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "verification_references": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "no_go_references": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
       },
       "additionalProperties": false
     },
