@@ -23,6 +23,7 @@
     "recheck_plan",
     "client_fit_summary",
     "client_fit_gaps",
+    "intake_followup",
     "requirements",
     "boundary"
   ],
@@ -102,6 +103,9 @@
     },
     "client_fit_gaps": {
       "$ref": "#/$defs/client_fit_gaps"
+    },
+    "intake_followup": {
+      "$ref": "#/$defs/intake_followup"
     },
     "requirements": {
       "$ref": "#/$defs/safe_requirements"
@@ -570,6 +574,54 @@
           "minItems": 1
         },
         "gap_summary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "intake_followup": {
+      "type": "object",
+      "required": [
+        "status",
+        "suggested_package",
+        "required_before_paid_delivery",
+        "requested_fields",
+        "next_internal_action",
+        "boundary"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "needs_buyer_intake",
+            "needs_source_expansion",
+            "ready_after_read_only_recheck",
+            "ready_for_scope_confirmation"
+          ]
+        },
+        "suggested_package": {
+          "enum": [
+            "none",
+            "mini_diagnostic",
+            "validation_sprint",
+            "opportunity_shortlist",
+            "custom_batch"
+          ]
+        },
+        "required_before_paid_delivery": { "type": "integer", "minimum": 0 },
+        "requested_fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/intake_field" }
+        },
+        "next_internal_action": { "type": "string", "minLength": 1 },
+        "boundary": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "intake_field": {
+      "type": "object",
+      "required": ["field", "reason", "required_before_paid_delivery"],
+      "properties": {
+        "field": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 },
+        "required_before_paid_delivery": { "type": "boolean" }
       },
       "additionalProperties": false
     },

@@ -417,6 +417,11 @@ def report_funded_issues(
     funding_known = sum(1 for issue in scoped_issues if issue.funding_amount is not None)
     funding_unknown = len(scoped_issues) - funding_known
     scored_rows = [_score_issue(issue) for issue in scoped_issues]
+    decision_summary = _decision_summary(scored_rows)
+    delivery_budget = _delivery_budget(scored_rows)
+    source_quality = _source_quality(scored_rows)
+    recheck_plan = _recheck_plan(scored_rows)
+    client_fit_summary = _client_fit_summary(issues, profile, client_fit_gaps)
     safe_candidates = sorted(
         (issue for issue in returned_issues if issue.safe_to_list),
         key=_candidate_sort_key,
@@ -463,13 +468,20 @@ def report_funded_issues(
                 1 for issue in scoped_issues if issue.opportunity_state in {"closed", "stale"}
             ),
         },
-        "decision_summary": _decision_summary(scored_rows),
-        "delivery_budget": _delivery_budget(scored_rows),
+        "decision_summary": decision_summary,
+        "delivery_budget": delivery_budget,
         "delivery_pack": _delivery_pack(scored_rows),
-        "source_quality": _source_quality(scored_rows),
-        "recheck_plan": _recheck_plan(scored_rows),
-        "client_fit_summary": _client_fit_summary(issues, profile, client_fit_gaps),
+        "source_quality": source_quality,
+        "recheck_plan": recheck_plan,
+        "client_fit_summary": client_fit_summary,
         "client_fit_gaps": client_fit_gaps,
+        "intake_followup": _intake_followup(
+            client_fit_summary=client_fit_summary,
+            recheck_plan=recheck_plan,
+            delivery_budget=delivery_budget,
+            source_quality=source_quality,
+            decision_summary=decision_summary,
+        ),
         "top_safe_candidates": [
             {
                 "reference": issue.reference,
@@ -601,6 +613,10 @@ def shortlist_funded_issues(
     ]
     no_go_rows = [row for row in score_payload["scores"] if row["rating"] == "no_go"]
     decision_summary = _decision_summary(score_payload["scores"])
+    delivery_budget = _delivery_budget(score_payload["scores"])
+    source_quality = _source_quality(score_payload["scores"])
+    recheck_plan = _recheck_plan(score_payload["scores"])
+    client_fit_summary = _client_fit_summary(issues, profile, report_payload["client_fit_gaps"])
     return {
         "schema_version": SHORTLIST_SCHEMA_VERSION,
         "source_schema_version": SCHEMA_VERSION,
@@ -626,12 +642,19 @@ def shortlist_funded_issues(
             "candidate_rows": len(candidate_rows),
             "no_go_rows": len(no_go_rows),
         },
-        "delivery_budget": _delivery_budget(score_payload["scores"]),
+        "delivery_budget": delivery_budget,
         "delivery_pack": _delivery_pack(score_payload["scores"]),
-        "source_quality": _source_quality(score_payload["scores"]),
-        "recheck_plan": _recheck_plan(score_payload["scores"]),
-        "client_fit_summary": _client_fit_summary(issues, profile, report_payload["client_fit_gaps"]),
+        "source_quality": source_quality,
+        "recheck_plan": recheck_plan,
+        "client_fit_summary": client_fit_summary,
         "client_fit_gaps": report_payload["client_fit_gaps"],
+        "intake_followup": _intake_followup(
+            client_fit_summary=client_fit_summary,
+            recheck_plan=recheck_plan,
+            delivery_budget=delivery_budget,
+            source_quality=source_quality,
+            decision_summary=decision_summary,
+        ),
         "requirements": {
             "network_required": False,
             "github_write_permission_required": False,
@@ -1019,6 +1042,124 @@ def _client_fit_recommended_action(
     if excluded_rows:
         return "Use matching rows for shortlist review and keep excluded rows as fit-gap evidence."
     return "Use this batch for buyer-specific shortlist review after public-state recheck."
+
+
+def _intake_followup(
+    *,
+    client_fit_summary: dict[str, Any],
+    recheck_plan: dict[str, Any],
+    delivery_budget: dict[str, Any],
+    source_quality: dict[str, Any],
+    decision_summary: dict[str, Any],
+) -> dict[str, Any]:
+    requested_fields: list[dict[str, Any]] = []
+    if client_fit_summary["status"] == "no_profile":
+        requested_fields.extend(
+            [
+                _intake_field(
+                    "preferred_languages",
+                    "Needed to filter funded issues to stacks the buyer can actually work.",
+                    True,
+                ),
+                _intake_field(
+                    "minimum_payout_usd",
+                    "Needed to keep low-value rows out of a paid shortlist.",
+                    True,
+                ),
+                _intake_field(
+                    "allowed_risk_levels",
+                    "Needed to avoid proposing high-risk rows as buyer-ready.",
+                    True,
+                ),
+            ]
+        )
+    elif client_fit_summary["status"] in {"no_matching_rows", "partial_match"}:
+        requested_fields.append(
+            _intake_field(
+                "profile_gap_confirmation",
+                "Needed to decide whether to expand sources or adjust buyer-fit filters.",
+                True,
+            )
+        )
+
+    if recheck_plan["recheck_rows"]:
+        requested_fields.append(
+            _intake_field(
+                "public_state_recheck_window",
+                "Needed because active candidates require read-only public-state recheck before delivery.",
+                False,
+            )
+        )
+
+    if not source_quality["sources"]:
+        requested_fields.append(
+            _intake_field(
+                "permitted_sources",
+                "Needed because no source rows matched the current filters.",
+                True,
+            )
+        )
+    elif decision_summary["candidate_rows"] == 0 and decision_summary["no_go_rows"] > 0:
+        requested_fields.append(
+            _intake_field(
+                "source_expansion_preferences",
+                "Needed because the current batch is useful as no-go evidence but has no candidates.",
+                False,
+            )
+        )
+
+    required_count = sum(1 for field in requested_fields if field["required_before_paid_delivery"])
+    if required_count:
+        status = "needs_buyer_intake"
+    elif recheck_plan["recheck_rows"]:
+        status = "ready_after_read_only_recheck"
+    elif decision_summary["candidate_rows"]:
+        status = "ready_for_scope_confirmation"
+    else:
+        status = "needs_source_expansion"
+
+    return {
+        "status": status,
+        "suggested_package": delivery_budget["suggested_package"],
+        "required_before_paid_delivery": required_count,
+        "requested_fields": requested_fields,
+        "next_internal_action": _intake_next_internal_action(status),
+        "boundary": (
+            "Intake follow-up is structured internal handoff data. It is not customer-facing "
+            "email copy and does not authorize claims, comments, pull requests, maintainer "
+            "outreach, payout guarantees, or payment routes without written buyer acceptance."
+        ),
+    }
+
+
+def _intake_field(
+    field: str,
+    reason: str,
+    required_before_paid_delivery: bool,
+) -> dict[str, Any]:
+    return {
+        "field": field,
+        "reason": reason,
+        "required_before_paid_delivery": required_before_paid_delivery,
+    }
+
+
+def _intake_next_internal_action(status: str) -> str:
+    return {
+        "needs_buyer_intake": (
+            "Use these fields as facts in a PatchRail copy-brief after buyer interest; do not write "
+            "external prose here."
+        ),
+        "ready_after_read_only_recheck": (
+            "Run read-only public-state recheck before turning candidates into a paid report."
+        ),
+        "ready_for_scope_confirmation": (
+            "Confirm paid scope and package; create payment route only after written buyer acceptance."
+        ),
+        "needs_source_expansion": (
+            "Expand permitted read-only sources before pitching this batch as buyer-ready."
+        ),
+    }[status]
 
 
 def _client_fit_gap_codes(issue: FundedIssue, profile: ClientProfile) -> list[str]:

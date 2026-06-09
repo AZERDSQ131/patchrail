@@ -4461,6 +4461,7 @@ def _render_funded_issues_report_text(payload: dict[str, Any]) -> str:
         _recheck_plan_summary(payload["recheck_plan"]),
         _client_fit_summary_line(payload["client_fit_summary"]),
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
+        _intake_followup_summary(payload["intake_followup"]),
         "Read-only: True",
     ]
     return "\n".join(lines) + "\n"
@@ -4510,6 +4511,15 @@ def _client_fit_summary_line(client_fit_summary: dict[str, Any]) -> str:
         f"{client_fit_summary['matching_rows']}/{client_fit_summary['total_rows']} "
         f"matching rows, {client_fit_summary['excluded_rows']} excluded, "
         f"status {client_fit_summary['status']}"
+    )
+
+
+def _intake_followup_summary(intake_followup: dict[str, Any]) -> str:
+    return (
+        "Intake follow-up: "
+        f"{intake_followup['status']}, "
+        f"{len(intake_followup['requested_fields'])} fields, "
+        f"{intake_followup['required_before_paid_delivery']} required"
     )
 
 
@@ -4694,6 +4704,36 @@ def _append_client_fit_gaps_markdown(
     )
 
 
+def _append_intake_followup_markdown(
+    lines: list[str],
+    intake_followup: dict[str, Any],
+) -> None:
+    lines.extend(
+        [
+            "",
+            "## Intake Follow-Up",
+            "",
+            f"- Status: `{intake_followup['status']}`",
+            f"- Suggested package: `{intake_followup['suggested_package']}`",
+            "- Required before paid delivery: "
+            f"`{intake_followup['required_before_paid_delivery']}`",
+            f"- Next internal action: {intake_followup['next_internal_action']}",
+            "",
+            "| Field | Required before paid delivery | Reason |",
+            "|---|---:|---|",
+        ]
+    )
+    if intake_followup["requested_fields"]:
+        for field in intake_followup["requested_fields"]:
+            lines.append(
+                f"| `{field['field']}` | {field['required_before_paid_delivery']} | "
+                f"{field['reason']} |"
+            )
+    else:
+        lines.append("| n/a | False | No additional intake fields are required by this artifact. |")
+    lines.extend(["", intake_followup["boundary"]])
+
+
 def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     totals = payload["totals"]
     breakdown = payload["breakdown"]
@@ -4749,6 +4789,7 @@ def _render_funded_issues_report_markdown(payload: dict[str, Any]) -> str:
     _append_recheck_plan_markdown(lines, payload["recheck_plan"])
     _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
+    _append_intake_followup_markdown(lines, payload["intake_followup"])
     lines.extend(
         [
             "",
@@ -4937,6 +4978,7 @@ def _render_funded_issues_shortlist_text(payload: dict[str, Any]) -> str:
         _recheck_plan_summary(payload["recheck_plan"]),
         _client_fit_summary_line(payload["client_fit_summary"]),
         f"Client fit gaps: {len(payload['client_fit_gaps'])}",
+        _intake_followup_summary(payload["intake_followup"]),
         "Read-only: True",
         "Boundary: Decision support only.",
     ]
@@ -5002,6 +5044,7 @@ def _render_funded_issues_shortlist_markdown(payload: dict[str, Any]) -> str:
     _append_recheck_plan_markdown(lines, payload["recheck_plan"])
     _append_client_fit_summary_markdown(lines, payload["client_fit_summary"])
     _append_client_fit_gaps_markdown(lines, payload["client_fit_gaps"])
+    _append_intake_followup_markdown(lines, payload["intake_followup"])
     lines.extend(
         [
             "",

@@ -529,6 +529,21 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(client_fit_summary["gap_counts"], {})
         self.assertIn("read-only client profile", client_fit_summary["recommended_action"])
         self.assertIn("does not authorize claiming", client_fit_summary["boundary"])
+        intake_followup = payload["intake_followup"]
+        self.assertEqual(intake_followup["status"], "needs_buyer_intake")
+        self.assertEqual(intake_followup["suggested_package"], "mini_diagnostic")
+        self.assertEqual(intake_followup["required_before_paid_delivery"], 3)
+        self.assertEqual(
+            [field["field"] for field in intake_followup["requested_fields"]],
+            [
+                "preferred_languages",
+                "minimum_payout_usd",
+                "allowed_risk_levels",
+                "public_state_recheck_window",
+            ],
+        )
+        self.assertIn("PatchRail copy-brief", intake_followup["next_internal_action"])
+        self.assertIn("not customer-facing email copy", intake_followup["boundary"])
         self.assertEqual(payload["top_safe_candidates"][0]["reference"], "example/project#42")
         self.assertEqual(payload["top_safe_candidates"][0]["opportunity_state"], "active")
         self.assertIn("ranking_by_money_only", payload["blocked_actions"])
@@ -573,6 +588,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("## Client Fit Summary", proc.stdout)
         self.assertIn("Status: `no_profile`", proc.stdout)
         self.assertIn("Matching rows: `2` / `2`", proc.stdout)
+        self.assertIn("## Intake Follow-Up", proc.stdout)
+        self.assertIn("Status: `needs_buyer_intake`", proc.stdout)
+        self.assertIn("`preferred_languages`", proc.stdout)
+        self.assertIn("not customer-facing email copy", proc.stdout)
         self.assertIn("paid scope", proc.stdout)
         self.assertIn("## No-Go Moat", proc.stdout)
         self.assertIn("High-risk or excluded | 1", proc.stdout)
@@ -658,6 +677,10 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("OPPORTUNITY_STATE_NOT_ALLOWED", proc.stdout)
         self.assertIn("RISK_LEVEL_NOT_ALLOWED", proc.stdout)
         self.assertIn("EXCLUDED_RISK_FLAG:spam_attractive", proc.stdout)
+        self.assertIn("## Intake Follow-Up", proc.stdout)
+        self.assertIn("Status: `needs_buyer_intake`", proc.stdout)
+        self.assertIn("`profile_gap_confirmation`", proc.stdout)
+        self.assertIn("`public_state_recheck_window`", proc.stdout)
         self.assertIn("does not claim rewards", proc.stdout)
 
     def test_funded_issues_list_profile_preserves_filters_in_json(self) -> None:
@@ -716,6 +739,19 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 )
                 self.assertIn("client_fit_gaps", schema["required"])
                 self.assertIn("client_fit_summary", schema["required"])
+                self.assertIn("intake_followup", schema["required"])
+                intake_followup = schema["$defs"]["intake_followup"]
+                self.assertIn("requested_fields", intake_followup["required"])
+                self.assertIn(
+                    "needs_buyer_intake",
+                    intake_followup["properties"]["status"]["enum"],
+                )
+                self.assertIn(
+                    "ready_after_read_only_recheck",
+                    intake_followup["properties"]["status"]["enum"],
+                )
+                intake_field = schema["$defs"]["intake_field"]
+                self.assertIn("required_before_paid_delivery", intake_field["required"])
                 client_fit_summary = schema["$defs"]["client_fit_summary"]
                 self.assertIn("matching_rows", client_fit_summary["required"])
                 self.assertIn("partial_match", client_fit_summary["properties"]["status"]["enum"])
@@ -1102,6 +1138,13 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(client_fit_summary["status"], "no_profile")
         self.assertEqual(client_fit_summary["matching_rows"], 2)
         self.assertEqual(client_fit_summary["excluded_rows"], 0)
+        intake_followup = payload["intake_followup"]
+        self.assertEqual(intake_followup["status"], "needs_buyer_intake")
+        self.assertEqual(intake_followup["required_before_paid_delivery"], 3)
+        self.assertEqual(
+            intake_followup["requested_fields"][0]["field"],
+            "preferred_languages",
+        )
         self.assertIn("automatic_claims", payload["blocked_actions"])
         self.assertIn("automatic_issue_comments", payload["blocked_actions"])
         self.assertFalse(payload["requirements"]["network_required"])
@@ -1142,6 +1185,9 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("`archive_as_no_go_evidence` | 1", proc.stdout)
         self.assertIn("## Client Fit Summary", proc.stdout)
         self.assertIn("Status: `no_profile`", proc.stdout)
+        self.assertIn("## Intake Follow-Up", proc.stdout)
+        self.assertIn("Status: `needs_buyer_intake`", proc.stdout)
+        self.assertIn("`minimum_payout_usd`", proc.stdout)
         self.assertIn("## Shortlist", proc.stdout)
         self.assertIn("example/project#42", proc.stdout)
         self.assertIn("Confidence: `0.99`", proc.stdout)
