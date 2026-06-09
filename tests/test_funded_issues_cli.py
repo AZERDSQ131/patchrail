@@ -2602,6 +2602,69 @@ class PatchRailFundedIssuesPayoutEffortCliTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("Invalid staleness observations source", proc.stderr)
 
+    def test_testability_default_source_emits_sorted_json(self) -> None:
+        proc = run_patchrail(["funded-issues", "testability", "--format", "json"])
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["schema_version"], "patchrail.funded_issues.testability_batch.v1")
+        self.assertTrue(payload["read_only"])
+        self.assertEqual(payload["reviewed"], 5)
+        self.assertEqual(payload["results"][0]["reference"], "example/cli#210")
+        self.assertEqual(payload["results"][0]["level"], "unverifiable")
+        self.assertEqual(payload["results"][-1]["level"], "verifiable")
+        summary = payload["summary"]
+        self.assertEqual(summary["verifiable"], 1)
+        self.assertEqual(summary["partially_verifiable"], 2)
+        self.assertEqual(summary["unverifiable"], 1)
+        self.assertEqual(summary["unknown"], 1)
+        self.assertIn("automatic_claims", payload["blocked_actions"])
+
+    def test_testability_accepts_bare_list_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "obs.json"
+            source.write_text(
+                json.dumps(
+                    [
+                        {"reference": "a/b#1"},
+                        {"reference": "c/d#2", "has_failing_test": True},
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            proc = run_patchrail(
+                ["funded-issues", "testability", "--source", str(source), "--format", "json"]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["reviewed"], 2)
+        self.assertEqual(payload["summary"]["unknown"], 1)
+        self.assertEqual(payload["summary"]["verifiable"], 1)
+        self.assertEqual(payload["results"][-1]["reference"], "c/d#2")
+
+    def test_testability_markdown_lists_results_table(self) -> None:
+        proc = run_patchrail(["funded-issues", "testability"])
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("# PatchRail Funded Issues Testability Signal", proc.stdout)
+        self.assertIn("| Reference | Level | Risk flags |", proc.stdout)
+        self.assertIn("example/cli#210", proc.stdout)
+
+    def test_testability_rejects_invalid_source(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "bad.json"
+            source.write_text(
+                json.dumps([{"has_failing_test": "maybe"}]),
+                encoding="utf-8",
+            )
+            proc = run_patchrail(
+                ["funded-issues", "testability", "--source", str(source), "--format", "json"]
+            )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("Invalid testability observations source", proc.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

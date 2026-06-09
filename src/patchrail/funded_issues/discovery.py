@@ -20,6 +20,8 @@ PAYOUT_EFFORT_SIGNAL_SCHEMA_VERSION = "patchrail.funded_issues.payout_effort.v1"
 PAYOUT_EFFORT_BATCH_SCHEMA_VERSION = "patchrail.funded_issues.payout_effort_batch.v1"
 STALENESS_SIGNAL_SCHEMA_VERSION = "patchrail.funded_issues.staleness.v1"
 STALENESS_BATCH_SCHEMA_VERSION = "patchrail.funded_issues.staleness_batch.v1"
+TESTABILITY_SIGNAL_SCHEMA_VERSION = "patchrail.funded_issues.testability.v1"
+TESTABILITY_BATCH_SCHEMA_VERSION = "patchrail.funded_issues.testability_batch.v1"
 BLOCKED_ACTIONS = [
     "automatic_claims",
     "automatic_pull_requests",
@@ -87,6 +89,17 @@ STALENESS_THRESHOLDS = {
     "stale_max_days": 180,
     "long_unresolved_days": 365,
 }
+
+# Testability / reproducibility signal. Productizes the desk's "can you verify
+# it?" check (REVENUE_PLAN §9.2 Tests row, §10.2 NO_REPRO_OR_TEST_PATH): a funded
+# issue you cannot objectively reproduce or test is hard to close even when the
+# bounty is real, because the maintainer cannot tell a correct fix from a
+# plausible one. The flag is intentionally NOT in HIGH_RISK_FLAGS: a docs or
+# config issue can be legitimately untestable, so a missing test path costs score
+# via the generic risk penalty without forcing an automatic no-go. Inputs are
+# observable issue-body signals only; this never claims, comments, or contacts
+# anyone.
+NO_REPRO_OR_TEST_PATH_FLAG = "no_repro_or_test_path"
 
 VALID_OPPORTUNITY_STATES = {"active", "closed", "stale", "unknown"}
 VALID_RISK_LEVELS = {"high", "low", "medium"}
@@ -2874,6 +2887,7 @@ def _risk_reason_code(flag: str) -> str:
         "crowded_no_assignment": "CROWDED_NO_CLEAR_OWNER",
         "payout_too_low_for_effort": "PAYOUT_TOO_LOW_FOR_EFFORT",
         "aging_low_activity": "AGING_LOW_ACTIVITY",
+        "no_repro_or_test_path": "NO_REPRO_OR_TEST_PATH",
     }.get(flag, f"RISK_{flag.upper()}")
 
 
@@ -3536,6 +3550,195 @@ def assess_staleness_batch(observations: Any) -> dict[str, Any]:
             "unknown": level_counts["unknown"],
         },
         "thresholds": dict(STALENESS_THRESHOLDS),
+        "results": results,
+        "blocked_actions": list(BLOCKED_ACTIONS),
+    }
+
+
+_TESTABILITY_NEXT_STEP = {
+    "verifiable": (
+        "An objective verification path exists (failing test or reproduction plus diagnostics); "
+        "safe to rank on the usual liveness/scope/maintainer signals."
+    ),
+    "partially_verifiable": (
+        "Some reproduction signal exists but no clear pass/fail check; estimate the cost of "
+        "writing a failing test before committing engineering time."
+    ),
+    "unverifiable": (
+        "No reproduction steps, failing test, logs, or expected-vs-actual behaviour; keep as "
+        "no-go/watchlist evidence unless the issue body is updated with a way to verify a fix."
+    ),
+    "unknown": (
+        "Read the public issue body for reproduction steps, a failing test, logs, or "
+        "expected-vs-actual behaviour before ranking; testability cannot be assessed from the "
+        "provided metadata."
+    ),
+}
+
+
+def assess_issue_testability(
+    *,
+    has_failing_test: bool | None = None,
+    has_reproduction_steps: bool | None = None,
+    has_stack_trace_or_logs: bool | None = None,
+    has_expected_vs_actual: bool | None = None,
+) -> dict[str, Any]:
+    """Derive a read-only testability / reproducibility signal for a funded issue.
+
+    Productizes the desk's "can you verify it?" check (REVENUE_PLAN §9.2 Tests row,
+    §10.2 ``NO_REPRO_OR_TEST_PATH``): a funded issue with no way to objectively
+    reproduce or test the fix is hard to close even when the bounty is real,
+    because the maintainer cannot distinguish a correct patch from a plausible one.
+    Inputs are observable issue-body signals only; this never claims, comments, or
+    contacts anyone.
+
+    A failing test gives an objective pass/fail check on its own; reproduction
+    steps combined with diagnostics (a stack trace/logs or an expected-vs-actual
+    statement) also establish a verification path. Any single weaker signal yields
+    ``partially_verifiable``. When every known signal is absent the result is
+    ``unverifiable`` and emits the soft ``no_repro_or_test_path`` flag an operator
+    can merge into a FundedIssue's ``risk_flags`` (it costs score via the normal
+    risk penalty without forcing an automatic no-go, since docs/config issues can
+    be legitimately untestable). When no signal is observed the result is
+    ``unknown`` and is not penalized.
+    """
+    has_failing_test = _coerce_optional_bool(has_failing_test, "has_failing_test")
+    has_reproduction_steps = _coerce_optional_bool(has_reproduction_steps, "has_reproduction_steps")
+    has_stack_trace_or_logs = _coerce_optional_bool(
+        has_stack_trace_or_logs, "has_stack_trace_or_logs"
+    )
+    has_expected_vs_actual = _coerce_optional_bool(has_expected_vs_actual, "has_expected_vs_actual")
+
+    signals = (
+        has_failing_test,
+        has_reproduction_steps,
+        has_stack_trace_or_logs,
+        has_expected_vs_actual,
+    )
+    known = [value for value in signals if value is not None]
+    present_signal_count = sum(1 for value in known if value)
+
+    if not known:
+        level = "unknown"
+    else:
+        objective_check = bool(has_failing_test)
+        repro = bool(has_reproduction_steps)
+        diagnostics = bool(has_stack_trace_or_logs) or bool(has_expected_vs_actual)
+        if objective_check or (repro and diagnostics):
+            level = "verifiable"
+        elif repro or diagnostics:
+            level = "partially_verifiable"
+        else:
+            level = "unverifiable"
+
+    if level == "unverifiable":
+        flags = [NO_REPRO_OR_TEST_PATH_FLAG]
+        reason_codes = [_risk_reason_code(NO_REPRO_OR_TEST_PATH_FLAG)]
+    elif level == "verifiable":
+        flags = []
+        reason_codes = ["VERIFIABLE_TEST_PATH"]
+    elif level == "partially_verifiable":
+        flags = []
+        reason_codes = ["PARTIAL_TEST_PATH"]
+    else:
+        flags = []
+        reason_codes = ["TESTABILITY_UNVERIFIED"]
+
+    return {
+        "schema_version": TESTABILITY_SIGNAL_SCHEMA_VERSION,
+        "read_only": True,
+        "level": level,
+        "risk_flags": flags,
+        "reason_codes": reason_codes,
+        "observed": {
+            "has_failing_test": has_failing_test,
+            "has_reproduction_steps": has_reproduction_steps,
+            "has_stack_trace_or_logs": has_stack_trace_or_logs,
+            "has_expected_vs_actual": has_expected_vs_actual,
+            "known_signal_count": len(known),
+            "present_signal_count": present_signal_count,
+        },
+        "recommended_next_step": _TESTABILITY_NEXT_STEP[level],
+    }
+
+
+_TESTABILITY_LEVEL_ORDER = {
+    "unverifiable": 0,
+    "partially_verifiable": 1,
+    "unknown": 2,
+    "verifiable": 3,
+}
+
+
+def _testability_sort_key(result: dict[str, Any]) -> tuple[int, int, str]:
+    return (
+        _TESTABILITY_LEVEL_ORDER.get(result["level"], 4),
+        result["observed"]["present_signal_count"],
+        result["reference"],
+    )
+
+
+def assess_testability_batch(observations: Any) -> dict[str, Any]:
+    """Assess read-only testability across a batch of funded issues.
+
+    Productizes the desk's verifiability triage into a single pass: given the
+    observable reproduction/test signals for several bounties, surface which ones
+    cannot be objectively verified so an operator can drop them before spending
+    engineering time. ``observations`` is a list of dicts, each with an optional
+    ``reference`` (or ``id``/``url``) label plus the booleans consumed by
+    :func:`assess_issue_testability` (``has_failing_test``,
+    ``has_reproduction_steps``, ``has_stack_trace_or_logs``,
+    ``has_expected_vs_actual``). Results are sorted least-verifiable first. This
+    never claims, comments on, or contacts anyone.
+    """
+    if not isinstance(observations, list):
+        raise ValueError("testability observations must be a list")
+
+    results: list[dict[str, Any]] = []
+    level_counts = {
+        "verifiable": 0,
+        "partially_verifiable": 0,
+        "unverifiable": 0,
+        "unknown": 0,
+    }
+
+    for index, raw in enumerate(observations):
+        if not isinstance(raw, dict):
+            raise ValueError(f"testability observation #{index} must be an object")
+        reference = raw.get("reference") or raw.get("id") or raw.get("url")
+        if reference is not None and not isinstance(reference, str):
+            raise ValueError(f"testability observation #{index} reference must be a string")
+        signal = assess_issue_testability(
+            has_failing_test=raw.get("has_failing_test"),
+            has_reproduction_steps=raw.get("has_reproduction_steps"),
+            has_stack_trace_or_logs=raw.get("has_stack_trace_or_logs"),
+            has_expected_vs_actual=raw.get("has_expected_vs_actual"),
+        )
+        level_counts[signal["level"]] += 1
+        results.append(
+            {
+                "reference": reference or f"observation-{index + 1}",
+                "level": signal["level"],
+                "risk_flags": signal["risk_flags"],
+                "reason_codes": signal["reason_codes"],
+                "observed": signal["observed"],
+                "recommended_next_step": signal["recommended_next_step"],
+            }
+        )
+
+    results.sort(key=_testability_sort_key)
+
+    return {
+        "schema_version": TESTABILITY_BATCH_SCHEMA_VERSION,
+        "read_only": True,
+        "reviewed": len(results),
+        "summary": {
+            "reviewed": len(results),
+            "unverifiable": level_counts["unverifiable"],
+            "partially_verifiable": level_counts["partially_verifiable"],
+            "verifiable": level_counts["verifiable"],
+            "unknown": level_counts["unknown"],
+        },
         "results": results,
         "blocked_actions": list(BLOCKED_ACTIONS),
     }

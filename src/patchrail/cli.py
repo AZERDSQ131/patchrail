@@ -26,6 +26,7 @@ from patchrail.funded_issues import (
     assess_competition_batch,
     assess_payout_effort_batch,
     assess_staleness_batch,
+    assess_testability_batch,
     cash_actions_funded_issues,
     explain_issue,
     fulfillment_packet_funded_issues,
@@ -6319,6 +6320,104 @@ def _funded_issues_staleness(args: argparse.Namespace) -> int:
     return 0
 
 
+def _default_testability_observations_source() -> Path:
+    return Path("examples") / "funded-issues-readonly" / "testability-observations.json"
+
+
+def _format_bool(value: bool | None) -> str:
+    return "n/a" if value is None else str(value)
+
+
+def _render_funded_issues_testability_text(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    lines = [
+        "PatchRail Funded Issues Testability Signal",
+        f"Read-only: {payload['read_only']}",
+        f"Reviewed: {summary['reviewed']}",
+        f"Unverifiable: {summary['unverifiable']}",
+        f"Verifiable: {summary['verifiable']} | "
+        f"Partially verifiable: {summary['partially_verifiable']} | "
+        f"Unverifiable: {summary['unverifiable']} | "
+        f"Unknown: {summary['unknown']}",
+    ]
+    for result in payload["results"]:
+        observed = result["observed"]
+        flags = ", ".join(result["risk_flags"]) or "none"
+        lines.append(
+            f"{result['reference']} | {result['level']} | flags: {flags} | "
+            f"failing test: {_format_bool(observed['has_failing_test'])} | "
+            f"repro: {_format_bool(observed['has_reproduction_steps'])} | "
+            f"logs: {_format_bool(observed['has_stack_trace_or_logs'])} | "
+            f"expected/actual: {_format_bool(observed['has_expected_vs_actual'])}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_testability_markdown(payload: dict[str, Any]) -> str:
+    summary = payload["summary"]
+    lines = [
+        "# PatchRail Funded Issues Testability Signal",
+        "",
+        f"- Read-only: `{payload['read_only']}`",
+        f"- Reviewed: `{summary['reviewed']}`",
+        f"- Unverifiable: `{summary['unverifiable']}`",
+        f"- Verifiable: `{summary['verifiable']}` | "
+        f"Partially verifiable: `{summary['partially_verifiable']}` | "
+        f"Unverifiable: `{summary['unverifiable']}` | "
+        f"Unknown: `{summary['unknown']}`",
+        "",
+        "## Results",
+        "",
+    ]
+    if payload["results"]:
+        lines.extend(
+            [
+                "| Reference | Level | Risk flags | Failing test | Repro | Logs | "
+                "Expected/actual | Next step |",
+                "|---|---|---|---|---|---|---|---|",
+            ]
+        )
+        for result in payload["results"]:
+            observed = result["observed"]
+            flags = ", ".join(result["risk_flags"]) or "none"
+            lines.append(
+                "| "
+                f"{_escape_markdown_cell(result['reference'])} | "
+                f"`{result['level']}` | "
+                f"{_escape_markdown_cell(flags)} | "
+                f"{_format_bool(observed['has_failing_test'])} | "
+                f"{_format_bool(observed['has_reproduction_steps'])} | "
+                f"{_format_bool(observed['has_stack_trace_or_logs'])} | "
+                f"{_format_bool(observed['has_expected_vs_actual'])} | "
+                f"{_escape_markdown_cell(result['recommended_next_step'])} |"
+            )
+    else:
+        lines.append("No testability observations were provided.")
+    lines.extend(["", "## Blocked Actions", ""])
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _funded_issues_testability(args: argparse.Namespace) -> int:
+    source = args.source or _default_testability_observations_source()
+    try:
+        raw = json.loads(source.read_text(encoding="utf-8"))
+        if isinstance(raw, dict):
+            raw = raw.get("observations", raw)
+        payload = assess_testability_batch(raw)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid testability observations source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_testability_markdown(payload)
+    else:
+        text = _render_funded_issues_testability_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _web_metrics_update(args: argparse.Namespace) -> int:
     try:
         payload = update_web_metrics(
@@ -7625,6 +7724,28 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_staleness.add_argument("--out", type=Path, help="Optional output path.")
     funded_staleness.set_defaults(func=_funded_issues_staleness)
+
+    funded_testability = funded_subparsers.add_parser(
+        "testability",
+        help="Score read-only testability / reproducibility for a batch of bounties.",
+    )
+    funded_testability.add_argument(
+        "--source",
+        type=Path,
+        help=(
+            "Local JSON file of testability observations (list, or an object with an "
+            "'observations' list). Defaults to "
+            "examples/funded-issues-readonly/testability-observations.json."
+        ),
+    )
+    funded_testability.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    funded_testability.add_argument("--out", type=Path, help="Optional output path.")
+    funded_testability.set_defaults(func=_funded_issues_testability)
 
     return parser
 
