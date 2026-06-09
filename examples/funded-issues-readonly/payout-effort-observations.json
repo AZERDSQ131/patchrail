@@ -1,0 +1,35 @@
+{
+  "schema_version": "patchrail.funded_issues.payout_effort_observations.v1",
+  "note": "Public funding metadata plus the operator's own private effort estimate. PatchRail never claims, comments, or contacts maintainers.",
+  "observations": [
+    {
+      "reference": "example/project#42",
+      "funding_amount": 2400,
+      "funding_currency": "USD",
+      "estimated_effort_hours": 12
+    },
+    {
+      "reference": "example/toolkit#17",
+      "funding_amount": 250,
+      "funding_currency": "USD",
+      "estimated_effort_hours": 10
+    },
+    {
+      "reference": "example/api#88",
+      "funding_amount": 900,
+      "funding_currency": "USD",
+      "estimated_effort_hours": 8
+    },
+    {
+      "reference": "example/cli#210",
+      "funding_amount": 500,
+      "funding_currency": "EUR",
+      "estimated_effort_hours": 4
+    },
+    {
+      "reference": "example/docs#5",
+      "funding_currency": "USD",
+      "estimated_effort_hours": 3
+    }
+  ]
+}

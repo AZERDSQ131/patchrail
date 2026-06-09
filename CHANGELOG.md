@@ -2,6 +2,34 @@
 
 ## 0.2.0 - draft
 
+- Added a read-only `assess_bounty_competition` signal to `funded-issues`
+  scoring that derives `contested_bounty` / `crowded_no_assignment` risk flags
+  from public competition metadata (competing PR count, distinct claimants,
+  comment volume, assignment), with curated `CONTESTED_HIGH_COMPETITION` /
+  `CROWDED_NO_CLEAR_OWNER` reason codes. Competition flags cost score and
+  confidence without forcing an automatic no-go.
+- Added `funded-issues competition`, a read-only batch command that scores
+  competition / noise-trap pressure across many bounties from public metadata
+  observations (JSON list or `{observations: [...]}`), sorts results
+  highest-pressure first, and summarizes high/elevated/low counts plus
+  contested/crowded totals. Backed by the pure `assess_competition_batch`
+  helper and an example observations fixture. Strictly read-only: no claims,
+  comments, or maintainer contact.
+- Added a read-only `assess_payout_effort` signal to `funded-issues` scoring
+  that compares a bounty's public funding amount against an effort estimate and
+  a target hourly-rate floor ($150/h default), deriving a
+  `payout_too_low_for_effort` risk flag with a curated
+  `PAYOUT_TOO_LOW_FOR_EFFORT` reason code. Levels are strong / marginal / low /
+  unknown / unverified_currency; the flag costs score without forcing an
+  automatic no-go, and non-USD funding is surfaced as unverified rather than
+  guessed.
+- Added `funded-issues payout-effort`, a read-only batch command that scores
+  payout-vs-effort across many bounties from observations (JSON list or
+  `{observations: [...]}`), sorts results worst-payout first, and summarizes
+  low/marginal/strong/unknown/unverified-currency counts plus an underpaid
+  total. Backed by the pure `assess_payout_effort_batch` helper and an example
+  observations fixture. Strictly read-only: no claims, comments, or maintainer
+  contact.
 - Prepared the CI Janitor v0.2 evidence bundle around the 143-case fixture zoo,
   `fixture-check`, read-only GitHub Actions triage artifact, maintainer pilot
   guide, and public metrics/adopter surfaces.
