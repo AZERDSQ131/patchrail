@@ -136,20 +136,31 @@ def _is_anomalous_volume(entries: list[dict[str, Any]]) -> bool:
     return largest_cluster / total >= ANOMALOUS_DUP_RATIO
 
 
+_REPOS_URL_OWNER_RE = re.compile(r"/repos/([^/]+)/")
+
+
 def _entry_owner(entry: dict[str, Any]) -> str:
     """Derive the owning account for a store entry.
 
-    Prefers an explicit ``issue.owner`` and otherwise falls back to the owner
-    segment of ``issue.repository`` (``owner/repo``).
+    Prefers an explicit ``issue.owner``, then the ``/repos/<owner>/`` segment of
+    ``issue.url`` (the canonical GitHub API reference, always present in stores
+    built by discovery), and finally ``issue.repository`` — which appears both
+    as ``owner/repo`` and as the API-derived ``repos/<owner>`` form.
     """
 
     issue = entry.get("issue") or {}
     owner = issue.get("owner")
     if owner:
         return str(owner)
+    match = _REPOS_URL_OWNER_RE.search(str(issue.get("url") or ""))
+    if match:
+        return match.group(1)
     repository = str(issue.get("repository") or "")
-    if "/" in repository:
-        return repository.split("/", 1)[0]
+    segments = [part for part in repository.split("/") if part]
+    if len(segments) >= 2 and segments[0] == "repos":
+        return segments[1]
+    if segments:
+        return segments[0]
     return repository
 
 
@@ -238,10 +249,16 @@ def apply_source_noise_to_store(
     summary = {
         "owners_assessed": 0,
         "owners_flagged": 0,
+        "owners_without_metadata": [],
         "entries_flagged": 0,
         "entries_cleared": 0,
     }
     for owner, owner_entries in entries_by_owner(store).items():
+        if owner not in metadata_by_owner:
+            # Absent metadata reads as negative signals (see module docstring),
+            # so surface it: a long list here means the caller is screening
+            # owners it never actually looked up.
+            summary["owners_without_metadata"].append(owner)
         assessment = assess_owner_source_noise(
             metadata_by_owner.get(owner, {}), owner_entries, now=now
         )

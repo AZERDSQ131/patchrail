@@ -11,6 +11,7 @@ from patchrail.funded_issues.discovery import FundedIssue
 from patchrail.funded_issues.source_noise import (
     apply_source_noise_to_store,
     assess_owner_source_noise,
+    entries_by_owner,
 )
 from patchrail.funded_issues.store import (
     apply_recheck_to_store,
@@ -357,6 +358,75 @@ class WebMetricsBreakdownTests(unittest.TestCase):
                 self.assertEqual(payload["total_entries"], 14)
                 self.assertIn("states", payload)
                 self.assertIn("live_by_source", payload)
+
+
+def _api_form_entry(owner: str, repo: str, number: int) -> tuple[str, dict]:
+    """One entry shaped like the production tracker store.
+
+    Production stores key entries by the GitHub API issue URL and carry the
+    API-derived ``repos/<owner>`` repository form, not ``owner/repo``.
+    """
+
+    url = f"https://api.github.com/repos/{owner}/{repo}/issues/{number}"
+    return url, {
+        "issue": {
+            "repository": f"repos/{owner}",
+            "title": f"[$100] task {number}",
+            "url": url,
+        },
+        "state": "active",
+        "noise_flags": [],
+    }
+
+
+class ProductionStoreShapeTests(unittest.TestCase):
+    """Regression: a real store's repos/<owner> form must group by true owner.
+
+    Before the fix, every production entry collapsed into one synthetic
+    'repos' owner with no metadata, flagging the entire store.
+    """
+
+    def _store(self) -> dict:
+        entries = dict(
+            _api_form_entry(owner, repo, number)
+            for owner, repo, number in (
+                ("good-sponsor", "website", 1),
+                ("good-sponsor", "website", 2),
+                ("trap-org", "honeypot", 10),
+                ("trap-org", "honeypot", 11),
+            )
+        )
+        return {"entries": entries}
+
+    def test_entries_group_by_true_owner(self) -> None:
+        grouped = entries_by_owner(self._store())
+        self.assertEqual(sorted(grouped), ["good-sponsor", "trap-org"])
+        self.assertNotIn("repos", grouped)
+
+    def test_owner_with_clean_metadata_stays_clean(self) -> None:
+        store = self._store()
+        summary = apply_source_noise_to_store(
+            store,
+            {
+                "good-sponsor": {
+                    "created_at": "2015-01-01T00:00:00Z",
+                    "public_repos": 50,
+                    "followers": 4000,
+                    "has_website": True,
+                    "payout_verifiable": True,
+                }
+            },
+            now=NOW,
+        )
+        self.assertEqual(summary["owners_assessed"], 2)
+        self.assertEqual(summary["owners_without_metadata"], ["trap-org"])
+        flags_by_owner = {
+            owner: [entry["noise_flags"] for entry in owner_entries]
+            for owner, owner_entries in entries_by_owner(store).items()
+        }
+        self.assertEqual(flags_by_owner["good-sponsor"], [[], []])
+        for flags in flags_by_owner["trap-org"]:
+            self.assertIn("unverifiable_payout", flags)
 
 
 if __name__ == "__main__":
