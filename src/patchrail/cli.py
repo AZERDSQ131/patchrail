@@ -22,6 +22,7 @@ from patchrail.ci import classify_ci_log, redact_ci_log
 from patchrail.funded_issues import (
     SUPPORTED_PROVIDERS,
     VALID_OPPORTUNITY_STATES,
+    VALID_RISK_LEVELS,
     explain_issue,
     import_provider_export,
     load_funded_issues,
@@ -4744,6 +4745,7 @@ def _funded_issues_list(args: argparse.Namespace) -> int:
             language=args.language,
             min_usd=args.min_usd,
             opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue source: {exc}", file=sys.stderr)
@@ -4810,6 +4812,7 @@ def _funded_issues_report(args: argparse.Namespace) -> int:
             language=args.language,
             min_usd=args.min_usd,
             opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue source: {exc}", file=sys.stderr)
@@ -4835,6 +4838,7 @@ def _funded_issues_score(args: argparse.Namespace) -> int:
             language=args.language,
             min_usd=args.min_usd,
             opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue source: {exc}", file=sys.stderr)
@@ -4860,6 +4864,7 @@ def _funded_issues_shortlist(args: argparse.Namespace) -> int:
             language=args.language,
             min_usd=args.min_usd,
             opportunity_state=args.opportunity_state,
+            risk_level=args.risk_level,
             limit=args.limit,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
@@ -5774,6 +5779,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Filter by normalized opportunity state.",
     )
     funded_list.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_list.add_argument(
         "--format",
         choices=["csv", "json", "jsonl", "markdown", "text"],
         default="text",
@@ -5851,6 +5861,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Filter by normalized opportunity state.",
     )
     funded_report.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_report.add_argument(
         "--format",
         choices=["json", "markdown", "text"],
         default="markdown",
@@ -5884,6 +5899,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Filter by normalized opportunity state.",
     )
     funded_score.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
+    )
+    funded_score.add_argument(
         "--format",
         choices=["json", "markdown", "text"],
         default="json",
@@ -5915,6 +5935,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--opportunity-state",
         choices=sorted(VALID_OPPORTUNITY_STATES),
         help="Filter by normalized opportunity state.",
+    )
+    funded_shortlist.add_argument(
+        "--risk-level",
+        choices=sorted(VALID_RISK_LEVELS),
+        help="Filter by normalized local risk level.",
     )
     funded_shortlist.add_argument(
         "--limit",

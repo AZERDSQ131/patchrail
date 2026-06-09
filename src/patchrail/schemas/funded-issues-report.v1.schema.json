@@ -137,12 +137,13 @@
     },
     "filters": {
       "type": "object",
-      "required": ["platform", "language", "min_usd", "opportunity_state"],
+      "required": ["platform", "language", "min_usd", "opportunity_state", "risk_level"],
       "properties": {
         "platform": { "type": ["string", "null"] },
         "language": { "type": ["string", "null"] },
         "min_usd": { "type": ["number", "null"], "minimum": 0 },
-        "opportunity_state": { "anyOf": [{ "$ref": "#/$defs/opportunity_state" }, { "type": "null" }] }
+        "opportunity_state": { "anyOf": [{ "$ref": "#/$defs/opportunity_state" }, { "type": "null" }] },
+        "risk_level": { "anyOf": [{ "$ref": "#/$defs/risk_level" }, { "type": "null" }] }
       },
       "additionalProperties": false
     },
@@ -168,6 +169,9 @@
     },
     "opportunity_state": {
       "enum": ["active", "stale", "closed", "unknown"]
+    },
+    "risk_level": {
+      "enum": ["low", "medium", "high"]
     },
     "safe_requirements": {
       "type": "object",

@@ -3,6 +3,7 @@
 from patchrail.funded_issues.discovery import (
     FundedIssue,
     VALID_OPPORTUNITY_STATES,
+    VALID_RISK_LEVELS,
     explain_issue,
     funded_issues_payload,
     load_funded_issues,
@@ -18,6 +19,7 @@ __all__ = [
     "FundedIssue",
     "SUPPORTED_PROVIDERS",
     "VALID_OPPORTUNITY_STATES",
+    "VALID_RISK_LEVELS",
     "explain_issue",
     "funded_issues_payload",
     "import_provider_export",
