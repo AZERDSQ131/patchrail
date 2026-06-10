@@ -142,6 +142,38 @@ class ClientReportPayloadTests(unittest.TestCase):
         self.assertIsNotNone(summary["dominant_no_go_reason"])
         self.assertEqual(summary["dominant_no_go_reason"]["of_total"], 1)
 
+    def test_executive_summary_counts_full_population_when_truncated(self) -> None:
+        # Build more go-worthy candidates than the display limit so the shortlist
+        # gets truncated. The executive summary headline counts must still describe
+        # the whole reviewed population, not just the rows shown.
+        base = _fixture_payload()["issues"][0]
+        issues_payload = {
+            "schema_version": "patchrail.funded_issues.v1",
+            "issues": [
+                {
+                    **base,
+                    "id": f"polar-go-{n}",
+                    "repository": f"example/go-pick-{n}",
+                    "issue_number": 100 + n,
+                    "url": f"https://github.com/example/go-pick-{n}/issues/{100 + n}",
+                }
+                for n in range(7)
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / "issues.json"
+            source.write_text(json.dumps(issues_payload), encoding="utf-8")
+            issues = load_funded_issues(source)
+        payload = client_report_funded_issues(
+            issues, client_name="Acme", report_date="2026-06-09", limit=2
+        )
+        summary = payload["executive_summary"]
+        self.assertEqual(summary["reviewed"], 7)
+        self.assertEqual(summary["go"], 7)
+        self.assertEqual(summary["actionable_percent"], 100.0)
+        # Display sections stay capped at the limit.
+        self.assertEqual(len(payload["top_recommendations"]), 2)
+
     def test_go_watchlist_no_go_mapping(self) -> None:
         payload = _build_payload()
         self.assertEqual(len(payload["top_recommendations"]), 1)
