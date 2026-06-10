@@ -21,6 +21,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from patchrail.funded_issues.blocklist import is_blocklisted_record
 from patchrail.funded_issues.discovery import (
     BLOCKED_ACTIONS,
     SCHEMA_VERSION,
@@ -62,6 +63,7 @@ class MergeSummary:
     updated: int = 0
     transitioned: int = 0
     unchanged: int = 0
+    blocked: int = 0
     transitions: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
@@ -70,6 +72,7 @@ class MergeSummary:
             "updated": self.updated,
             "transitioned": self.transitioned,
             "unchanged": self.unchanged,
+            "blocked": self.blocked,
             "transitions": list(self.transitions),
         }
 
@@ -197,7 +200,11 @@ def merge_into_store(
       state actually changed.
 
     Merging the same inputs twice is idempotent apart from ``last_checked``.
-    Returns a :class:`MergeSummary` of what changed.
+    Records owned by a permanently blocklisted source
+    (:mod:`patchrail.funded_issues.blocklist`) are dropped before any other
+    handling and counted under ``blocked`` -- this is the single choke point
+    through which issues enter a store, so a blocklisted owner can never
+    re-enter one. Returns a :class:`MergeSummary` of what changed.
     """
 
     entries = store.setdefault("entries", {})
@@ -205,6 +212,9 @@ def merge_into_store(
 
     for issue in issues:
         record = _issue_record(issue)
+        if is_blocklisted_record(record):
+            summary.blocked += 1
+            continue
         url = _issue_url(record)
         state = _issue_state(record)
         score = _issue_score(issue, record)

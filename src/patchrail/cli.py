@@ -29,6 +29,8 @@ from patchrail.funded_issues import (
     assess_payout_effort_batch,
     assess_staleness_batch,
     assess_testability_batch,
+    board_issue_records,
+    board_payload,
     cash_actions_funded_issues,
     client_report_funded_issues,
     empty_store,
@@ -39,6 +41,8 @@ from patchrail.funded_issues import (
     load_funded_issues,
     load_store,
     merge_into_store,
+    parse_board_html,
+    purge_blocklisted_entries,
     recheck_funded_issues,
     report_funded_issues,
     save_store,
@@ -6739,6 +6743,10 @@ def _render_funded_issues_track_text(payload: dict[str, Any]) -> str:
             f"Added: {summary['added']}  Updated: {summary['updated']}  "
             f"Transitioned: {summary['transitioned']}  Unchanged: {summary['unchanged']}"
         ),
+        (
+            f"Blocklisted: dropped {summary['blocked']} inbound, "
+            f"purged {payload['purged_blocklisted']} existing"
+        ),
     ]
     for transition in summary["transitions"]:
         lines.append(f"  - {transition['url']}: {transition['from']} -> {transition['state']}")
@@ -6774,6 +6782,7 @@ def _funded_issues_track(args: argparse.Namespace) -> int:
     try:
         issues = _load_funded_issues_for_cli(source)
         store = load_store(args.store)
+        purge = purge_blocklisted_entries(store)
         records = _scored_issue_records(issues)
         summary = merge_into_store(store, records, now)
         save_store(args.store, store)
@@ -6787,6 +6796,7 @@ def _funded_issues_track(args: argparse.Namespace) -> int:
         "now": now,
         "total_loaded": len(records),
         "total_entries": len(store["entries"]),
+        "purged_blocklisted": purge["removed"],
         "summary": summary.to_dict(),
     }
     if args.format == "json":
@@ -6809,6 +6819,105 @@ def _funded_issues_track_status(args: argparse.Namespace) -> int:
         text = _json_dump(payload)
     else:
         text = _render_funded_issues_track_status_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
+def _render_funded_issues_algora_board_text(payload: dict[str, Any]) -> str:
+    lines = [
+        "PatchRail Algora board import (local file, read-only)",
+        f"Org: {payload['org']}  Board: {payload['source_url']}",
+        (
+            f"Open on board: {payload['open_count']}  "
+            f"Visible rows parsed: {payload['visible_rows']}  "
+            f"Visible USD: {payload['visible_usd_total']}"
+        ),
+    ]
+    if payload["open_count"] is not None and payload["visible_rows"] < payload["open_count"]:
+        lines.append(
+            "Note: the saved page renders only the first rows; "
+            f"{payload['open_count'] - payload['visible_rows']} open bounties are not visible."
+        )
+    for issue in payload["issues"]:
+        lines.append(
+            f"  - {issue['reference']}: {issue['funding']['display']} "
+            f"(attempts: {issue['attempt_count']}, age: {issue['posted']['text'] or 'unknown'})"
+        )
+    store = payload.get("store")
+    if store:
+        summary = store["summary"]
+        lines.append(
+            f"Store {store['path']}: added {summary['added']}, updated {summary['updated']}, "
+            f"unchanged {summary['unchanged']}, blocked {summary['blocked']}, "
+            f"purged {store['purged_blocklisted']}, total {store['total_entries']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _render_funded_issues_algora_board_markdown(payload: dict[str, Any]) -> str:
+    lines = [
+        "# PatchRail Algora Board Import",
+        "",
+        f"- Org: `{payload['org']}`",
+        f"- Board: {payload['source_url']}",
+        f"- Open bounties on board: `{payload['open_count']}`",
+        f"- Visible rows parsed: `{payload['visible_rows']}`",
+        f"- Visible USD total: `{payload['visible_usd_total']}`",
+        f"- Read-only: `{payload['read_only']}`",
+        "",
+        "| Issue | USD | Attempts | Age | Score |",
+        "|---|---|---|---|---|",
+    ]
+    for issue in payload["issues"]:
+        lines.append(
+            f"| [{_escape_markdown_cell(issue['reference'])}]({issue['url']}) "
+            f"| {issue['funding']['display']} "
+            f"| {issue['attempt_count']} "
+            f"| {issue['posted']['text'] or 'unknown'} "
+            f"| {issue['score']} |"
+        )
+    lines.extend(
+        [
+            "",
+            "## Boundary",
+            "",
+            (
+                "This command parses a locally saved copy of a public Algora bounty board. "
+                "It does not fetch URLs, claim rewards, post comments, open pull requests, "
+                "or contact maintainers."
+            ),
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def _funded_issues_import_algora_board(args: argparse.Namespace) -> int:
+    now = args.now or _now_iso()
+    try:
+        html = args.html.read_text(encoding="utf-8")
+        board = parse_board_html(html, args.org)
+        records = board_issue_records(board, retrieved_at=now)
+        payload = board_payload(board, records, retrieved_at=now)
+        if args.store is not None:
+            store = load_store(args.store)
+            purge = purge_blocklisted_entries(store)
+            summary = merge_into_store(store, records, now)
+            save_store(args.store, store)
+            payload["store"] = {
+                "path": str(args.store),
+                "purged_blocklisted": purge["removed"],
+                "summary": summary.to_dict(),
+                "total_entries": len(store["entries"]),
+            }
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid Algora board source: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_algora_board_markdown(payload)
+    else:
+        text = _render_funded_issues_algora_board_text(payload)
     _write_or_print(text, args.out)
     return 0
 
@@ -7885,6 +7994,43 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_import.add_argument("--out", type=Path, help="Optional output path.")
     funded_import.set_defaults(func=_funded_issues_import)
+
+    funded_algora_board = funded_subparsers.add_parser(
+        "import-algora-board",
+        help="Parse a locally saved Algora org bounty-board page into funded issues "
+        "with funder-stated USD amounts, optionally merging them into a tracker store.",
+    )
+    funded_algora_board.add_argument(
+        "--html",
+        required=True,
+        type=Path,
+        help="Locally saved copy of https://algora.io/<org>/bounties. "
+        "PatchRail does not fetch the page itself.",
+    )
+    funded_algora_board.add_argument(
+        "--org",
+        required=True,
+        help="Algora organization handle the page was saved from.",
+    )
+    funded_algora_board.add_argument(
+        "--store",
+        type=Path,
+        help="Optional local tracker store to merge the parsed bounties into. "
+        "Created when absent. PatchRail never writes to third parties.",
+    )
+    funded_algora_board.add_argument(
+        "--now",
+        help="ISO-8601 UTC timestamp to record as retrieval/merge time. "
+        "Defaults to the local clock.",
+    )
+    funded_algora_board.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="text",
+        help="Output format.",
+    )
+    funded_algora_board.add_argument("--out", type=Path, help="Optional output path.")
+    funded_algora_board.set_defaults(func=_funded_issues_import_algora_board)
 
     funded_report = funded_subparsers.add_parser(
         "report",
