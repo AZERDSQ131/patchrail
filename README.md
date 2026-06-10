@@ -46,8 +46,13 @@ The versioned no-install transcript is available at
 [examples/control-plane-demo/demo-output.md](examples/control-plane-demo/demo-output.md),
 and tests regenerate it to prevent drift.
 
-PyPI publishing is pending, so do not use `pipx install patchrail` yet. Until
-the package is on PyPI, run the public GitHub source directly:
+PatchRail is published on PyPI, so the fastest install is:
+
+```bash
+pipx install patchrail
+```
+
+You can also run the latest source directly without installing:
 
 ```bash
 uvx --from git+https://github.com/patchrail/patchrail patchrail --help
@@ -55,7 +60,7 @@ printf 'python -m pytest -q\nFAILED tests/test_app.py::test_ok - AssertionError\
   | uvx --from git+https://github.com/patchrail/patchrail patchrail ci explain
 ```
 
-That pre-PyPI smoke test prints:
+That smoke test prints:
 
 ```markdown
 # PatchRail CI Report
