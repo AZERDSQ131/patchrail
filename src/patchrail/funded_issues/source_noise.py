@@ -39,6 +39,18 @@ Verdict criterion
 on their own, flip the verdict -- so a legitimate one-repo sponsor with a
 website and verifiable payouts stays clean, while a new website-less org with
 unverifiable payouts and templated volume is flagged.
+
+Issue-level manual overrides
+----------------------------
+The owner-level pass is necessarily coarse: it condemns or clears *every* issue
+from an owner at once. Sometimes a human needs to override a single issue --
+flag one "Test Bounty" from an otherwise legitimate owner, or clear one issue
+from a flagged owner. :func:`apply_source_noise_to_store` accepts a
+``manual_overrides`` mapping (issue URL -> list of flags) for exactly this. The
+overrides are *issue-level* and always win over the heuristic. Because the
+caller passes them on **every** apply, they survive re-applies of the owner-level
+heuristic that would otherwise reset the entry's ``noise_flags`` -- there is no
+hidden state, just a deterministic re-stamp on each pass.
 """
 
 from __future__ import annotations
@@ -228,11 +240,38 @@ def entries_by_owner(store: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
     return grouped
 
 
+def _validate_manual_overrides(
+    manual_overrides: dict[str, list[str]] | None,
+) -> dict[str, list[str]]:
+    """Return validated overrides, raising ``ValueError`` on malformed flags.
+
+    Every value must be a list whose members are all non-empty strings. A
+    non-string or empty/blank string is a caller bug, not noise data, so it is
+    rejected loudly rather than silently coerced.
+    """
+
+    overrides = manual_overrides or {}
+    for url, flags in overrides.items():
+        if not isinstance(flags, list):
+            raise ValueError(
+                f"manual_overrides[{url!r}] must be a list of flag strings, "
+                f"got {type(flags).__name__}"
+            )
+        for flag in flags:
+            if not isinstance(flag, str) or not flag.strip():
+                raise ValueError(
+                    f"manual_overrides[{url!r}] contains an invalid flag "
+                    f"{flag!r}: flags must be non-empty strings"
+                )
+    return overrides
+
+
 def apply_source_noise_to_store(
     store: dict[str, Any],
     owner_metadata: dict[str, dict[str, Any]] | None = None,
     *,
     now: str | None = None,
+    manual_overrides: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
     """Stamp the owner-level ``source_noise`` verdict onto store entries in place.
 
@@ -242,17 +281,36 @@ def apply_source_noise_to_store(
     ``noise_flags`` set to the owner's flag list; entries for a *clean* owner are
     reset to ``[]``. This keeps the per-entry ``noise_flags`` an honest mirror of
     the current owner verdict, so re-applying with refreshed metadata can clear a
-    previously-flagged owner. Returns a summary of the pass.
+    previously-flagged owner.
+
+    ``manual_overrides`` is an optional, *issue-level* escape hatch mapping an
+    exact ``store["entries"]`` URL key to a list of flag strings. It is applied
+    **after** the owner-level pass and always wins:
+
+    * a non-empty flag list marks the entry as noise -- merged with (and
+      de-duplicated against) any owner-level flags, then sorted -- even when the
+      owner is clean;
+    * an empty list ``[]`` forces the entry clean, overriding a flagged owner.
+
+    Because the caller supplies the overrides on every apply, they persist across
+    re-applies of the heuristic without any stored state. Malformed overrides
+    (non-string or empty flags) raise :class:`ValueError`. Returns a summary of
+    the pass.
     """
 
     metadata_by_owner = owner_metadata or {}
+    overrides = _validate_manual_overrides(manual_overrides)
     summary = {
         "owners_assessed": 0,
         "owners_flagged": 0,
         "owners_without_metadata": [],
         "entries_flagged": 0,
         "entries_cleared": 0,
+        "entries_manual_noise": 0,
+        "entries_manual_clean": 0,
+        "manual_urls_not_in_store": [],
     }
+    entries = store.get("entries", {})
     for owner, owner_entries in entries_by_owner(store).items():
         if owner not in metadata_by_owner:
             # Absent metadata reads as negative signals (see module docstring),
@@ -273,4 +331,19 @@ def apply_source_noise_to_store(
             else:
                 entry["noise_flags"] = []
                 summary["entries_cleared"] += 1
+
+    # Issue-level overrides win over the heuristic. Applied as a second pass over
+    # the store's URL keys so an override on a clean owner's entry still lands.
+    for url, manual_flags in overrides.items():
+        entry = entries.get(url)
+        if entry is None:
+            summary["manual_urls_not_in_store"].append(url)
+            continue
+        if manual_flags:
+            owner_flags = entry.get("noise_flags") or []
+            entry["noise_flags"] = sorted(set(owner_flags) | set(manual_flags))
+            summary["entries_manual_noise"] += 1
+        else:
+            entry["noise_flags"] = []
+            summary["entries_manual_clean"] += 1
     return summary

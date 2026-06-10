@@ -429,5 +429,98 @@ class ProductionStoreShapeTests(unittest.TestCase):
             self.assertIn("unverifiable_payout", flags)
 
 
+class ManualOverrideTests(unittest.TestCase):
+    """Issue-level manual overrides win over the owner-level heuristic."""
+
+    def _trap_url(self, i: int) -> str:
+        return f"https://github.com/{TRAP_OWNER}/repo/issues/{i}"
+
+    def _legit_url(self, i: int) -> str:
+        return f"https://github.com/{LEGIT_OWNER}/repo/issues/{i}"
+
+    def test_override_flags_one_entry_of_clean_owner(self) -> None:
+        store = _mixed_store()
+        target = self._legit_url(0)
+        summary = apply_source_noise_to_store(
+            store,
+            {TRAP_OWNER: TRAP_META, AGGREGATOR_OWNER: AGGREGATOR_META, LEGIT_OWNER: LEGIT_META},
+            now=NOW,
+            manual_overrides={target: ["manual_test_bounty"]},
+        )
+        self.assertEqual(summary["entries_manual_noise"], 1)
+        self.assertEqual(summary["entries_manual_clean"], 0)
+        self.assertEqual(store["entries"][target]["noise_flags"], ["manual_test_bounty"])
+        # The other clean-owner entries stay clean.
+        self.assertEqual(store["entries"][self._legit_url(1)]["noise_flags"], [])
+        self.assertEqual(store["entries"][self._legit_url(2)]["noise_flags"], [])
+
+    def test_empty_override_forces_clean_on_flagged_owner(self) -> None:
+        store = _mixed_store()
+        target = self._trap_url(0)
+        summary = apply_source_noise_to_store(
+            store,
+            {TRAP_OWNER: TRAP_META, AGGREGATOR_OWNER: AGGREGATOR_META, LEGIT_OWNER: LEGIT_META},
+            now=NOW,
+            manual_overrides={target: []},
+        )
+        self.assertEqual(summary["entries_manual_clean"], 1)
+        self.assertEqual(summary["entries_manual_noise"], 0)
+        self.assertEqual(store["entries"][target]["noise_flags"], [])
+        # The rest of the flagged owner's entries stay flagged.
+        self.assertIn("anomalous_volume", store["entries"][self._trap_url(1)]["noise_flags"])
+
+    def test_reapply_with_same_overrides_is_stable(self) -> None:
+        store = _mixed_store()
+        meta = {TRAP_OWNER: TRAP_META, AGGREGATOR_OWNER: AGGREGATOR_META, LEGIT_OWNER: LEGIT_META}
+        overrides = {self._legit_url(0): ["manual_test_bounty"], self._trap_url(0): []}
+        apply_source_noise_to_store(store, meta, now=NOW, manual_overrides=overrides)
+        first = {url: list(entry["noise_flags"]) for url, entry in store["entries"].items()}
+        apply_source_noise_to_store(store, meta, now=NOW, manual_overrides=overrides)
+        second = {url: list(entry["noise_flags"]) for url, entry in store["entries"].items()}
+        self.assertEqual(first, second)
+
+    def test_unknown_override_url_is_surfaced_not_fatal(self) -> None:
+        store = _mixed_store()
+        ghost = "https://github.com/nobody/repo/issues/999"
+        summary = apply_source_noise_to_store(
+            store,
+            {TRAP_OWNER: TRAP_META, AGGREGATOR_OWNER: AGGREGATOR_META, LEGIT_OWNER: LEGIT_META},
+            now=NOW,
+            manual_overrides={ghost: ["manual_test_bounty"]},
+        )
+        self.assertEqual(summary["manual_urls_not_in_store"], [ghost])
+        self.assertEqual(summary["entries_manual_noise"], 0)
+        self.assertNotIn(ghost, store["entries"])
+
+    def test_override_on_flagged_owner_merges_without_duplicates(self) -> None:
+        store = _mixed_store()
+        target = self._trap_url(0)
+        # 'anomalous_volume' already comes from the owner verdict; supplying it
+        # again plus a fresh flag must not duplicate, and the result is sorted.
+        summary = apply_source_noise_to_store(
+            store,
+            {TRAP_OWNER: TRAP_META, AGGREGATOR_OWNER: AGGREGATOR_META, LEGIT_OWNER: LEGIT_META},
+            now=NOW,
+            manual_overrides={target: ["anomalous_volume", "manual_test_bounty"]},
+        )
+        self.assertEqual(summary["entries_manual_noise"], 1)
+        flags = store["entries"][target]["noise_flags"]
+        self.assertEqual(flags, sorted(set(flags)))
+        self.assertEqual(flags.count("anomalous_volume"), 1)
+        self.assertIn("manual_test_bounty", flags)
+
+    def test_invalid_override_flag_raises_value_error(self) -> None:
+        store = _mixed_store()
+        meta = {TRAP_OWNER: TRAP_META, AGGREGATOR_OWNER: AGGREGATOR_META, LEGIT_OWNER: LEGIT_META}
+        for bad in ([123], [""], ["  "], "not-a-list"):
+            with self.assertRaises(ValueError):
+                apply_source_noise_to_store(
+                    store,
+                    meta,
+                    now=NOW,
+                    manual_overrides={self._legit_url(0): bad},
+                )
+
+
 if __name__ == "__main__":
     raise SystemExit(unittest.main())
