@@ -9,6 +9,13 @@ PatchRail does not auto-submit pull requests, claim funded issues, or comment on
 third-party repositories. It produces evidence and reviewable suggestions so
 maintainers stay in control.
 
+## Companion guide
+
+**CI Failure Triage Patterns** — a field guide covering 31 CI failure classes
+with the signals that distinguish them and the narrow fix for each. It pairs
+directly with the `patchrail ci explain` classifier in this repo:
+[patchrail.gumroad.com/l/ci-failure-triage](https://patchrail.gumroad.com/l/ci-failure-triage).
+
 ## Quickstart
 
 ### 10-second reviewer demo
