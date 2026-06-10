@@ -873,12 +873,16 @@ def _client_report_no_go_row(row: dict[str, Any]) -> dict[str, Any]:
 def _client_report_executive_summary(
     *,
     reviewed: int,
+    go_total: int,
+    watchlist_total: int,
     go_rows: list[dict[str, Any]],
-    watchlist_rows: list[dict[str, Any]],
     no_go_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
-    go_count = len(go_rows)
-    watchlist_count = len(watchlist_rows)
+    # Headline counts describe the whole reviewed population, not the display
+    # shortlist: `go_rows` is already truncated to `--limit`, so counting it here
+    # would understate actionability for any review larger than the limit.
+    go_count = go_total
+    watchlist_count = watchlist_total
     no_go_count = len(no_go_rows)
     actionable_pct = round(100 * go_count / reviewed, 1) if reviewed else 0.0
     top_recommendation = None
@@ -1032,6 +1036,9 @@ def client_report_funded_issues(
     no_go_rows = shortlist_payload["no_go_evidence"]
     no_go_moat = shortlist_payload["no_go_moat"]
     reviewed = shortlist_payload["summary"]["total_scored"]
+    gate_counts = shortlist_payload["decision_summary"]["gate_counts"]
+    go_total = gate_counts.get("go_after_recheck", 0)
+    watchlist_total = gate_counts.get("watchlist", 0)
     return {
         "schema_version": CLIENT_REPORT_SCHEMA_VERSION,
         "source_schema_version": SCHEMA_VERSION,
@@ -1044,8 +1051,9 @@ def client_report_funded_issues(
         "filters": shortlist_payload["filters"],
         "executive_summary": _client_report_executive_summary(
             reviewed=reviewed,
+            go_total=go_total,
+            watchlist_total=watchlist_total,
             go_rows=go_rows,
-            watchlist_rows=watchlist_rows,
             no_go_rows=no_go_rows,
         ),
         "top_recommendations": [_client_report_recommendation_row(row) for row in go_rows],
