@@ -444,6 +444,35 @@ RULES: list[dict[str, Any]] = [
         ),
     },
     {
+        "failure_class": "git_merge_conflict",
+        "likely_subsystem": "Git merge or rebase against the base branch",
+        "patterns": [
+            r"Automatic merge failed; fix conflicts and then commit",
+            r"CONFLICT \((?:content|add/add|rename|modify/delete|delete/modify|"
+            r"submodule)",
+            r"Merge conflict in ",
+            r"fix conflicts and then commit the result",
+            r"error: Merging is not possible because you have unmerged files",
+            r"fatal: You have not concluded your merge \(MERGE_HEAD exists\)",
+            r"\byou have unmerged paths\b",
+            r"\bUnmerged paths:",
+            r"\bneeds merge\b",
+            r"Resolve all conflicts manually",
+            r"error: could not apply [0-9a-f]+",
+            r"Resolve the conflicts before",
+            r"hint: after resolving the conflicts",
+        ],
+        "reproduction_command": (
+            "merge or rebase the base branch locally to surface the conflict "
+            "(e.g. git fetch origin && git merge origin/<base>)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the failure is a merge or rebase conflict against the base branch rather than "
+            "a build or test defect, then resolve the conflicting files, commit the resolution, and "
+            "rerun the job on the updated branch."
+        ),
+    },
+    {
         "failure_class": "secrets_or_permissions_failure",
         "likely_subsystem": "CI secrets, tokens, or workflow permissions",
         "patterns": [

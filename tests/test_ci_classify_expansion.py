@@ -329,6 +329,48 @@ class GitCheckoutFailureClassification(unittest.TestCase):
         self.assertEqual(classify_ci_log(redacted["text"])["failure_class"], "git_checkout_failure")
 
 
+class GitMergeConflictClassification(unittest.TestCase):
+    def test_automatic_merge_failed_classifies_as_git_merge_conflict(self) -> None:
+        log = (
+            "Run git merge origin/main\n"
+            "Auto-merging src/app.py\n"
+            "CONFLICT (content): Merge conflict in src/app.py\n"
+            "Automatic merge failed; fix conflicts and then commit the result\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "git_merge_conflict")
+        self.assertIn("conflict", result["minimal_repair_strategy"])
+
+    def test_rebase_conflict_classifies_as_git_merge_conflict(self) -> None:
+        log = (
+            "Run git rebase origin/main\n"
+            "error: could not apply 0a1b2c3 feat: add widget\n"
+            "hint: after resolving the conflicts, mark the corrected paths\n"
+            "CONFLICT (content): Merge conflict in lib/widget.ts\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "git_merge_conflict")
+
+    def test_unmerged_paths_classifies_as_git_merge_conflict(self) -> None:
+        log = (
+            "error: Merging is not possible because you have unmerged files\n"
+            "Unmerged paths:\n"
+            "  both modified:   README.md\n"
+            "Resolve all conflicts manually, mark them as resolved\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "git_merge_conflict")
+
+    def test_merge_conflict_wins_over_git_checkout_failure(self) -> None:
+        log = (
+            "Run actions/checkout@v4\n"
+            "Merging the base branch into the PR head\n"
+            "Auto-merging src/main.py\n"
+            "CONFLICT (content): Merge conflict in src/main.py\n"
+            "Automatic merge failed; fix conflicts and then commit the result\n"
+            "error: Merging is not possible because you have unmerged files\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "git_merge_conflict")
+
+
 class SecretsOrPermissionsFailureClassification(unittest.TestCase):
     def test_resource_not_accessible_token_scope_classifies_as_secrets(self) -> None:
         log = (
@@ -484,6 +526,7 @@ class SchemaContractExpansion(unittest.TestCase):
         self.assertIn("typescript_typecheck", enum)
         self.assertIn("release_publish_failure", enum)
         self.assertIn("git_checkout_failure", enum)
+        self.assertIn("git_merge_conflict", enum)
         self.assertIn("secrets_or_permissions_failure", enum)
         self.assertIn("artifact_or_cache_failure", enum)
         self.assertNotIn("node_dependency_failure", enum)

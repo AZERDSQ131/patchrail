@@ -50,6 +50,7 @@
         "go_lint",
         "release_publish_failure",
         "git_checkout_failure",
+        "git_merge_conflict",
         "secrets_or_permissions_failure"
       ]
     },
