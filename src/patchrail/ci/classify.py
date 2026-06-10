@@ -346,6 +346,37 @@ RULES: list[dict[str, Any]] = [
         ),
     },
     {
+        "failure_class": "artifact_or_cache_failure",
+        "likely_subsystem": "GitHub Actions artifact or cache storage",
+        "patterns": [
+            r"Failed to CreateArtifact",
+            r"Artifact upload failed",
+            r"an artifact with this name already exists",
+            r"Unable to download artifact",
+            r"error occurred while (?:trying to )?download(?:ing)? (?:the )?artifact",
+            r"No files were found with the provided path",
+            r"Provided artifact name input during validation",
+            r"actions/(?:upload|download)-artifact",
+            r"Cache service responded with \d+",
+            r"Failed to restore:? .*[Cc]ache",
+            r"Failed to save:? .*[Cc]ache",
+            r"reserveCache failed",
+            r"Unable to reserve cache",
+            r"getCacheEntry failed",
+            r"Cache upload failed",
+        ],
+        "reproduction_command": (
+            "re-run the job and inspect the failing actions/upload-artifact, "
+            "actions/download-artifact, or actions/cache step (paths, name, key, action version)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the failure is artifact or cache storage (wrong path, name collision, stale "
+            "action version, or a transient storage-service outage) rather than a code defect, "
+            "then fix the step's path/name/key inputs or bump the action version and retry — "
+            "do not change application code."
+        ),
+    },
+    {
         "failure_class": "release_publish_failure",
         "likely_subsystem": "Package or release publishing",
         "patterns": [
