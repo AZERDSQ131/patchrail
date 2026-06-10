@@ -426,6 +426,46 @@ class RedactionExpansion(unittest.TestCase):
         self.assertEqual(result["redactions"].get("telegram_bot_token"), 1)
 
 
+class ArtifactOrCacheFailureClassification(unittest.TestCase):
+    def test_artifact_no_files_classifies_as_artifact_or_cache_failure(self) -> None:
+        log = (
+            "Run actions/upload-artifact@v4\n"
+            "With the provided path, there will be 0 files uploaded\n"
+            "Error: No files were found with the provided path: dist/. "
+            "No artifacts will be uploaded.\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "artifact_or_cache_failure")
+        self.assertEqual(result["requirements"]["external_model_required"], False)
+        self.assertIn("artifact", result["reproduction_command"])
+
+    def test_artifact_name_collision_classifies_as_artifact_or_cache_failure(self) -> None:
+        log = (
+            "Run actions/upload-artifact@v4\n"
+            "Error: Failed to CreateArtifact: Received non-retryable error: "
+            "Failed request: (409) Conflict: an artifact with this name already exists "
+            "on the workflow run\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "artifact_or_cache_failure")
+
+    def test_cache_service_error_classifies_as_artifact_or_cache_failure(self) -> None:
+        log = (
+            "Run actions/cache@v4\n"
+            "Received 503 from cache service\n"
+            "Failed to restore: Cache service responded with 503 during download cache\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "artifact_or_cache_failure")
+        self.assertGreaterEqual(len(result["signals"]), 2)
+
+    def test_cache_failure_does_not_match_github_actions_workflow(self) -> None:
+        log = (
+            "Run actions/download-artifact@v4\n"
+            "Error: Unable to download artifact(s): Artifact not found for name: build-output\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "artifact_or_cache_failure")
+
+
 class SchemaContractExpansion(unittest.TestCase):
     def test_schema_command_lists_new_failure_classes(self) -> None:
         proc = subprocess.run(
@@ -445,6 +485,7 @@ class SchemaContractExpansion(unittest.TestCase):
         self.assertIn("release_publish_failure", enum)
         self.assertIn("git_checkout_failure", enum)
         self.assertIn("secrets_or_permissions_failure", enum)
+        self.assertIn("artifact_or_cache_failure", enum)
         self.assertNotIn("node_dependency_failure", enum)
         self.assertNotIn("lint_failure", enum)
         self.assertNotIn("typecheck_failure", enum)

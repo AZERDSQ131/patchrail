@@ -34,6 +34,7 @@
         "typescript_typecheck",
         "javascript_lint",
         "github_actions_workflow",
+        "artifact_or_cache_failure",
         "security_scan_failure",
         "dotnet_build_failure",
         "java_build_failure",
