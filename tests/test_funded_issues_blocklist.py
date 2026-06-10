@@ -125,9 +125,7 @@ class PurgeBlocklistedTests(unittest.TestCase):
         summary = purge_blocklisted_entries(store)
         self.assertEqual(summary["removed"], 1)
         self.assertEqual(summary["removed_owners"], ["securebananalabs"])
-        self.assertEqual(
-            list(store["entries"]), ["https://github.com/tscircuit/core/issues/1"]
-        )
+        self.assertEqual(list(store["entries"]), ["https://github.com/tscircuit/core/issues/1"])
 
     def test_purge_is_idempotent_and_clean_store_untouched(self) -> None:
         store = self._store_with_blocklisted_entry()

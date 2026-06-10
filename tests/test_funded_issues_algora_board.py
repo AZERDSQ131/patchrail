@@ -220,9 +220,7 @@ class ImportAlgoraBoardCliTests(unittest.TestCase):
             )
             self.assertEqual(proc.returncode, 0, proc.stderr)
             payload = json.loads(proc.stdout)
-            self.assertEqual(
-                payload["schema_version"], "patchrail.funded_issues.algora_board.v1"
-            )
+            self.assertEqual(payload["schema_version"], "patchrail.funded_issues.algora_board.v1")
             self.assertEqual(payload["org"], "exampleorg")
             self.assertEqual(payload["open_count"], 7)
             self.assertEqual(payload["visible_rows"], 4)
@@ -257,9 +255,7 @@ class ImportAlgoraBoardCliTests(unittest.TestCase):
             self.assertEqual(payload["store"]["summary"]["blocked"], 1)
             self.assertEqual(payload["store"]["total_entries"], 3)
             saved = json.loads(store_path.read_text("utf-8"))
-            self.assertNotIn(
-                "https://github.com/SecureBananaLabs/trap/issues/9", saved["entries"]
-            )
+            self.assertNotIn("https://github.com/SecureBananaLabs/trap/issues/9", saved["entries"])
             entry = saved["entries"]["https://github.com/exampleorg/widgets/issues/42"]
             self.assertEqual(entry["issue"]["funding"]["verified"], True)
             self.assertEqual(entry["issue"]["attempt_count"], 2)
