@@ -2,6 +2,21 @@
 
 ## 0.2.0 - draft
 
+- Added a permanent source-level blocklist to the funded-issues tracker:
+  owners manually verified as fake-bounty sources are dropped at the
+  `merge_into_store` choke point (counted as `blocked` in the merge summary)
+  and `purge_blocklisted_entries` removes any legacy entries -- `track` runs
+  the purge on every merge so existing stores self-heal. The list is code, not
+  config: removing an owner requires a reviewed change.
+- Added `funded-issues import-algora-board`, an offline parser for a locally
+  saved Algora organization bounty-board page (`https://algora.io/<org>/bounties`).
+  It extracts the funder-stated USD amount, GitHub issue reference, posting
+  age, and declared claim count per bounty, marks funding as `verified` with
+  the board as `evidence_url`, raises `contested_bounty` when declared claims
+  reach the competition threshold, and can merge the scored records straight
+  into a tracker store (`--store`). The page must be saved locally first: the
+  command performs no network access, and the payload reports how many open
+  bounties the server-rendered page did not include.
 - Added a read-only `assess_bounty_competition` signal to `funded-issues`
   scoring that derives `contested_bounty` / `crowded_no_assignment` risk flags
   from public competition metadata (competing PR count, distinct claimants,

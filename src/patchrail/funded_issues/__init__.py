@@ -36,6 +36,20 @@ from patchrail.funded_issues.discovery import (
     summarize_issues,
     validate_funded_issues,
 )
+from patchrail.funded_issues.algora_board import (
+    ALGORA_BOARD_SCHEMA_VERSION,
+    board_issue_records,
+    board_payload,
+    board_url,
+    parse_board_html,
+)
+from patchrail.funded_issues.blocklist import (
+    BLOCKLIST_SCHEMA_VERSION,
+    BLOCKLISTED_OWNERS,
+    is_blocklisted_owner,
+    is_blocklisted_record,
+    purge_blocklisted_entries,
+)
 from patchrail.funded_issues.importers import SUPPORTED_PROVIDERS, import_provider_export
 from patchrail.funded_issues.source_noise import (
     SOURCE_NOISE_SCHEMA_VERSION,
@@ -60,6 +74,9 @@ from patchrail.funded_issues.store import (
 
 __all__ = [
     "FundedIssue",
+    "ALGORA_BOARD_SCHEMA_VERSION",
+    "BLOCKLIST_SCHEMA_VERSION",
+    "BLOCKLISTED_OWNERS",
     "CLIENT_PROFILE_SCHEMA_VERSION",
     "COMPETITION_BATCH_SCHEMA_VERSION",
     "COMPETITION_SIGNAL_SCHEMA_VERSION",
@@ -91,6 +108,9 @@ __all__ = [
     "apply_recheck_to_store",
     "apply_source_noise_to_store",
     "assess_owner_source_noise",
+    "board_issue_records",
+    "board_payload",
+    "board_url",
     "cash_actions_funded_issues",
     "client_report_funded_issues",
     "empty_store",
@@ -99,10 +119,14 @@ __all__ = [
     "fulfillment_packet_funded_issues",
     "funded_issues_payload",
     "import_provider_export",
+    "is_blocklisted_owner",
+    "is_blocklisted_record",
     "load_client_profile",
     "load_funded_issues",
     "load_store",
     "merge_into_store",
+    "parse_board_html",
+    "purge_blocklisted_entries",
     "recheck_funded_issues",
     "report_funded_issues",
     "save_store",

@@ -40,8 +40,10 @@ def run_patchrail(args: list[str]) -> subprocess.CompletedProcess[str]:
 # --- owner fixtures -------------------------------------------------------
 
 # A throwaway trap org: brand-new, single repo, no website, no verifiable
-# payout, spamming near-identical honeypot bounties.
-TRAP_OWNER = "securebananalabs"
+# payout, spamming near-identical honeypot bounties. Deliberately NOT an owner
+# from the permanent blocklist -- these tests exercise the owner-level
+# heuristic, which only ever sees owners the hard blocklist let through.
+TRAP_OWNER = "trapcoin-labs"
 TRAP_META = {
     "account_age_days": 26,
     "public_repos": 1,
