@@ -16,6 +16,9 @@ with the signals that distinguish them and the narrow fix for each. It pairs
 directly with the `patchrail ci explain` classifier in this repo:
 [patchrail.gumroad.com/l/ci-failure-triage](https://patchrail.gumroad.com/l/ci-failure-triage).
 
+Read the per-class fixes here: **[docs/fix/](docs/fix/README.md)** — each page lists
+the literal log signatures, what actually happened, and the step-by-step fix.
+
 ## Quickstart
 
 ### 10-second reviewer demo
