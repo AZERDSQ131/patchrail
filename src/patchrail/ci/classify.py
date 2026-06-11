@@ -261,6 +261,27 @@ RULES: list[dict[str, Any]] = [
         ),
     },
     {
+        "failure_class": "pre_commit_hook_failure",
+        "likely_subsystem": "pre-commit hook framework",
+        "patterns": [
+            r"\bpre-commit\b",
+            r"files were modified by this hook",
+            r"- hook id:",
+            r"\.pre-commit-config\.yaml",
+            r"InvalidManifestError",
+            r"InvalidConfigError",
+            r"\[INFO\] Initializing environment for",
+            r"pre-commit run --all-files",
+            r"\bFailed\b\s*\n\s*- hook id",
+        ],
+        "reproduction_command": "pre-commit run --all-files",
+        "minimal_repair_strategy": (
+            "Confirm a pre-commit hook failed (commonly a formatter that rewrote files, or a hook "
+            "config or pinned-revision error), run pre-commit run --all-files locally, commit the "
+            "resulting changes or fix the reported hook, and rerun the same hook before broad CI."
+        ),
+    },
+    {
         "failure_class": "python_test_failure",
         "likely_subsystem": "Python tests",
         "patterns": [r"\bpytest\b", r"FAILED .*::", r"AssertionError", r"ModuleNotFoundError"],

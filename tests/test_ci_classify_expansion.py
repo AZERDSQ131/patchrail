@@ -539,6 +539,35 @@ class TerraformIacFailureClassification(unittest.TestCase):
         self.assertEqual(classify_ci_log(log)["failure_class"], "terraform_iac_failure")
 
 
+class PreCommitHookClassification(unittest.TestCase):
+    def test_files_modified_by_hook_classifies_as_pre_commit(self) -> None:
+        log = (
+            "Run pre-commit run --all-files\n"
+            "trim trailing whitespace.................................................Failed\n"
+            "- hook id: trailing-whitespace\n"
+            "- exit code: 1\n"
+            "- files were modified by this hook\n"
+            "\n"
+            "Fixing src/app/main.py\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "pre_commit_hook_failure")
+        self.assertIn("pre-commit run --all-files", result["reproduction_command"])
+        self.assertEqual(result["requirements"]["external_model_required"], False)
+
+    def test_pre_commit_config_error_classifies_as_pre_commit(self) -> None:
+        log = (
+            "Run pre-commit run --all-files\n"
+            "An error has occurred: InvalidConfigError:\n"
+            "==> File .pre-commit-config.yaml\n"
+            "==> At Config()\n"
+            "=====> Additional properties are not allowed\n"
+        )
+        self.assertEqual(
+            classify_ci_log(log)["failure_class"], "pre_commit_hook_failure"
+        )
+
+
 class SchemaContractExpansion(unittest.TestCase):
     def test_schema_command_lists_new_failure_classes(self) -> None:
         proc = subprocess.run(
@@ -560,6 +589,7 @@ class SchemaContractExpansion(unittest.TestCase):
         self.assertIn("git_merge_conflict", enum)
         self.assertIn("secrets_or_permissions_failure", enum)
         self.assertIn("artifact_or_cache_failure", enum)
+        self.assertIn("pre_commit_hook_failure", enum)
         self.assertNotIn("node_dependency_failure", enum)
         self.assertNotIn("lint_failure", enum)
         self.assertNotIn("typecheck_failure", enum)

@@ -29,6 +29,7 @@
         "code_coverage_threshold",
         "python_type_check",
         "python_lint",
+        "pre_commit_hook_failure",
         "python_test_failure",
         "node_dependency_install",
         "typescript_typecheck",
