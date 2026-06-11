@@ -135,6 +135,22 @@ Every `ci explain` report ends with a `Guide:` link to the matching
 page (the guide index when the failure class is `unknown`), so the same command
 that classifies a failure also points to the full write-up.
 
+## GitHub Action
+
+Drop the same triage into any workflow with
+[`patchrail/ci-triage-action`](https://github.com/patchrail/ci-triage-action).
+On a red run it classifies the log locally and links the matching
+[getpatchrail.com/fix](https://getpatchrail.com/fix) guide — no PR, no comment,
+nothing leaves the runner:
+
+```yaml
+- name: PatchRail CI triage
+  if: failure()
+  uses: patchrail/ci-triage-action@v1
+  with:
+    log-path: test.log
+```
+
 ## Why maintainers use PatchRail
 
 - Turn long CI logs into concise root-cause reports.
