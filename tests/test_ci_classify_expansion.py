@@ -563,9 +563,7 @@ class PreCommitHookClassification(unittest.TestCase):
             "==> At Config()\n"
             "=====> Additional properties are not allowed\n"
         )
-        self.assertEqual(
-            classify_ci_log(log)["failure_class"], "pre_commit_hook_failure"
-        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "pre_commit_hook_failure")
 
 
 class SchemaContractExpansion(unittest.TestCase):
