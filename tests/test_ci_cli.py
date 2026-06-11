@@ -9,7 +9,8 @@ from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
 
-from patchrail.cli import main
+from patchrail.ci.classify import RULES
+from patchrail.cli import _FIX_GUIDE_SLUGS, _fix_guide_url, main
 
 
 class PatchRailCITests(unittest.TestCase):
@@ -1591,6 +1592,52 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertIn("Guide: https://getpatchrail.com/fix?utm_source=cli", result.stdout)
         self.assertNotIn("/fix/", result.stdout)
+
+
+class FixGuideSlugConsistencyTests(unittest.TestCase):
+    """Guard the CLI -> getpatchrail.com/fix cross-sell funnel.
+
+    Every slug the CLI advertises a dedicated guide for must correspond to a
+    real classifier failure class. If a class is renamed in classify.py without
+    updating the slug set, the CLI would emit a /fix/<slug> URL that 404s on the
+    site (broken link + lost conversion). This locks that invariant.
+    """
+
+    @staticmethod
+    def _classifier_slugs() -> set[str]:
+        return {
+            rule["failure_class"].replace("_", "-")
+            for rule in RULES
+            if rule["failure_class"] != "unknown"
+        }
+
+    def test_every_fix_guide_slug_maps_to_a_real_failure_class(self) -> None:
+        orphan_slugs = _FIX_GUIDE_SLUGS - self._classifier_slugs()
+        self.assertEqual(
+            orphan_slugs,
+            set(),
+            f"_FIX_GUIDE_SLUGS advertises /fix pages for classes the classifier "
+            f"never emits (would 404 / misattribute): {sorted(orphan_slugs)}",
+        )
+
+    def test_known_slug_round_trips_to_dedicated_guide_url(self) -> None:
+        for slug in sorted(_FIX_GUIDE_SLUGS):
+            failure_class = slug.replace("-", "_")
+            url = _fix_guide_url(failure_class)
+            self.assertEqual(
+                url,
+                f"https://getpatchrail.com/fix/{slug}?utm_source=cli&utm_campaign={slug}",
+            )
+
+    def test_class_without_guide_degrades_to_index_not_a_dead_link(self) -> None:
+        # pre_commit_hook_failure is a recognized class with no published /fix
+        # guide (the field guide ships 31 classes). It must degrade to the index,
+        # never to a /fix/<slug> page that does not exist.
+        ungraded = self._classifier_slugs() - _FIX_GUIDE_SLUGS
+        for slug in ungraded:
+            url = _fix_guide_url(slug.replace("-", "_"))
+            self.assertEqual(url, "https://getpatchrail.com/fix?utm_source=cli")
+            self.assertNotIn("/fix/", url)
 
 
 if __name__ == "__main__":
