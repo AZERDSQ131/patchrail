@@ -8,6 +8,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+from patchrail import __version__ as PATCHRAIL_VERSION
+
 
 ROOT = Path(__file__).resolve().parents[1]
 MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
@@ -2577,7 +2579,7 @@ def test_release_readiness_evidence_smokes_local_artifacts_without_publishing(
     assert proc.returncode == 0, proc.stderr
     payload = json.loads(proc.stdout)
     assert payload["schema_version"] == "patchrail.release_readiness.v1"
-    assert payload["version"] == "0.1.0"
+    assert payload["version"] == PATCHRAIL_VERSION
     assert payload["published"] is False
     assert payload["manual_gates_remaining"] == [
         "PyPI publish",
@@ -2595,8 +2597,8 @@ def test_release_readiness_evidence_smokes_local_artifacts_without_publishing(
     assert payload["checks"]["github_write_permission_required"] is False
     assert payload["checks"]["fixture_failure_class"] == "python_dependency_resolution"
     assert {artifact["file"] for artifact in payload["artifacts"]} == {
-        "patchrail-0.1.0-py3-none-any.whl",
-        "patchrail-0.1.0.tar.gz",
+        f"patchrail-{PATCHRAIL_VERSION}-py3-none-any.whl",
+        f"patchrail-{PATCHRAIL_VERSION}.tar.gz",
     }
     assert payload["safety"]["local_first"] is True
     assert payload["safety"]["published_to_pypi"] is False

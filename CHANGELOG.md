@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.1 - 2026-06-12
+
+- `ci explain` now ends text and Markdown reports with a `Guide:` link to the
+  matching getpatchrail.com `/fix` remediation page; unknown or unpublished
+  failure classes fall back to the `/fix` index without a network call.
+- Added `funded-issues fresh`, a local read-only radar over the tracker store
+  that surfaces recently posted or recently labeled funded issues for fast
+  solver-side triage.
+- Added `pre_commit_hook_failure` CI classification so pre-commit hook output is
+  recognized directly while the CLI still avoids linking to a missing `/fix`
+  page until that guide exists.
+
 ## 0.2.0 - draft
 
 - `ci explain` now ends every report with a `Guide:` link to the matching
