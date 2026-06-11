@@ -23,6 +23,13 @@ the literal log signatures, what actually happened, and the step-by-step fix.
 
 ### 10-second reviewer demo
 
+![patchrail ci explain reading a failed CI log and emitting root cause, confidence, reproduce command, and a fix Guide URL](docs/assets/ci-explain-demo.png)
+
+`patchrail ci explain` reads a failed CI log and prints the root cause, a
+confidence score, a one-line reproduce command, and a `Guide:` link to the
+matching fix page. The screenshot above is real output from the bundled
+`examples/ci-triage/typescript-import-type-drift.log` fixture.
+
 No install is required to inspect the current behavior. The versioned demo at
 [examples/ci-triage/demo-output.md](examples/ci-triage/demo-output.md) is real
 CLI output from the bundled `examples/ci-triage/dependency-failure.log` fixture,
