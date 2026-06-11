@@ -73,6 +73,7 @@ That smoke test prints:
 - Subsystem: Python tests
 - Reproduce: `python -m pytest -q`
 - Suggested action: Reproduce the failing test, patch the narrow behavior drift, and rerun the focused pytest node before broad test runs.
+- Guide: https://getpatchrail.com/fix/python-test-failure?utm_source=cli&utm_campaign=python-test-failure
 
 ## Evidence signals
 
@@ -126,7 +127,13 @@ Example output:
 - Reproduce: `python -m pip install -r requirements.txt`
 - Suggested action: Pin or relax the conflicting dependency range, then rerun
   the same install command and the affected tests.
+- Guide: https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution
 ```
+
+Every `ci explain` report ends with a `Guide:` link to the matching
+[getpatchrail.com/fix](https://getpatchrail.com/fix?utm_source=cli) remediation
+page (the guide index when the failure class is `unknown`), so the same command
+that classifies a failure also points to the full write-up.
 
 ## Why maintainers use PatchRail
 

@@ -2,6 +2,12 @@
 
 ## 0.2.0 - draft
 
+- `ci explain` now ends every report with a `Guide:` link to the matching
+  remediation write-up on getpatchrail.com (`/fix/<failure-class>`, with
+  `utm_source=cli`). Unknown or unlisted failure classes link to the `/fix`
+  guide index instead. The link appears in both the text and Markdown formats;
+  JSON output is unchanged. Classification stays fully local -- the URL is
+  constructed from the failure class, with no network call.
 - Added a permanent source-level blocklist to the funded-issues tracker:
   owners manually verified as fake-bounty sources are dropped at the
   `merge_into_store` choke point (counted as `blocked` in the merge summary)

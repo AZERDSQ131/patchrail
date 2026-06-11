@@ -90,6 +90,60 @@ def _read_log(path: Path | None) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+_FIX_GUIDE_BASE = "https://getpatchrail.com/fix"
+
+# Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
+# Unknown or unlisted classes link to the guide index instead. Keep in sync with the
+# classifier taxonomy (patchrail.ci.classify) and the web /fix pages.
+_FIX_GUIDE_SLUGS = frozenset(
+    {
+        "artifact-or-cache-failure",
+        "browser-test-failure",
+        "ci-job-timeout",
+        "code-coverage-threshold",
+        "cpp-build-failure",
+        "docker-build-failure",
+        "dotnet-build-failure",
+        "git-checkout-failure",
+        "git-merge-conflict",
+        "github-actions-workflow",
+        "go-lint",
+        "go-test-failure",
+        "java-build-failure",
+        "javascript-lint",
+        "network-transient-failure",
+        "node-dependency-install",
+        "node-test-failure",
+        "php-composer-failure",
+        "python-dependency-resolution",
+        "python-lint",
+        "python-test-failure",
+        "python-type-check",
+        "release-publish-failure",
+        "ruby-bundle-failure",
+        "runner-resource-exhaustion",
+        "rust-lint",
+        "rust-test-failure",
+        "secrets-or-permissions-failure",
+        "security-scan-failure",
+        "terraform-iac-failure",
+        "typescript-typecheck",
+    }
+)
+
+
+def _fix_guide_url(failure_class: Any) -> str:
+    """Return the getpatchrail.com /fix guide URL for a failure class.
+
+    Known classes link to their dedicated page; unknown/unlisted classes link to
+    the guide index. All links carry utm_source=cli for attribution.
+    """
+    slug = str(failure_class or "").replace("_", "-")
+    if slug and slug in _FIX_GUIDE_SLUGS:
+        return f"{_FIX_GUIDE_BASE}/{slug}?utm_source=cli&utm_campaign={slug}"
+    return f"{_FIX_GUIDE_BASE}?utm_source=cli"
+
+
 def _render_text(result: dict[str, Any]) -> str:
     lines = [
         f"Root cause: {result['failure_class']}",
@@ -97,6 +151,7 @@ def _render_text(result: dict[str, Any]) -> str:
         f"Subsystem: {result['likely_subsystem']}",
         f"Reproduce: {result['reproduction_command']}",
         f"Suggested action: {result['minimal_repair_strategy']}",
+        f"Guide: {_fix_guide_url(result['failure_class'])}",
     ]
     redaction = result.get("redaction")
     if isinstance(redaction, dict):
@@ -114,6 +169,7 @@ def _render_markdown(result: dict[str, Any]) -> str:
         f"- Subsystem: {result['likely_subsystem']}",
         f"- Reproduce: `{result['reproduction_command']}`",
         f"- Suggested action: {result['minimal_repair_strategy']}",
+        f"- Guide: {_fix_guide_url(result['failure_class'])}",
         "",
         "## Evidence signals",
         "",

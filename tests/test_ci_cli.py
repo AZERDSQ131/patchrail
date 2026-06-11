@@ -1562,6 +1562,36 @@ class PatchRailCITests(unittest.TestCase):
         self.assertLess(result["confidence"], 0.5)
         self.assertIn("Do not auto-repair", result["minimal_repair_strategy"])
 
+    def test_ci_explain_prints_fix_guide_url_for_known_class(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "failed.log"
+            log.write_text(
+                "python -m pytest -q\nFAILED tests/test_app.py::test_ok - AssertionError\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(["ci", "explain", "--log", str(log)])
+
+            self.assertEqual(exit_code, 0)
+            self.assertIn(
+                "Guide: https://getpatchrail.com/fix/python-test-failure"
+                "?utm_source=cli&utm_campaign=python-test-failure",
+                stdout.getvalue(),
+            )
+
+    def test_ci_explain_links_index_for_unknown_class(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "-m", "patchrail", "ci", "explain"],
+            input="build did not work\n",
+            text=True,
+            capture_output=True,
+            check=True,
+        )
+        self.assertIn("Guide: https://getpatchrail.com/fix?utm_source=cli", result.stdout)
+        self.assertNotIn("/fix/", result.stdout)
+
 
 if __name__ == "__main__":
     unittest.main()
