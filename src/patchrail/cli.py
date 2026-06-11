@@ -7316,13 +7316,13 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     web_metrics_update = web_metrics_subparsers.add_parser(
         "update",
-        help="Write public/api website metric payloads only when evidence changed.",
+        help="Write data/metrics website metric payloads only when evidence changed.",
     )
     web_metrics_update.add_argument(
         "--web-dir",
         type=Path,
         required=True,
-        help="Website checkout containing public/api.",
+        help="Website checkout; payloads land in data/metrics (never web-served).",
     )
     web_metrics_update.add_argument(
         "--product-repo",

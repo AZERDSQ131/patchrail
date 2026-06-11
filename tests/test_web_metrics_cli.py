@@ -58,10 +58,10 @@ def _write_tracker_store(
 
 
 class PatchRailWebMetricsTests(unittest.TestCase):
-    def test_web_metrics_update_writes_public_api_payloads_and_is_idempotent(self) -> None:
+    def test_web_metrics_update_writes_data_metrics_payloads_and_is_idempotent(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             web_dir = Path(tmp) / "web"
-            api_dir = web_dir / "public" / "api"
+            api_dir = web_dir / "data" / "metrics"
             api_dir.mkdir(parents=True)
             (api_dir / "landing-metrics.json").write_text(
                 json.dumps(
@@ -161,7 +161,7 @@ class PatchRailWebMetricsTests(unittest.TestCase):
             self.assertEqual(product["readiness"]["safe_to_list"], 1)
             self.assertEqual(product["readiness"]["go_candidates"], 1)
             self.assertIn(
-                "public/api/product-metrics.json", product["automation"]["static_api_files"]
+                "data/metrics/product-metrics.json", product["automation"]["static_api_files"]
             )
             self.assertNotIn("/Volumes/", json.dumps(product))
             self.assertNotIn("/Users/", json.dumps(product))
@@ -169,7 +169,7 @@ class PatchRailWebMetricsTests(unittest.TestCase):
     def test_web_metrics_update_dry_run_reports_product_payload(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             web_dir = Path(tmp) / "web"
-            (web_dir / "public" / "api").mkdir(parents=True)
+            (web_dir / "data" / "metrics").mkdir(parents=True)
 
             proc = run_patchrail(
                 [
@@ -188,13 +188,13 @@ class PatchRailWebMetricsTests(unittest.TestCase):
             self.assertEqual(proc.returncode, 0, proc.stderr)
             payload = json.loads(proc.stdout)
             self.assertEqual(payload["status"], "would_update")
-            self.assertIn("public/api/product-metrics.json", payload["would_write"])
-            self.assertFalse((web_dir / "public" / "api" / "product-metrics.json").exists())
+            self.assertIn("data/metrics/product-metrics.json", payload["would_write"])
+            self.assertFalse((web_dir / "data" / "metrics" / "product-metrics.json").exists())
 
 
 class PatchRailWebMetricsTrackerStoreTests(unittest.TestCase):
     def _run_update(self, web_dir: Path, desk_dir: Path) -> dict:
-        (web_dir / "public" / "api").mkdir(parents=True)
+        (web_dir / "data" / "metrics").mkdir(parents=True)
         proc = run_patchrail(
             [
                 "web-metrics",
@@ -213,13 +213,13 @@ class PatchRailWebMetricsTrackerStoreTests(unittest.TestCase):
         return {
             "summary": json.loads(proc.stdout),
             "landing": json.loads(
-                (web_dir / "public" / "api" / "landing-metrics.json").read_text("utf-8")
+                (web_dir / "data" / "metrics" / "landing-metrics.json").read_text("utf-8")
             ),
             "sources": json.loads(
-                (web_dir / "public" / "api" / "sources-volumes.json").read_text("utf-8")
+                (web_dir / "data" / "metrics" / "sources-volumes.json").read_text("utf-8")
             ),
             "product": json.loads(
-                (web_dir / "public" / "api" / "product-metrics.json").read_text("utf-8")
+                (web_dir / "data" / "metrics" / "product-metrics.json").read_text("utf-8")
             ),
         }
 

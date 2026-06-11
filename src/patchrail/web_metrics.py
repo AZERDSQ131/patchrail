@@ -20,6 +20,10 @@ from patchrail.funded_issues import (
 from patchrail.funded_issues.store import load_store, store_status
 
 
+# Internal evidence only: Next.js serves public/ verbatim, so these payloads must live
+# outside it (DIRECTIVE_2026-06-11_WEB_CONVERSION_SIN_CONTADORES — no public counters).
+METRICS_REL_DIR = "data/metrics"
+
 SOURCE_NAMES = [
     "GitHub Issues",
     "Algora",
@@ -426,7 +430,7 @@ def build_payloads(
         "tracker_store": tracker_store_block,
     }
 
-    existing_landing = load_json(web_dir / "public" / "api" / "landing-metrics.json") or {}
+    existing_landing = load_json(web_dir / METRICS_REL_DIR / "landing-metrics.json") or {}
     existing_evidence = (
         existing_landing.get("evidence")
         if isinstance(existing_landing.get("evidence"), dict)
@@ -495,9 +499,9 @@ def build_payloads(
         "automation": {
             "generated_by": "patchrail web-metrics update",
             "static_api_files": [
-                "public/api/landing-metrics.json",
-                "public/api/sources-volumes.json",
-                "public/api/product-metrics.json",
+                f"{METRICS_REL_DIR}/landing-metrics.json",
+                f"{METRICS_REL_DIR}/sources-volumes.json",
+                f"{METRICS_REL_DIR}/product-metrics.json",
             ],
             "read_only": True,
             "network_required": False,
@@ -551,30 +555,30 @@ def update_web_metrics(
         desk_dir=desk_dir,
     )
 
-    landing_path = web_dir / "public" / "api" / "landing-metrics.json"
-    sources_path = web_dir / "public" / "api" / "sources-volumes.json"
-    product_path = web_dir / "public" / "api" / "product-metrics.json"
+    landing_path = web_dir / METRICS_REL_DIR / "landing-metrics.json"
+    sources_path = web_dir / METRICS_REL_DIR / "sources-volumes.json"
+    product_path = web_dir / METRICS_REL_DIR / "product-metrics.json"
     changed_paths: list[str] = []
     if dry_run:
         if not landing_path.exists() or landing_path.read_text(encoding="utf-8") != stable_json(
             landing_payload
         ):
-            changed_paths.append("public/api/landing-metrics.json")
+            changed_paths.append(f"{METRICS_REL_DIR}/landing-metrics.json")
         if not sources_path.exists() or sources_path.read_text(encoding="utf-8") != stable_json(
             sources_payload
         ):
-            changed_paths.append("public/api/sources-volumes.json")
+            changed_paths.append(f"{METRICS_REL_DIR}/sources-volumes.json")
         if not product_path.exists() or product_path.read_text(encoding="utf-8") != stable_json(
             product_payload
         ):
-            changed_paths.append("public/api/product-metrics.json")
+            changed_paths.append(f"{METRICS_REL_DIR}/product-metrics.json")
     else:
         if write_if_changed(landing_path, stable_json(landing_payload)):
-            changed_paths.append("public/api/landing-metrics.json")
+            changed_paths.append(f"{METRICS_REL_DIR}/landing-metrics.json")
         if write_if_changed(sources_path, stable_json(sources_payload)):
-            changed_paths.append("public/api/sources-volumes.json")
+            changed_paths.append(f"{METRICS_REL_DIR}/sources-volumes.json")
         if write_if_changed(product_path, stable_json(product_payload)):
-            changed_paths.append("public/api/product-metrics.json")
+            changed_paths.append(f"{METRICS_REL_DIR}/product-metrics.json")
 
     status = "updated" if changed_paths else "unchanged"
     if dry_run and changed_paths:
