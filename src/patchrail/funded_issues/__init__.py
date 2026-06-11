@@ -59,6 +59,7 @@ from patchrail.funded_issues.source_noise import (
     entries_by_owner,
 )
 from patchrail.funded_issues.store import (
+    FRESH_SCHEMA_VERSION,
     RECHECK_SUMMARY_SCHEMA_VERSION,
     STORE_SCHEMA_VERSION,
     STORE_STATUS_SCHEMA_VERSION,
@@ -66,6 +67,7 @@ from patchrail.funded_issues.store import (
     RecheckSummary,
     apply_recheck_to_store,
     empty_store,
+    fresh_issues,
     load_store,
     merge_into_store,
     save_store,
@@ -80,6 +82,7 @@ __all__ = [
     "CLIENT_PROFILE_SCHEMA_VERSION",
     "COMPETITION_BATCH_SCHEMA_VERSION",
     "COMPETITION_SIGNAL_SCHEMA_VERSION",
+    "FRESH_SCHEMA_VERSION",
     "PAYOUT_EFFORT_BATCH_SCHEMA_VERSION",
     "PAYOUT_EFFORT_SIGNAL_SCHEMA_VERSION",
     "RECHECK_SUMMARY_SCHEMA_VERSION",
@@ -116,6 +119,7 @@ __all__ = [
     "empty_store",
     "entries_by_owner",
     "explain_issue",
+    "fresh_issues",
     "fulfillment_packet_funded_issues",
     "funded_issues_payload",
     "import_provider_export",

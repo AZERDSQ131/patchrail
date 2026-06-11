@@ -9,9 +9,11 @@ from pathlib import Path
 
 from patchrail.funded_issues.discovery import FundedIssue
 from patchrail.funded_issues.store import (
+    FRESH_SCHEMA_VERSION,
     STORE_SCHEMA_VERSION,
     STORE_STATUS_SCHEMA_VERSION,
     empty_store,
+    fresh_issues,
     load_store,
     merge_into_store,
     save_store,
@@ -307,6 +309,212 @@ class FundedIssuesTrackCliTests(unittest.TestCase):
                 self.assertEqual(schema["properties"]["read_only"]["const"], True)
                 self.assertIn("blocked_actions", schema["required"])
                 self.assertIn("requirements", schema["required"])
+
+
+def _store_entry(
+    *,
+    url: str,
+    repository: str,
+    first_seen: str,
+    state: str = "active",
+    created_at: str | None = None,
+    posted_days: int | None = None,
+    attempt_count: int | None = None,
+    assignee: object | None = None,
+    assignees: list | None = None,
+    board_org: str | None = None,
+) -> dict:
+    """Build a raw store entry directly so freshness logic can be exercised
+    without round-tripping every optional field through the importers."""
+    issue: dict = {
+        "url": url,
+        "reference": repository + "#1",
+        "repository": repository,
+        "title": "Fresh bounty",
+        "funding": {"amount": 150.0, "currency": "USD", "display": "$150"},
+    }
+    if created_at is not None:
+        issue["metadata"] = {"created_at": created_at}
+    if posted_days is not None:
+        issue["posted"] = {"approx_days": posted_days, "text": f"{posted_days} days ago"}
+    if attempt_count is not None:
+        issue["attempt_count"] = attempt_count
+    if assignee is not None:
+        issue["assignee"] = assignee
+    if assignees is not None:
+        issue["assignees"] = assignees
+    if board_org is not None:
+        issue["board"] = {"org": board_org, "source": "algora_board"}
+    return {
+        "first_seen": first_seen,
+        "last_seen": first_seen,
+        "last_checked": first_seen,
+        "state": state,
+        "score": 0,
+        "noise_flags": [],
+        "issue": issue,
+    }
+
+
+class FreshIssuesTests(unittest.TestCase):
+    NOW = "2026-06-11T12:00:00Z"
+
+    def _store(self, *entries: dict) -> dict:
+        store = empty_store()
+        for entry in entries:
+            store["entries"][entry["issue"]["url"]] = entry
+        return store
+
+    def test_created_at_within_window_is_fresh(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/1",
+                repository="acme/repo",
+                first_seen="2026-06-01T00:00:00Z",
+                created_at="2026-06-10T12:00:00Z",  # 24h before NOW
+                attempt_count=2,
+            )
+        )
+        payload = fresh_issues(store, self.NOW, hours=48)
+        self.assertEqual(payload["schema_version"], FRESH_SCHEMA_VERSION)
+        self.assertEqual(payload["fresh_count"], 1)
+        row = payload["fresh"][0]
+        self.assertEqual(row["age_basis"], "created_at")
+        self.assertEqual(row["age_hours"], 24.0)
+        self.assertEqual(row["attempt_count"], 2)
+        self.assertEqual(row["org"], "acme")
+
+    def test_old_created_at_excluded(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/2",
+                repository="acme/repo",
+                first_seen="2026-06-11T11:00:00Z",  # tracker just saw it...
+                created_at="2026-01-01T00:00:00Z",  # ...but bounty is months old
+            )
+        )
+        payload = fresh_issues(store, self.NOW, hours=48)
+        self.assertEqual(payload["fresh_count"], 0)
+
+    def test_first_seen_fallback_when_no_date_signal(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/3",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",  # 12h before NOW
+            )
+        )
+        payload = fresh_issues(store, self.NOW, hours=48)
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["age_basis"], "first_seen")
+
+    def test_orders_by_freshness_and_filters_org(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/10",
+                repository="acme/repo",
+                first_seen="2026-06-01T00:00:00Z",
+                created_at="2026-06-11T06:00:00Z",  # 6h
+            ),
+            _store_entry(
+                url="https://github.com/acme/repo/issues/11",
+                repository="acme/repo",
+                first_seen="2026-06-01T00:00:00Z",
+                created_at="2026-06-10T18:00:00Z",  # 18h
+            ),
+            _store_entry(
+                url="https://github.com/other/repo/issues/12",
+                repository="other/repo",
+                first_seen="2026-06-01T00:00:00Z",
+                created_at="2026-06-11T11:00:00Z",  # 1h but wrong org
+            ),
+        )
+        payload = fresh_issues(store, self.NOW, hours=48, orgs=["acme"])
+        self.assertEqual(payload["fresh_count"], 2)
+        ages = [row["age_hours"] for row in payload["fresh"]]
+        self.assertEqual(ages, sorted(ages))
+        self.assertEqual(payload["orgs"], ["acme"])
+
+    def test_closed_excluded_unless_requested(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/20",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                state="closed",
+            )
+        )
+        self.assertEqual(fresh_issues(store, self.NOW)["fresh_count"], 0)
+        self.assertEqual(fresh_issues(store, self.NOW, include_closed=True)["fresh_count"], 1)
+
+    def test_assignee_count_handles_both_shapes(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/30",
+                repository="acme/repo",
+                first_seen="2026-06-11T06:00:00Z",
+                assignees=["alice", "bob"],
+            ),
+            _store_entry(
+                url="https://github.com/acme/repo/issues/31",
+                repository="acme/repo",
+                first_seen="2026-06-11T06:00:00Z",
+                assignee="carol",
+            ),
+        )
+        by_url = {r["url"]: r for r in fresh_issues(store, self.NOW)["fresh"]}
+        self.assertEqual(by_url["https://github.com/acme/repo/issues/30"]["assignee_count"], 2)
+        self.assertEqual(by_url["https://github.com/acme/repo/issues/31"]["assignee_count"], 1)
+
+    def test_invalid_now_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            fresh_issues(empty_store(), "not-a-timestamp")
+
+
+class FundedIssuesFreshCliTests(unittest.TestCase):
+    def test_fresh_cli_json_and_text(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            store = empty_store()
+            store["entries"]["https://github.com/acme/repo/issues/1"] = _store_entry(
+                url="https://github.com/acme/repo/issues/1",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T06:00:00Z",
+                attempt_count=1,
+            )
+            save_store(store_path, store)
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store_path),
+                    "--now",
+                    "2026-06-11T12:00:00Z",
+                    "--format",
+                    "json",
+                ]
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertEqual(payload["schema_version"], FRESH_SCHEMA_VERSION)
+            self.assertEqual(payload["fresh_count"], 1)
+            self.assertTrue(payload["read_only"])
+
+            text = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store_path),
+                    "--now",
+                    "2026-06-11T12:00:00Z",
+                ]
+            )
+            self.assertEqual(text.returncode, 0, text.stderr)
+            self.assertIn("fresh radar", text.stdout)
 
 
 if __name__ == "__main__":

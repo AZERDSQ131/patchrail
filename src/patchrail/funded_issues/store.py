@@ -407,6 +407,138 @@ def _parse_iso(value: str) -> datetime:
     return datetime.fromisoformat(text)
 
 
+FRESH_SCHEMA_VERSION = "patchrail.funded_issues.fresh.v1"
+
+
+def _entry_org(entry: dict[str, Any]) -> str:
+    """Best-effort funding org / owner for an entry, mirroring how the store keys
+    repositories. Prefers an Algora ``board.org`` provenance, then strips the
+    ``repos/<owner>`` prefix the importers use, then falls back to ``owner/repo``."""
+
+    issue = entry.get("issue") or {}
+    board = issue.get("board") or {}
+    org = board.get("org")
+    if org:
+        return str(org)
+    repository = str(issue.get("repository") or "")
+    if repository.startswith("repos/"):
+        repository = repository[len("repos/") :]
+    if "/" in repository:
+        return repository.split("/", 1)[0]
+    return repository
+
+
+def _assignee_count(issue: dict[str, Any]) -> int:
+    """Number of declared assignees, accepting either a singular ``assignee`` or a
+    plural ``assignees`` list (different importers populate different shapes)."""
+
+    assignees = issue.get("assignees")
+    if isinstance(assignees, list):
+        return len([a for a in assignees if a])
+    return 1 if issue.get("assignee") else 0
+
+
+def _freshness_hours(entry: dict[str, Any], reference: datetime) -> tuple[float | None, str]:
+    """Age of an entry in hours plus the signal it was derived from.
+
+    Prefers an absolute ``issue.metadata.created_at`` (when the bounty was opened
+    on GitHub), then an Algora board ``posted.approx_days`` relative age, and
+    finally the tracker's own ``first_seen`` as a proxy. Returns ``(None, ...)``
+    when no signal parses."""
+
+    issue = entry.get("issue") or {}
+    metadata = issue.get("metadata") or {}
+    created_at = metadata.get("created_at")
+    if created_at:
+        try:
+            return (reference - _parse_iso(str(created_at))).total_seconds() / 3600.0, "created_at"
+        except ValueError:
+            pass
+    posted = issue.get("posted") or {}
+    approx_days = posted.get("approx_days")
+    if isinstance(approx_days, (int, float)):
+        return float(approx_days) * 24.0, "posted"
+    first_seen = entry.get("first_seen")
+    if first_seen:
+        try:
+            return (reference - _parse_iso(str(first_seen))).total_seconds() / 3600.0, "first_seen"
+        except ValueError:
+            pass
+    return None, "unknown"
+
+
+def fresh_issues(
+    store: dict[str, Any],
+    now: str,
+    *,
+    hours: int = 48,
+    orgs: list[str] | None = None,
+    include_closed: bool = False,
+) -> dict[str, Any]:
+    """List tracker entries whose bounty was posted/labeled within ``hours``.
+
+    Cross-references the local store against the funding orgs the lane is allowed
+    to work (``orgs``, case-insensitive) and orders the survivors by freshness
+    (youngest first). Pure local read: no network, no third-party writes. Each row
+    carries the declared ``attempt_count`` and assignee count so a fresh-but-
+    contested bounty is visible at a glance."""
+
+    try:
+        reference = _parse_iso(now)
+    except ValueError as exc:
+        raise ValueError(f"invalid --now timestamp: {now}") from exc
+
+    org_filter = {o.strip().lower() for o in orgs if o.strip()} if orgs else None
+    window = float(hours)
+    entries = store.get("entries", {})
+    rows: list[dict[str, Any]] = []
+    skipped_no_signal = 0
+    for entry in entries.values():
+        issue = entry.get("issue") or {}
+        state = _normalize_store_state(entry.get("state"))
+        if not include_closed and state == "closed":
+            continue
+        org = _entry_org(entry)
+        if org_filter is not None and org.lower() not in org_filter:
+            continue
+        age_hours, basis = _freshness_hours(entry, reference)
+        if age_hours is None:
+            skipped_no_signal += 1
+            continue
+        if age_hours < 0 or age_hours > window:
+            continue
+        funding = issue.get("funding") or {}
+        rows.append(
+            {
+                "reference": issue.get("reference"),
+                "url": issue.get("url"),
+                "repository": issue.get("repository"),
+                "org": org,
+                "title": issue.get("title"),
+                "state": state,
+                "age_hours": round(age_hours, 2),
+                "age_basis": basis,
+                "attempt_count": issue.get("attempt_count"),
+                "assignee_count": _assignee_count(issue),
+                "funding_display": funding.get("display"),
+                "first_seen": entry.get("first_seen"),
+            }
+        )
+
+    rows.sort(key=lambda r: r["age_hours"])
+    return {
+        "schema_version": FRESH_SCHEMA_VERSION,
+        "read_only": True,
+        "now": now,
+        "window_hours": hours,
+        "orgs": sorted(org_filter) if org_filter is not None else None,
+        "considered": len(entries),
+        "fresh_count": len(rows),
+        "skipped_no_signal": skipped_no_signal,
+        "fresh": rows,
+    }
+
+
 def store_status(store: dict[str, Any], now: str | None = None) -> dict[str, Any]:
     """Build a read-only summary payload for a store.
 

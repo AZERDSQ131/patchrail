@@ -35,6 +35,7 @@ from patchrail.funded_issues import (
     client_report_funded_issues,
     empty_store,
     explain_issue,
+    fresh_issues,
     fulfillment_packet_funded_issues,
     import_provider_export,
     load_client_profile,
@@ -6879,6 +6880,58 @@ def _funded_issues_track_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def _render_funded_issues_fresh_text(payload: dict[str, Any]) -> str:
+    orgs = payload["orgs"]
+    scope = "all orgs" if orgs is None else ", ".join(orgs)
+    lines = [
+        "PatchRail funded-issues fresh radar (local read-only)",
+        f"Window: last {payload['window_hours']}h  Scope: {scope}",
+        (
+            f"Considered: {payload['considered']}  "
+            f"Fresh: {payload['fresh_count']}  "
+            f"Skipped (no date signal): {payload['skipped_no_signal']}"
+        ),
+    ]
+    if not payload["fresh"]:
+        lines.append("  No bounties posted/labeled within the window.")
+        return "\n".join(lines) + "\n"
+    for row in payload["fresh"]:
+        age_h = row["age_hours"]
+        attempts = row["attempt_count"]
+        attempts_text = "n/a" if attempts is None else str(attempts)
+        lines.append(
+            f"  - {row['reference'] or row['url']}: "
+            f"{row['funding_display'] or 'unknown'} "
+            f"({age_h:.1f}h via {row['age_basis']}, "
+            f"attempts: {attempts_text}, assignees: {row['assignee_count']})"
+        )
+        if row.get("title"):
+            lines.append(f"      {row['title']}")
+    return "\n".join(lines) + "\n"
+
+
+def _funded_issues_fresh(args: argparse.Namespace) -> int:
+    now = args.now or _now_iso()
+    try:
+        store = load_store(args.store)
+        payload = fresh_issues(
+            store,
+            now,
+            hours=args.hours,
+            orgs=args.orgs,
+            include_closed=args.include_closed,
+        )
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid funded issue store: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    else:
+        text = _render_funded_issues_fresh_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _render_funded_issues_algora_board_text(payload: dict[str, Any]) -> str:
     lines = [
         "PatchRail Algora board import (local file, read-only)",
@@ -8570,6 +8623,49 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_track_status.add_argument("--out", type=Path, help="Optional output path.")
     funded_track_status.set_defaults(func=_funded_issues_track_status)
+
+    funded_fresh = funded_subparsers.add_parser(
+        "fresh",
+        help="List tracker entries whose bounty was posted/labeled within a recent "
+        "window, ordered by freshness. Local read-only; no network.",
+    )
+    funded_fresh.add_argument(
+        "--store",
+        required=True,
+        type=Path,
+        help="Local JSON store file written by funded-issues track.",
+    )
+    funded_fresh.add_argument(
+        "--hours",
+        type=int,
+        default=48,
+        help="Freshness window in hours. Default 48.",
+    )
+    funded_fresh.add_argument(
+        "--org",
+        action="append",
+        dest="orgs",
+        metavar="ORG",
+        help="Restrict to this funding org/owner (repeatable). Defaults to all orgs "
+        "in the store. Pass the allowlist orgs to cross-reference them.",
+    )
+    funded_fresh.add_argument(
+        "--include-closed",
+        action="store_true",
+        help="Include entries whose tracked state is closed. Off by default.",
+    )
+    funded_fresh.add_argument(
+        "--now",
+        help="ISO-8601 UTC timestamp used to compute freshness. Defaults to the local clock.",
+    )
+    funded_fresh.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="Output format.",
+    )
+    funded_fresh.add_argument("--out", type=Path, help="Optional output path.")
+    funded_fresh.set_defaults(func=_funded_issues_fresh)
 
     funded_apply_recheck = funded_subparsers.add_parser(
         "apply-recheck",
