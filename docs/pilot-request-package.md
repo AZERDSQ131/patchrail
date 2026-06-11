@@ -33,10 +33,11 @@ Use this when a maintainer wants to run a first read-only trial:
 ````markdown
 Run a local PatchRail pilot on one failed CI log:
 
-1. Install PatchRail. PyPI publishing is pending, so do not use
-   `pipx install patchrail` yet:
+1. Install PatchRail. It is published on PyPI, so the fastest path is
+   `pipx install patchrail`. Source and wheel installs also work:
 
    ```bash
+   pipx install patchrail
    uvx --from git+https://github.com/patchrail/patchrail patchrail --help
    python3 -m venv .patchrail-wheel-smoke
    . .patchrail-wheel-smoke/bin/activate

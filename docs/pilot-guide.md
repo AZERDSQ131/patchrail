@@ -26,10 +26,11 @@ not modify code.
 
 ## Run A Local Pilot
 
-Install PatchRail. PyPI publishing is pending, so do not use
-`pipx install patchrail` yet:
+Install PatchRail. It is published on PyPI, so the fastest path is
+`pipx install patchrail`. Source and wheel installs also work:
 
 ```bash
+pipx install patchrail
 uvx --from git+https://github.com/patchrail/patchrail patchrail --help
 python3 -m venv .patchrail-wheel-smoke
 . .patchrail-wheel-smoke/bin/activate

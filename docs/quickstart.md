@@ -25,8 +25,13 @@ CI fixture, records approval and rejection gates, writes the reviewer handoff
 artifacts, and reports `local_demo_ready` without network, billing, external
 models, or GitHub write permission.
 
-PyPI publishing is pending, so `pipx install patchrail` will not work yet. Until
-the package is published there, run the public GitHub source directly:
+PatchRail is published on PyPI, so the fastest install is:
+
+```bash
+pipx install patchrail
+```
+
+You can also run the latest source directly without installing:
 
 ```bash
 uvx --from git+https://github.com/patchrail/patchrail patchrail --help
@@ -34,7 +39,7 @@ printf 'python -m pytest -q\nFAILED tests/test_app.py::test_ok - AssertionError\
   | uvx --from git+https://github.com/patchrail/patchrail patchrail ci explain
 ```
 
-That pre-PyPI smoke test prints:
+That smoke test prints:
 
 ```markdown
 # PatchRail CI Report

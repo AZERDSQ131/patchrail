@@ -53,9 +53,9 @@ def _markdown_files_with_reviewer_facing_links() -> list[Path]:
     ]
 
 
-def _line_context(lines: list[str], line_index: int) -> str:
-    start = max(0, line_index - 1)
-    end = min(len(lines), line_index + 2)
+def _line_context(lines: list[str], line_index: int, *, before: int = 1, after: int = 1) -> str:
+    start = max(0, line_index - before)
+    end = min(len(lines), line_index + after + 1)
     return " ".join(line.strip().lower() for line in lines[start:end])
 
 
@@ -160,8 +160,12 @@ def test_reviewer_facing_ci_fixture_paths_resolve_with_expected_metadata() -> No
     assert missing_expected_metadata == []
 
 
-def test_pipx_install_mentions_stay_marked_as_pre_pypi_unavailable() -> None:
+def test_pipx_install_mentions_carry_published_or_historical_context() -> None:
+    # patchrail is live on PyPI (README commit 89a9e0e). Every pipx mention must either
+    # state that current truth nearby, or sit inside a dated pre-publish evidence record.
+    # Stale "publishing is pending" / "will not work yet" framing is no longer allowed.
     unsafe_mentions: list[str] = []
+    stale_mentions: list[str] = []
 
     for markdown_file in _markdown_files_with_reviewer_facing_links():
         lines = markdown_file.read_text(encoding="utf-8").splitlines()
@@ -169,14 +173,18 @@ def test_pipx_install_mentions_stay_marked_as_pre_pypi_unavailable() -> None:
             if PIPX_INSTALL_COMMAND not in line:
                 continue
 
-            context = _line_context(lines, index)
-            if not (
-                "pypi publishing is pending" in context
+            context = _line_context(lines, index, before=4, after=2)
+            if "publishing is pending" in context or "will not work yet" in context:
+                stale_mentions.append(f"{markdown_file.relative_to(ROOT)}:{index + 1}")
+            elif not (
+                "published on pypi" in context
                 or "do not use" in context
-                or "will not work yet" in context
+                or "pre-pypi" in context
+                or "until pypi publish" in context
             ):
                 unsafe_mentions.append(f"{markdown_file.relative_to(ROOT)}:{index + 1}")
 
+    assert stale_mentions == []
     assert unsafe_mentions == []
 
 
@@ -220,7 +228,7 @@ def test_pre_pypi_install_verification_is_recorded_without_pypi_claims() -> None
     assert "do not use `pipx install patchrail` yet until PyPI publish" in normalized
 
 
-def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
+def test_readme_and_quickstart_document_published_pypi_install() -> None:
     proc = subprocess.run(
         [sys.executable, "-m", "patchrail", "ci", "explain"],
         input=("python -m pytest -q\nFAILED tests/test_app.py::test_ok - AssertionError\n"),
@@ -240,14 +248,16 @@ def test_readme_and_quickstart_do_not_promise_pypi_before_publish() -> None:
 
     for path, text in surfaces.items():
         normalized_text = " ".join(text.split())
-        assert "PyPI publishing is pending" in text, path
+        assert "published on PyPI" in text, path
+        assert "PyPI publishing is pending" not in text, path
+        assert "will not work yet" not in text, path
         assert GITHUB_SOURCE_COMMAND in text, path
         assert "patchrail ci explain" in text, path
         assert "FAILED tests/test_app.py::test_ok" in text, path
         assert f"python -m pip install {GITHUB_RELEASE_WHEEL_URL}" in text, path
         assert WHEEL_VENV_COMMAND in text, path
         assert "pipx install patchrail" in text, path
-        assert "That pre-PyPI smoke test prints" in text, path
+        assert "That smoke test prints" in text, path
         assert "10-second reviewer demo" in text, path
         assert "No install is required to inspect the current behavior." in text, path
         assert "tests compare that file against the command output to prevent drift" in text, path
