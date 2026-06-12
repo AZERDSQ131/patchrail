@@ -6979,6 +6979,43 @@ def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_fresh_shortlist_note(payload: dict[str, Any]) -> str:
+    now = str(payload.get("now") or "").replace("T", " ").replace("+00:00", "Z")
+    lines = [
+        f"## BARRIDO {now}",
+        (
+            f"- filtro: {payload['window_hours']}h, "
+            f"{payload.get('min_usd') or 0:g}-{payload.get('max_usd') or 'inf'} USD, "
+            f"solver={payload.get('solver_status') or 'all'}, "
+            f"sort={payload.get('sort', 'freshness')}"
+        ),
+    ]
+    if not payload["fresh"]:
+        lines.append(
+            f"- 0 fresh / 0 GO sobre {payload['considered']} tracked; "
+            "sin candidato seguro para preparar fix."
+        )
+        return "\n".join(lines) + "\n"
+
+    go_count = sum(1 for row in payload["fresh"] if row.get("solver_status") == "go_candidate")
+    lines.append(
+        f"- fresh={payload['fresh_count']} "
+        f"(antes_limit={payload.get('fresh_count_before_limit', payload['fresh_count'])}) "
+        f"go={go_count}"
+    )
+    for row in payload["fresh"]:
+        reference = row.get("reference") or row.get("url") or "unknown"
+        funding = row.get("funding_display") or "unknown"
+        title = str(row.get("title") or "").strip()
+        title_text = f" - {title}" if title else ""
+        lines.append(
+            f"- {row.get('solver_status', 'needs_review')}: {reference} - {funding} - "
+            f"{float(row['age_hours']):.1f}h via {row['age_basis']} - "
+            f"{_fresh_priority_reason(row)} - {row.get('url') or 'no-url'}{title_text}"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def _funded_issues_fresh(args: argparse.Namespace) -> int:
     now = args.now or _now_iso()
     try:
@@ -7002,6 +7039,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _json_dump(payload)
     elif args.format == "markdown":
         text = _render_funded_issues_fresh_markdown(payload)
+    elif args.format == "shortlist-note":
+        text = _render_funded_issues_fresh_shortlist_note(payload)
     else:
         text = _render_funded_issues_fresh_text(payload)
     _write_or_print(text, args.out)
@@ -8762,7 +8801,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_fresh.add_argument(
         "--format",
-        choices=["json", "markdown", "text"],
+        choices=["json", "markdown", "shortlist-note", "text"],
         default="text",
         help="Output format.",
     )
