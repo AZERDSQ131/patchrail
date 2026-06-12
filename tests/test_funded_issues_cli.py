@@ -1442,6 +1442,103 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertNotIn("gh issue comment", proc.stdout)
         self.assertNotIn("/claim", proc.stdout)
 
+    def test_funded_issues_fresh_exports_claim_packet_for_solver_worker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "fresh-go",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Fix deterministic CI failure",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {
+                                        "amount": 250,
+                                        "currency": "USD",
+                                        "display": "250 USD",
+                                    },
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/43": {
+                                "issue": {
+                                    "id": "needs-review",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#43",
+                                    "issue_number": 43,
+                                    "title": "Clarify flaky integration test",
+                                    "url": "https://github.com/example/project/issues/43",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                },
+                                "first_seen": "2026-06-12T08:10:00+00:00",
+                                "last_seen": "2026-06-12T08:10:00+00:00",
+                                "last_checked": "2026-06-12T08:10:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "claim-packet",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        packet = json.loads(proc.stdout)
+        self.assertEqual(packet["schema_version"], "patchrail.funded_issues.claim_packet.v1")
+        self.assertTrue(packet["read_only"])
+        self.assertIn("automatic_pull_requests", packet["blocked_actions"])
+        self.assertIn("automatic_claim_comments", packet["blocked_actions"])
+        self.assertEqual(packet["go_count"], 1)
+        self.assertEqual(len(packet["candidates"]), 1)
+        candidate = packet["candidates"][0]
+        self.assertEqual(candidate["reference"], "example/project#42")
+        self.assertEqual(candidate["repository"], "example/project")
+        self.assertEqual(candidate["issue_number"], "42")
+        self.assertEqual(candidate["go_blockers"], [])
+        self.assertIn(
+            "gh issue view 42 --repo example/project", candidate["readonly_recheck_command"]
+        )
+        self.assertIn("--format claim-checklist", candidate["local_filter_command"])
+        self.assertIn("only after the branch", candidate["claim_instruction"])
+        self.assertNotIn("gh pr create", proc.stdout)
+        self.assertNotIn("gh issue comment", proc.stdout)
+
     def test_funded_issues_list_can_filter_by_opportunity_state(self) -> None:
         proc = run_patchrail(
             [

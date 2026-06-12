@@ -7339,6 +7339,54 @@ def _render_funded_issues_fresh_recheck_commands(payload: dict[str, Any]) -> str
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_fresh_claim_packet(payload: dict[str, Any]) -> str:
+    rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
+    candidates: list[dict[str, Any]] = []
+    for row in rows:
+        issue_number = _fresh_claim_issue_number(row)
+        repo = _fresh_repo_from_row(row)
+        candidates.append(
+            {
+                "reference": row.get("reference") or row.get("url") or "unknown",
+                "url": row.get("url"),
+                "repository": repo,
+                "issue_number": issue_number,
+                "funding_display": row.get("funding_display"),
+                "age_hours": row.get("age_hours"),
+                "age_basis": row.get("age_basis"),
+                "attempt_count": row.get("attempt_count"),
+                "assignee_count": row.get("assignee_count", 0),
+                "go_blockers": row.get("go_blockers") or [],
+                "next_action": row.get("next_action") or "prepare_fix_and_claim_pr",
+                "readonly_recheck_command": (
+                    "gh issue view "
+                    f"{shlex.quote(issue_number)} --repo {shlex.quote(repo)} "
+                    "--json state,assignees,comments,labels,updatedAt"
+                ),
+                "local_filter_command": _fresh_claim_recheck_command(payload, row),
+                "claim_instruction": (
+                    f"Add `/claim #{issue_number}` in the PR only after the branch, "
+                    "minimal fix, and target tests are ready."
+                ),
+            }
+        )
+    packet = {
+        "schema_version": "patchrail.funded_issues.claim_packet.v1",
+        "read_only": True,
+        "blocked_actions": [
+            "automatic_pull_requests",
+            "automatic_claim_comments",
+            "github_writes",
+        ],
+        "store_path": payload.get("store_path"),
+        "window_hours": payload.get("window_hours"),
+        "next_safe_action": payload.get("next_safe_action"),
+        "go_count": len(candidates),
+        "candidates": candidates,
+    }
+    return _json_dump(packet)
+
+
 def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
     rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
     lines = [
@@ -7551,6 +7599,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_go_list(payload)
     elif args.format == "claim-checklist":
         text = _render_funded_issues_fresh_claim_checklist(payload)
+    elif args.format == "claim-packet":
+        text = _render_funded_issues_fresh_claim_packet(payload)
     elif args.format == "action-queue":
         text = _render_funded_issues_fresh_action_queue(payload)
     elif args.format == "operator-brief":
@@ -9340,6 +9390,7 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=[
             "action-queue",
             "claim-checklist",
+            "claim-packet",
             "csv",
             "env",
             "go-list",
