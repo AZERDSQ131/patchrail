@@ -562,6 +562,7 @@ def fresh_issues(
     max_attempts: int | None = None,
     max_assignees: int | None = None,
     min_age_minutes: int | None = None,
+    max_updated_age_hours: int | None = None,
     require_tests_signal: bool = False,
 ) -> dict[str, Any]:
     """List tracker entries whose bounty was posted/labeled within ``hours``.
@@ -601,6 +602,8 @@ def fresh_issues(
         raise ValueError("max_assignees must be at least 0")
     if min_age_minutes is not None and min_age_minutes < 0:
         raise ValueError("min_age_minutes must be at least 0")
+    if max_updated_age_hours is not None and max_updated_age_hours < 0:
+        raise ValueError("max_updated_age_hours must be at least 0")
 
     window = float(hours)
     min_age_hours = None if min_age_minutes is None else min_age_minutes / 60
@@ -623,6 +626,18 @@ def fresh_issues(
             continue
         if min_age_hours is not None and age_hours < min_age_hours:
             continue
+        updated_at = issue.get("updated_at")
+        updated_age_hours = None
+        if updated_at is not None:
+            try:
+                updated_age_hours = (reference - _parse_iso(str(updated_at))).total_seconds() / 3600
+            except ValueError:
+                updated_age_hours = None
+        if max_updated_age_hours is not None:
+            if updated_age_hours is None:
+                continue
+            if updated_age_hours < 0 or updated_age_hours > max_updated_age_hours:
+                continue
         funding = issue.get("funding") or {}
         amount = funding.get("amount")
         currency = str(funding.get("currency") or "").upper()
@@ -668,6 +683,10 @@ def fresh_issues(
                 "state": state,
                 "age_hours": round(age_hours, 2),
                 "age_basis": basis,
+                "updated_at": updated_at,
+                "updated_age_hours": (
+                    None if updated_age_hours is None else round(updated_age_hours, 2)
+                ),
                 "attempt_count": issue.get("attempt_count"),
                 "assignee_count": assignee_count,
                 "testability_signal": testability_signal,
@@ -711,6 +730,7 @@ def fresh_issues(
         "max_attempts": max_attempts,
         "max_assignees": max_assignees,
         "min_age_minutes": min_age_minutes,
+        "max_updated_age_hours": max_updated_age_hours,
         "require_tests_signal": require_tests_signal,
         "sort": sort_by,
         "limit": max_rows,

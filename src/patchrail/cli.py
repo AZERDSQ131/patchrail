@@ -6891,7 +6891,8 @@ def _render_funded_issues_fresh_text(payload: dict[str, Any]) -> str:
         (
             f"Window: last {payload['window_hours']}h  Scope: {scope}  "
             f"Solver: {solver_scope}  Sort: {payload.get('sort', 'freshness')}  "
-            f"Min age: {payload.get('min_age_minutes') or 0}m"
+            f"Min age: {payload.get('min_age_minutes') or 0}m  "
+            f"Max updated age: {payload.get('max_updated_age_hours') or 'none'}h"
         ),
         (
             f"Considered: {payload['considered']}  "
@@ -6976,6 +6977,8 @@ def _fresh_claim_recheck_command(payload: dict[str, Any], row: dict[str, Any]) -
         parts.extend(["--max-assignees", str(payload["max_assignees"])])
     if payload.get("min_age_minutes") is not None:
         parts.extend(["--min-age-minutes", str(payload["min_age_minutes"])])
+    if payload.get("max_updated_age_hours") is not None:
+        parts.extend(["--max-updated-age-hours", str(payload["max_updated_age_hours"])])
     if payload.get("require_tests_signal"):
         parts.append("--require-tests-signal")
     parts.extend(["--format", "claim-checklist"])
@@ -7021,6 +7024,8 @@ def _fresh_readonly_recheck_command(
         parts.extend(["--max-assignees", str(payload["max_assignees"])])
     if payload.get("min_age_minutes") is not None:
         parts.extend(["--min-age-minutes", str(payload["min_age_minutes"])])
+    if payload.get("max_updated_age_hours") is not None:
+        parts.extend(["--max-updated-age-hours", str(payload["max_updated_age_hours"])])
     if payload.get("require_tests_signal"):
         parts.append("--require-tests-signal")
     parts.extend(["--format", "operator-brief"])
@@ -7069,6 +7074,7 @@ def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
         f"- Solver filter: `{solver_scope}`",
         f"- Sort: `{payload.get('sort', 'freshness')}`",
         f"- Minimum age: `{payload.get('min_age_minutes') or 0}` minutes",
+        f"- Maximum updated age: `{payload.get('max_updated_age_hours') or 'none'}` hours",
         (
             f"- Fresh: `{payload['fresh_count']}` / "
             f"`{payload.get('fresh_count_before_limit', payload['fresh_count'])}` before limit"
@@ -7124,7 +7130,8 @@ def _render_funded_issues_fresh_shortlist_note(payload: dict[str, Any]) -> str:
             f"{payload.get('min_usd') or 0:g}-{payload.get('max_usd') or 'inf'} USD, "
             f"solver={payload.get('solver_status') or 'all'}, "
             f"sort={payload.get('sort', 'freshness')}, "
-            f"min_age={payload.get('min_age_minutes') or 0}m"
+            f"min_age={payload.get('min_age_minutes') or 0}m, "
+            f"max_updated_age={payload.get('max_updated_age_hours') or 'none'}h"
         ),
         f"- next_safe_action: {payload.get('next_safe_action', 'unknown')}",
     ]
@@ -7185,6 +7192,8 @@ def _render_funded_issues_fresh_csv(payload: dict[str, Any]) -> str:
         "funding_display",
         "age_hours",
         "age_basis",
+        "updated_at",
+        "updated_age_hours",
         "state",
         "attempt_count",
         "assignee_count",
@@ -7790,6 +7799,7 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             max_attempts=args.max_attempts,
             max_assignees=args.max_assignees,
             min_age_minutes=args.min_age_minutes,
+            max_updated_age_hours=args.max_updated_age_hours,
             require_tests_signal=args.require_tests_signal,
         )
         payload["store_path"] = str(args.store)
@@ -9621,6 +9631,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Only include fresh rows at least this many minutes old. Use this to avoid "
             "claiming before public issue signals have stabilized."
+        ),
+    )
+    funded_fresh.add_argument(
+        "--max-updated-age-hours",
+        type=int,
+        help=(
+            "Only include fresh rows whose public updated_at signal is this many hours old "
+            "or newer. Use this to ignore fresh-but-inactive bounty traps."
         ),
     )
     funded_fresh.add_argument(

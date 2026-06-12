@@ -734,6 +734,121 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("min_age_minutes must be at least 0", proc.stderr)
 
+    def test_funded_issues_fresh_can_filter_by_recent_public_update(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "recently-active",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Recently updated bounty",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {"amount": 250, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                    "updated_at": "2026-06-12T08:00:00+00:00",
+                                },
+                                "first_seen": "2026-06-12T07:00:00+00:00",
+                                "last_seen": "2026-06-12T07:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/43": {
+                                "issue": {
+                                    "id": "quiet",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#43",
+                                    "issue_number": 43,
+                                    "title": "Fresh but quiet bounty",
+                                    "url": "https://github.com/example/project/issues/43",
+                                    "funding": {"amount": 250, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                    "updated_at": "2026-06-11T20:00:00+00:00",
+                                },
+                                "first_seen": "2026-06-12T07:30:00+00:00",
+                                "last_seen": "2026-06-12T07:30:00+00:00",
+                                "last_checked": "2026-06-12T07:30:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--max-updated-age-hours",
+                    "4",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["max_updated_age_hours"], 4)
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["reference"], "example/project#42")
+        self.assertEqual(payload["fresh"][0]["updated_age_hours"], 1.0)
+
+    def test_funded_issues_fresh_rejects_negative_max_updated_age_hours(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--max-updated-age-hours",
+                    "-1",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("max_updated_age_hours must be at least 0", proc.stderr)
+
     def test_funded_issues_fresh_can_filter_by_max_assignees(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"
