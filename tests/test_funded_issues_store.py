@@ -979,6 +979,49 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
         self.assertIn("2. no_go: acme/other#1", proc.stdout)
         self.assertIn("skip: too_many_attempts", proc.stdout)
 
+    def test_fresh_cli_review_watch_prints_only_manual_recheck_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            store = empty_store()
+            store["entries"]["https://github.com/acme/repo/issues/1"] = _store_entry(
+                url="https://github.com/acme/repo/issues/1",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T06:00:00Z",
+            )
+            store["entries"]["https://github.com/acme/other/issues/2"] = _store_entry(
+                url="https://github.com/acme/other/issues/2",
+                repository="acme/other",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T07:00:00Z",
+                attempt_count=7,
+            )
+            save_store(store_path, store)
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store_path),
+                    "--now",
+                    "2026-06-11T12:00:00Z",
+                    "--sort",
+                    "solver",
+                    "--format",
+                    "review-watch",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("PatchRail funded-issues review watch", proc.stdout)
+        self.assertIn("Review: 1", proc.stdout)
+        self.assertIn("acme/repo#1", proc.stdout)
+        self.assertIn("Needs: attempts_unknown", proc.stdout)
+        self.assertIn("gh issue view 1 --repo acme/repo", proc.stdout)
+        self.assertIn("--format operator-brief", proc.stdout)
+        self.assertNotIn("acme/other#1", proc.stdout)
+
     def test_fresh_cli_can_filter_by_solver_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store_path = Path(tmp) / "store.json"

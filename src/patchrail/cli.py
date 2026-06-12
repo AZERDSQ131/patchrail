@@ -7339,6 +7339,46 @@ def _render_funded_issues_fresh_recheck_commands(payload: dict[str, Any]) -> str
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_fresh_review_watch(payload: dict[str, Any]) -> str:
+    rows = [row for row in payload["fresh"] if row.get("solver_status") == "needs_review"]
+    lines = [
+        "PatchRail funded-issues review watch",
+        (
+            f"Window: {payload['window_hours']}h  Fresh: {payload['fresh_count']}  "
+            f"Review: {len(rows)}"
+        ),
+        "Mode: read-only recheck before any branch, PR, claim, or maintainer contact.",
+    ]
+    if not rows:
+        lines.append("WAIT: no near-miss candidates need manual recheck in this fresh window.")
+        return "\n".join(lines) + "\n"
+    for index, row in enumerate(rows, start=1):
+        reference = row.get("reference") or row.get("url") or "unknown"
+        blockers = ", ".join(row.get("go_blockers") or ["missing manual evidence"])
+        repo = _fresh_repo_from_row(row)
+        issue_number = _fresh_claim_issue_number(row)
+        lines.extend(
+            [
+                "",
+                f"{index}. {reference}",
+                f"   URL: {row.get('url') or 'no-url'}",
+                f"   USD: {row.get('funding_display') or 'unknown'}",
+                f"   Age: {float(row['age_hours']):.1f}h via {row['age_basis']}",
+                f"   Needs: {blockers}",
+                (
+                    "   GitHub recheck: "
+                    f"gh issue view {shlex.quote(issue_number)} --repo {shlex.quote(repo)} "
+                    "--json state,assignees,comments,labels,updatedAt"
+                ),
+                (
+                    "   Local follow-up: "
+                    f"{_fresh_readonly_recheck_command(payload, row, 'needs_review')}"
+                ),
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
 def _render_funded_issues_fresh_claim_packet(payload: dict[str, Any]) -> str:
     rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
     candidates: list[dict[str, Any]] = []
@@ -7686,6 +7726,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_operator_brief(payload)
     elif args.format == "recheck-commands":
         text = _render_funded_issues_fresh_recheck_commands(payload)
+    elif args.format == "review-watch":
+        text = _render_funded_issues_fresh_review_watch(payload)
     else:
         text = _render_funded_issues_fresh_text(payload)
     _write_or_print(text, args.out)
@@ -9479,6 +9521,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "markdown",
             "operator-brief",
             "recheck-commands",
+            "review-watch",
             "signal",
             "shortlist-note",
             "solver-brief",
