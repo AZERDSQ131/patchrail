@@ -7085,6 +7085,48 @@ def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_fresh_action_queue(payload: dict[str, Any]) -> str:
+    rows = list(payload["fresh"])
+    go_rows = [row for row in rows if row.get("solver_status") == "go_candidate"]
+    lines = [
+        "PatchRail funded-issues action queue",
+        (
+            f"Window: {payload['window_hours']}h  Fresh: {payload['fresh_count']}  "
+            f"GO: {len(go_rows)}"
+        ),
+    ]
+    if not rows:
+        lines.append("Next: wait for a fresh funded issue; no local action is safe.")
+        return "\n".join(lines) + "\n"
+    for index, row in enumerate(rows, start=1):
+        reference = row.get("reference") or row.get("url") or "unknown"
+        status = row.get("solver_status", "needs_review")
+        blockers = row.get("go_blockers") or []
+        title = str(row.get("title") or "").strip()
+        if status == "go_candidate":
+            next_action = (
+                "prepare branch + minimal fix + target tests; open PR only after checks pass"
+            )
+        elif status == "needs_review":
+            next_action = "manual recheck before coding: " + ", ".join(
+                blockers or ["missing current issue evidence"]
+            )
+        else:
+            next_action = "skip: " + ", ".join(blockers or ["not solver-safe"])
+        lines.extend(
+            [
+                f"{index}. {status}: {reference}",
+                f"   URL: {row.get('url') or 'no-url'}",
+                f"   USD: {row.get('funding_display') or 'unknown'}",
+                f"   Age: {float(row['age_hours']):.1f}h via {row['age_basis']}",
+                f"   Next: {next_action}",
+            ]
+        )
+        if title:
+            lines.append(f"   Title: {title}")
+    return "\n".join(lines) + "\n"
+
+
 def _funded_issues_fresh(args: argparse.Namespace) -> int:
     now = args.now or _now_iso()
     try:
@@ -7114,6 +7156,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_go_list(payload)
     elif args.format == "claim-checklist":
         text = _render_funded_issues_fresh_claim_checklist(payload)
+    elif args.format == "action-queue":
+        text = _render_funded_issues_fresh_action_queue(payload)
     else:
         text = _render_funded_issues_fresh_text(payload)
     _write_or_print(text, args.out)
@@ -8874,7 +8918,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_fresh.add_argument(
         "--format",
-        choices=["claim-checklist", "go-list", "json", "markdown", "shortlist-note", "text"],
+        choices=[
+            "action-queue",
+            "claim-checklist",
+            "go-list",
+            "json",
+            "markdown",
+            "shortlist-note",
+            "text",
+        ],
         default="text",
         help="Output format.",
     )
