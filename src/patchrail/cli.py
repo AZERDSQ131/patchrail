@@ -7129,6 +7129,7 @@ def _render_funded_issues_fresh_action_queue(payload: dict[str, Any]) -> str:
         status = row.get("solver_status", "needs_review")
         blockers = row.get("go_blockers") or []
         title = str(row.get("title") or "").strip()
+        action_code = row.get("next_action")
         if status == "go_candidate":
             next_action = (
                 "prepare branch + minimal fix + target tests; open PR only after checks pass"
@@ -7139,6 +7140,8 @@ def _render_funded_issues_fresh_action_queue(payload: dict[str, Any]) -> str:
             )
         else:
             next_action = "skip: " + ", ".join(blockers or ["not solver-safe"])
+        if action_code:
+            next_action = f"{next_action} (code: {action_code})"
         lines.extend(
             [
                 f"{index}. {status}: {reference}",

@@ -512,6 +512,16 @@ def _solver_go_blockers(
     return "go_candidate", []
 
 
+def _solver_next_action(solver_status: str, blockers: list[str]) -> str:
+    """Machine-readable next step for the worker loop."""
+
+    if solver_status == "go_candidate":
+        return "prepare_fix_and_claim_pr"
+    if solver_status == "needs_review":
+        return "manual_recheck:" + ",".join(blockers or ["missing_current_issue_evidence"])
+    return "skip:" + ",".join(blockers or ["not_solver_safe"])
+
+
 def fresh_issues(
     store: dict[str, Any],
     now: str,
@@ -611,6 +621,7 @@ def fresh_issues(
                 "assignee_count": assignee_count,
                 "solver_status": row_solver_status,
                 "go_blockers": go_blockers,
+                "next_action": _solver_next_action(row_solver_status, go_blockers),
                 "funding_display": funding.get("display"),
                 "first_seen": entry.get("first_seen"),
             }
