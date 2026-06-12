@@ -7156,6 +7156,75 @@ def _render_funded_issues_fresh_action_queue(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_fresh_operator_brief(payload: dict[str, Any]) -> str:
+    rows = list(payload["fresh"])
+    go_rows = [row for row in rows if row.get("solver_status") == "go_candidate"]
+    review_rows = [row for row in rows if row.get("solver_status") == "needs_review"]
+    skip_rows = [row for row in rows if row.get("solver_status") == "no_go"]
+    lines = [
+        "PatchRail funded-issues operator brief",
+        (
+            f"Window: {payload['window_hours']}h  Fresh: {payload['fresh_count']}  "
+            f"GO: {len(go_rows)}  Recheck: {len(review_rows)}  Skip: {len(skip_rows)}"
+        ),
+    ]
+    if not rows:
+        lines.extend(
+            [
+                "NEXT_SAFE_ACTION: wait_for_fresh_funded_issue",
+                "Reason: no tracked bounty entered the current window.",
+            ]
+        )
+        return "\n".join(lines) + "\n"
+
+    if go_rows:
+        lines.append("")
+        lines.append("CLAIM_READY")
+        for row in go_rows:
+            title = str(row.get("title") or "").strip()
+            lines.extend(
+                [
+                    f"- {row.get('reference') or row.get('url') or 'unknown'}",
+                    f"  URL: {row.get('url') or 'no-url'}",
+                    f"  USD: {row.get('funding_display') or 'unknown'}",
+                    f"  Age: {float(row['age_hours']):.1f}h via {row['age_basis']}",
+                    f"  Recheck: {_fresh_claim_recheck_command(payload, row)}",
+                    "  Next: branch, minimal fix, target tests, PR, then /claim.",
+                ]
+            )
+            if title:
+                lines.append(f"  Title: {title}")
+
+    if review_rows:
+        lines.append("")
+        lines.append("RECHECK_ONLY")
+        for row in review_rows:
+            blockers = ", ".join(row.get("go_blockers") or ["missing_current_issue_evidence"])
+            lines.extend(
+                [
+                    f"- {row.get('reference') or row.get('url') or 'unknown'}",
+                    f"  URL: {row.get('url') or 'no-url'}",
+                    f"  Needs: {blockers}",
+                    f"  Code: {row.get('next_action')}",
+                ]
+            )
+
+    if skip_rows:
+        lines.append("")
+        lines.append("SKIP")
+        for row in skip_rows:
+            blockers = ", ".join(row.get("go_blockers") or ["not_solver_safe"])
+            lines.append(f"- {row.get('reference') or row.get('url') or 'unknown'}: {blockers}")
+
+    lines.extend(
+        [
+            "",
+            "Boundary: local read-only triage only; no claim, comment, PR, or maintainer contact.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _funded_issues_fresh(args: argparse.Namespace) -> int:
     now = args.now or _now_iso()
     try:
@@ -7188,6 +7257,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_claim_checklist(payload)
     elif args.format == "action-queue":
         text = _render_funded_issues_fresh_action_queue(payload)
+    elif args.format == "operator-brief":
+        text = _render_funded_issues_fresh_operator_brief(payload)
     else:
         text = _render_funded_issues_fresh_text(payload)
     _write_or_print(text, args.out)
@@ -8954,6 +9025,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "go-list",
             "json",
             "markdown",
+            "operator-brief",
             "shortlist-note",
             "text",
         ],
