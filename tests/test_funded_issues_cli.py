@@ -488,6 +488,140 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             actions["example/project#44"], "skip:too_many_attempts,amount_out_of_range"
         )
 
+    def test_funded_issues_fresh_can_filter_by_known_attempt_count(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "fresh-go",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Fix deterministic CI failure",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {"amount": 250, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 3,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/43": {
+                                "issue": {
+                                    "id": "attempts-unknown",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#43",
+                                    "issue_number": 43,
+                                    "title": "Needs manual attempt check",
+                                    "url": "https://github.com/example/project/issues/43",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                },
+                                "first_seen": "2026-06-12T08:10:00+00:00",
+                                "last_seen": "2026-06-12T08:10:00+00:00",
+                                "last_checked": "2026-06-12T08:10:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/44": {
+                                "issue": {
+                                    "id": "too-contested",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#44",
+                                    "issue_number": 44,
+                                    "title": "Seven attempts already",
+                                    "url": "https://github.com/example/project/issues/44",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 7,
+                                },
+                                "first_seen": "2026-06-12T08:20:00+00:00",
+                                "last_seen": "2026-06-12T08:20:00+00:00",
+                                "last_checked": "2026-06-12T08:20:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--max-attempts",
+                    "3",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["max_attempts"], 3)
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["reference"], "example/project#42")
+        self.assertEqual(
+            payload["solver_counts"], {"go_candidate": 1, "needs_review": 0, "no_go": 0}
+        )
+
+    def test_funded_issues_fresh_rejects_negative_max_attempts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--max-attempts",
+                    "-1",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("max_attempts must be at least 0", proc.stderr)
+
     def test_funded_issues_fresh_can_signal_go_candidate_with_exit_code(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"

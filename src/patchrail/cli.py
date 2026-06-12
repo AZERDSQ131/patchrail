@@ -6969,6 +6969,8 @@ def _fresh_claim_recheck_command(payload: dict[str, Any], row: dict[str, Any]) -
         parts.extend(["--min-usd", f"{float(payload['min_usd']):g}"])
     if payload.get("max_usd") is not None:
         parts.extend(["--max-usd", f"{float(payload['max_usd']):g}"])
+    if payload.get("max_attempts") is not None:
+        parts.extend(["--max-attempts", str(payload["max_attempts"])])
     parts.extend(["--format", "claim-checklist"])
     return " ".join(shlex.quote(part) for part in parts)
 
@@ -7364,6 +7366,7 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             max_rows=args.max_rows,
             min_usd=args.min_usd,
             max_usd=args.max_usd,
+            max_attempts=args.max_attempts,
         )
         payload["store_path"] = str(args.store)
         if args.solver_allowlist is not None:
@@ -9158,6 +9161,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-usd",
         type=float,
         help="Only include USD-funded fresh rows at most this amount.",
+    )
+    funded_fresh.add_argument(
+        "--max-attempts",
+        type=int,
+        help=(
+            "Only include fresh rows with a known attempt count at or below this value. "
+            "Use 3 for solver-lane claim sweeps."
+        ),
     )
     funded_fresh.add_argument(
         "--now",

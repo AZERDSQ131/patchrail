@@ -535,6 +535,7 @@ def fresh_issues(
     max_rows: int | None = None,
     min_usd: float | None = None,
     max_usd: float | None = None,
+    max_attempts: int | None = None,
 ) -> dict[str, Any]:
     """List tracker entries whose bounty was posted/labeled within ``hours``.
 
@@ -567,6 +568,8 @@ def fresh_issues(
         raise ValueError("max_usd must be at least 0")
     if min_usd is not None and max_usd is not None and min_usd > max_usd:
         raise ValueError("min_usd must be less than or equal to max_usd")
+    if max_attempts is not None and max_attempts < 0:
+        raise ValueError("max_attempts must be at least 0")
 
     window = float(hours)
     entries = store.get("entries", {})
@@ -599,6 +602,14 @@ def fresh_issues(
             if min_usd is not None and float(amount) < min_usd:
                 continue
             if max_usd is not None and float(amount) > max_usd:
+                continue
+        attempt_count = issue.get("attempt_count")
+        if max_attempts is not None:
+            if (
+                not isinstance(attempt_count, int)
+                or isinstance(attempt_count, bool)
+                or attempt_count > max_attempts
+            ):
                 continue
         assignee_count = _assignee_count(issue)
         row_solver_status, go_blockers = _solver_go_blockers(
@@ -657,6 +668,7 @@ def fresh_issues(
         "solver_status": solver_status_filter,
         "min_usd": min_usd,
         "max_usd": max_usd,
+        "max_attempts": max_attempts,
         "sort": sort_by,
         "limit": max_rows,
         "considered": len(entries),
