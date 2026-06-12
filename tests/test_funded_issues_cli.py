@@ -195,6 +195,87 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("priority: clean solver candidate", fresh_proc.stdout)
         self.assertIn("https://github.com/example/project/issues/42", fresh_proc.stdout)
 
+    def test_funded_issues_fresh_claim_checklist_includes_scoped_recheck_command(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "fresh-go",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Fix deterministic CI failure",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {
+                                        "amount": 250,
+                                        "currency": "USD",
+                                        "display": "250 USD",
+                                    },
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [
+                                    {
+                                        "state": "active",
+                                        "at": "2026-06-12T08:00:00+00:00",
+                                        "from": None,
+                                    }
+                                ],
+                                "noise_flags": [],
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            fresh_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--org",
+                    "example",
+                    "--min-usd",
+                    "25",
+                    "--max-usd",
+                    "300",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "claim-checklist",
+                ]
+            )
+
+        self.assertEqual(fresh_proc.returncode, 0, fresh_proc.stderr)
+        self.assertIn("Recheck command: patchrail funded-issues fresh", fresh_proc.stdout)
+        self.assertIn(f"--store {store}", fresh_proc.stdout)
+        self.assertIn("--org example", fresh_proc.stdout)
+        self.assertIn("--solver-status go_candidate", fresh_proc.stdout)
+        self.assertIn("--min-usd 25", fresh_proc.stdout)
+        self.assertIn("--max-usd 300", fresh_proc.stdout)
+        self.assertIn("--format claim-checklist", fresh_proc.stdout)
+        self.assertIn("Add `/claim #42` in the PR only after the PR is ready.", fresh_proc.stdout)
+
     def test_funded_issues_list_can_filter_by_opportunity_state(self) -> None:
         proc = run_patchrail(
             [

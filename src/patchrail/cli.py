@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -6941,6 +6942,30 @@ def _fresh_claim_issue_number(row: dict[str, Any]) -> str:
     return "<issue-number>"
 
 
+def _fresh_claim_recheck_command(payload: dict[str, Any], row: dict[str, Any]) -> str:
+    parts = [
+        "patchrail",
+        "funded-issues",
+        "fresh",
+        "--store",
+        str(payload.get("store_path") or "<store>"),
+        "--hours",
+        str(payload["window_hours"]),
+        "--org",
+        str(row.get("org") or "<org>"),
+        "--solver-status",
+        "go_candidate",
+        "--sort",
+        "solver",
+    ]
+    if payload.get("min_usd") is not None:
+        parts.extend(["--min-usd", f"{float(payload['min_usd']):g}"])
+    if payload.get("max_usd") is not None:
+        parts.extend(["--max-usd", f"{float(payload['max_usd']):g}"])
+    parts.extend(["--format", "claim-checklist"])
+    return " ".join(shlex.quote(part) for part in parts)
+
+
 def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
     orgs = payload["orgs"]
     scope = "all orgs" if orgs is None else ", ".join(orgs)
@@ -7070,6 +7095,7 @@ def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
                 f"{index}. {reference} - {funding}",
                 f"   URL: {row.get('url') or 'no-url'}",
                 f"   Age: {float(row['age_hours']):.1f}h via {row['age_basis']}",
+                f"   Recheck command: {_fresh_claim_recheck_command(payload, row)}",
                 "   Claim gate:",
                 "   - Re-open issue and confirm no assignee, no reservation, no maintainer stop signal.",
                 "   - Create a focused branch, implement the minimal fix, and run the target tests.",
@@ -7143,6 +7169,7 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             min_usd=args.min_usd,
             max_usd=args.max_usd,
         )
+        payload["store_path"] = str(args.store)
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue store: {exc}", file=sys.stderr)
         return 1
