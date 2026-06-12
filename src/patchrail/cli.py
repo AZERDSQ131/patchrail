@@ -7216,6 +7216,57 @@ def _render_funded_issues_fresh_signal(payload: dict[str, Any]) -> str:
     return "WAIT count=0 next_action=wait_for_fresh_funded_issue\n"
 
 
+def _github_annotation_escape(value: Any) -> str:
+    text = "" if value is None else str(value)
+    return (
+        text.replace("%", "%25")
+        .replace("\r", "%0D")
+        .replace("\n", "%0A")
+        .replace(":", "%3A")
+        .replace(",", "%2C")
+    )
+
+
+def _github_annotation_message_escape(value: Any) -> str:
+    text = "" if value is None else str(value)
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def _render_funded_issues_fresh_github_annotations(payload: dict[str, Any]) -> str:
+    rows = list(payload["fresh"])
+    if not rows:
+        return (
+            "::notice title=PatchRail funded issues::"
+            "WAIT count=0 next_action=wait_for_fresh_funded_issue\n"
+        )
+
+    lines: list[str] = []
+    for row in rows:
+        status = row.get("solver_status", "needs_review")
+        if status == "go_candidate":
+            level = "warning"
+            title = "PatchRail claim-ready funded issue"
+        elif status == "needs_review":
+            level = "notice"
+            title = "PatchRail funded issue needs recheck"
+        else:
+            level = "notice"
+            title = "PatchRail funded issue skipped"
+        reference = row.get("reference") or row.get("url") or "unknown"
+        blockers = ", ".join(row.get("go_blockers") or ["none"])
+        message = (
+            f"{status}: {reference} | {row.get('funding_display') or 'unknown'} | "
+            f"{float(row['age_hours']):.1f}h via {row['age_basis']} | "
+            f"next={row.get('next_action') or 'wait_for_fresh_funded_issue'} | "
+            f"blockers={blockers} | {row.get('url') or 'no-url'}"
+        )
+        lines.append(
+            f"::{level} title={_github_annotation_escape(title)}::"
+            f"{_github_annotation_message_escape(message)}"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
     rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
     lines = [
@@ -7418,6 +7469,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_env(payload)
     elif args.format == "signal":
         text = _render_funded_issues_fresh_signal(payload)
+    elif args.format == "github-annotations":
+        text = _render_funded_issues_fresh_github_annotations(payload)
     elif args.format == "markdown":
         text = _render_funded_issues_fresh_markdown(payload)
     elif args.format == "shortlist-note":
@@ -9216,6 +9269,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "csv",
             "env",
             "go-list",
+            "github-annotations",
             "json",
             "jsonl",
             "markdown",
