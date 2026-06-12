@@ -7149,6 +7149,28 @@ def _render_funded_issues_fresh_jsonl(payload: dict[str, Any]) -> str:
     return "".join(json.dumps(row, sort_keys=True) + "\n" for row in payload["fresh"])
 
 
+def _env_value(value: Any) -> str:
+    return shlex.quote("" if value is None else str(value))
+
+
+def _render_funded_issues_fresh_env(payload: dict[str, Any]) -> str:
+    solver_counts = payload.get("solver_counts") or {}
+    go_rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
+    first_go = go_rows[0] if go_rows else {}
+    values = {
+        "PATCHRAIL_FUNDED_SCHEMA": payload.get("schema_version"),
+        "PATCHRAIL_FUNDED_FRESH_COUNT": payload.get("fresh_count", 0),
+        "PATCHRAIL_FUNDED_GO_COUNT": solver_counts.get("go_candidate", 0),
+        "PATCHRAIL_FUNDED_NEEDS_REVIEW_COUNT": solver_counts.get("needs_review", 0),
+        "PATCHRAIL_FUNDED_NO_GO_COUNT": solver_counts.get("no_go", 0),
+        "PATCHRAIL_FUNDED_NEXT_SAFE_ACTION": payload.get("next_safe_action"),
+        "PATCHRAIL_FUNDED_FIRST_GO_REFERENCE": first_go.get("reference"),
+        "PATCHRAIL_FUNDED_FIRST_GO_URL": first_go.get("url"),
+        "PATCHRAIL_FUNDED_FIRST_GO_NEXT_ACTION": first_go.get("next_action"),
+    }
+    return "".join(f"{key}={_env_value(value)}\n" for key, value in values.items())
+
+
 def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
     rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
     lines = [
@@ -7344,6 +7366,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_csv(payload)
     elif args.format == "jsonl":
         text = _render_funded_issues_fresh_jsonl(payload)
+    elif args.format == "env":
+        text = _render_funded_issues_fresh_env(payload)
     elif args.format == "markdown":
         text = _render_funded_issues_fresh_markdown(payload)
     elif args.format == "shortlist-note":
@@ -9132,6 +9156,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "action-queue",
             "claim-checklist",
             "csv",
+            "env",
             "go-list",
             "json",
             "jsonl",

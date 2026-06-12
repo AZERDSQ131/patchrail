@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -789,6 +790,99 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(jsonl_rows[0]["next_action"], "prepare_fix_and_claim_pr")
         self.assertEqual(jsonl_rows[1]["solver_status"], "no_go")
         self.assertEqual(jsonl_rows[1]["go_blockers"], ["too_many_attempts", "amount_out_of_range"])
+
+    def test_funded_issues_fresh_exports_env_summary_for_supervisors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "fresh-go",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Fix deterministic CI failure",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {
+                                        "amount": 250,
+                                        "currency": "USD",
+                                        "display": "250 USD",
+                                    },
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/44": {
+                                "issue": {
+                                    "id": "skip",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#44",
+                                    "issue_number": 44,
+                                    "title": "Rewrite the whole CLI",
+                                    "url": "https://github.com/example/project/issues/44",
+                                    "funding": {"amount": 500, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 7,
+                                },
+                                "first_seen": "2026-06-12T08:20:00+00:00",
+                                "last_seen": "2026-06-12T08:20:00+00:00",
+                                "last_checked": "2026-06-12T08:20:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--sort",
+                    "solver",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "env",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        lines = dict(shlex.split(line)[0].split("=", 1) for line in proc.stdout.splitlines())
+        self.assertEqual(lines["PATCHRAIL_FUNDED_SCHEMA"], "patchrail.funded_issues.fresh.v1")
+        self.assertEqual(lines["PATCHRAIL_FUNDED_FRESH_COUNT"], "2")
+        self.assertEqual(lines["PATCHRAIL_FUNDED_GO_COUNT"], "1")
+        self.assertEqual(lines["PATCHRAIL_FUNDED_NO_GO_COUNT"], "1")
+        self.assertEqual(lines["PATCHRAIL_FUNDED_NEXT_SAFE_ACTION"], "prepare_fix_and_claim_pr")
+        self.assertEqual(lines["PATCHRAIL_FUNDED_FIRST_GO_REFERENCE"], "example/project#42")
+        self.assertEqual(
+            lines["PATCHRAIL_FUNDED_FIRST_GO_URL"],
+            "https://github.com/example/project/issues/42",
+        )
+        self.assertEqual(lines["PATCHRAIL_FUNDED_FIRST_GO_NEXT_ACTION"], "prepare_fix_and_claim_pr")
 
     def test_funded_issues_fresh_operator_brief_groups_next_actions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
