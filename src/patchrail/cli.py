@@ -6918,6 +6918,67 @@ def _render_funded_issues_fresh_text(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _fresh_priority_reason(row: dict[str, Any]) -> str:
+    blockers = row.get("go_blockers") or []
+    if row.get("solver_status") == "go_candidate":
+        return "priority: clean solver candidate"
+    if row.get("solver_status") == "needs_review":
+        return "review: " + ", ".join(blockers or ["missing manual evidence"])
+    return "discard: " + ", ".join(blockers or ["not solver-ready"])
+
+
+def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
+    orgs = payload["orgs"]
+    scope = "all orgs" if orgs is None else ", ".join(orgs)
+    solver_scope = payload.get("solver_status") or "all solver statuses"
+    lines = [
+        "# PatchRail Funded Issues Fresh Radar",
+        "",
+        "- Mode: `local read-only`",
+        f"- Window: last `{payload['window_hours']}` hours",
+        f"- Scope: `{scope}`",
+        f"- Solver filter: `{solver_scope}`",
+        f"- Sort: `{payload.get('sort', 'freshness')}`",
+        (
+            f"- Fresh: `{payload['fresh_count']}` / "
+            f"`{payload.get('fresh_count_before_limit', payload['fresh_count'])}` before limit"
+        ),
+        "",
+    ]
+    if not payload["fresh"]:
+        lines.append("No bounties posted/labeled within the window.")
+        return "\n".join(lines) + "\n"
+
+    lines.extend(
+        [
+            "| Issue | USD | Age | Owner | Solver status | Priority / discard reason |",
+            "|---|---:|---:|---|---|---|",
+        ]
+    )
+    for row in payload["fresh"]:
+        reference = row.get("reference") or row.get("url") or "unknown"
+        url = row.get("url") or ""
+        issue = (
+            f"[{_escape_markdown_cell(str(reference))}]({url})"
+            if url
+            else _escape_markdown_cell(str(reference))
+        )
+        usd = row.get("funding_display") or "unknown"
+        age = f"{float(row['age_hours']):.1f}h via {row['age_basis']}"
+        lines.append(
+            "| "
+            f"{issue} | "
+            f"{_escape_markdown_cell(str(usd))} | "
+            f"{_escape_markdown_cell(age)} | "
+            f"{_escape_markdown_cell(str(row.get('org') or 'unknown'))} | "
+            f"`{_escape_markdown_cell(str(row.get('solver_status', 'needs_review')))}` | "
+            f"{_escape_markdown_cell(_fresh_priority_reason(row))} |"
+        )
+        if row.get("title"):
+            lines.append(f"| {_escape_markdown_cell(str(row['title']))} |  |  |  |  | title |")
+    return "\n".join(lines) + "\n"
+
+
 def _funded_issues_fresh(args: argparse.Namespace) -> int:
     now = args.now or _now_iso()
     try:
@@ -6939,6 +7000,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         return 1
     if args.format == "json":
         text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_funded_issues_fresh_markdown(payload)
     else:
         text = _render_funded_issues_fresh_text(payload)
     _write_or_print(text, args.out)
@@ -8699,7 +8762,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_fresh.add_argument(
         "--format",
-        choices=["json", "text"],
+        choices=["json", "markdown", "text"],
         default="text",
         help="Output format.",
     )
