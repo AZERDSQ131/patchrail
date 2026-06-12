@@ -639,6 +639,15 @@ def fresh_issues(
         rows = rows[:max_rows]
     solver_counts = Counter(str(row["solver_status"]) for row in rows)
     solver_count_keys = ("go_candidate", "needs_review", "no_go")
+    if solver_counts.get("go_candidate", 0):
+        next_safe_action = "prepare_fix_and_claim_pr"
+    elif solver_counts.get("needs_review", 0):
+        next_safe_action = "manual_recheck_before_coding"
+    elif rows:
+        next_safe_action = "skip_no_safe_solver_action"
+    else:
+        next_safe_action = "wait_for_fresh_funded_issue"
+
     return {
         "schema_version": FRESH_SCHEMA_VERSION,
         "read_only": True,
@@ -657,6 +666,7 @@ def fresh_issues(
             key: solver_counts_before_limit.get(key, 0) for key in solver_count_keys
         },
         "solver_counts": {key: solver_counts.get(key, 0) for key in solver_count_keys},
+        "next_safe_action": next_safe_action,
         "skipped_no_signal": skipped_no_signal,
         "fresh": rows,
     }

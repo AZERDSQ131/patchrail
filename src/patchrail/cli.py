@@ -6904,6 +6904,7 @@ def _render_funded_issues_fresh_text(payload: dict[str, Any]) -> str:
             f"Recheck {solver_counts.get('needs_review', 0)}  "
             f"Skip {solver_counts.get('no_go', 0)}"
         ),
+        f"Next safe action: {payload.get('next_safe_action', 'unknown')}",
     ]
     if not payload["fresh"]:
         lines.append("  No bounties posted/labeled within the window.")
@@ -6994,6 +6995,7 @@ def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
             f"Recheck `{solver_counts.get('needs_review', 0)}` | "
             f"Skip `{solver_counts.get('no_go', 0)}`"
         ),
+        f"- Next safe action: `{payload.get('next_safe_action', 'unknown')}`",
         "",
     ]
     if not payload["fresh"]:
@@ -7040,6 +7042,7 @@ def _render_funded_issues_fresh_shortlist_note(payload: dict[str, Any]) -> str:
             f"solver={payload.get('solver_status') or 'all'}, "
             f"sort={payload.get('sort', 'freshness')}"
         ),
+        f"- next_safe_action: {payload.get('next_safe_action', 'unknown')}",
     ]
     if not payload["fresh"]:
         lines.append(
@@ -7132,6 +7135,7 @@ def _render_funded_issues_fresh_action_queue(payload: dict[str, Any]) -> str:
             f"Window: {payload['window_hours']}h  Fresh: {payload['fresh_count']}  "
             f"GO: {len(go_rows)}"
         ),
+        f"Next safe action: {payload.get('next_safe_action', 'unknown')}",
     ]
     if not rows:
         lines.append("Next: wait for a fresh funded issue; no local action is safe.")
@@ -7179,11 +7183,11 @@ def _render_funded_issues_fresh_operator_brief(payload: dict[str, Any]) -> str:
             f"Window: {payload['window_hours']}h  Fresh: {payload['fresh_count']}  "
             f"GO: {len(go_rows)}  Recheck: {len(review_rows)}  Skip: {len(skip_rows)}"
         ),
+        f"NEXT_SAFE_ACTION: {payload.get('next_safe_action', 'unknown')}",
     ]
     if not rows:
         lines.extend(
             [
-                "NEXT_SAFE_ACTION: wait_for_fresh_funded_issue",
                 "Reason: no tracked bounty entered the current window.",
             ]
         )

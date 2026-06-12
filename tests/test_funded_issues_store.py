@@ -387,6 +387,7 @@ class FreshIssuesTests(unittest.TestCase):
         self.assertEqual(row["org"], "acme")
         self.assertEqual(row["solver_status"], "go_candidate")
         self.assertEqual(row["go_blockers"], [])
+        self.assertEqual(payload["next_safe_action"], "prepare_fix_and_claim_pr")
 
     def test_old_created_at_excluded(self) -> None:
         store = self._store(
@@ -399,6 +400,7 @@ class FreshIssuesTests(unittest.TestCase):
         )
         payload = fresh_issues(store, self.NOW, hours=48)
         self.assertEqual(payload["fresh_count"], 0)
+        self.assertEqual(payload["next_safe_action"], "wait_for_fresh_funded_issue")
 
     def test_first_seen_fallback_when_no_date_signal(self) -> None:
         store = self._store(
@@ -620,6 +622,7 @@ class FreshIssuesTests(unittest.TestCase):
         self.assertEqual(payload["solver_status"], "go_candidate")
         self.assertEqual(payload["fresh_count"], 1)
         self.assertEqual(payload["fresh"][0]["url"], "https://github.com/acme/repo/issues/50")
+        self.assertEqual(payload["next_safe_action"], "prepare_fix_and_claim_pr")
 
     def test_usd_range_filter_keeps_only_amounts_in_range(self) -> None:
         store = self._store(
@@ -653,6 +656,7 @@ class FreshIssuesTests(unittest.TestCase):
         self.assertEqual(payload["max_usd"], 300)
         self.assertEqual(payload["fresh_count"], 1)
         self.assertEqual(payload["fresh"][0]["url"], "https://github.com/acme/repo/issues/53")
+        self.assertEqual(payload["next_safe_action"], "prepare_fix_and_claim_pr")
 
     def test_invalid_usd_range_raises(self) -> None:
         with self.assertRaises(ValueError):

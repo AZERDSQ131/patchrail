@@ -382,6 +382,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             payload["solver_counts_before_limit"],
             {"go_candidate": 1, "needs_review": 1, "no_go": 1},
         )
+        self.assertEqual(payload["next_safe_action"], "prepare_fix_and_claim_pr")
         actions = {row["reference"]: row["next_action"] for row in payload["fresh"]}
         self.assertEqual(actions["example/project#42"], "prepare_fix_and_claim_pr")
         self.assertEqual(actions["example/project#43"], "manual_recheck:attempts_unknown")
@@ -487,6 +488,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
 
         self.assertEqual(fresh_proc.returncode, 0, fresh_proc.stderr)
         self.assertIn("GO: 1  Recheck: 1  Skip: 1", fresh_proc.stdout)
+        self.assertIn("NEXT_SAFE_ACTION: prepare_fix_and_claim_pr", fresh_proc.stdout)
         self.assertIn("CLAIM_READY", fresh_proc.stdout)
         self.assertIn("Recheck: patchrail funded-issues fresh", fresh_proc.stdout)
         self.assertIn(
