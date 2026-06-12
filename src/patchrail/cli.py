@@ -7149,6 +7149,17 @@ def _render_funded_issues_fresh_jsonl(payload: dict[str, Any]) -> str:
     return "".join(json.dumps(row, sort_keys=True) + "\n" for row in payload["fresh"])
 
 
+def _render_funded_issues_fresh_urls(payload: dict[str, Any]) -> str:
+    urls = [
+        str(row["url"])
+        for row in payload["fresh"]
+        if row.get("solver_status") == "go_candidate" and row.get("url")
+    ]
+    if not urls:
+        return ""
+    return "\n".join(urls) + "\n"
+
+
 def _env_value(value: Any) -> str:
     return shlex.quote("" if value is None else str(value))
 
@@ -7366,6 +7377,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_csv(payload)
     elif args.format == "jsonl":
         text = _render_funded_issues_fresh_jsonl(payload)
+    elif args.format == "urls":
+        text = _render_funded_issues_fresh_urls(payload)
     elif args.format == "env":
         text = _render_funded_issues_fresh_env(payload)
     elif args.format == "markdown":
@@ -9164,6 +9177,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "operator-brief",
             "shortlist-note",
             "text",
+            "urls",
         ],
         default="text",
         help="Output format.",
