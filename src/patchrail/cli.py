@@ -7119,6 +7119,36 @@ def _render_funded_issues_fresh_go_list(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_fresh_csv(payload: dict[str, Any]) -> str:
+    fieldnames = [
+        "reference",
+        "url",
+        "repository",
+        "org",
+        "title",
+        "funding_display",
+        "age_hours",
+        "age_basis",
+        "state",
+        "attempt_count",
+        "assignee_count",
+        "solver_status",
+        "go_blockers",
+        "next_action",
+        "first_seen",
+    ]
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    for row in payload["fresh"]:
+        writer.writerow({field: _csv_cell(row.get(field)) for field in fieldnames})
+    return buffer.getvalue()
+
+
+def _render_funded_issues_fresh_jsonl(payload: dict[str, Any]) -> str:
+    return "".join(json.dumps(row, sort_keys=True) + "\n" for row in payload["fresh"])
+
+
 def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
     rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
     lines = [
@@ -7304,6 +7334,10 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         return 1
     if args.format == "json":
         text = _json_dump(payload)
+    elif args.format == "csv":
+        text = _render_funded_issues_fresh_csv(payload)
+    elif args.format == "jsonl":
+        text = _render_funded_issues_fresh_jsonl(payload)
     elif args.format == "markdown":
         text = _render_funded_issues_fresh_markdown(payload)
     elif args.format == "shortlist-note":
@@ -9084,8 +9118,10 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=[
             "action-queue",
             "claim-checklist",
+            "csv",
             "go-list",
             "json",
+            "jsonl",
             "markdown",
             "operator-brief",
             "shortlist-note",

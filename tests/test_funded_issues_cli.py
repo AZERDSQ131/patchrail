@@ -487,6 +487,103 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             actions["example/project#44"], "skip:too_many_attempts,amount_out_of_range"
         )
 
+    def test_funded_issues_fresh_exports_csv_and_jsonl_for_operator_pipelines(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "fresh-go",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "=fix deterministic CI failure",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {
+                                        "amount": 250,
+                                        "currency": "USD",
+                                        "display": "250 USD",
+                                    },
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/44": {
+                                "issue": {
+                                    "id": "skip",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#44",
+                                    "issue_number": 44,
+                                    "title": "Rewrite the whole CLI",
+                                    "url": "https://github.com/example/project/issues/44",
+                                    "funding": {"amount": 500, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 7,
+                                },
+                                "first_seen": "2026-06-12T08:20:00+00:00",
+                                "last_seen": "2026-06-12T08:20:00+00:00",
+                                "last_checked": "2026-06-12T08:20:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            base_args = [
+                "funded-issues",
+                "fresh",
+                "--store",
+                str(store),
+                "--hours",
+                "48",
+                "--sort",
+                "solver",
+                "--now",
+                "2026-06-12T09:00:00+00:00",
+            ]
+            csv_proc = run_patchrail([*base_args, "--format", "csv"])
+            jsonl_proc = run_patchrail([*base_args, "--format", "jsonl"])
+
+        self.assertEqual(csv_proc.returncode, 0, csv_proc.stderr)
+        rows = list(csv.DictReader(io.StringIO(csv_proc.stdout)))
+        self.assertEqual(
+            [row["reference"] for row in rows], ["example/project#42", "example/project#44"]
+        )
+        self.assertEqual(rows[0]["title"], "'=fix deterministic CI failure")
+        self.assertEqual(rows[0]["solver_status"], "go_candidate")
+        self.assertEqual(rows[0]["next_action"], "prepare_fix_and_claim_pr")
+        self.assertEqual(rows[1]["solver_status"], "no_go")
+        self.assertEqual(rows[1]["go_blockers"], "too_many_attempts; amount_out_of_range")
+        self.assertEqual(rows[1]["next_action"], "skip:too_many_attempts,amount_out_of_range")
+
+        self.assertEqual(jsonl_proc.returncode, 0, jsonl_proc.stderr)
+        jsonl_rows = [json.loads(line) for line in jsonl_proc.stdout.splitlines()]
+        self.assertEqual(jsonl_rows[0]["reference"], "example/project#42")
+        self.assertEqual(jsonl_rows[0]["solver_status"], "go_candidate")
+        self.assertEqual(jsonl_rows[0]["next_action"], "prepare_fix_and_claim_pr")
+        self.assertEqual(jsonl_rows[1]["solver_status"], "no_go")
+        self.assertEqual(jsonl_rows[1]["go_blockers"], ["too_many_attempts", "amount_out_of_range"])
+
     def test_funded_issues_fresh_operator_brief_groups_next_actions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"
