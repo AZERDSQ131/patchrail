@@ -519,6 +519,7 @@ def fresh_issues(
     hours: int = 48,
     orgs: list[str] | None = None,
     include_closed: bool = False,
+    solver_status: str | None = None,
 ) -> dict[str, Any]:
     """List tracker entries whose bounty was posted/labeled within ``hours``.
 
@@ -534,6 +535,13 @@ def fresh_issues(
         raise ValueError(f"invalid --now timestamp: {now}") from exc
 
     org_filter = {o.strip().lower() for o in orgs if o.strip()} if orgs else None
+    allowed_solver_statuses = {"go_candidate", "needs_review", "no_go"}
+    solver_status_filter = solver_status
+    if solver_status_filter is not None and solver_status_filter not in allowed_solver_statuses:
+        raise ValueError(
+            "solver_status must be one of: " + ", ".join(sorted(allowed_solver_statuses))
+        )
+
     window = float(hours)
     entries = store.get("entries", {})
     rows: list[dict[str, Any]] = []
@@ -554,11 +562,13 @@ def fresh_issues(
             continue
         funding = issue.get("funding") or {}
         assignee_count = _assignee_count(issue)
-        solver_status, go_blockers = _solver_go_blockers(
+        row_solver_status, go_blockers = _solver_go_blockers(
             issue,
             state=state,
             assignee_count=assignee_count,
         )
+        if solver_status_filter is not None and row_solver_status != solver_status_filter:
+            continue
         rows.append(
             {
                 "reference": issue.get("reference"),
@@ -571,7 +581,7 @@ def fresh_issues(
                 "age_basis": basis,
                 "attempt_count": issue.get("attempt_count"),
                 "assignee_count": assignee_count,
-                "solver_status": solver_status,
+                "solver_status": row_solver_status,
                 "go_blockers": go_blockers,
                 "funding_display": funding.get("display"),
                 "first_seen": entry.get("first_seen"),
@@ -585,6 +595,7 @@ def fresh_issues(
         "now": now,
         "window_hours": hours,
         "orgs": sorted(org_filter) if org_filter is not None else None,
+        "solver_status": solver_status_filter,
         "considered": len(entries),
         "fresh_count": len(rows),
         "skipped_no_signal": skipped_no_signal,
