@@ -6975,6 +6975,45 @@ def _fresh_claim_recheck_command(payload: dict[str, Any], row: dict[str, Any]) -
     return " ".join(shlex.quote(part) for part in parts)
 
 
+def _fresh_repo_from_row(row: dict[str, Any]) -> str:
+    repository = str(row.get("repository") or "").strip()
+    if repository:
+        return repository
+    url = str(row.get("url") or "")
+    match = re.match(r"^https://github\.com/([^/]+/[^/]+)/issues/\d+", url)
+    if match:
+        return match.group(1)
+    return "<owner/repo>"
+
+
+def _fresh_readonly_recheck_command(
+    payload: dict[str, Any], row: dict[str, Any], solver_status: str
+) -> str:
+    parts = [
+        "patchrail",
+        "funded-issues",
+        "fresh",
+        "--store",
+        str(payload.get("store_path") or "<store>"),
+        "--hours",
+        str(payload["window_hours"]),
+        "--org",
+        str(row.get("org") or _fresh_repo_from_row(row).split("/", 1)[0] or "<org>"),
+        "--solver-status",
+        solver_status,
+        "--sort",
+        "solver",
+    ]
+    if payload.get("min_usd") is not None:
+        parts.extend(["--min-usd", f"{float(payload['min_usd']):g}"])
+    if payload.get("max_usd") is not None:
+        parts.extend(["--max-usd", f"{float(payload['max_usd']):g}"])
+    if payload.get("max_attempts") is not None:
+        parts.extend(["--max-attempts", str(payload["max_attempts"])])
+    parts.extend(["--format", "operator-brief"])
+    return " ".join(shlex.quote(part) for part in parts)
+
+
 def _load_solver_allowlist_orgs(path: Path) -> list[str]:
     """Extract GitHub owners from the solver allowlist Markdown table."""
 
@@ -7267,6 +7306,39 @@ def _render_funded_issues_fresh_github_annotations(payload: dict[str, Any]) -> s
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_fresh_recheck_commands(payload: dict[str, Any]) -> str:
+    rows = [
+        row
+        for row in payload["fresh"]
+        if row.get("solver_status") in {"go_candidate", "needs_review"}
+    ]
+    lines = [
+        "# PatchRail funded-issues read-only recheck commands",
+        f"# Window: {payload['window_hours']}h; next_safe_action={payload.get('next_safe_action')}",
+    ]
+    if not rows:
+        lines.append("# WAIT: no GO or recheck candidates in the current fresh window.")
+        return "\n".join(lines) + "\n"
+    for row in rows:
+        status = str(row.get("solver_status") or "needs_review")
+        reference = row.get("reference") or row.get("url") or "unknown"
+        repo = _fresh_repo_from_row(row)
+        issue_number = _fresh_claim_issue_number(row)
+        lines.extend(
+            [
+                "",
+                f"# {status}: {reference}",
+                (
+                    "gh issue view "
+                    f"{shlex.quote(issue_number)} --repo {shlex.quote(repo)} "
+                    "--json state,assignees,comments,labels,updatedAt"
+                ),
+                _fresh_readonly_recheck_command(payload, row, status),
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
 def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
     rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
     lines = [
@@ -7483,6 +7555,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_action_queue(payload)
     elif args.format == "operator-brief":
         text = _render_funded_issues_fresh_operator_brief(payload)
+    elif args.format == "recheck-commands":
+        text = _render_funded_issues_fresh_recheck_commands(payload)
     else:
         text = _render_funded_issues_fresh_text(payload)
     _write_or_print(text, args.out)
@@ -9274,6 +9348,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "jsonl",
             "markdown",
             "operator-brief",
+            "recheck-commands",
             "signal",
             "shortlist-note",
             "text",
