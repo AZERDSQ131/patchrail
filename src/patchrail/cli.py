@@ -7016,6 +7016,27 @@ def _render_funded_issues_fresh_shortlist_note(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_fresh_go_list(payload: dict[str, Any]) -> str:
+    rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
+    lines = [
+        "PatchRail funded-issues GO candidates",
+        (f"Window: {payload['window_hours']}h  Fresh: {payload['fresh_count']}  GO: {len(rows)}"),
+    ]
+    if not rows:
+        lines.append("No clean solver candidates in the current fresh window.")
+        return "\n".join(lines) + "\n"
+    for row in rows:
+        reference = row.get("reference") or row.get("url") or "unknown"
+        funding = row.get("funding_display") or "unknown"
+        lines.append(
+            f"- {reference} | {funding} | {float(row['age_hours']):.1f}h via "
+            f"{row['age_basis']} | {row.get('url') or 'no-url'}"
+        )
+        if row.get("title"):
+            lines.append(f"  {row['title']}")
+    return "\n".join(lines) + "\n"
+
+
 def _funded_issues_fresh(args: argparse.Namespace) -> int:
     now = args.now or _now_iso()
     try:
@@ -7041,6 +7062,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_markdown(payload)
     elif args.format == "shortlist-note":
         text = _render_funded_issues_fresh_shortlist_note(payload)
+    elif args.format == "go-list":
+        text = _render_funded_issues_fresh_go_list(payload)
     else:
         text = _render_funded_issues_fresh_text(payload)
     _write_or_print(text, args.out)
@@ -8801,7 +8824,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_fresh.add_argument(
         "--format",
-        choices=["json", "markdown", "shortlist-note", "text"],
+        choices=["go-list", "json", "markdown", "shortlist-note", "text"],
         default="text",
         help="Output format.",
     )

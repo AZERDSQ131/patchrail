@@ -770,6 +770,50 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
             proc.stdout,
         )
 
+    def test_fresh_cli_go_list_only_prints_clean_solver_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            store = empty_store()
+            store["entries"]["https://github.com/acme/repo/issues/1"] = _store_entry(
+                url="https://github.com/acme/repo/issues/1",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T06:00:00Z",
+                amount=150.0,
+                attempt_count=1,
+            )
+            store["entries"]["https://github.com/acme/repo/issues/2"] = _store_entry(
+                url="https://github.com/acme/repo/issues/2",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T07:00:00Z",
+                amount=150.0,
+                attempt_count=7,
+            )
+            save_store(store_path, store)
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store_path),
+                    "--now",
+                    "2026-06-11T12:00:00Z",
+                    "--sort",
+                    "solver",
+                    "--format",
+                    "go-list",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("PatchRail funded-issues GO candidates", proc.stdout)
+        self.assertIn("Fresh: 2  GO: 1", proc.stdout)
+        self.assertIn("acme/repo#1 | $150 | 6.0h via created_at", proc.stdout)
+        self.assertIn("https://github.com/acme/repo/issues/1", proc.stdout)
+        self.assertNotIn("issues/2", proc.stdout)
+
     def test_fresh_cli_can_filter_by_solver_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store_path = Path(tmp) / "store.json"
