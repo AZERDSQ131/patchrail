@@ -7255,6 +7255,41 @@ def _render_funded_issues_fresh_signal(payload: dict[str, Any]) -> str:
     return "WAIT count=0 next_action=wait_for_fresh_funded_issue\n"
 
 
+def _one_line_field(value: Any) -> str:
+    text = "" if value is None else str(value)
+    return shlex.quote(text.replace("\n", " ").strip())
+
+
+def _render_funded_issues_fresh_one_line(payload: dict[str, Any]) -> str:
+    solver_counts = payload.get("solver_counts") or {}
+    rows = list(payload["fresh"])
+    go_rows = [row for row in rows if row.get("solver_status") == "go_candidate"]
+    review_rows = [row for row in rows if row.get("solver_status") == "needs_review"]
+    if go_rows:
+        state = "CLAIM_READY"
+        first = go_rows[0]
+    elif review_rows:
+        state = "RECHECK_ONLY"
+        first = review_rows[0]
+    elif rows:
+        state = "SKIP_ONLY"
+        first = rows[0]
+    else:
+        state = "WAIT"
+        first = {}
+    reference = first.get("reference") or first.get("url") or ""
+    return (
+        f"{state} "
+        f"fresh={payload['fresh_count']} "
+        f"go={solver_counts.get('go_candidate', 0)} "
+        f"recheck={solver_counts.get('needs_review', 0)} "
+        f"skip={solver_counts.get('no_go', 0)} "
+        f"first={_one_line_field(reference)} "
+        f"url={_one_line_field(first.get('url'))} "
+        f"next={_one_line_field(payload.get('next_safe_action'))}\n"
+    )
+
+
 def _github_annotation_escape(value: Any) -> str:
     text = "" if value is None else str(value)
     return (
@@ -7706,6 +7741,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_env(payload)
     elif args.format == "signal":
         text = _render_funded_issues_fresh_signal(payload)
+    elif args.format == "one-line":
+        text = _render_funded_issues_fresh_one_line(payload)
     elif args.format == "github-annotations":
         text = _render_funded_issues_fresh_github_annotations(payload)
     elif args.format == "markdown":
@@ -9520,6 +9557,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "jsonl",
             "markdown",
             "operator-brief",
+            "one-line",
             "recheck-commands",
             "review-watch",
             "signal",

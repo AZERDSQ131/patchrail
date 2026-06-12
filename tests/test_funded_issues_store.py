@@ -1022,6 +1022,76 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
         self.assertIn("--format operator-brief", proc.stdout)
         self.assertNotIn("acme/other#1", proc.stdout)
 
+    def test_fresh_cli_one_line_prints_supervisor_summary_for_go(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            store = empty_store()
+            store["entries"]["https://github.com/acme/repo/issues/1"] = _store_entry(
+                url="https://github.com/acme/repo/issues/1",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T06:00:00Z",
+                amount=150.0,
+                attempt_count=1,
+            )
+            store["entries"]["https://github.com/acme/other/issues/2"] = _store_entry(
+                url="https://github.com/acme/other/issues/2",
+                repository="acme/other",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T07:00:00Z",
+                amount=150.0,
+                attempt_count=7,
+            )
+            save_store(store_path, store)
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store_path),
+                    "--now",
+                    "2026-06-11T12:00:00Z",
+                    "--sort",
+                    "solver",
+                    "--format",
+                    "one-line",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(
+            proc.stdout,
+            (
+                "CLAIM_READY fresh=2 go=1 recheck=0 skip=1 first='acme/repo#1' "
+                "url=https://github.com/acme/repo/issues/1 "
+                "next=prepare_fix_and_claim_pr\n"
+            ),
+        )
+
+    def test_fresh_cli_one_line_prints_wait_when_empty(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            save_store(store_path, empty_store())
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store_path),
+                    "--now",
+                    "2026-06-11T12:00:00Z",
+                    "--format",
+                    "one-line",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(
+            proc.stdout,
+            "WAIT fresh=0 go=0 recheck=0 skip=0 first='' url='' next=wait_for_fresh_funded_issue\n",
+        )
+
     def test_fresh_cli_can_filter_by_solver_status(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store_path = Path(tmp) / "store.json"
