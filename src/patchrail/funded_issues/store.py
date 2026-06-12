@@ -467,6 +467,51 @@ def _freshness_hours(entry: dict[str, Any], reference: datetime) -> tuple[float 
     return None, "unknown"
 
 
+def _solver_go_blockers(
+    issue: dict[str, Any],
+    *,
+    state: str,
+    assignee_count: int,
+) -> tuple[str, list[str]]:
+    """Return a strict solver-lane status for a fresh funded issue.
+
+    This is intentionally local and conservative. Unknown attempts/funding keep
+    the row in ``needs_review`` instead of making it a GO candidate.
+    """
+
+    blockers: list[str] = []
+    review_needed: list[str] = []
+    if state != "active":
+        blockers.append(f"state_{state}")
+    if assignee_count > 0:
+        blockers.append("assigned")
+
+    attempt_count = issue.get("attempt_count")
+    if isinstance(attempt_count, int) and not isinstance(attempt_count, bool):
+        if attempt_count > 3:
+            blockers.append("too_many_attempts")
+    else:
+        review_needed.append("attempts_unknown")
+
+    funding = issue.get("funding") or {}
+    amount = funding.get("amount")
+    currency = str(funding.get("currency") or "").upper()
+    if currency and currency != "USD":
+        blockers.append("non_usd_bounty")
+    if isinstance(amount, (int, float)) and not isinstance(amount, bool):
+        if amount < 25 or amount > 300:
+            blockers.append("amount_out_of_range")
+    else:
+        review_needed.append("amount_unknown")
+
+    all_reasons = [*blockers, *review_needed]
+    if blockers:
+        return "no_go", all_reasons
+    if review_needed:
+        return "needs_review", all_reasons
+    return "go_candidate", []
+
+
 def fresh_issues(
     store: dict[str, Any],
     now: str,
@@ -508,6 +553,12 @@ def fresh_issues(
         if age_hours < 0 or age_hours > window:
             continue
         funding = issue.get("funding") or {}
+        assignee_count = _assignee_count(issue)
+        solver_status, go_blockers = _solver_go_blockers(
+            issue,
+            state=state,
+            assignee_count=assignee_count,
+        )
         rows.append(
             {
                 "reference": issue.get("reference"),
@@ -519,7 +570,9 @@ def fresh_issues(
                 "age_hours": round(age_hours, 2),
                 "age_basis": basis,
                 "attempt_count": issue.get("attempt_count"),
-                "assignee_count": _assignee_count(issue),
+                "assignee_count": assignee_count,
+                "solver_status": solver_status,
+                "go_blockers": go_blockers,
                 "funding_display": funding.get("display"),
                 "first_seen": entry.get("first_seen"),
             }

@@ -323,6 +323,8 @@ def _store_entry(
     assignee: object | None = None,
     assignees: list | None = None,
     board_org: str | None = None,
+    amount: float | None = 150.0,
+    currency: str | None = "USD",
 ) -> dict:
     """Build a raw store entry directly so freshness logic can be exercised
     without round-tripping every optional field through the importers."""
@@ -331,7 +333,7 @@ def _store_entry(
         "reference": repository + "#1",
         "repository": repository,
         "title": "Fresh bounty",
-        "funding": {"amount": 150.0, "currency": "USD", "display": "$150"},
+        "funding": {"amount": amount, "currency": currency, "display": "$150"},
     }
     if created_at is not None:
         issue["metadata"] = {"created_at": created_at}
@@ -383,6 +385,8 @@ class FreshIssuesTests(unittest.TestCase):
         self.assertEqual(row["age_hours"], 24.0)
         self.assertEqual(row["attempt_count"], 2)
         self.assertEqual(row["org"], "acme")
+        self.assertEqual(row["solver_status"], "go_candidate")
+        self.assertEqual(row["go_blockers"], [])
 
     def test_old_created_at_excluded(self) -> None:
         store = self._store(
@@ -465,6 +469,42 @@ class FreshIssuesTests(unittest.TestCase):
         by_url = {r["url"]: r for r in fresh_issues(store, self.NOW)["fresh"]}
         self.assertEqual(by_url["https://github.com/acme/repo/issues/30"]["assignee_count"], 2)
         self.assertEqual(by_url["https://github.com/acme/repo/issues/31"]["assignee_count"], 1)
+        self.assertEqual(
+            by_url["https://github.com/acme/repo/issues/30"]["go_blockers"],
+            ["assigned", "attempts_unknown"],
+        )
+
+    def test_solver_status_blocks_assigned_over_attempted_and_out_of_range_rows(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/40",
+                repository="acme/repo",
+                first_seen="2026-06-11T06:00:00Z",
+                attempt_count=4,
+                assignee="alice",
+                amount=400.0,
+            )
+        )
+        row = fresh_issues(store, self.NOW)["fresh"][0]
+        self.assertEqual(row["solver_status"], "no_go")
+        self.assertEqual(
+            row["go_blockers"],
+            ["assigned", "too_many_attempts", "amount_out_of_range"],
+        )
+
+    def test_solver_status_requires_review_when_attempts_or_amount_are_unknown(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/41",
+                repository="acme/repo",
+                first_seen="2026-06-11T06:00:00Z",
+                amount=None,
+                currency=None,
+            )
+        )
+        row = fresh_issues(store, self.NOW)["fresh"][0]
+        self.assertEqual(row["solver_status"], "needs_review")
+        self.assertEqual(row["go_blockers"], ["attempts_unknown", "amount_unknown"])
 
     def test_invalid_now_raises(self) -> None:
         with self.assertRaises(ValueError):
@@ -502,6 +542,7 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
             self.assertEqual(payload["schema_version"], FRESH_SCHEMA_VERSION)
             self.assertEqual(payload["fresh_count"], 1)
             self.assertTrue(payload["read_only"])
+            self.assertEqual(payload["fresh"][0]["solver_status"], "go_candidate")
 
             text = run_patchrail(
                 [
@@ -515,6 +556,7 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
             )
             self.assertEqual(text.returncode, 0, text.stderr)
             self.assertIn("fresh radar", text.stdout)
+            self.assertIn("solver: go_candidate", text.stdout)
 
 
 if __name__ == "__main__":

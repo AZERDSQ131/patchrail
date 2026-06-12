@@ -6899,11 +6899,13 @@ def _render_funded_issues_fresh_text(payload: dict[str, Any]) -> str:
         age_h = row["age_hours"]
         attempts = row["attempt_count"]
         attempts_text = "n/a" if attempts is None else str(attempts)
+        blockers = ", ".join(row.get("go_blockers") or ["none"])
         lines.append(
             f"  - {row['reference'] or row['url']}: "
             f"{row['funding_display'] or 'unknown'} "
             f"({age_h:.1f}h via {row['age_basis']}, "
-            f"attempts: {attempts_text}, assignees: {row['assignee_count']})"
+            f"attempts: {attempts_text}, assignees: {row['assignee_count']}, "
+            f"solver: {row.get('solver_status', 'needs_review')}, blockers: {blockers})"
         )
         if row.get("title"):
             lines.append(f"      {row['title']}")
