@@ -11,18 +11,17 @@ Pablo Guillén is the primary maintainer of PatchRail.
 
 - Repository: <https://github.com/patchrail/patchrail>
 - GitHub stars: 0 on 2026-06-03, immediately after public launch
-- Monthly PyPI downloads: pending first PyPI release
-- GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.0>
-- Pre-PyPI install path: README and quickstart say "PyPI publishing is pending"
-  and provide `uvx --from git+https://github.com/patchrail/patchrail patchrail`
-  so reviewers do not hit a package-index 404 before PyPI is published.
-- Pre-PyPI install verification, 2026-06-06: from a clean temporary
-  workspace, `uvx --from git+https://github.com/patchrail/patchrail patchrail --help`
-  installed and ran from public commit `87106e60c8c7ae630b079d8fac66c1531cce7ea6`;
-  the stdin smoke in README returned `Root cause: python_test_failure`; and a
-  fresh `python3 -m venv` virtual environment installed
-  `https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl`
-  and ran `patchrail --help` successfully.
+- PyPI package: <https://pypi.org/project/patchrail/0.1.1/>
+- Monthly PyPI downloads: pending first full telemetry window; do not infer
+  adoption from the initial package publish.
+- GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.1>
+- PyPI install verification, 2026-06-12: a fresh virtual environment installed
+  `patchrail==0.1.1` from PyPI with `python3 -m venv .patchrail-wheel-smoke`
+  followed by `python -m pip install patchrail==0.1.1`, then
+  `patchrail doctor` returned `Status: ok` and a stdin `patchrail ci explain`
+  smoke classified `python_test_failure`.
+- Public source install path remains available for reviewers:
+  `uvx --from git+https://github.com/patchrail/patchrail patchrail --help`.
 - Verified public CI evidence snapshot, 2026-06-06:
   <https://github.com/patchrail/patchrail/actions/runs/27062668635> completed
   successfully for commit `891aea7acfff9f392764542ec598b40073f93efa`, including
@@ -184,7 +183,7 @@ PatchRail's intended Codex usage is bounded to maintainer-approved work:
 
 ## Local Release Evidence
 
-Last verified: 2026-06-06.
+Last verified: 2026-06-12.
 
 - Release-prep checklist: [docs/release-process.md](release-process.md) now
   requires test, lint, benchmark, doctor, build, wheel smoke, safety, privacy,
@@ -257,7 +256,7 @@ Last verified: 2026-06-06.
   [schemas/queue_status.schema.json](../schemas/queue_status.schema.json).
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
-- Wheel smoke: installed `dist/patchrail-0.1.0-py3-none-any.whl` in a fresh `.pkg-smoke` virtual environment, then ran `patchrail doctor --format json` and `patchrail ci explain --log examples/ci-triage/dependency-failure.log --format text`.
+- PyPI smoke: installed `patchrail==0.1.1` in a fresh virtual environment, then ran `patchrail doctor` and a stdin `patchrail ci explain` smoke successfully.
 - Public CI: <https://github.com/patchrail/patchrail/actions/workflows/ci.yml> runs tests, lint, benchmark and package smoke on every push to `main`; the test matrix covers Python 3.11, 3.12, and 3.13.
 - v0.1.0 release evidence PR: <https://github.com/patchrail/patchrail/pull/17>
   passed remote CI at <https://github.com/patchrail/patchrail/actions/runs/26869827161>.
@@ -352,7 +351,6 @@ Last verified: 2026-06-06.
 
 ## Active Evidence Follow-Up Issues
 
-- <https://github.com/patchrail/patchrail/issues/67> - publish v0.1.0 to PyPI and verify the public install path.
 - <https://github.com/patchrail/patchrail/issues/68> - run the first consent-only CI pilot and record an approved outcome.
 - <https://github.com/patchrail/patchrail/issues/69> - track real adoption and ecosystem signals before any external application.
 
@@ -372,8 +370,7 @@ Last verified: 2026-06-06.
 - Formal public PR links reviewed with Codex
 - Formal public issues triaged with Codex
 - Formal release-prep PR prepared with Codex
-- PyPI release link after package index publish
-- PyPI download stats
+- PyPI download stats after the first full telemetry window
 - External adopter feedback
 - Pilot outcomes from maintainers who opted into read-only local trials
 - External pilot outcome summaries that follow

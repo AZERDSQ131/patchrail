@@ -11,17 +11,17 @@ Pablo Guillén is the primary maintainer of PatchRail.
 
 - Repository: <https://github.com/patchrail/patchrail>
 - GitHub stars: 0 on 2026-06-03, immediately after public launch
-- Monthly PyPI downloads: pending first PyPI release
-- GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.0>
-- Pre-PyPI install verification, 2026-06-06: README and quickstart say do not
-  use `pipx install patchrail` yet until PyPI publish, and the public GitHub
-  route was tested from a clean temporary workspace with
+- PyPI package: <https://pypi.org/project/patchrail/0.1.1/>
+- Monthly PyPI downloads: pending first full telemetry window; do not infer
+  adoption from the initial package publish.
+- GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.1>
+- PyPI install verification, 2026-06-12: a fresh virtual environment installed
+  `patchrail==0.1.1` from PyPI with `python3 -m venv .patchrail-wheel-smoke`
+  followed by `python -m pip install patchrail==0.1.1`, then
+  `patchrail doctor` returned `Status: ok` and a stdin `patchrail ci explain`
+  smoke classified `python_test_failure`.
+- Public source install path remains available for reviewers:
   `uvx --from git+https://github.com/patchrail/patchrail patchrail --help`.
-  The README stdin smoke returned `Root cause: python_test_failure`; the
-  v0.1.0 GitHub Releases wheel was installed in a fresh virtual environment
-  with `python3 -m venv .patchrail-wheel-smoke` followed by
-  `python -m pip install https://github.com/patchrail/patchrail/releases/download/v0.1.0/patchrail-0.1.0-py3-none-any.whl`
-  and then ran `patchrail --help` successfully.
 - External repositories using PatchRail: pending pilots
 - External contributors: pending external contributions
 - Public metrics tracker: [docs/metrics.md](metrics.md) records current public
@@ -153,7 +153,7 @@ PatchRail's public safety posture is local-first and human-approved:
 
 ## Local Release Evidence
 
-Last verified: 2026-06-06.
+Last verified: 2026-06-12.
 
 - Release-prep checklist: [docs/release-process.md](release-process.md) requires
   test, lint, benchmark, doctor, build, wheel smoke, safety, privacy, and public
@@ -234,9 +234,8 @@ Last verified: 2026-06-06.
   [schemas/queue_status.schema.json](../schemas/queue_status.schema.json).
 - Safety doctor: `uv run --extra dev patchrail doctor --format json` -> `status: ok`, `local_first: true`, and no billing, network, external model, or GitHub write permission required.
 - Distribution check: `uv run --extra dev python -m build` produced wheel and sdist; `uv run --extra dev twine check dist/*` passed both artifacts.
-- Wheel smoke: installed `dist/patchrail-0.1.0-py3-none-any.whl` in a fresh
-  `.pkg-smoke` virtual environment, then ran `patchrail doctor --format json`
-  and `patchrail ci explain --log examples/ci-triage/dependency-failure.log --format text`.
+- PyPI smoke: installed `patchrail==0.1.1` in a fresh virtual environment, then
+  ran `patchrail doctor` and a stdin `patchrail ci explain` smoke successfully.
 - Public CI: <https://github.com/patchrail/patchrail/actions/workflows/ci.yml> runs tests, lint, benchmark and package smoke on every push to `main`.
 - Public triage workflow: <https://github.com/patchrail/patchrail/actions/runs/26862165709> -> skipped because the triggering CI run succeeded.
 - GitHub Actions artifact example:
@@ -315,7 +314,6 @@ Last verified: 2026-06-06.
 
 ## Active Evidence Follow-Up Issues
 
-- <https://github.com/patchrail/patchrail/issues/67> - publish v0.1.0 to PyPI and verify the public install path.
 - <https://github.com/patchrail/patchrail/issues/69> - track real adoption and ecosystem signals before any external application.
 
 ## Evidence To Add Before Applying
@@ -323,8 +321,7 @@ Last verified: 2026-06-06.
 - Formal PR review examples for parser, redaction or workflow changes.
 - Formal issue triage examples for CI fixture requests.
 - Formal release-prep examples showing changelog, version and quickstart checks.
-- PyPI release link after package index publish.
-- PyPI download stats.
+- PyPI download stats after the first full telemetry window.
 - External adopter feedback and permissioned adopter entries.
 - External pilot outcomes from maintainers who opted into read-only local trials.
 - Permissioned pilot request package outcomes that pass the public listing rule.

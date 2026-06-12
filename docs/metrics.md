@@ -4,7 +4,7 @@ PatchRail tracks adoption and quality metrics so public claims stay verifiable.
 Do not use placeholders as evidence for applications, release posts, or funding
 requests.
 
-Last updated: 2026-06-03.
+Last updated: 2026-06-12.
 
 ## Public Signals
 
@@ -12,10 +12,12 @@ Last updated: 2026-06-03.
 | --- | ---: | --- |
 | GitHub repository | `patchrail/patchrail` | <https://github.com/patchrail/patchrail> |
 | GitHub stars | 0 | Fresh public launch snapshot |
-| Monthly PyPI downloads | Pending first PyPI release | PyPI returned `Not Found` on 2026-06-03 |
+| PyPI package | `patchrail` 0.1.1 published | <https://pypi.org/project/patchrail/0.1.1/> |
+| Clean PyPI install smoke | Passing on 2026-06-12 | `python -m pip install patchrail==0.1.1`; `patchrail doctor`; stdin `patchrail ci explain` |
+| Monthly PyPI downloads | Pending first full telemetry window | PyPI project is live; do not infer adoption from initial publish |
 | Public external adopters | 0 | [ADOPTERS.md](../ADOPTERS.md) |
 | External contributors | 0 | GitHub contributors |
-| Public releases | 1 | <https://github.com/patchrail/patchrail/releases/tag/v0.1.0> |
+| Public releases | 2 | <https://github.com/patchrail/patchrail/releases/tag/v0.1.1> |
 | Public CI fixtures | 153 | `examples/ci-triage` benchmark |
 | Fixture hygiene gate | 153 / 153 passing | `patchrail ci fixture-check examples/ci-triage --format json` |
 | Supported benchmark categories | Python, Node, TypeScript, Go, Rust, Ruby, PHP, .NET, GitHub Actions, Docker/Compose, browser E2E | `docs/ci-failure-zoo.md` |
@@ -23,7 +25,7 @@ Last updated: 2026-06-03.
 | Funded issue read-only demos | 1 | `examples/funded-issues-readonly` |
 | Synthetic consent-only pilot examples | 1 | `examples/pilot-outcome` |
 | Owned-repo consent-only pilot outcomes | 1 | [patchrail-own-repo-20260603.md](../examples/pilot-outcome/patchrail-own-repo-20260603.md) |
-| Active evidence follow-up issues | 2 | [#67](https://github.com/patchrail/patchrail/issues/67), [#69](https://github.com/patchrail/patchrail/issues/69) |
+| Active evidence follow-up issues | 1 | [#69](https://github.com/patchrail/patchrail/issues/69) |
 
 ## Quality Gates
 
@@ -136,7 +138,8 @@ not be counted as public evidence.
 PatchRail should not apply to external programs from placeholder metrics. The
 current evidence gaps are:
 
-- first PyPI release and download telemetry;
+- first PyPI download telemetry after the published 0.1.1 package has a real
+  reporting window;
 - external maintainer pilots with permission to cite outcomes;
 - consent checklist coverage from [docs/pilot-request-package.md](pilot-request-package.md);
 - safe external pilot summaries based on [examples/pilot-outcome](../examples/pilot-outcome/README.md);
@@ -147,8 +150,12 @@ current evidence gaps are:
 
 Active follow-up issues:
 
-- [#67](https://github.com/patchrail/patchrail/issues/67) for PyPI publication and clean install verification.
 - [#69](https://github.com/patchrail/patchrail/issues/69) for verified adoption and ecosystem signal tracking.
+
+Completed package evidence:
+
+- [#67](https://github.com/patchrail/patchrail/issues/67) records the first
+  public PyPI package release and clean install verification for `patchrail==0.1.1`.
 
 Completed pilot evidence:
 

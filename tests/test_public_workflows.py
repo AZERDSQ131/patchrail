@@ -16,10 +16,8 @@ MARKDOWN_LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
 CI_TRIAGE_LOG_PATH_RE = re.compile(r"examples/ci-triage/[A-Za-z0-9_.-]+\.log")
 PIPX_INSTALL_COMMAND = "pipx install patchrail"
 GITHUB_SOURCE_COMMAND = "uvx --from git+https://github.com/patchrail/patchrail patchrail"
-GITHUB_RELEASE_WHEEL_URL = (
-    "https://github.com/patchrail/patchrail/releases/download/v0.1.0/"
-    "patchrail-0.1.0-py3-none-any.whl"
-)
+PYPI_INSTALL_COMMAND = "python -m pip install patchrail==0.1.1"
+PYPI_PROJECT_URL = "https://pypi.org/project/patchrail/0.1.1/"
 WHEEL_VENV_COMMAND = "python3 -m venv .patchrail-wheel-smoke"
 
 
@@ -190,7 +188,7 @@ def test_pipx_install_mentions_carry_published_or_historical_context() -> None:
     assert unsafe_mentions == []
 
 
-def test_pre_pypi_install_docs_offer_working_source_and_wheel_paths() -> None:
+def test_pypi_install_docs_offer_working_source_and_package_paths() -> None:
     incomplete_mentions: list[str] = []
 
     for markdown_file in _markdown_files_with_reviewer_facing_links():
@@ -198,7 +196,7 @@ def test_pre_pypi_install_docs_offer_working_source_and_wheel_paths() -> None:
         if PIPX_INSTALL_COMMAND not in text:
             continue
 
-        if GITHUB_SOURCE_COMMAND not in text or GITHUB_RELEASE_WHEEL_URL not in text:
+        if GITHUB_SOURCE_COMMAND not in text or PYPI_INSTALL_COMMAND not in text:
             incomplete_mentions.append(str(markdown_file.relative_to(ROOT)))
 
         if WHEEL_VENV_COMMAND not in text:
@@ -207,7 +205,7 @@ def test_pre_pypi_install_docs_offer_working_source_and_wheel_paths() -> None:
     assert incomplete_mentions == []
 
 
-def test_pre_pypi_install_verification_is_recorded_without_pypi_claims() -> None:
+def test_pypi_install_verification_is_recorded_without_download_or_adoption_claims() -> None:
     evidence = (ROOT / "docs" / "openai-open-source-evidence.md").read_text(encoding="utf-8")
     program_evidence = (ROOT / "docs" / "open-source-program-evidence.md").read_text(
         encoding="utf-8"
@@ -215,19 +213,18 @@ def test_pre_pypi_install_verification_is_recorded_without_pypi_claims() -> None
     combined = "\n".join([evidence, program_evidence])
     normalized = " ".join(combined.split())
 
-    assert "Pre-PyPI install verification, 2026-06-06" in evidence
-    assert "Pre-PyPI install verification, 2026-06-06" in program_evidence
-    assert "clean temporary workspace" in normalized
+    assert "PyPI install verification, 2026-06-12" in evidence
+    assert "PyPI install verification, 2026-06-12" in program_evidence
+    assert "fresh virtual environment" in normalized
     assert ("Open" + "Claw") not in combined
     assert "clean `/tmp` context" not in combined
     assert "5d335368476b9c8739c01ffc16ba74d18d10b259" not in combined
-    assert "uvx --from git+https://github.com/patchrail/patchrail patchrail --help" in normalized
-    assert "87106e60c8c7ae630b079d8fac66c1531cce7ea6" in evidence
-    assert "Root cause: python_test_failure" in combined
-    assert GITHUB_RELEASE_WHEEL_URL in combined
+    assert PYPI_PROJECT_URL in combined
+    assert PYPI_INSTALL_COMMAND in combined
+    assert "python_test_failure" in combined
     assert WHEEL_VENV_COMMAND in combined
-    assert "Monthly PyPI downloads: pending first PyPI release" in combined
-    assert "do not use `pipx install patchrail` yet until PyPI publish" in normalized
+    assert "Monthly PyPI downloads: pending first full telemetry window" in combined
+    assert "do not infer adoption from the initial package publish" in normalized
 
 
 def test_readme_and_quickstart_document_published_pypi_install() -> None:
@@ -256,7 +253,7 @@ def test_readme_and_quickstart_document_published_pypi_install() -> None:
         assert GITHUB_SOURCE_COMMAND in text, path
         assert "patchrail ci explain" in text, path
         assert "FAILED tests/test_app.py::test_ok" in text, path
-        assert f"python -m pip install {GITHUB_RELEASE_WHEEL_URL}" in text, path
+        assert PYPI_INSTALL_COMMAND in text, path
         assert WHEEL_VENV_COMMAND in text, path
         assert "pipx install patchrail" in text, path
         assert "That smoke test prints" in text, path
@@ -1627,7 +1624,8 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "Human approval gates for write actions" in evidence
     assert "No automatic bounty claiming" in evidence
     assert ".agents/skills/patchrail-ci-triage" in evidence
-    assert "PyPI publishing is pending" in evidence
+    assert "https://pypi.org/project/patchrail/0.1.1/" in evidence
+    assert "pending first full telemetry window" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
     assert "Verified public CI evidence snapshot, 2026-06-06" in evidence
     assert "https://github.com/patchrail/patchrail/actions/runs/27062668635" in evidence
@@ -1801,7 +1799,7 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
         "Fixture hygiene: `uv run --extra dev patchrail ci fixture-check "
         "examples/ci-triage --format json` -> 153 / 153 fixtures passed."
     ) in open_source_program_evidence
-    assert "GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.0>" in (
+    assert "GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.1>" in (
         open_source_program_evidence
     )
     assert "Agent Control Plane demo" in open_source_program_evidence
@@ -1818,7 +1816,9 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "write actions remain locked" in open_source_program_evidence
     assert "Funded issue read-only demo" in open_source_program_evidence
     assert "External repositories using PatchRail: pending pilots" in open_source_program_evidence
-    assert "PyPI release link after package index publish" in open_source_program_evidence
+    assert (
+        "PyPI download stats after the first full telemetry window" in open_source_program_evidence
+    )
     assert "This ledger tracks public PatchRail maintenance cycles" in workflow_ledger
     assert "it does not claim external adoption" in workflow_ledger
     assert "it does not claim formal Codex review unless a visible review link exists" in (
@@ -1986,15 +1986,17 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "Do not commit it" in contributing
     assert "the fixture is synthetic" in contributing
     assert "PatchRail tracks adoption and quality metrics" in metrics
+    assert "PyPI package | `patchrail` 0.1.1 published" in metrics
+    assert "Clean PyPI install smoke | Passing on 2026-06-12" in metrics
     assert "Monthly PyPI downloads" in metrics
-    assert "Pending first PyPI release" in metrics
+    assert "Pending first full telemetry window" in metrics
     assert "Public external adopters | 0" in metrics
     assert "patchrail evidence snapshot --format markdown" in metrics
     assert "does not replace\npublic GitHub, PyPI, or adopter metrics" in metrics
     assert "Synthetic consent-only pilot examples | 1" in metrics
     assert "Owned-repo consent-only pilot outcomes | 1" in metrics
     assert "not an external adopter" in metrics
-    assert "Public releases | 1" in metrics
+    assert "Public releases | 2" in metrics
     assert "Fixture hygiene gate | 153 / 153 passing" in metrics
     assert "Ruby, PHP, .NET, GitHub Actions, Docker/Compose, browser E2E" in metrics
     assert "Do not use placeholders as evidence" in metrics
