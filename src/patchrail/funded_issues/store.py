@@ -522,6 +522,8 @@ def fresh_issues(
     solver_status: str | None = None,
     sort_by: str = "freshness",
     max_rows: int | None = None,
+    min_usd: float | None = None,
+    max_usd: float | None = None,
 ) -> dict[str, Any]:
     """List tracker entries whose bounty was posted/labeled within ``hours``.
 
@@ -548,6 +550,12 @@ def fresh_issues(
         raise ValueError("sort_by must be one of: " + ", ".join(sorted(allowed_sorts)))
     if max_rows is not None and max_rows < 1:
         raise ValueError("max_rows must be at least 1")
+    if min_usd is not None and min_usd < 0:
+        raise ValueError("min_usd must be at least 0")
+    if max_usd is not None and max_usd < 0:
+        raise ValueError("max_usd must be at least 0")
+    if min_usd is not None and max_usd is not None and min_usd > max_usd:
+        raise ValueError("min_usd must be less than or equal to max_usd")
 
     window = float(hours)
     entries = store.get("entries", {})
@@ -568,6 +576,19 @@ def fresh_issues(
         if age_hours < 0 or age_hours > window:
             continue
         funding = issue.get("funding") or {}
+        amount = funding.get("amount")
+        currency = str(funding.get("currency") or "").upper()
+        if min_usd is not None or max_usd is not None:
+            if (
+                currency != "USD"
+                or not isinstance(amount, (int, float))
+                or isinstance(amount, bool)
+            ):
+                continue
+            if min_usd is not None and float(amount) < min_usd:
+                continue
+            if max_usd is not None and float(amount) > max_usd:
+                continue
         assignee_count = _assignee_count(issue)
         row_solver_status, go_blockers = _solver_go_blockers(
             issue,
@@ -610,6 +631,8 @@ def fresh_issues(
         "window_hours": hours,
         "orgs": sorted(org_filter) if org_filter is not None else None,
         "solver_status": solver_status_filter,
+        "min_usd": min_usd,
+        "max_usd": max_usd,
         "sort": sort_by,
         "limit": max_rows,
         "considered": len(entries),

@@ -621,6 +621,43 @@ class FreshIssuesTests(unittest.TestCase):
         self.assertEqual(payload["fresh_count"], 1)
         self.assertEqual(payload["fresh"][0]["url"], "https://github.com/acme/repo/issues/50")
 
+    def test_usd_range_filter_keeps_only_amounts_in_range(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/53",
+                repository="acme/repo",
+                first_seen="2026-06-11T06:00:00Z",
+                attempt_count=1,
+                amount=25.0,
+            ),
+            _store_entry(
+                url="https://github.com/acme/repo/issues/54",
+                repository="acme/repo",
+                first_seen="2026-06-11T06:00:00Z",
+                attempt_count=1,
+                amount=301.0,
+            ),
+            _store_entry(
+                url="https://github.com/acme/repo/issues/55",
+                repository="acme/repo",
+                first_seen="2026-06-11T06:00:00Z",
+                attempt_count=1,
+                amount=150.0,
+                currency="EUR",
+            ),
+        )
+
+        payload = fresh_issues(store, self.NOW, min_usd=25, max_usd=300)
+
+        self.assertEqual(payload["min_usd"], 25)
+        self.assertEqual(payload["max_usd"], 300)
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["url"], "https://github.com/acme/repo/issues/53")
+
+    def test_invalid_usd_range_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            fresh_issues(empty_store(), self.NOW, min_usd=301, max_usd=300)
+
     def test_invalid_solver_status_filter_raises(self) -> None:
         with self.assertRaises(ValueError):
             fresh_issues(empty_store(), self.NOW, solver_status="maybe")
@@ -665,6 +702,8 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
             self.assertEqual(payload["schema_version"], FRESH_SCHEMA_VERSION)
             self.assertEqual(payload["fresh_count"], 1)
             self.assertIsNone(payload["solver_status"])
+            self.assertIsNone(payload["min_usd"])
+            self.assertIsNone(payload["max_usd"])
             self.assertTrue(payload["read_only"])
             self.assertEqual(payload["fresh"][0]["solver_status"], "go_candidate")
 
@@ -723,6 +762,52 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["solver_status"], "go_candidate")
         self.assertEqual(payload["sort"], "solver")
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["url"], "https://github.com/acme/repo/issues/1")
+
+    def test_fresh_cli_can_filter_by_usd_range(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            store = empty_store()
+            store["entries"]["https://github.com/acme/repo/issues/1"] = _store_entry(
+                url="https://github.com/acme/repo/issues/1",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T06:00:00Z",
+                amount=50.0,
+                attempt_count=1,
+            )
+            store["entries"]["https://github.com/acme/repo/issues/2"] = _store_entry(
+                url="https://github.com/acme/repo/issues/2",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T05:00:00Z",
+                amount=500.0,
+                attempt_count=1,
+            )
+            save_store(store_path, store)
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store_path),
+                    "--now",
+                    "2026-06-11T12:00:00Z",
+                    "--min-usd",
+                    "25",
+                    "--max-usd",
+                    "300",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["min_usd"], 25.0)
+        self.assertEqual(payload["max_usd"], 300.0)
         self.assertEqual(payload["fresh_count"], 1)
         self.assertEqual(payload["fresh"][0]["url"], "https://github.com/acme/repo/issues/1")
 

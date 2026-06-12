@@ -6931,6 +6931,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             solver_status=args.solver_status,
             sort_by=args.sort,
             max_rows=args.max_rows,
+            min_usd=args.min_usd,
+            max_usd=args.max_usd,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue store: {exc}", file=sys.stderr)
@@ -8680,6 +8682,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-rows",
         type=int,
         help="Maximum fresh rows to return after filtering and sorting.",
+    )
+    funded_fresh.add_argument(
+        "--min-usd",
+        type=float,
+        help="Only include USD-funded fresh rows at least this amount.",
+    )
+    funded_fresh.add_argument(
+        "--max-usd",
+        type=float,
+        help="Only include USD-funded fresh rows at most this amount.",
     )
     funded_fresh.add_argument(
         "--now",
