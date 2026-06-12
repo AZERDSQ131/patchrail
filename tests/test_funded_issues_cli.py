@@ -1018,6 +1018,106 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         )
         self.assertEqual(lines["PATCHRAIL_FUNDED_FIRST_GO_NEXT_ACTION"], "prepare_fix_and_claim_pr")
 
+    def test_funded_issues_fresh_exports_single_line_signal_for_supervisors(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "fresh-go",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Fix deterministic CI failure",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {
+                                        "amount": 250,
+                                        "currency": "USD",
+                                        "display": "250 USD",
+                                    },
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            empty_store = Path(tmp) / "empty-store.json"
+            empty_store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            claim_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "signal",
+                ]
+            )
+            wait_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(empty_store),
+                    "--hours",
+                    "48",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "signal",
+                ]
+            )
+
+        self.assertEqual(claim_proc.returncode, 0, claim_proc.stderr)
+        self.assertEqual(
+            claim_proc.stdout,
+            (
+                "CLAIM_READY count=1 reference='example/project#42' "
+                "url=https://github.com/example/project/issues/42 "
+                "next_action=prepare_fix_and_claim_pr\n"
+            ),
+        )
+        self.assertEqual(wait_proc.returncode, 0, wait_proc.stderr)
+        self.assertEqual(
+            wait_proc.stdout,
+            "WAIT count=0 next_action=wait_for_fresh_funded_issue\n",
+        )
+
     def test_funded_issues_fresh_operator_brief_groups_next_actions(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"

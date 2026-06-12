@@ -7184,6 +7184,38 @@ def _render_funded_issues_fresh_env(payload: dict[str, Any]) -> str:
     return "".join(f"{key}={_env_value(value)}\n" for key, value in values.items())
 
 
+def _render_funded_issues_fresh_signal(payload: dict[str, Any]) -> str:
+    rows = list(payload["fresh"])
+    go_rows = [row for row in rows if row.get("solver_status") == "go_candidate"]
+    review_rows = [row for row in rows if row.get("solver_status") == "needs_review"]
+    skip_rows = [row for row in rows if row.get("solver_status") == "no_go"]
+    if go_rows:
+        row = go_rows[0]
+        reference = row.get("reference") or row.get("url") or "unknown"
+        return (
+            "CLAIM_READY "
+            f"count={len(go_rows)} "
+            f"reference={shlex.quote(str(reference))} "
+            f"url={shlex.quote(str(row.get('url') or ''))} "
+            f"next_action={shlex.quote(str(row.get('next_action') or 'prepare_fix_and_claim_pr'))}"
+            "\n"
+        )
+    if review_rows:
+        row = review_rows[0]
+        reference = row.get("reference") or row.get("url") or "unknown"
+        blockers = ",".join(row.get("go_blockers") or ["missing_current_issue_evidence"])
+        return (
+            "RECHECK_ONLY "
+            f"count={len(review_rows)} "
+            f"reference={shlex.quote(str(reference))} "
+            f"url={shlex.quote(str(row.get('url') or ''))} "
+            f"reason={shlex.quote(blockers)}\n"
+        )
+    if skip_rows:
+        return f"SKIP_ONLY count={len(skip_rows)} next_action=wait_for_fresh_funded_issue\n"
+    return "WAIT count=0 next_action=wait_for_fresh_funded_issue\n"
+
+
 def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
     rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
     lines = [
@@ -7384,6 +7416,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_urls(payload)
     elif args.format == "env":
         text = _render_funded_issues_fresh_env(payload)
+    elif args.format == "signal":
+        text = _render_funded_issues_fresh_signal(payload)
     elif args.format == "markdown":
         text = _render_funded_issues_fresh_markdown(payload)
     elif args.format == "shortlist-note":
@@ -9186,6 +9220,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "jsonl",
             "markdown",
             "operator-brief",
+            "signal",
             "shortlist-note",
             "text",
             "urls",
