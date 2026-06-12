@@ -7353,6 +7353,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
     else:
         text = _render_funded_issues_fresh_text(payload)
     _write_or_print(text, args.out)
+    if args.exit_code_on_go and payload["solver_counts"].get("go_candidate", 0):
+        return 2
     return 0
 
 
@@ -9129,6 +9131,12 @@ def _build_parser() -> argparse.ArgumentParser:
         ],
         default="text",
         help="Output format.",
+    )
+    funded_fresh.add_argument(
+        "--exit-code-on-go",
+        action="store_true",
+        help="Return exit code 2 when the filtered fresh window contains a GO candidate. "
+        "Output is still written normally for cron/supervisor parsing.",
     )
     funded_fresh.add_argument("--out", type=Path, help="Optional output path.")
     funded_fresh.set_defaults(func=_funded_issues_fresh)

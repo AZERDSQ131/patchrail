@@ -487,6 +487,109 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             actions["example/project#44"], "skip:too_many_attempts,amount_out_of_range"
         )
 
+    def test_funded_issues_fresh_can_signal_go_candidate_with_exit_code(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "fresh-go",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Fix deterministic CI failure",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {
+                                        "amount": 250,
+                                        "currency": "USD",
+                                        "display": "250 USD",
+                                    },
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/44": {
+                                "issue": {
+                                    "id": "skip",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#44",
+                                    "issue_number": 44,
+                                    "title": "Rewrite the whole CLI",
+                                    "url": "https://github.com/example/project/issues/44",
+                                    "funding": {"amount": 500, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 7,
+                                },
+                                "first_seen": "2026-06-12T08:20:00+00:00",
+                                "last_seen": "2026-06-12T08:20:00+00:00",
+                                "last_checked": "2026-06-12T08:20:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            go_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "json",
+                    "--exit-code-on-go",
+                ]
+            )
+            skip_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--solver-status",
+                    "no_go",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "json",
+                    "--exit-code-on-go",
+                ]
+            )
+
+        self.assertEqual(go_proc.returncode, 2, go_proc.stderr)
+        go_payload = json.loads(go_proc.stdout)
+        self.assertEqual(go_payload["solver_counts"]["go_candidate"], 1)
+        self.assertEqual(skip_proc.returncode, 0, skip_proc.stderr)
+        skip_payload = json.loads(skip_proc.stdout)
+        self.assertEqual(skip_payload["solver_counts"]["go_candidate"], 0)
+        self.assertEqual(skip_payload["solver_counts"]["no_go"], 1)
+
     def test_funded_issues_fresh_exports_csv_and_jsonl_for_operator_pipelines(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"
