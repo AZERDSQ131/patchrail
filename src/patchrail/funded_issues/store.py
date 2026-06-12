@@ -439,6 +439,30 @@ def _assignee_count(issue: dict[str, Any]) -> int:
     return 1 if issue.get("assignee") else 0
 
 
+def _has_testability_signal(issue: dict[str, Any]) -> bool:
+    """Whether public issue metadata has a concrete reproduction/test path."""
+
+    signals = issue.get("contribution_signals")
+    if not isinstance(signals, list):
+        return False
+    terms = (
+        "test",
+        "repro",
+        "reproduction",
+        "log",
+        "stack",
+        "trace",
+        "expected",
+        "actual",
+        "diagnostic",
+    )
+    for signal in signals:
+        normalized = str(signal).strip().lower()
+        if normalized and any(term in normalized for term in terms):
+            return True
+    return False
+
+
 def _freshness_hours(entry: dict[str, Any], reference: datetime) -> tuple[float | None, str]:
     """Age of an entry in hours plus the signal it was derived from.
 
@@ -537,6 +561,7 @@ def fresh_issues(
     max_usd: float | None = None,
     max_attempts: int | None = None,
     max_assignees: int | None = None,
+    require_tests_signal: bool = False,
 ) -> dict[str, Any]:
     """List tracker entries whose bounty was posted/labeled within ``hours``.
 
@@ -617,6 +642,9 @@ def fresh_issues(
         assignee_count = _assignee_count(issue)
         if max_assignees is not None and assignee_count > max_assignees:
             continue
+        testability_signal = _has_testability_signal(issue)
+        if require_tests_signal and not testability_signal:
+            continue
         row_solver_status, go_blockers = _solver_go_blockers(
             issue,
             state=state,
@@ -636,6 +664,7 @@ def fresh_issues(
                 "age_basis": basis,
                 "attempt_count": issue.get("attempt_count"),
                 "assignee_count": assignee_count,
+                "testability_signal": testability_signal,
                 "solver_status": row_solver_status,
                 "go_blockers": go_blockers,
                 "next_action": _solver_next_action(row_solver_status, go_blockers),
@@ -675,6 +704,7 @@ def fresh_issues(
         "max_usd": max_usd,
         "max_attempts": max_attempts,
         "max_assignees": max_assignees,
+        "require_tests_signal": require_tests_signal,
         "sort": sort_by,
         "limit": max_rows,
         "considered": len(entries),

@@ -6973,6 +6973,8 @@ def _fresh_claim_recheck_command(payload: dict[str, Any], row: dict[str, Any]) -
         parts.extend(["--max-attempts", str(payload["max_attempts"])])
     if payload.get("max_assignees") is not None:
         parts.extend(["--max-assignees", str(payload["max_assignees"])])
+    if payload.get("require_tests_signal"):
+        parts.append("--require-tests-signal")
     parts.extend(["--format", "claim-checklist"])
     return " ".join(shlex.quote(part) for part in parts)
 
@@ -7014,6 +7016,8 @@ def _fresh_readonly_recheck_command(
         parts.extend(["--max-attempts", str(payload["max_attempts"])])
     if payload.get("max_assignees") is not None:
         parts.extend(["--max-assignees", str(payload["max_assignees"])])
+    if payload.get("require_tests_signal"):
+        parts.append("--require-tests-signal")
     parts.extend(["--format", "operator-brief"])
     return " ".join(shlex.quote(part) for part in parts)
 
@@ -7177,6 +7181,7 @@ def _render_funded_issues_fresh_csv(payload: dict[str, Any]) -> str:
         "state",
         "attempt_count",
         "assignee_count",
+        "testability_signal",
         "solver_status",
         "go_blockers",
         "next_action",
@@ -7727,6 +7732,7 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             max_usd=args.max_usd,
             max_attempts=args.max_attempts,
             max_assignees=args.max_assignees,
+            require_tests_signal=args.require_tests_signal,
         )
         payload["store_path"] = str(args.store)
         if args.solver_allowlist is not None:
@@ -9548,6 +9554,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-assignees",
         type=int,
         help="Only include fresh rows with this many assignees or fewer. Use 0 for claim sweeps.",
+    )
+    funded_fresh.add_argument(
+        "--require-tests-signal",
+        action="store_true",
+        help=(
+            "Only include fresh rows whose public contribution signals mention a reproduction, "
+            "test, log, stack trace, expected/actual behavior, or diagnostic path."
+        ),
     )
     funded_fresh.add_argument(
         "--now",

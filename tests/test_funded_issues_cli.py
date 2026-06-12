@@ -704,6 +704,113 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["fresh_count"], 1)
         self.assertEqual(payload["fresh"][0]["reference"], "example/project#42")
 
+    def test_funded_issues_fresh_can_require_public_testability_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "testable",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Fix deterministic CI failure",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 1,
+                                    "contribution_signals": [
+                                        "reproduction included",
+                                        "failing test described",
+                                    ],
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/43": {
+                                "issue": {
+                                    "id": "unclear",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#43",
+                                    "issue_number": 43,
+                                    "title": "Improve admin screen",
+                                    "url": "https://github.com/example/project/issues/43",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 1,
+                                    "contribution_signals": ["contribution guidelines linked"],
+                                },
+                                "first_seen": "2026-06-12T08:05:00+00:00",
+                                "last_seen": "2026-06-12T08:05:00+00:00",
+                                "last_checked": "2026-06-12T08:05:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            json_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--require-tests-signal",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "json",
+                ]
+            )
+            csv_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--require-tests-signal",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "csv",
+                ]
+            )
+
+        self.assertEqual(json_proc.returncode, 0, json_proc.stderr)
+        payload = json.loads(json_proc.stdout)
+        self.assertEqual(payload["require_tests_signal"], True)
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["reference"], "example/project#42")
+        self.assertEqual(payload["fresh"][0]["testability_signal"], True)
+
+        self.assertEqual(csv_proc.returncode, 0, csv_proc.stderr)
+        rows = list(csv.DictReader(io.StringIO(csv_proc.stdout)))
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["reference"], "example/project#42")
+        self.assertEqual(rows[0]["testability_signal"], "true")
+
     def test_funded_issues_fresh_rejects_negative_max_assignees(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"
