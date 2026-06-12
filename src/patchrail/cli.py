@@ -6927,6 +6927,20 @@ def _fresh_priority_reason(row: dict[str, Any]) -> str:
     return "discard: " + ", ".join(blockers or ["not solver-ready"])
 
 
+def _fresh_claim_issue_number(row: dict[str, Any]) -> str:
+    reference = str(row.get("reference") or "")
+    if "#" in reference:
+        candidate = reference.rsplit("#", 1)[1].strip()
+        if candidate:
+            return candidate
+    url = str(row.get("url") or "").rstrip("/")
+    if "/issues/" in url:
+        candidate = url.rsplit("/issues/", 1)[1].split("/", 1)[0].strip()
+        if candidate:
+            return candidate
+    return "<issue-number>"
+
+
 def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
     orgs = payload["orgs"]
     scope = "all orgs" if orgs is None else ", ".join(orgs)
@@ -7037,6 +7051,40 @@ def _render_funded_issues_fresh_go_list(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
+    rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
+    lines = [
+        "PatchRail funded-issues claim checklist",
+        (f"Window: {payload['window_hours']}h  Fresh: {payload['fresh_count']}  GO: {len(rows)}"),
+    ]
+    if not rows:
+        lines.append("No claim-safe solver candidates in the current fresh window.")
+        return "\n".join(lines) + "\n"
+    for index, row in enumerate(rows, start=1):
+        reference = row.get("reference") or row.get("url") or "unknown"
+        funding = row.get("funding_display") or "unknown"
+        title = str(row.get("title") or "").strip()
+        lines.extend(
+            [
+                "",
+                f"{index}. {reference} - {funding}",
+                f"   URL: {row.get('url') or 'no-url'}",
+                f"   Age: {float(row['age_hours']):.1f}h via {row['age_basis']}",
+                "   Claim gate:",
+                "   - Re-open issue and confirm no assignee, no reservation, no maintainer stop signal.",
+                "   - Create a focused branch, implement the minimal fix, and run the target tests.",
+                "   - Open the PR only with passing local checks and a concise technical description.",
+                (
+                    f"   - Add `/claim #{_fresh_claim_issue_number(row)}` in the PR only "
+                    "after the PR is ready."
+                ),
+            ]
+        )
+        if title:
+            lines.append(f"   Title: {title}")
+    return "\n".join(lines) + "\n"
+
+
 def _funded_issues_fresh(args: argparse.Namespace) -> int:
     now = args.now or _now_iso()
     try:
@@ -7064,6 +7112,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_shortlist_note(payload)
     elif args.format == "go-list":
         text = _render_funded_issues_fresh_go_list(payload)
+    elif args.format == "claim-checklist":
+        text = _render_funded_issues_fresh_claim_checklist(payload)
     else:
         text = _render_funded_issues_fresh_text(payload)
     _write_or_print(text, args.out)
@@ -8824,7 +8874,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     funded_fresh.add_argument(
         "--format",
-        choices=["go-list", "json", "markdown", "shortlist-note", "text"],
+        choices=["claim-checklist", "go-list", "json", "markdown", "shortlist-note", "text"],
         default="text",
         help="Output format.",
     )
