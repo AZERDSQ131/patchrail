@@ -6893,6 +6893,8 @@ def _render_funded_issues_fresh_text(payload: dict[str, Any]) -> str:
         (
             f"Considered: {payload['considered']}  "
             f"Fresh: {payload['fresh_count']}  "
+            f"Before limit: {payload.get('fresh_count_before_limit', payload['fresh_count'])}  "
+            f"Limit: {payload.get('limit') or 'none'}  "
             f"Skipped (no date signal): {payload['skipped_no_signal']}"
         ),
     ]
@@ -6928,6 +6930,7 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             include_closed=args.include_closed,
             solver_status=args.solver_status,
             sort_by=args.sort,
+            max_rows=args.max_rows,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue store: {exc}", file=sys.stderr)
@@ -8672,6 +8675,11 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["freshness", "solver"],
         default="freshness",
         help="Sort rows by freshness (default) or by solver status, with GO candidates first.",
+    )
+    funded_fresh.add_argument(
+        "--max-rows",
+        type=int,
+        help="Maximum fresh rows to return after filtering and sorting.",
     )
     funded_fresh.add_argument(
         "--now",

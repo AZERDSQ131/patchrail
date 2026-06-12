@@ -482,6 +482,49 @@ class FreshIssuesTests(unittest.TestCase):
             ["go_candidate", "needs_review", "no_go"],
         )
 
+    def test_max_rows_limits_after_sort_and_preserves_before_limit_count(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/70",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T10:00:00Z",  # 2h, no-go
+                attempt_count=9,
+            ),
+            _store_entry(
+                url="https://github.com/acme/repo/issues/71",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T08:00:00Z",  # 4h, go candidate
+                attempt_count=1,
+            ),
+            _store_entry(
+                url="https://github.com/acme/repo/issues/72",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T09:00:00Z",  # 3h, needs review
+                amount=None,
+                currency=None,
+            ),
+        )
+
+        payload = fresh_issues(store, self.NOW, sort_by="solver", max_rows=2)
+
+        self.assertEqual(payload["limit"], 2)
+        self.assertEqual(payload["fresh_count_before_limit"], 3)
+        self.assertEqual(payload["fresh_count"], 2)
+        self.assertEqual(
+            [row["url"] for row in payload["fresh"]],
+            [
+                "https://github.com/acme/repo/issues/71",
+                "https://github.com/acme/repo/issues/72",
+            ],
+        )
+
+    def test_invalid_max_rows_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            fresh_issues(empty_store(), self.NOW, max_rows=0)
+
     def test_closed_excluded_unless_requested(self) -> None:
         store = self._store(
             _store_entry(
@@ -682,6 +725,68 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
         self.assertEqual(payload["sort"], "solver")
         self.assertEqual(payload["fresh_count"], 1)
         self.assertEqual(payload["fresh"][0]["url"], "https://github.com/acme/repo/issues/1")
+
+    def test_fresh_cli_can_limit_rows_after_sort(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            store = empty_store()
+            store["entries"]["https://github.com/acme/repo/issues/1"] = _store_entry(
+                url="https://github.com/acme/repo/issues/1",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T10:00:00Z",
+                attempt_count=8,
+            )
+            store["entries"]["https://github.com/acme/repo/issues/2"] = _store_entry(
+                url="https://github.com/acme/repo/issues/2",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T08:00:00Z",
+                attempt_count=1,
+            )
+            save_store(store_path, store)
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store_path),
+                    "--now",
+                    "2026-06-11T12:00:00Z",
+                    "--sort",
+                    "solver",
+                    "--max-rows",
+                    "1",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["limit"], 1)
+        self.assertEqual(payload["fresh_count_before_limit"], 2)
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["url"], "https://github.com/acme/repo/issues/2")
+
+    def test_fresh_cli_rejects_zero_limit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store_path = Path(tmp) / "store.json"
+            save_store(store_path, empty_store())
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store_path),
+                    "--max-rows",
+                    "0",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("max_rows must be at least 1", proc.stderr)
 
 
 if __name__ == "__main__":
