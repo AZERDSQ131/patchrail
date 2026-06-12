@@ -16,6 +16,7 @@ inputs is idempotent -- only ``last_checked`` moves.
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -633,8 +634,11 @@ def fresh_issues(
     else:
         rows.sort(key=lambda r: r["age_hours"])
     rows_before_limit = len(rows)
+    solver_counts_before_limit = Counter(str(row["solver_status"]) for row in rows)
     if max_rows is not None:
         rows = rows[:max_rows]
+    solver_counts = Counter(str(row["solver_status"]) for row in rows)
+    solver_count_keys = ("go_candidate", "needs_review", "no_go")
     return {
         "schema_version": FRESH_SCHEMA_VERSION,
         "read_only": True,
@@ -649,6 +653,10 @@ def fresh_issues(
         "considered": len(entries),
         "fresh_count_before_limit": rows_before_limit,
         "fresh_count": len(rows),
+        "solver_counts_before_limit": {
+            key: solver_counts_before_limit.get(key, 0) for key in solver_count_keys
+        },
+        "solver_counts": {key: solver_counts.get(key, 0) for key in solver_count_keys},
         "skipped_no_signal": skipped_no_signal,
         "fresh": rows,
     }

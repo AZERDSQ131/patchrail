@@ -374,6 +374,14 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
 
         self.assertEqual(fresh_proc.returncode, 0, fresh_proc.stderr)
         payload = json.loads(fresh_proc.stdout)
+        self.assertEqual(
+            payload["solver_counts"],
+            {"go_candidate": 1, "needs_review": 1, "no_go": 1},
+        )
+        self.assertEqual(
+            payload["solver_counts_before_limit"],
+            {"go_candidate": 1, "needs_review": 1, "no_go": 1},
+        )
         actions = {row["reference"]: row["next_action"] for row in payload["fresh"]}
         self.assertEqual(actions["example/project#42"], "prepare_fix_and_claim_pr")
         self.assertEqual(actions["example/project#43"], "manual_recheck:attempts_unknown")

@@ -760,6 +760,7 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
 
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn("# PatchRail Funded Issues Fresh Radar", proc.stdout)
+        self.assertIn("- Solver counts: GO `1` | Recheck `0` | Skip `1`", proc.stdout)
         self.assertIn("| Issue | USD | Age | Owner | Solver status |", proc.stdout)
         self.assertIn("[acme/repo#1](https://github.com/acme/repo/issues/1)", proc.stdout)
         self.assertIn("$150", proc.stdout)

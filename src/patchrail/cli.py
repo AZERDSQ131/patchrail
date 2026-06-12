@@ -6885,6 +6885,7 @@ def _render_funded_issues_fresh_text(payload: dict[str, Any]) -> str:
     orgs = payload["orgs"]
     scope = "all orgs" if orgs is None else ", ".join(orgs)
     solver_scope = payload.get("solver_status") or "all solver statuses"
+    solver_counts = payload.get("solver_counts") or {}
     lines = [
         "PatchRail funded-issues fresh radar (local read-only)",
         (
@@ -6897,6 +6898,11 @@ def _render_funded_issues_fresh_text(payload: dict[str, Any]) -> str:
             f"Before limit: {payload.get('fresh_count_before_limit', payload['fresh_count'])}  "
             f"Limit: {payload.get('limit') or 'none'}  "
             f"Skipped (no date signal): {payload['skipped_no_signal']}"
+        ),
+        (
+            f"Solver counts: GO {solver_counts.get('go_candidate', 0)}  "
+            f"Recheck {solver_counts.get('needs_review', 0)}  "
+            f"Skip {solver_counts.get('no_go', 0)}"
         ),
     ]
     if not payload["fresh"]:
@@ -6970,6 +6976,7 @@ def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
     orgs = payload["orgs"]
     scope = "all orgs" if orgs is None else ", ".join(orgs)
     solver_scope = payload.get("solver_status") or "all solver statuses"
+    solver_counts = payload.get("solver_counts") or {}
     lines = [
         "# PatchRail Funded Issues Fresh Radar",
         "",
@@ -6981,6 +6988,11 @@ def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
         (
             f"- Fresh: `{payload['fresh_count']}` / "
             f"`{payload.get('fresh_count_before_limit', payload['fresh_count'])}` before limit"
+        ),
+        (
+            f"- Solver counts: GO `{solver_counts.get('go_candidate', 0)}` | "
+            f"Recheck `{solver_counts.get('needs_review', 0)}` | "
+            f"Skip `{solver_counts.get('no_go', 0)}`"
         ),
         "",
     ]
