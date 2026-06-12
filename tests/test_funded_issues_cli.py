@@ -622,6 +622,118 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("max_attempts must be at least 0", proc.stderr)
 
+    def test_funded_issues_fresh_can_filter_by_min_age_minutes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "stable-go",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Stable enough to inspect",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {"amount": 250, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:15:00+00:00",
+                                "last_seen": "2026-06-12T08:15:00+00:00",
+                                "last_checked": "2026-06-12T08:15:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/43": {
+                                "issue": {
+                                    "id": "too-new",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#43",
+                                    "issue_number": 43,
+                                    "title": "Label just appeared",
+                                    "url": "https://github.com/example/project/issues/43",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:50:00+00:00",
+                                "last_seen": "2026-06-12T08:50:00+00:00",
+                                "last_checked": "2026-06-12T08:50:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--min-age-minutes",
+                    "30",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["min_age_minutes"], 30)
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["reference"], "example/project#42")
+
+    def test_funded_issues_fresh_rejects_negative_min_age_minutes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--min-age-minutes",
+                    "-1",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("min_age_minutes must be at least 0", proc.stderr)
+
     def test_funded_issues_fresh_can_filter_by_max_assignees(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"

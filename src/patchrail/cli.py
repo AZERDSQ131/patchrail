@@ -6890,7 +6890,8 @@ def _render_funded_issues_fresh_text(payload: dict[str, Any]) -> str:
         "PatchRail funded-issues fresh radar (local read-only)",
         (
             f"Window: last {payload['window_hours']}h  Scope: {scope}  "
-            f"Solver: {solver_scope}  Sort: {payload.get('sort', 'freshness')}"
+            f"Solver: {solver_scope}  Sort: {payload.get('sort', 'freshness')}  "
+            f"Min age: {payload.get('min_age_minutes') or 0}m"
         ),
         (
             f"Considered: {payload['considered']}  "
@@ -6973,6 +6974,8 @@ def _fresh_claim_recheck_command(payload: dict[str, Any], row: dict[str, Any]) -
         parts.extend(["--max-attempts", str(payload["max_attempts"])])
     if payload.get("max_assignees") is not None:
         parts.extend(["--max-assignees", str(payload["max_assignees"])])
+    if payload.get("min_age_minutes") is not None:
+        parts.extend(["--min-age-minutes", str(payload["min_age_minutes"])])
     if payload.get("require_tests_signal"):
         parts.append("--require-tests-signal")
     parts.extend(["--format", "claim-checklist"])
@@ -7016,6 +7019,8 @@ def _fresh_readonly_recheck_command(
         parts.extend(["--max-attempts", str(payload["max_attempts"])])
     if payload.get("max_assignees") is not None:
         parts.extend(["--max-assignees", str(payload["max_assignees"])])
+    if payload.get("min_age_minutes") is not None:
+        parts.extend(["--min-age-minutes", str(payload["min_age_minutes"])])
     if payload.get("require_tests_signal"):
         parts.append("--require-tests-signal")
     parts.extend(["--format", "operator-brief"])
@@ -7063,6 +7068,7 @@ def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
         f"- Scope: `{scope}`",
         f"- Solver filter: `{solver_scope}`",
         f"- Sort: `{payload.get('sort', 'freshness')}`",
+        f"- Minimum age: `{payload.get('min_age_minutes') or 0}` minutes",
         (
             f"- Fresh: `{payload['fresh_count']}` / "
             f"`{payload.get('fresh_count_before_limit', payload['fresh_count'])}` before limit"
@@ -7117,7 +7123,8 @@ def _render_funded_issues_fresh_shortlist_note(payload: dict[str, Any]) -> str:
             f"- filtro: {payload['window_hours']}h, "
             f"{payload.get('min_usd') or 0:g}-{payload.get('max_usd') or 'inf'} USD, "
             f"solver={payload.get('solver_status') or 'all'}, "
-            f"sort={payload.get('sort', 'freshness')}"
+            f"sort={payload.get('sort', 'freshness')}, "
+            f"min_age={payload.get('min_age_minutes') or 0}m"
         ),
         f"- next_safe_action: {payload.get('next_safe_action', 'unknown')}",
     ]
@@ -7782,6 +7789,7 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             max_usd=args.max_usd,
             max_attempts=args.max_attempts,
             max_assignees=args.max_assignees,
+            min_age_minutes=args.min_age_minutes,
             require_tests_signal=args.require_tests_signal,
         )
         payload["store_path"] = str(args.store)
@@ -9606,6 +9614,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--max-assignees",
         type=int,
         help="Only include fresh rows with this many assignees or fewer. Use 0 for claim sweeps.",
+    )
+    funded_fresh.add_argument(
+        "--min-age-minutes",
+        type=int,
+        help=(
+            "Only include fresh rows at least this many minutes old. Use this to avoid "
+            "claiming before public issue signals have stabilized."
+        ),
     )
     funded_fresh.add_argument(
         "--require-tests-signal",

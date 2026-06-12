@@ -561,6 +561,7 @@ def fresh_issues(
     max_usd: float | None = None,
     max_attempts: int | None = None,
     max_assignees: int | None = None,
+    min_age_minutes: int | None = None,
     require_tests_signal: bool = False,
 ) -> dict[str, Any]:
     """List tracker entries whose bounty was posted/labeled within ``hours``.
@@ -598,8 +599,11 @@ def fresh_issues(
         raise ValueError("max_attempts must be at least 0")
     if max_assignees is not None and max_assignees < 0:
         raise ValueError("max_assignees must be at least 0")
+    if min_age_minutes is not None and min_age_minutes < 0:
+        raise ValueError("min_age_minutes must be at least 0")
 
     window = float(hours)
+    min_age_hours = None if min_age_minutes is None else min_age_minutes / 60
     entries = store.get("entries", {})
     rows: list[dict[str, Any]] = []
     skipped_no_signal = 0
@@ -616,6 +620,8 @@ def fresh_issues(
             skipped_no_signal += 1
             continue
         if age_hours < 0 or age_hours > window:
+            continue
+        if min_age_hours is not None and age_hours < min_age_hours:
             continue
         funding = issue.get("funding") or {}
         amount = funding.get("amount")
@@ -704,6 +710,7 @@ def fresh_issues(
         "max_usd": max_usd,
         "max_attempts": max_attempts,
         "max_assignees": max_assignees,
+        "min_age_minutes": min_age_minutes,
         "require_tests_signal": require_tests_signal,
         "sort": sort_by,
         "limit": max_rows,
