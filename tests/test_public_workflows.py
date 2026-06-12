@@ -284,6 +284,12 @@ def test_readme_and_quickstart_document_published_pypi_install() -> None:
             assert expected_line in real_stdin_demo
             assert expected_line in text, f"{path}: {expected_line}"
 
+    readme = surfaces["README.md"]
+    demo_gif = ROOT / "docs" / "assets" / "ci-explain-demo.gif"
+    assert "docs/assets/ci-explain-demo.gif" in readme
+    assert demo_gif.exists()
+    assert demo_gif.stat().st_size > 100_000
+
 
 def test_versioned_demo_output_matches_real_cli_output() -> None:
     proc = subprocess.run(

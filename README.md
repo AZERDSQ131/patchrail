@@ -23,7 +23,7 @@ the literal log signatures, what actually happened, and the step-by-step fix.
 
 ### 10-second reviewer demo
 
-![patchrail ci explain reading a failed CI log and emitting root cause, confidence, reproduce command, and a fix Guide URL](docs/assets/ci-explain-demo.png)
+![patchrail ci explain reading a failed CI log and emitting root cause, confidence, reproduce command, and a fix Guide URL](docs/assets/ci-explain-demo.gif)
 
 `patchrail ci explain` reads a failed CI log and prints the root cause, a
 confidence score, a one-line reproduce command, and a `Guide:` link to the
