@@ -120,6 +120,98 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertIn("automatic_pull_requests", row["blocked_actions"])
         self.assertIn("reproduction included", row["contribution_signals"])
 
+    def test_funded_issues_fresh_can_scope_from_solver_allowlist(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            allowlist = Path(tmp) / "SOLVER_ALLOWLIST.md"
+            allowlist.write_text(
+                "\n".join(
+                    [
+                        "| org/repo | evidencia |",
+                        "|---|---|",
+                        "| acme/* (org entera) | active rewards |",
+                        "| archestra-ai/archestra | active board |",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/acme/repo/issues/1": {
+                                "issue": {
+                                    "id": "allowlisted",
+                                    "platform": "github",
+                                    "repository": "acme/repo",
+                                    "reference": "acme/repo#1",
+                                    "issue_number": 1,
+                                    "title": "Fix scoped bounty",
+                                    "url": "https://github.com/acme/repo/issues/1",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/nope/repo/issues/2": {
+                                "issue": {
+                                    "id": "not-allowlisted",
+                                    "platform": "github",
+                                    "repository": "nope/repo",
+                                    "reference": "nope/repo#2",
+                                    "issue_number": 2,
+                                    "title": "Do not include",
+                                    "url": "https://github.com/nope/repo/issues/2",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--solver-allowlist",
+                    str(allowlist),
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["orgs"], ["acme", "archestra-ai"])
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["reference"], "acme/repo#1")
+        self.assertEqual(payload["solver_allowlist_path"], str(allowlist))
+
     def test_funded_issues_fresh_shortlist_note_is_memory_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"

@@ -6973,6 +6973,34 @@ def _fresh_claim_recheck_command(payload: dict[str, Any], row: dict[str, Any]) -
     return " ".join(shlex.quote(part) for part in parts)
 
 
+def _load_solver_allowlist_orgs(path: Path) -> list[str]:
+    """Extract GitHub owners from the solver allowlist Markdown table."""
+
+    orgs: list[str] = []
+    seen: set[str] = set()
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line.startswith("|"):
+            continue
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
+        if not cells:
+            continue
+        target = cells[0].strip("` ")
+        if not target or target.lower() == "org/repo" or set(target) <= {"-", ":"}:
+            continue
+        target = target.split()[0].strip("` ")
+        match = re.match(r"^(?P<owner>[A-Za-z0-9_.-]+)/(?:\*|[A-Za-z0-9_.-]+)$", target)
+        if not match:
+            continue
+        owner = match.group("owner").lower()
+        if owner not in seen:
+            seen.add(owner)
+            orgs.append(owner)
+    if not orgs:
+        raise ValueError(f"no solver allowlist orgs found in {path}")
+    return orgs
+
+
 def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
     orgs = payload["orgs"]
     scope = "all orgs" if orgs is None else ", ".join(orgs)
@@ -7247,11 +7275,14 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
     now = args.now or _now_iso()
     try:
         store = load_store(args.store)
+        orgs = list(args.orgs or [])
+        if args.solver_allowlist is not None:
+            orgs.extend(_load_solver_allowlist_orgs(args.solver_allowlist))
         payload = fresh_issues(
             store,
             now,
             hours=args.hours,
-            orgs=args.orgs,
+            orgs=orgs or None,
             include_closed=args.include_closed,
             solver_status=args.solver_status,
             sort_by=args.sort,
@@ -7260,6 +7291,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             max_usd=args.max_usd,
         )
         payload["store_path"] = str(args.store)
+        if args.solver_allowlist is not None:
+            payload["solver_allowlist_path"] = str(args.solver_allowlist)
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue store: {exc}", file=sys.stderr)
         return 1
@@ -8999,6 +9032,11 @@ def _build_parser() -> argparse.ArgumentParser:
         metavar="ORG",
         help="Restrict to this funding org/owner (repeatable). Defaults to all orgs "
         "in the store. Pass the allowlist orgs to cross-reference them.",
+    )
+    funded_fresh.add_argument(
+        "--solver-allowlist",
+        type=Path,
+        help="Markdown allowlist whose first table column contains org/* or org/repo entries.",
     )
     funded_fresh.add_argument(
         "--include-closed",
