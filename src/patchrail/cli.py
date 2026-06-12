@@ -6971,6 +6971,8 @@ def _fresh_claim_recheck_command(payload: dict[str, Any], row: dict[str, Any]) -
         parts.extend(["--max-usd", f"{float(payload['max_usd']):g}"])
     if payload.get("max_attempts") is not None:
         parts.extend(["--max-attempts", str(payload["max_attempts"])])
+    if payload.get("max_assignees") is not None:
+        parts.extend(["--max-assignees", str(payload["max_assignees"])])
     parts.extend(["--format", "claim-checklist"])
     return " ".join(shlex.quote(part) for part in parts)
 
@@ -7010,6 +7012,8 @@ def _fresh_readonly_recheck_command(
         parts.extend(["--max-usd", f"{float(payload['max_usd']):g}"])
     if payload.get("max_attempts") is not None:
         parts.extend(["--max-attempts", str(payload["max_attempts"])])
+    if payload.get("max_assignees") is not None:
+        parts.extend(["--max-assignees", str(payload["max_assignees"])])
     parts.extend(["--format", "operator-brief"])
     return " ".join(shlex.quote(part) for part in parts)
 
@@ -7722,6 +7726,7 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             min_usd=args.min_usd,
             max_usd=args.max_usd,
             max_attempts=args.max_attempts,
+            max_assignees=args.max_assignees,
         )
         payload["store_path"] = str(args.store)
         if args.solver_allowlist is not None:
@@ -9538,6 +9543,11 @@ def _build_parser() -> argparse.ArgumentParser:
             "Only include fresh rows with a known attempt count at or below this value. "
             "Use 3 for solver-lane claim sweeps."
         ),
+    )
+    funded_fresh.add_argument(
+        "--max-assignees",
+        type=int,
+        help="Only include fresh rows with this many assignees or fewer. Use 0 for claim sweeps.",
     )
     funded_fresh.add_argument(
         "--now",

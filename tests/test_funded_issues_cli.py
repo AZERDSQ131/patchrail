@@ -622,6 +622,119 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn("max_attempts must be at least 0", proc.stderr)
 
+    def test_funded_issues_fresh_can_filter_by_max_assignees(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "fresh-open",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Fresh unassigned bounty",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 1,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/43": {
+                                "issue": {
+                                    "id": "assigned",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#43",
+                                    "issue_number": 43,
+                                    "title": "Already assigned bounty",
+                                    "url": "https://github.com/example/project/issues/43",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 1,
+                                    "assignee": "alice",
+                                },
+                                "first_seen": "2026-06-12T08:10:00+00:00",
+                                "last_seen": "2026-06-12T08:10:00+00:00",
+                                "last_checked": "2026-06-12T08:10:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--max-assignees",
+                    "0",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["max_assignees"], 0)
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["reference"], "example/project#42")
+
+    def test_funded_issues_fresh_rejects_negative_max_assignees(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--max-assignees",
+                    "-1",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("max_assignees must be at least 0", proc.stderr)
+
     def test_funded_issues_fresh_can_signal_go_candidate_with_exit_code(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"

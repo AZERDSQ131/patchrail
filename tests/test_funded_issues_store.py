@@ -562,6 +562,33 @@ class FreshIssuesTests(unittest.TestCase):
             ["assigned", "attempts_unknown"],
         )
 
+    def test_max_assignees_filters_claimed_rows(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/32",
+                repository="acme/repo",
+                first_seen="2026-06-11T06:00:00Z",
+                attempt_count=1,
+            ),
+            _store_entry(
+                url="https://github.com/acme/repo/issues/33",
+                repository="acme/repo",
+                first_seen="2026-06-11T06:00:00Z",
+                attempt_count=1,
+                assignee="alice",
+            ),
+        )
+
+        payload = fresh_issues(store, self.NOW, max_assignees=0)
+
+        self.assertEqual(payload["max_assignees"], 0)
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["url"], "https://github.com/acme/repo/issues/32")
+
+    def test_invalid_max_assignees_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            fresh_issues(empty_store(), self.NOW, max_assignees=-1)
+
     def test_solver_status_blocks_assigned_over_attempted_and_out_of_range_rows(self) -> None:
         store = self._store(
             _store_entry(
