@@ -7387,6 +7387,83 @@ def _render_funded_issues_fresh_claim_packet(payload: dict[str, Any]) -> str:
     return _json_dump(packet)
 
 
+def _fresh_branch_slug(row: dict[str, Any]) -> str:
+    reference = str(row.get("reference") or row.get("url") or "funded-issue").lower()
+    slug = re.sub(r"[^a-z0-9]+", "-", reference).strip("-")
+    return (slug or "funded-issue")[:64].strip("-")
+
+
+def _render_funded_issues_fresh_solver_brief(payload: dict[str, Any]) -> str:
+    rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
+    lines = [
+        "# PatchRail funded-issues solver brief",
+        "",
+        "- Mode: local read-only preparation; no GitHub writes.",
+        f"- Window: `{payload['window_hours']}h`",
+        f"- GO candidates: `{len(rows)}`",
+        f"- Next safe action: `{payload.get('next_safe_action', 'unknown')}`",
+    ]
+    if not rows:
+        lines.extend(
+            [
+                "",
+                "No claim-safe solver candidate is available in the current fresh window.",
+            ]
+        )
+        return "\n".join(lines) + "\n"
+
+    for index, row in enumerate(rows, start=1):
+        repo = _fresh_repo_from_row(row)
+        issue_number = _fresh_claim_issue_number(row)
+        branch = f"patchrail/{_fresh_branch_slug(row)}"
+        title = str(row.get("title") or "").strip()
+        attempts = row.get("attempt_count")
+        attempts_text = "n/a" if attempts is None else str(attempts)
+        lines.extend(
+            [
+                "",
+                f"## Candidate {index}: {row.get('reference') or row.get('url') or 'unknown'}",
+                "",
+                f"- URL: {row.get('url') or 'no-url'}",
+                *([f"- Title: {title}"] if title else []),
+                f"- Repo: `{repo}`",
+                f"- Issue: `#{issue_number}`",
+                f"- Funding: `{row.get('funding_display') or 'unknown'}`",
+                f"- Age: `{float(row['age_hours']):.1f}h via {row['age_basis']}`",
+                f"- Attempts: `{attempts_text}`",
+                f"- Assignees: `{row.get('assignee_count', 0)}`",
+                f"- Branch: `{branch}`",
+                "",
+                "### Required local checks before PR",
+                "",
+                (
+                    "1. Re-open the issue and confirm no assignee, reservation, maintainer "
+                    "stop signal, or newer competing PR."
+                ),
+                "2. Inspect the failing path and implement the smallest fix.",
+                "3. Run the repo's targeted tests first, then the relevant full suite.",
+                "4. Open a PR only after local checks pass; add `/claim` only in the ready PR.",
+                "",
+                "### Read-only commands",
+                "",
+                "```bash",
+                (
+                    f"gh issue view {shlex.quote(issue_number)} --repo {shlex.quote(repo)} "
+                    "--json state,assignees,comments,labels,updatedAt"
+                ),
+                _fresh_claim_recheck_command(payload, row),
+                "```",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "Boundary: no automatic PR, claim comment, issue comment, or maintainer contact.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
 def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
     rows = [row for row in payload["fresh"] if row.get("solver_status") == "go_candidate"]
     lines = [
@@ -7601,6 +7678,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_claim_checklist(payload)
     elif args.format == "claim-packet":
         text = _render_funded_issues_fresh_claim_packet(payload)
+    elif args.format == "solver-brief":
+        text = _render_funded_issues_fresh_solver_brief(payload)
     elif args.format == "action-queue":
         text = _render_funded_issues_fresh_action_queue(payload)
     elif args.format == "operator-brief":
@@ -9402,6 +9481,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "recheck-commands",
             "signal",
             "shortlist-note",
+            "solver-brief",
             "text",
             "urls",
         ],
