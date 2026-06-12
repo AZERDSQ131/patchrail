@@ -7060,6 +7060,44 @@ def _load_solver_allowlist_orgs(path: Path) -> list[str]:
     return orgs
 
 
+def _default_solver_allowlist_path() -> Path | None:
+    for base in (Path.cwd(), *Path.cwd().parents):
+        candidate = base / "memory" / "SOLVER_ALLOWLIST.md"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _apply_fresh_quality_profile(args: argparse.Namespace) -> Path | None:
+    if args.quality_profile is None:
+        return args.solver_allowlist
+    if args.quality_profile != "solver":
+        raise ValueError(f"unsupported quality profile: {args.quality_profile}")
+
+    if args.min_usd is None:
+        args.min_usd = 25
+    if args.max_usd is None:
+        args.max_usd = 300
+    if args.max_attempts is None:
+        args.max_attempts = 3
+    if args.min_age_minutes is None:
+        args.min_age_minutes = 10
+    if args.max_updated_age_hours is None:
+        args.max_updated_age_hours = 168
+    args.require_tests_signal = True
+
+    if args.solver_allowlist is not None:
+        return args.solver_allowlist
+    allowlist = _default_solver_allowlist_path()
+    if allowlist is None:
+        raise ValueError(
+            "--quality-profile solver requires --solver-allowlist when memory/SOLVER_ALLOWLIST.md "
+            "cannot be found from the current directory"
+        )
+    args.solver_allowlist = allowlist
+    return allowlist
+
+
 def _render_funded_issues_fresh_markdown(payload: dict[str, Any]) -> str:
     orgs = payload["orgs"]
     scope = "all orgs" if orgs is None else ", ".join(orgs)
@@ -7781,10 +7819,11 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             return 1
         solver_status = "go_candidate"
     try:
+        solver_allowlist = _apply_fresh_quality_profile(args)
         store = load_store(args.store)
         orgs = list(args.orgs or [])
-        if args.solver_allowlist is not None:
-            orgs.extend(_load_solver_allowlist_orgs(args.solver_allowlist))
+        if solver_allowlist is not None:
+            orgs.extend(_load_solver_allowlist_orgs(solver_allowlist))
         payload = fresh_issues(
             store,
             now,
@@ -7803,8 +7842,9 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             require_tests_signal=args.require_tests_signal,
         )
         payload["store_path"] = str(args.store)
-        if args.solver_allowlist is not None:
-            payload["solver_allowlist_path"] = str(args.solver_allowlist)
+        payload["quality_profile"] = args.quality_profile
+        if solver_allowlist is not None:
+            payload["solver_allowlist_path"] = str(solver_allowlist)
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue store: {exc}", file=sys.stderr)
         return 1
@@ -9575,6 +9615,15 @@ def _build_parser() -> argparse.ArgumentParser:
         "--solver-allowlist",
         type=Path,
         help="Markdown allowlist whose first table column contains org/* or org/repo entries.",
+    )
+    funded_fresh.add_argument(
+        "--quality-profile",
+        choices=["solver"],
+        help=(
+            "Apply a named local quality preset. 'solver' scopes to the solver allowlist "
+            "and applies USD 25-300, attempts<=3, min age 10m, updated<=168h, "
+            "and public testability-signal filters."
+        ),
     )
     funded_fresh.add_argument(
         "--include-closed",

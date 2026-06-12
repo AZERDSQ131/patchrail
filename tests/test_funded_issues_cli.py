@@ -213,6 +213,153 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(payload["fresh"][0]["reference"], "acme/repo#1")
         self.assertEqual(payload["solver_allowlist_path"], str(allowlist))
 
+    def test_funded_issues_fresh_solver_quality_profile_applies_claim_filters(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            allowlist = Path(tmp) / "SOLVER_ALLOWLIST.md"
+            allowlist.write_text(
+                "\n".join(
+                    [
+                        "| org/repo | evidencia |",
+                        "|---|---|",
+                        "| acme/* | active rewards |",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/acme/repo/issues/1": {
+                                "issue": {
+                                    "id": "profile-go",
+                                    "platform": "github",
+                                    "repository": "acme/repo",
+                                    "reference": "acme/repo#1",
+                                    "issue_number": 1,
+                                    "title": "Fix deterministic CI failure",
+                                    "url": "https://github.com/acme/repo/issues/1",
+                                    "updated_at": "2026-06-12T08:30:00+00:00",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 1,
+                                    "contribution_signals": ["failing test included"],
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/acme/repo/issues/2": {
+                                "issue": {
+                                    "id": "too-expensive",
+                                    "platform": "github",
+                                    "repository": "acme/repo",
+                                    "reference": "acme/repo#2",
+                                    "issue_number": 2,
+                                    "title": "Large refactor",
+                                    "url": "https://github.com/acme/repo/issues/2",
+                                    "updated_at": "2026-06-12T08:30:00+00:00",
+                                    "funding": {"amount": 500, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 1,
+                                    "contribution_signals": ["reproduction included"],
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/acme/repo/issues/3": {
+                                "issue": {
+                                    "id": "no-tests",
+                                    "platform": "github",
+                                    "repository": "acme/repo",
+                                    "reference": "acme/repo#3",
+                                    "issue_number": 3,
+                                    "title": "Clarify UI",
+                                    "url": "https://github.com/acme/repo/issues/3",
+                                    "updated_at": "2026-06-12T08:30:00+00:00",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 1,
+                                    "contribution_signals": ["contribution guide linked"],
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/nope/repo/issues/4": {
+                                "issue": {
+                                    "id": "not-allowlisted",
+                                    "platform": "github",
+                                    "repository": "nope/repo",
+                                    "reference": "nope/repo#4",
+                                    "issue_number": 4,
+                                    "title": "Fix scoped bounty",
+                                    "url": "https://github.com/nope/repo/issues/4",
+                                    "updated_at": "2026-06-12T08:30:00+00:00",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 1,
+                                    "contribution_signals": ["failing test included"],
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--solver-allowlist",
+                    str(allowlist),
+                    "--quality-profile",
+                    "solver",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "json",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        payload = json.loads(proc.stdout)
+        self.assertEqual(payload["quality_profile"], "solver")
+        self.assertEqual(payload["orgs"], ["acme"])
+        self.assertEqual(payload["min_usd"], 25)
+        self.assertEqual(payload["max_usd"], 300)
+        self.assertEqual(payload["max_attempts"], 3)
+        self.assertEqual(payload["min_age_minutes"], 10)
+        self.assertEqual(payload["max_updated_age_hours"], 168)
+        self.assertEqual(payload["require_tests_signal"], True)
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(payload["fresh"][0]["reference"], "acme/repo#1")
+
     def test_funded_issues_fresh_shortlist_note_is_memory_ready(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"
