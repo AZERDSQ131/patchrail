@@ -438,6 +438,49 @@ class FreshIssuesTests(unittest.TestCase):
         ages = [row["age_hours"] for row in payload["fresh"]]
         self.assertEqual(ages, sorted(ages))
         self.assertEqual(payload["orgs"], ["acme"])
+        self.assertEqual(payload["sort"], "freshness")
+
+    def test_solver_sort_prioritizes_go_candidates_then_freshness(self) -> None:
+        store = self._store(
+            _store_entry(
+                url="https://github.com/acme/repo/issues/60",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T11:00:00Z",  # 1h but too contested
+                attempt_count=9,
+            ),
+            _store_entry(
+                url="https://github.com/acme/repo/issues/61",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T06:00:00Z",  # 6h and clean GO
+                attempt_count=1,
+            ),
+            _store_entry(
+                url="https://github.com/acme/repo/issues/62",
+                repository="acme/repo",
+                first_seen="2026-06-11T00:00:00Z",
+                created_at="2026-06-11T04:00:00Z",  # 8h and needs manual review
+                amount=None,
+                currency=None,
+            ),
+        )
+
+        payload = fresh_issues(store, self.NOW, sort_by="solver")
+
+        self.assertEqual(payload["sort"], "solver")
+        self.assertEqual(
+            [row["url"] for row in payload["fresh"]],
+            [
+                "https://github.com/acme/repo/issues/61",
+                "https://github.com/acme/repo/issues/62",
+                "https://github.com/acme/repo/issues/60",
+            ],
+        )
+        self.assertEqual(
+            [row["solver_status"] for row in payload["fresh"]],
+            ["go_candidate", "needs_review", "no_go"],
+        )
 
     def test_closed_excluded_unless_requested(self) -> None:
         store = self._store(
@@ -539,6 +582,10 @@ class FreshIssuesTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             fresh_issues(empty_store(), self.NOW, solver_status="maybe")
 
+    def test_invalid_sort_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            fresh_issues(empty_store(), self.NOW, sort_by="maybe")
+
     def test_invalid_now_raises(self) -> None:
         with self.assertRaises(ValueError):
             fresh_issues(empty_store(), "not-a-timestamp")
@@ -622,6 +669,8 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
                     "2026-06-11T12:00:00Z",
                     "--solver-status",
                     "go_candidate",
+                    "--sort",
+                    "solver",
                     "--format",
                     "json",
                 ]
@@ -630,6 +679,7 @@ class FundedIssuesFreshCliTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["solver_status"], "go_candidate")
+        self.assertEqual(payload["sort"], "solver")
         self.assertEqual(payload["fresh_count"], 1)
         self.assertEqual(payload["fresh"][0]["url"], "https://github.com/acme/repo/issues/1")
 

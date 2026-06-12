@@ -520,6 +520,7 @@ def fresh_issues(
     orgs: list[str] | None = None,
     include_closed: bool = False,
     solver_status: str | None = None,
+    sort_by: str = "freshness",
 ) -> dict[str, Any]:
     """List tracker entries whose bounty was posted/labeled within ``hours``.
 
@@ -541,6 +542,9 @@ def fresh_issues(
         raise ValueError(
             "solver_status must be one of: " + ", ".join(sorted(allowed_solver_statuses))
         )
+    allowed_sorts = {"freshness", "solver"}
+    if sort_by not in allowed_sorts:
+        raise ValueError("sort_by must be one of: " + ", ".join(sorted(allowed_sorts)))
 
     window = float(hours)
     entries = store.get("entries", {})
@@ -588,7 +592,11 @@ def fresh_issues(
             }
         )
 
-    rows.sort(key=lambda r: r["age_hours"])
+    if sort_by == "solver":
+        solver_rank = {"go_candidate": 0, "needs_review": 1, "no_go": 2}
+        rows.sort(key=lambda r: (solver_rank.get(str(r["solver_status"]), 99), r["age_hours"]))
+    else:
+        rows.sort(key=lambda r: r["age_hours"])
     return {
         "schema_version": FRESH_SCHEMA_VERSION,
         "read_only": True,
@@ -596,6 +604,7 @@ def fresh_issues(
         "window_hours": hours,
         "orgs": sorted(org_filter) if org_filter is not None else None,
         "solver_status": solver_status_filter,
+        "sort": sort_by,
         "considered": len(entries),
         "fresh_count": len(rows),
         "skipped_no_signal": skipped_no_signal,

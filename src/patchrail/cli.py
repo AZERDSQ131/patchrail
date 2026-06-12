@@ -6886,7 +6886,10 @@ def _render_funded_issues_fresh_text(payload: dict[str, Any]) -> str:
     solver_scope = payload.get("solver_status") or "all solver statuses"
     lines = [
         "PatchRail funded-issues fresh radar (local read-only)",
-        f"Window: last {payload['window_hours']}h  Scope: {scope}  Solver: {solver_scope}",
+        (
+            f"Window: last {payload['window_hours']}h  Scope: {scope}  "
+            f"Solver: {solver_scope}  Sort: {payload.get('sort', 'freshness')}"
+        ),
         (
             f"Considered: {payload['considered']}  "
             f"Fresh: {payload['fresh_count']}  "
@@ -6924,6 +6927,7 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             orgs=args.orgs,
             include_closed=args.include_closed,
             solver_status=args.solver_status,
+            sort_by=args.sort,
         )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid funded issue store: {exc}", file=sys.stderr)
@@ -8662,6 +8666,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--solver-status",
         choices=["go_candidate", "needs_review", "no_go"],
         help="Restrict fresh rows to one local solver status.",
+    )
+    funded_fresh.add_argument(
+        "--sort",
+        choices=["freshness", "solver"],
+        default="freshness",
+        help="Sort rows by freshness (default) or by solver status, with GO candidates first.",
     )
     funded_fresh.add_argument(
         "--now",
