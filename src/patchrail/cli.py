@@ -7133,12 +7133,18 @@ def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
         reference = row.get("reference") or row.get("url") or "unknown"
         funding = row.get("funding_display") or "unknown"
         title = str(row.get("title") or "").strip()
+        attempts = row.get("attempt_count")
+        attempts_text = "n/a" if attempts is None else str(attempts)
+        blockers = ", ".join(row.get("go_blockers") or ["none"])
         lines.extend(
             [
                 "",
                 f"{index}. {reference} - {funding}",
                 f"   URL: {row.get('url') or 'no-url'}",
                 f"   Age: {float(row['age_hours']):.1f}h via {row['age_basis']}",
+                f"   Attempts: {attempts_text}",
+                f"   Assignees: {row.get('assignee_count', 0)}",
+                f"   GO blockers: {blockers}",
                 f"   Action code: {row.get('next_action', 'prepare_fix_and_claim_pr')}",
                 f"   Recheck command: {_fresh_claim_recheck_command(payload, row)}",
                 "   Claim gate:",
