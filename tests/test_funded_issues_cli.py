@@ -267,6 +267,8 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
             )
 
         self.assertEqual(fresh_proc.returncode, 0, fresh_proc.stderr)
+        self.assertIn("Next safe action: prepare_fix_and_claim_pr", fresh_proc.stdout)
+        self.assertIn("Action code: prepare_fix_and_claim_pr", fresh_proc.stdout)
         self.assertIn("Recheck command: patchrail funded-issues fresh", fresh_proc.stdout)
         self.assertIn(f"--store {store}", fresh_proc.stdout)
         self.assertIn("--org example", fresh_proc.stdout)

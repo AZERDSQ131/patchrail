@@ -7096,6 +7096,7 @@ def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
     lines = [
         "PatchRail funded-issues claim checklist",
         (f"Window: {payload['window_hours']}h  Fresh: {payload['fresh_count']}  GO: {len(rows)}"),
+        f"Next safe action: {payload.get('next_safe_action', 'unknown')}",
     ]
     if not rows:
         lines.append("No claim-safe solver candidates in the current fresh window.")
@@ -7110,6 +7111,7 @@ def _render_funded_issues_fresh_claim_checklist(payload: dict[str, Any]) -> str:
                 f"{index}. {reference} - {funding}",
                 f"   URL: {row.get('url') or 'no-url'}",
                 f"   Age: {float(row['age_hours']):.1f}h via {row['age_basis']}",
+                f"   Action code: {row.get('next_action', 'prepare_fix_and_claim_pr')}",
                 f"   Recheck command: {_fresh_claim_recheck_command(payload, row)}",
                 "   Claim gate:",
                 "   - Re-open issue and confirm no assignee, no reservation, no maintainer stop signal.",
