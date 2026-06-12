@@ -1662,6 +1662,112 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertNotIn("gh issue comment", proc.stdout)
         self.assertNotIn("/claim", proc.stdout)
 
+    def test_funded_issues_fresh_exports_short_read_only_digest(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "fresh-go",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Fix deterministic CI failure",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {
+                                        "amount": 250,
+                                        "currency": "USD",
+                                        "display": "250 USD",
+                                    },
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/43": {
+                                "issue": {
+                                    "id": "needs-review",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#43",
+                                    "issue_number": 43,
+                                    "title": "Clarify flaky integration test",
+                                    "url": "https://github.com/example/project/issues/43",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                },
+                                "first_seen": "2026-06-12T08:10:00+00:00",
+                                "last_seen": "2026-06-12T08:10:00+00:00",
+                                "last_checked": "2026-06-12T08:10:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/44": {
+                                "issue": {
+                                    "id": "skip",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#44",
+                                    "issue_number": 44,
+                                    "title": "Rewrite the whole CLI",
+                                    "url": "https://github.com/example/project/issues/44",
+                                    "funding": {"amount": 500, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                    "attempt_count": 7,
+                                },
+                                "first_seen": "2026-06-12T08:20:00+00:00",
+                                "last_seen": "2026-06-12T08:20:00+00:00",
+                                "last_checked": "2026-06-12T08:20:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "digest",
+                ]
+            )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(len(proc.stdout.splitlines()), 8)
+        self.assertIn("CLAIM_READY: fresh=3 go=1 recheck=1 skip=1", proc.stdout)
+        self.assertIn("Candidate: example/project#42 (250 USD)", proc.stdout)
+        self.assertIn("Recheck: gh issue view 42 --repo example/project", proc.stdout)
+        self.assertIn("Boundary: read-only digest", proc.stdout)
+        self.assertNotIn("gh pr create", proc.stdout)
+        self.assertNotIn("gh issue comment", proc.stdout)
+        self.assertNotIn("/claim", proc.stdout)
+
     def test_funded_issues_fresh_exports_claim_packet_for_solver_worker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"

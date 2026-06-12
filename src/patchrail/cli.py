@@ -7299,6 +7299,56 @@ def _render_funded_issues_fresh_one_line(payload: dict[str, Any]) -> str:
     )
 
 
+def _render_funded_issues_fresh_digest(payload: dict[str, Any]) -> str:
+    solver_counts = payload.get("solver_counts") or {}
+    rows = list(payload["fresh"])
+    go_rows = [row for row in rows if row.get("solver_status") == "go_candidate"]
+    review_rows = [row for row in rows if row.get("solver_status") == "needs_review"]
+    if go_rows:
+        state = "CLAIM_READY"
+        first = go_rows[0]
+    elif review_rows:
+        state = "RECHECK_ONLY"
+        first = review_rows[0]
+    elif rows:
+        state = "SKIP_ONLY"
+        first = rows[0]
+    else:
+        state = "WAIT"
+        first = {}
+
+    lines = [
+        f"{state}: fresh={payload['fresh_count']} go={solver_counts.get('go_candidate', 0)} "
+        f"recheck={solver_counts.get('needs_review', 0)} skip={solver_counts.get('no_go', 0)}",
+        f"Next: {payload.get('next_safe_action', 'unknown')}",
+    ]
+    if not first:
+        lines.append("Candidate: none")
+        return "\n".join(lines) + "\n"
+
+    reference = first.get("reference") or first.get("url") or "unknown"
+    blockers = ", ".join(first.get("go_blockers") or ["none"])
+    lines.extend(
+        [
+            f"Candidate: {reference} ({first.get('funding_display') or 'unknown'})",
+            f"URL: {first.get('url') or 'no-url'}",
+            f"Age: {float(first['age_hours']):.1f}h via {first['age_basis']}",
+            f"Blockers: {blockers}",
+        ]
+    )
+    status = str(first.get("solver_status") or "needs_review")
+    if status in {"go_candidate", "needs_review"}:
+        repo = _fresh_repo_from_row(first)
+        issue_number = _fresh_claim_issue_number(first)
+        lines.append(
+            "Recheck: "
+            f"gh issue view {shlex.quote(issue_number)} --repo {shlex.quote(repo)} "
+            "--json state,assignees,comments,labels,updatedAt"
+        )
+    lines.append("Boundary: read-only digest; no PR, claim, comment, or maintainer contact.")
+    return "\n".join(lines) + "\n"
+
+
 def _github_annotation_escape(value: Any) -> str:
     text = "" if value is None else str(value)
     return (
@@ -7752,6 +7802,8 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
         text = _render_funded_issues_fresh_env(payload)
     elif args.format == "signal":
         text = _render_funded_issues_fresh_signal(payload)
+    elif args.format == "digest":
+        text = _render_funded_issues_fresh_digest(payload)
     elif args.format == "one-line":
         text = _render_funded_issues_fresh_one_line(payload)
     elif args.format == "github-annotations":
@@ -9574,6 +9626,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "claim-checklist",
             "claim-packet",
             "csv",
+            "digest",
             "env",
             "go-list",
             "github-annotations",
