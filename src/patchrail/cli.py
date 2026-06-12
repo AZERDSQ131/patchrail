@@ -7309,6 +7309,12 @@ def _render_funded_issues_fresh_operator_brief(payload: dict[str, Any]) -> str:
 
 def _funded_issues_fresh(args: argparse.Namespace) -> int:
     now = args.now or _now_iso()
+    solver_status = args.solver_status
+    if args.go_only:
+        if solver_status not in (None, "go_candidate"):
+            print("--go-only cannot be combined with a non-GO --solver-status", file=sys.stderr)
+            return 1
+        solver_status = "go_candidate"
     try:
         store = load_store(args.store)
         orgs = list(args.orgs or [])
@@ -7320,7 +7326,7 @@ def _funded_issues_fresh(args: argparse.Namespace) -> int:
             hours=args.hours,
             orgs=orgs or None,
             include_closed=args.include_closed,
-            solver_status=args.solver_status,
+            solver_status=solver_status,
             sort_by=args.sort,
             max_rows=args.max_rows,
             min_usd=args.min_usd,
@@ -9089,6 +9095,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--solver-status",
         choices=["go_candidate", "needs_review", "no_go"],
         help="Restrict fresh rows to one local solver status.",
+    )
+    funded_fresh.add_argument(
+        "--go-only",
+        action="store_true",
+        help="Shortcut for --solver-status go_candidate; keeps fresh radar output claim-focused.",
     )
     funded_fresh.add_argument(
         "--sort",

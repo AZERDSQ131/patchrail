@@ -590,6 +590,109 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
         self.assertEqual(skip_payload["solver_counts"]["go_candidate"], 0)
         self.assertEqual(skip_payload["solver_counts"]["no_go"], 1)
 
+    def test_funded_issues_fresh_go_only_filters_to_claim_ready_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            store = Path(tmp) / "store.json"
+            store.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.funded_issues.store.v1",
+                        "source_schema_version": "patchrail.funded_issues.v1",
+                        "read_only": True,
+                        "blocked_actions": [],
+                        "requirements": {"network_required": False},
+                        "entries": {
+                            "https://github.com/example/project/issues/42": {
+                                "issue": {
+                                    "id": "fresh-go",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#42",
+                                    "issue_number": 42,
+                                    "title": "Fix deterministic CI failure",
+                                    "url": "https://github.com/example/project/issues/42",
+                                    "funding": {
+                                        "amount": 250,
+                                        "currency": "USD",
+                                        "display": "250 USD",
+                                    },
+                                    "opportunity_state": "active",
+                                    "attempt_count": 0,
+                                },
+                                "first_seen": "2026-06-12T08:00:00+00:00",
+                                "last_seen": "2026-06-12T08:00:00+00:00",
+                                "last_checked": "2026-06-12T08:00:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                            "https://github.com/example/project/issues/43": {
+                                "issue": {
+                                    "id": "needs-review",
+                                    "platform": "github",
+                                    "repository": "example/project",
+                                    "reference": "example/project#43",
+                                    "issue_number": 43,
+                                    "title": "Clarify flaky integration test",
+                                    "url": "https://github.com/example/project/issues/43",
+                                    "funding": {"amount": 100, "currency": "USD"},
+                                    "opportunity_state": "active",
+                                },
+                                "first_seen": "2026-06-12T08:10:00+00:00",
+                                "last_seen": "2026-06-12T08:10:00+00:00",
+                                "last_checked": "2026-06-12T08:10:00+00:00",
+                                "state": "active",
+                                "state_history": [],
+                                "noise_flags": [],
+                            },
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            go_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--format",
+                    "json",
+                    "--go-only",
+                ]
+            )
+            conflict_proc = run_patchrail(
+                [
+                    "funded-issues",
+                    "fresh",
+                    "--store",
+                    str(store),
+                    "--hours",
+                    "48",
+                    "--now",
+                    "2026-06-12T09:00:00+00:00",
+                    "--solver-status",
+                    "no_go",
+                    "--go-only",
+                ]
+            )
+
+        self.assertEqual(go_proc.returncode, 0, go_proc.stderr)
+        payload = json.loads(go_proc.stdout)
+        self.assertEqual(payload["solver_status"], "go_candidate")
+        self.assertEqual(payload["fresh_count"], 1)
+        self.assertEqual(
+            payload["solver_counts"], {"go_candidate": 1, "needs_review": 0, "no_go": 0}
+        )
+        self.assertEqual(payload["fresh"][0]["reference"], "example/project#42")
+        self.assertEqual(conflict_proc.returncode, 1)
+        self.assertIn("--go-only cannot be combined", conflict_proc.stderr)
+
     def test_funded_issues_fresh_exports_csv_and_jsonl_for_operator_pipelines(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             store = Path(tmp) / "store.json"
