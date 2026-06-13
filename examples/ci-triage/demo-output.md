@@ -15,6 +15,7 @@ uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-fail
 - Reproduce: `python -m pip install -r requirements.txt`
 - Suggested action: Pin or relax the conflicting dependency range, then rerun the same install command and the affected tests.
 - Guide: https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution
+- Pack: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-dependency-resolution
 
 ## Evidence signals
 

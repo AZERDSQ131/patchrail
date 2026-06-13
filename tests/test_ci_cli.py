@@ -10,7 +10,7 @@ from io import StringIO
 from pathlib import Path
 
 from patchrail.ci.classify import RULES
-from patchrail.cli import _FIX_GUIDE_SLUGS, _fix_guide_url, main
+from patchrail.cli import _FIX_GUIDE_SLUGS, _ci_triage_pack_url, _fix_guide_url, main
 
 
 class PatchRailCITests(unittest.TestCase):
@@ -1581,6 +1581,11 @@ class PatchRailCITests(unittest.TestCase):
                 "?utm_source=cli&utm_campaign=python-test-failure",
                 stdout.getvalue(),
             )
+            self.assertIn(
+                "Pack: https://patchrail.gumroad.com/l/ci-failure-triage"
+                "?utm_source=cli&utm_campaign=python-test-failure",
+                stdout.getvalue(),
+            )
 
     def test_ci_explain_links_index_for_unknown_class(self) -> None:
         result = subprocess.run(
@@ -1591,6 +1596,11 @@ class PatchRailCITests(unittest.TestCase):
             check=True,
         )
         self.assertIn("Guide: https://getpatchrail.com/fix?utm_source=cli", result.stdout)
+        self.assertIn(
+            "Pack: https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=cli&utm_campaign=index",
+            result.stdout,
+        )
         self.assertNotIn("/fix/", result.stdout)
 
 
@@ -1638,6 +1648,22 @@ class FixGuideSlugConsistencyTests(unittest.TestCase):
             url = _fix_guide_url(slug.replace("-", "_"))
             self.assertEqual(url, "https://getpatchrail.com/fix?utm_source=cli")
             self.assertNotIn("/fix/", url)
+
+    def test_pack_url_uses_failure_class_campaign_for_known_guides(self) -> None:
+        for slug in sorted(_FIX_GUIDE_SLUGS):
+            failure_class = slug.replace("-", "_")
+            url = _ci_triage_pack_url(failure_class)
+            self.assertEqual(
+                url,
+                "https://patchrail.gumroad.com/l/ci-failure-triage"
+                f"?utm_source=cli&utm_campaign={slug}",
+            )
+
+    def test_pack_url_uses_index_campaign_for_unknown_or_unlisted_classes(self) -> None:
+        self.assertEqual(
+            _ci_triage_pack_url("unknown"),
+            "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=index",
+        )
 
 
 if __name__ == "__main__":
