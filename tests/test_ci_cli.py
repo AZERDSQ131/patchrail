@@ -360,8 +360,7 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(
             payload["action_url"],
-            "https://github.com/patchrail/ci-triage-action"
-            "?utm_source=cli&utm_campaign=python-lint",
+            "https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-lint",
         )
 
     def test_ci_classify_detects_black_format_failure(self) -> None:
