@@ -275,6 +275,7 @@ def test_readme_and_quickstart_document_published_pypi_install() -> None:
             "- Confidence: `0.89`",
             "- Subsystem: Python tests",
             "- Reproduce: `python -m pytest -q`",
+            "- Pack: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-test-failure",
             "- `FAILED .*::`",
             "PatchRail classified this log locally.",
         ):
@@ -316,6 +317,10 @@ def test_versioned_demo_output_matches_real_cli_output() -> None:
     )
     assert proc.stdout.strip() in demo
     assert "- Root cause: `python_dependency_resolution`" in demo
+    assert (
+        "- Pack: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-dependency-resolution"
+        in demo
+    )
     assert "PatchRail classified this log locally." in demo
 
 
