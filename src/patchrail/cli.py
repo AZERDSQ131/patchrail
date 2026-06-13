@@ -3696,7 +3696,7 @@ def _ci_pilot_pack(args: argparse.Namespace) -> int:
 
     redaction = redact_ci_log(raw_log)
     redacted_log = str(redaction["text"])
-    result = classify_ci_log(redacted_log)
+    result = _with_ci_result_links(classify_ci_log(redacted_log))
     report = _render_markdown(result)
     source_name = args.log.name if args.log is not None else "stdin"
 

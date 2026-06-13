@@ -1202,6 +1202,21 @@ class PatchRailCITests(unittest.TestCase):
             )
             self.assertEqual(result["failure_class"], "python_dependency_resolution")
             self.assertEqual(
+                result["guide_url"],
+                "https://getpatchrail.com/fix/python-dependency-resolution"
+                "?utm_source=cli&utm_campaign=python-dependency-resolution",
+            )
+            self.assertEqual(
+                result["pack_url"],
+                "https://patchrail.gumroad.com/l/ci-failure-triage"
+                "?utm_source=cli&utm_campaign=python-dependency-resolution",
+            )
+            self.assertEqual(
+                result["action_url"],
+                "https://github.com/patchrail/ci-triage-action"
+                "?utm_source=cli&utm_campaign=python-dependency-resolution",
+            )
+            self.assertEqual(
                 manifest["consent_boundary"]["maintainer_review_required_before_sharing"], True
             )
             self.assertEqual(
