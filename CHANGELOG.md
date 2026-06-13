@@ -14,6 +14,9 @@
 
 ## 0.2.0 - draft
 
+- Added `node_script_missing` CI classification so npm/pnpm/yarn jobs that call
+  a missing package script are separated from dependency-install failures and
+  routed to a workflow/script repair path.
 - `ci explain` now ends every report with a `Guide:` link to the matching
   remediation write-up on getpatchrail.com (`/fix/<failure-class>`, with
   `utm_source=cli`). Unknown or unlisted failure classes link to the `/fix`

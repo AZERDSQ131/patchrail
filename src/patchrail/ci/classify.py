@@ -292,6 +292,25 @@ RULES: list[dict[str, Any]] = [
         ),
     },
     {
+        "failure_class": "node_script_missing",
+        "likely_subsystem": "Node package scripts",
+        "patterns": [
+            r"Missing script: [\"']?(?:build|test|lint|typecheck|ci)[\"']?",
+            r"npm ERR! missing script",
+            r"npm error Missing script",
+            r"Command [\"'](?:build|test|lint|typecheck|ci)[\"'] not found",
+            r"ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL.*Command .* not found",
+            r"Usage Error: Couldn't find a script named",
+            r"error Command [\"'](?:build|test|lint|typecheck|ci)[\"'] not found",
+        ],
+        "reproduction_command": "npm run build || pnpm build || yarn build",
+        "minimal_repair_strategy": (
+            "Confirm the CI job is calling a package script that does not exist in the target "
+            "workspace, then add the narrow missing script or point the workflow at the existing "
+            "package command before rerunning that job."
+        ),
+    },
+    {
         "failure_class": "node_dependency_install",
         "likely_subsystem": "Node package installation",
         "patterns": [

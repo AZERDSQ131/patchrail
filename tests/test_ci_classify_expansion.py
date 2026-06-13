@@ -63,6 +63,25 @@ class NodeTestFailureClassification(unittest.TestCase):
 
 
 class NodeDependencyInstallClassification(unittest.TestCase):
+    def test_npm_missing_script_classifies_as_node_script_missing(self) -> None:
+        log = (
+            "Run npm run build\n"
+            'npm ERR! Missing script: "build"\n'
+            "npm ERR! To see a list of scripts, run:\n"
+            "npm ERR!   npm run\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "node_script_missing")
+        self.assertIn("package script", result["minimal_repair_strategy"])
+
+    def test_pnpm_missing_script_wins_over_node_dependency_install(self) -> None:
+        log = (
+            "Run pnpm --filter web lint\n"
+            'ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL Command "lint" not found\n'
+            "Lockfile is up to date, resolution step is skipped\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "node_script_missing")
+
     def test_npm_eresolve_classifies_as_node_dependency_install(self) -> None:
         log = (
             "Run npm ci\n"
