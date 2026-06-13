@@ -153,6 +153,13 @@ def _ci_triage_pack_url(failure_class: Any) -> str:
     return f"{_CI_TRIAGE_PACK_BASE}?utm_source=cli&utm_campaign={campaign}"
 
 
+def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
+    failure_class = result.get("failure_class")
+    result["guide_url"] = _fix_guide_url(failure_class)
+    result["pack_url"] = _ci_triage_pack_url(failure_class)
+    return result
+
+
 def _render_text(result: dict[str, Any]) -> str:
     lines = [
         f"Root cause: {result['failure_class']}",
@@ -3532,7 +3539,7 @@ def _serve(args: argparse.Namespace) -> int:
 
 def _ci_explain(args: argparse.Namespace) -> int:
     raw_log = _read_log(args.log)
-    result = classify_ci_log(raw_log)
+    result = _with_ci_result_links(classify_ci_log(raw_log))
     if args.redact:
         redaction = redact_ci_log(raw_log)
         result["redaction"] = {

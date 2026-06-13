@@ -340,9 +340,18 @@ class PatchRailCITests(unittest.TestCase):
                 exit_code = main(["ci", "classify", "--log", str(log)])
 
             self.assertEqual(exit_code, 0)
-            payload = json.loads(stdout.getvalue())
-            self.assertEqual(payload["failure_class"], "python_lint")
-            self.assertGreaterEqual(payload["confidence"], 0.7)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["failure_class"], "python_lint")
+        self.assertGreaterEqual(payload["confidence"], 0.7)
+        self.assertEqual(
+            payload["guide_url"],
+            "https://getpatchrail.com/fix/python-lint?utm_source=cli&utm_campaign=python-lint",
+        )
+        self.assertEqual(
+            payload["pack_url"],
+            "https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=cli&utm_campaign=python-lint",
+        )
 
     def test_ci_classify_detects_black_format_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -388,6 +397,16 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("python_lint", schema["properties"]["failure_class"]["enum"])
         self.assertIn("ci_job_timeout", schema["properties"]["failure_class"]["enum"])
         self.assertIn("cpp_build_failure", schema["properties"]["failure_class"]["enum"])
+        self.assertIn("guide_url", schema["required"])
+        self.assertIn("pack_url", schema["required"])
+        self.assertEqual(
+            schema["properties"]["guide_url"]["pattern"],
+            "^https://getpatchrail\\.com/fix",
+        )
+        self.assertEqual(
+            schema["properties"]["pack_url"]["pattern"],
+            "^https://patchrail\\.gumroad\\.com/l/ci-failure-triage",
+        )
         self.assertIn("node_test_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("node_dependency_install", schema["properties"]["failure_class"]["enum"])
         self.assertIn("rust_lint", schema["properties"]["failure_class"]["enum"])
@@ -1075,6 +1094,16 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         payload = json.loads(proc.stdout)
         self.assertEqual(payload["failure_class"], "rust_test_failure")
+        self.assertEqual(
+            payload["guide_url"],
+            "https://getpatchrail.com/fix/rust-test-failure"
+            "?utm_source=cli&utm_campaign=rust-test-failure",
+        )
+        self.assertEqual(
+            payload["pack_url"],
+            "https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=cli&utm_campaign=rust-test-failure",
+        )
 
     def test_ci_explain_redacts_secret_values_from_report(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1562,6 +1591,11 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(result["failure_class"], "unknown")
         self.assertLess(result["confidence"], 0.5)
         self.assertIn("Do not auto-repair", result["minimal_repair_strategy"])
+        self.assertEqual(result["guide_url"], "https://getpatchrail.com/fix?utm_source=cli")
+        self.assertEqual(
+            result["pack_url"],
+            "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=index",
+        )
 
     def test_ci_explain_prints_fix_guide_url_for_known_class(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
