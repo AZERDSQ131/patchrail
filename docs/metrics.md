@@ -4,7 +4,7 @@ PatchRail tracks adoption and quality metrics so public claims stay verifiable.
 Do not use placeholders as evidence for applications, release posts, or funding
 requests.
 
-Last updated: 2026-06-12.
+Last updated: 2026-06-13.
 
 ## Public Signals
 
@@ -14,7 +14,7 @@ Last updated: 2026-06-12.
 | GitHub stars | 0 | Fresh public launch snapshot |
 | PyPI package | `patchrail` 0.1.1 published | <https://pypi.org/project/patchrail/0.1.1/> |
 | Clean PyPI install smoke | Passing on 2026-06-12 | `python -m pip install patchrail==0.1.1`; `patchrail doctor`; stdin `patchrail ci explain` |
-| Monthly PyPI downloads | Pending first full telemetry window | PyPI project is live; do not infer adoption from initial publish |
+| Monthly PyPI downloads | Initial package telemetry: 102 downloads on 2026-06-12 | `curl https://pypistats.org/api/packages/patchrail/python_major`; package-level signal only, not version-specific adoption |
 | Public external adopters | 0 | [ADOPTERS.md](../ADOPTERS.md) |
 | External contributors | 0 | GitHub contributors |
 | Public releases | 2 | <https://github.com/patchrail/patchrail/releases/tag/v0.1.1> |
@@ -138,8 +138,7 @@ not be counted as public evidence.
 PatchRail should not apply to external programs from placeholder metrics. The
 current evidence gaps are:
 
-- first PyPI download telemetry after the published 0.1.1 package has a real
-  reporting window;
+- first full 30-day PyPI download window after the published 0.1.1 package;
 - external maintainer pilots with permission to cite outcomes;
 - consent checklist coverage from [docs/pilot-request-package.md](pilot-request-package.md);
 - safe external pilot summaries based on [examples/pilot-outcome](../examples/pilot-outcome/README.md);

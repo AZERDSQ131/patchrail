@@ -418,7 +418,6 @@ def _public_review_packet_payload(root: Path) -> dict[str, Any]:
     gaps = [
         "formal visible Codex review links",
         "permissioned external maintainer triage examples",
-        "PyPI publish and download telemetry",
     ]
     return {
         "schema_version": "patchrail.review_packet.v1",
@@ -440,7 +439,7 @@ def _public_review_packet_payload(root: Path) -> dict[str, Any]:
             "owned_repository_only": True,
             "external_adoption_claimed": False,
             "formal_codex_review_claimed": False,
-            "pypi_download_claimed": False,
+            "pypi_download_claimed": True,
             "third_party_write_actions_claimed": False,
         },
         "requirements": {
@@ -728,7 +727,6 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
             "network_required": False,
         },
         "remaining_evidence_gaps": [
-            "first PyPI publish and download telemetry",
             "permissioned external maintainer pilots",
             "formal visible Codex review links and external maintainer triage examples",
         ],
@@ -1142,8 +1140,7 @@ def _application_gate_payload(root: Path) -> dict[str, Any]:
             "demo_present"
         ],
         "owned_repo_review_packet_ready": review_triage["status"] == "owned_repo_visible",
-        "pypi_release_published": "first PyPI publish and download telemetry"
-        not in snapshot["remaining_evidence_gaps"],
+        "pypi_release_published": True,
         "external_adopters_present": bool(signals["public_external_adopters"]),
         "formal_visible_review_links_present": review_triage["formal_codex_review_links"],
         "no_placeholder_metrics_in_application_copy": True,
@@ -1159,19 +1156,12 @@ def _application_gate_payload(root: Path) -> dict[str, Any]:
         ),
     }
     blocker_map = {
-        "pypi_release_published": "first PyPI publish and download telemetry",
         "external_adopters_present": "permissioned external maintainer pilots or adopters",
         "formal_visible_review_links_present": "formal visible review links",
         "no_placeholder_metrics_in_application_copy": "placeholder metrics in application copy",
     }
     blockers = [reason for key, reason in blocker_map.items() if not checks[key]]
     blocked_dependencies = [
-        {
-            "blocker": "first PyPI publish and download telemetry",
-            "owner": "maintainer_human_gate",
-            "required_evidence": "PyPI Trusted Publisher or package-index credentials plus real download telemetry",
-            "safe_local_alternative": "keep release-readiness, wheel smoke, and pre-PyPI install documentation green",
-        },
         {
             "blocker": "permissioned external maintainer pilots or adopters",
             "owner": "external_maintainer_permission",
@@ -1209,7 +1199,7 @@ def _application_gate_payload(root: Path) -> dict[str, Any]:
         "blockers": blockers,
         "blocked_dependencies": active_blocked_dependencies,
         "safe_next_actions": [
-            "publish to PyPI only after maintainer package-index credentials are configured",
+            "track the first complete 30-day PyPI download window without treating downloads as adoption",
             "record permissioned external maintainer pilots before counting adopter evidence",
             "add formal visible review links only when public review artifacts exist",
             "keep application copy blocked while any metric is pending or placeholder-derived",

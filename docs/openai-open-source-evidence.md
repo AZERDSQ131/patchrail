@@ -12,8 +12,10 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - Repository: <https://github.com/patchrail/patchrail>
 - GitHub stars: 0 on 2026-06-03, immediately after public launch
 - PyPI package: <https://pypi.org/project/patchrail/0.1.1/>
-- Monthly PyPI downloads: pending first full telemetry window; do not infer
-  adoption from the initial package publish.
+- Initial PyPI download telemetry: PyPIStats package-level `python_major`
+  returned 102 downloads on 2026-06-12 (21 tagged Python 3, 81 with unknown
+  Python major). This confirms package download telemetry exists, but it is not
+  version-specific and does not count as external adoption.
 - GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.1>
 - PyPI install verification, 2026-06-12: a fresh virtual environment installed
   `patchrail==0.1.1` from PyPI with `python3 -m venv .patchrail-wheel-smoke`
@@ -94,11 +96,13 @@ Pablo Guillén is the primary maintainer of PatchRail.
   a merge or adoption signal.
 - Application gate:
   `patchrail evidence application-gate --format markdown` fails closed until
-  PyPI telemetry, permissioned external evidence, and visible review links are
-  real rather than placeholder-derived. When blocked, it labels each dependency
-  by owner (`maintainer_human_gate`, `external_maintainer_permission`, or
-  `public_review_artifact`) and lists safe local work that can continue without
-  fabricating metrics or taking external write actions.
+  permissioned external evidence and visible review links are real rather than
+  placeholder-derived. PyPI publish and initial package download telemetry are
+  now recorded, while a full 30-day download window remains a future metric.
+  When blocked, it labels each dependency by owner
+  (`external_maintainer_permission` or `public_review_artifact`) and lists safe
+  local work that can continue without fabricating metrics or taking external
+  write actions.
 - Pilot pack command: `patchrail ci pilot-pack` creates a local redacted review
   bundle with a manifest, report, result JSON, and no raw log copy
 - Pilot summary command: `patchrail ci pilot-summary` turns a reviewed pack into
@@ -370,7 +374,7 @@ Last verified: 2026-06-12.
 - Formal public PR links reviewed with Codex
 - Formal public issues triaged with Codex
 - Formal release-prep PR prepared with Codex
-- PyPI download stats after the first full telemetry window
+- Full 30-day PyPI download stats after the first complete reporting window
 - External adopter feedback
 - Pilot outcomes from maintainers who opted into read-only local trials
 - External pilot outcome summaries that follow

@@ -12,8 +12,10 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - Repository: <https://github.com/patchrail/patchrail>
 - GitHub stars: 0 on 2026-06-03, immediately after public launch
 - PyPI package: <https://pypi.org/project/patchrail/0.1.1/>
-- Monthly PyPI downloads: pending first full telemetry window; do not infer
-  adoption from the initial package publish.
+- Initial PyPI download telemetry: PyPIStats package-level `python_major`
+  returned 102 downloads on 2026-06-12 (21 tagged Python 3, 81 with unknown
+  Python major). This confirms package download telemetry exists, but it is not
+  version-specific and does not count as external adoption.
 - GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.1>
 - PyPI install verification, 2026-06-12: a fresh virtual environment installed
   `patchrail==0.1.1` from PyPI with `python3 -m venv .patchrail-wheel-smoke`
@@ -57,10 +59,11 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `uv run --extra dev python scripts/reviewer_quick_check.py --out-dir patchrail-reviewer-packet`.
 - Application gate:
   `patchrail evidence application-gate --format markdown` fails closed until
-  PyPI telemetry, permissioned external evidence, and visible review links are
-  real rather than placeholder-derived. It separates blocked dependencies from
-  safe local work, so `not_ready` means "do not apply yet" rather than "stop
-  maintaining the project."
+  permissioned external evidence and visible review links are real rather than
+  placeholder-derived. PyPI publish and initial package download telemetry are
+  now recorded, but a full 30-day download window is still a future metric. The
+  gate separates blocked dependencies from safe local work.
+  `not_ready` means "do not apply yet" rather than "stop maintaining the project."
 - Agent Control Plane evidence audit:
   `patchrail evidence control-plane --format markdown` verifies the checked-in
   local queue demo summary, required audit events, required artifacts, human
@@ -321,7 +324,7 @@ Last verified: 2026-06-12.
 - Formal PR review examples for parser, redaction or workflow changes.
 - Formal issue triage examples for CI fixture requests.
 - Formal release-prep examples showing changelog, version and quickstart checks.
-- PyPI download stats after the first full telemetry window.
+- Full 30-day PyPI download stats after the first complete reporting window.
 - External adopter feedback and permissioned adopter entries.
 - External pilot outcomes from maintainers who opted into read-only local trials.
 - Permissioned pilot request package outcomes that pass the public listing rule.

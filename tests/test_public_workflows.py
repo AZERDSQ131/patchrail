@@ -223,8 +223,9 @@ def test_pypi_install_verification_is_recorded_without_download_or_adoption_clai
     assert PYPI_INSTALL_COMMAND in combined
     assert "python_test_failure" in combined
     assert WHEEL_VENV_COMMAND in combined
-    assert "Monthly PyPI downloads: pending first full telemetry window" in combined
-    assert "do not infer adoption from the initial package publish" in normalized
+    assert "Initial PyPI download telemetry" in combined
+    assert "102 downloads on 2026-06-12" in combined
+    assert "does not count as external adoption" in normalized
 
 
 def test_readme_and_quickstart_document_published_pypi_install() -> None:
@@ -923,7 +924,7 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
     assert payload["safety"]["billing_required"] is False
     assert payload["safety"]["network_required"] is False
     assert payload["safety"]["missing_required_docs"] == []
-    assert "first PyPI publish and download telemetry" in payload["remaining_evidence_gaps"]
+    assert "first PyPI publish and download telemetry" not in payload["remaining_evidence_gaps"]
     assert (
         "formal visible Codex review links and external maintainer triage examples"
         in (payload["remaining_evidence_gaps"])
@@ -1067,26 +1068,16 @@ def test_application_gate_fails_closed_until_public_evidence_is_real() -> None:
     assert payload["checks"]["ci_benchmark_green"] is True
     assert payload["checks"]["read_only_ci_triage_workflow"] is True
     assert payload["checks"]["agent_control_plane_demo_ready"] is True
-    assert payload["checks"]["pypi_release_published"] is False
+    assert payload["checks"]["pypi_release_published"] is True
     assert payload["checks"]["external_adopters_present"] is False
     assert payload["checks"]["formal_visible_review_links_present"] is False
     assert payload["checks"]["no_placeholder_metrics_in_application_copy"] is True
     assert payload["checks"]["money_goal_retired"] is True
     assert payload["checks"]["no_network_or_write_required"] is True
-    assert "first PyPI publish and download telemetry" in payload["blockers"]
+    assert "first PyPI publish and download telemetry" not in payload["blockers"]
     assert "permissioned external maintainer pilots or adopters" in payload["blockers"]
     assert "formal visible review links" in payload["blockers"]
     assert payload["blocked_dependencies"] == [
-        {
-            "blocker": "first PyPI publish and download telemetry",
-            "owner": "maintainer_human_gate",
-            "required_evidence": (
-                "PyPI Trusted Publisher or package-index credentials plus real download telemetry"
-            ),
-            "safe_local_alternative": (
-                "keep release-readiness, wheel smoke, and pre-PyPI install documentation green"
-            ),
-        },
         {
             "blocker": "permissioned external maintainer pilots or adopters",
             "owner": "external_maintainer_permission",
@@ -1143,7 +1134,8 @@ def test_application_gate_fails_closed_until_public_evidence_is_real() -> None:
     assert "# PatchRail Application Gate" in markdown_proc.stdout
     assert "- Decision: `do_not_apply_yet`" in markdown_proc.stdout
     assert "## Blocked Dependencies" in markdown_proc.stdout
-    assert "- Owner: `maintainer_human_gate`" in markdown_proc.stdout
+    assert "- Owner: `external_maintainer_permission`" in markdown_proc.stdout
+    assert "- Owner: `public_review_artifact`" in markdown_proc.stdout
     assert "- Owner: `external_maintainer_permission`" in markdown_proc.stdout
     assert "- Owner: `public_review_artifact`" in markdown_proc.stdout
     assert "keep application copy blocked while any metric is pending" in markdown_proc.stdout
@@ -1458,7 +1450,7 @@ def test_review_packet_summarizes_owned_repo_workflows_without_external_claims()
     assert payload["boundaries"]["owned_repository_only"] is True
     assert payload["boundaries"]["external_adoption_claimed"] is False
     assert payload["boundaries"]["formal_codex_review_claimed"] is False
-    assert payload["boundaries"]["pypi_download_claimed"] is False
+    assert payload["boundaries"]["pypi_download_claimed"] is True
     assert payload["boundaries"]["third_party_write_actions_claimed"] is False
     assert payload["requirements"]["billing_required"] is False
     assert payload["requirements"]["external_model_required"] is False
@@ -1630,7 +1622,8 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "No automatic bounty claiming" in evidence
     assert ".agents/skills/patchrail-ci-triage" in evidence
     assert "https://pypi.org/project/patchrail/0.1.1/" in evidence
-    assert "pending first full telemetry window" in evidence
+    assert "Initial PyPI download telemetry" in evidence
+    assert "102 downloads on 2026-06-12" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
     assert "Verified public CI evidence snapshot, 2026-06-06" in evidence
     assert "https://github.com/patchrail/patchrail/actions/runs/27062668635" in evidence
@@ -1670,7 +1663,8 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "formal visible Codex" in evidence
     assert "blocked_dependencies" in evidence
     assert "safe_local_work_while_blocked" in evidence
-    assert "maintainer_human_gate" in evidence
+    assert "external_maintainer_permission" in evidence
+    assert "public_review_artifact" in evidence
     assert "external_maintainer_permission" in evidence
     assert "public_review_artifact" in evidence
     assert "#61 -> #62" in evidence
@@ -1822,7 +1816,8 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "Funded issue read-only demo" in open_source_program_evidence
     assert "External repositories using PatchRail: pending pilots" in open_source_program_evidence
     assert (
-        "PyPI download stats after the first full telemetry window" in open_source_program_evidence
+        "Full 30-day PyPI download stats after the first complete reporting window"
+        in open_source_program_evidence
     )
     assert "This ledger tracks public PatchRail maintenance cycles" in workflow_ledger
     assert "it does not claim external adoption" in workflow_ledger
@@ -1994,7 +1989,7 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "PyPI package | `patchrail` 0.1.1 published" in metrics
     assert "Clean PyPI install smoke | Passing on 2026-06-12" in metrics
     assert "Monthly PyPI downloads" in metrics
-    assert "Pending first full telemetry window" in metrics
+    assert "Initial package telemetry: 102 downloads on 2026-06-12" in metrics
     assert "Public external adopters | 0" in metrics
     assert "patchrail evidence snapshot --format markdown" in metrics
     assert "does not replace\npublic GitHub, PyPI, or adopter metrics" in metrics
