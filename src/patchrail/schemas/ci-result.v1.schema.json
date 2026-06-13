@@ -14,7 +14,8 @@
     "signals",
     "requirements",
     "guide_url",
-    "pack_url"
+    "pack_url",
+    "action_url"
   ],
   "properties": {
     "schema_version": {
@@ -118,6 +119,10 @@
     "pack_url": {
       "type": "string",
       "pattern": "^https://patchrail\\.gumroad\\.com/l/ci-failure-triage"
+    },
+    "action_url": {
+      "type": "string",
+      "pattern": "^https://github\\.com/patchrail/ci-triage-action"
     },
     "redaction": {
       "type": "object",

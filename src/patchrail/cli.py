@@ -94,6 +94,7 @@ def _read_log(path: Path | None) -> str:
 
 _FIX_GUIDE_BASE = "https://getpatchrail.com/fix"
 _CI_TRIAGE_PACK_BASE = "https://patchrail.gumroad.com/l/ci-failure-triage"
+_CI_TRIAGE_ACTION_BASE = "https://github.com/patchrail/ci-triage-action"
 
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
 # Unknown or unlisted classes link to the guide index instead. Keep in sync with the
@@ -153,10 +154,17 @@ def _ci_triage_pack_url(failure_class: Any) -> str:
     return f"{_CI_TRIAGE_PACK_BASE}?utm_source=cli&utm_campaign={campaign}"
 
 
+def _ci_triage_action_url(failure_class: Any) -> str:
+    slug = str(failure_class or "").replace("_", "-")
+    campaign = slug if slug and slug in _FIX_GUIDE_SLUGS else "index"
+    return f"{_CI_TRIAGE_ACTION_BASE}?utm_source=cli&utm_campaign={campaign}"
+
+
 def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
     failure_class = result.get("failure_class")
     result["guide_url"] = _fix_guide_url(failure_class)
     result["pack_url"] = _ci_triage_pack_url(failure_class)
+    result["action_url"] = _ci_triage_action_url(failure_class)
     return result
 
 
@@ -169,6 +177,7 @@ def _render_text(result: dict[str, Any]) -> str:
         f"Suggested action: {result['minimal_repair_strategy']}",
         f"Guide: {_fix_guide_url(result['failure_class'])}",
         f"Pack: {_ci_triage_pack_url(result['failure_class'])}",
+        f"Action: {_ci_triage_action_url(result['failure_class'])}",
     ]
     redaction = result.get("redaction")
     if isinstance(redaction, dict):
@@ -188,6 +197,7 @@ def _render_markdown(result: dict[str, Any]) -> str:
         f"- Suggested action: {result['minimal_repair_strategy']}",
         f"- Guide: {_fix_guide_url(result['failure_class'])}",
         f"- Pack: {_ci_triage_pack_url(result['failure_class'])}",
+        f"- Action: {_ci_triage_action_url(result['failure_class'])}",
         "",
         "## Evidence signals",
         "",

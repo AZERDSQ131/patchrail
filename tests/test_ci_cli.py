@@ -10,7 +10,13 @@ from io import StringIO
 from pathlib import Path
 
 from patchrail.ci.classify import RULES
-from patchrail.cli import _FIX_GUIDE_SLUGS, _ci_triage_pack_url, _fix_guide_url, main
+from patchrail.cli import (
+    _FIX_GUIDE_SLUGS,
+    _ci_triage_action_url,
+    _ci_triage_pack_url,
+    _fix_guide_url,
+    main,
+)
 
 
 class PatchRailCITests(unittest.TestCase):
@@ -352,6 +358,11 @@ class PatchRailCITests(unittest.TestCase):
             "https://patchrail.gumroad.com/l/ci-failure-triage"
             "?utm_source=cli&utm_campaign=python-lint",
         )
+        self.assertEqual(
+            payload["action_url"],
+            "https://github.com/patchrail/ci-triage-action"
+            "?utm_source=cli&utm_campaign=python-lint",
+        )
 
     def test_ci_classify_detects_black_format_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -399,6 +410,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("cpp_build_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("guide_url", schema["required"])
         self.assertIn("pack_url", schema["required"])
+        self.assertIn("action_url", schema["required"])
         self.assertEqual(
             schema["properties"]["guide_url"]["pattern"],
             "^https://getpatchrail\\.com/fix",
@@ -406,6 +418,10 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(
             schema["properties"]["pack_url"]["pattern"],
             "^https://patchrail\\.gumroad\\.com/l/ci-failure-triage",
+        )
+        self.assertEqual(
+            schema["properties"]["action_url"]["pattern"],
+            "^https://github\\.com/patchrail/ci-triage-action",
         )
         self.assertIn("node_test_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("node_dependency_install", schema["properties"]["failure_class"]["enum"])
@@ -1596,6 +1612,10 @@ class PatchRailCITests(unittest.TestCase):
             result["pack_url"],
             "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=index",
         )
+        self.assertEqual(
+            result["action_url"],
+            "https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=index",
+        )
 
     def test_ci_explain_prints_fix_guide_url_for_known_class(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1620,6 +1640,11 @@ class PatchRailCITests(unittest.TestCase):
                 "?utm_source=cli&utm_campaign=python-test-failure",
                 stdout.getvalue(),
             )
+            self.assertIn(
+                "Action: https://github.com/patchrail/ci-triage-action"
+                "?utm_source=cli&utm_campaign=python-test-failure",
+                stdout.getvalue(),
+            )
 
     def test_ci_explain_links_index_for_unknown_class(self) -> None:
         result = subprocess.run(
@@ -1633,6 +1658,10 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn(
             "Pack: https://patchrail.gumroad.com/l/ci-failure-triage"
             "?utm_source=cli&utm_campaign=index",
+            result.stdout,
+        )
+        self.assertIn(
+            "Action: https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=index",
             result.stdout,
         )
         self.assertNotIn("/fix/", result.stdout)
@@ -1697,6 +1726,21 @@ class FixGuideSlugConsistencyTests(unittest.TestCase):
         self.assertEqual(
             _ci_triage_pack_url("unknown"),
             "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=index",
+        )
+
+    def test_action_url_uses_failure_class_campaign_for_known_guides(self) -> None:
+        for slug in sorted(_FIX_GUIDE_SLUGS):
+            failure_class = slug.replace("-", "_")
+            url = _ci_triage_action_url(failure_class)
+            self.assertEqual(
+                url,
+                f"https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign={slug}",
+            )
+
+    def test_action_url_uses_index_campaign_for_unknown_or_unlisted_classes(self) -> None:
+        self.assertEqual(
+            _ci_triage_action_url("unknown"),
+            "https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=index",
         )
 
 
