@@ -224,6 +224,7 @@ def test_pypi_install_verification_is_recorded_without_download_or_adoption_clai
     assert "python_test_failure" in combined
     assert WHEEL_VENV_COMMAND in combined
     assert "Initial PyPI download telemetry" in combined
+    assert "123 downloads across 2026-06-11 and 2026-06-12" in combined
     assert "102 downloads on 2026-06-12" in combined
     assert "does not count as external adoption" in normalized
 
@@ -1623,6 +1624,7 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert ".agents/skills/patchrail-ci-triage" in evidence
     assert "https://pypi.org/project/patchrail/0.1.1/" in evidence
     assert "Initial PyPI download telemetry" in evidence
+    assert "123 downloads across 2026-06-11 and 2026-06-12" in evidence
     assert "102 downloads on 2026-06-12" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
     assert "Verified public CI evidence snapshot, 2026-06-06" in evidence
@@ -1989,7 +1991,8 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "PyPI package | `patchrail` 0.1.1 published" in metrics
     assert "Clean PyPI install smoke | Passing on 2026-06-12" in metrics
     assert "Monthly PyPI downloads" in metrics
-    assert "Initial package telemetry: 102 downloads on 2026-06-12" in metrics
+    assert "Initial package telemetry: 123 downloads across 2026-06-11..12" in metrics
+    assert "including 102 on 2026-06-12" in metrics
     assert "Public external adopters | 0" in metrics
     assert "patchrail evidence snapshot --format markdown" in metrics
     assert "does not replace\npublic GitHub, PyPI, or adopter metrics" in metrics
