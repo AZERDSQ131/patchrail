@@ -621,6 +621,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
     triage_workflow = _read_optional_text(root / ".github" / "workflows" / "ci-triage.yml")
     ci_workflow = _read_optional_text(root / ".github" / "workflows" / "ci.yml")
     adopters = _read_optional_text(root / "ADOPTERS.md")
+    metrics = _read_optional_text(root / "docs" / "metrics.md")
     workflow_ledger = _read_optional_text(root / "docs" / "public-workflow-ledger.md")
     pilot_summaries = sorted((root / "examples" / "pilot-outcome").glob("*.summary.json"))
     approved_pilot_repositories: list[str] = []
@@ -668,6 +669,9 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
     total_fixtures = len(log_paths)
     owned_issue_pr_cycles = _count_owned_issue_pr_cycles(workflow_ledger)
     review_packet = _public_review_packet_payload(root)
+    pypi_release_published = "PyPI package | `patchrail` 0.1.1 published" in metrics
+    pypi_initial_download_telemetry_present = "Initial package telemetry:" in metrics
+    pypi_full_30_day_window_complete = "Full 30-day PyPI download window complete:" in metrics
     return {
         "schema_version": "patchrail.evidence_snapshot.v1",
         "patchrail_version": __version__,
@@ -690,6 +694,9 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
             "pilot_summary_count": len(pilot_summaries),
             "approved_pilot_repositories": sorted(set(approved_pilot_repositories)),
             "owned_repo_issue_pr_cycles": owned_issue_pr_cycles,
+            "pypi_release_published": pypi_release_published,
+            "pypi_initial_download_telemetry_present": pypi_initial_download_telemetry_present,
+            "pypi_full_30_day_window_complete": pypi_full_30_day_window_complete,
         },
         "workstreams": {
             "ci_janitor": {
@@ -713,7 +720,9 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
                 ).exists(),
             },
             "release_packaging": {
-                "status": "local_ready_pypi_blocked",
+                "status": "public_pypi_initial_telemetry"
+                if pypi_release_published and pypi_initial_download_telemetry_present
+                else "local_ready_pypi_blocked",
                 "package_smoke_in_ci": package_smoke,
                 "readiness_script_present": (root / "scripts" / "release_readiness.py").exists(),
             },
@@ -1150,7 +1159,10 @@ def _application_gate_payload(root: Path) -> dict[str, Any]:
             "demo_present"
         ],
         "owned_repo_review_packet_ready": review_triage["status"] == "owned_repo_visible",
-        "pypi_release_published": True,
+        "pypi_release_published": bool(signals["pypi_release_published"]),
+        "pypi_initial_download_telemetry_present": bool(
+            signals["pypi_initial_download_telemetry_present"]
+        ),
         "external_adopters_present": bool(signals["public_external_adopters"]),
         "formal_visible_review_links_present": review_triage["formal_codex_review_links"],
         "no_placeholder_metrics_in_application_copy": True,
@@ -1205,6 +1217,10 @@ def _application_gate_payload(root: Path) -> dict[str, Any]:
             "pilot_summary_count": signals["pilot_summary_count"],
             "owned_repo_issue_pr_cycles": signals["owned_repo_issue_pr_cycles"],
             "focused_maintainer_prs": review_triage["focused_maintainer_prs"],
+            "pypi_initial_download_telemetry_present": signals[
+                "pypi_initial_download_telemetry_present"
+            ],
+            "pypi_full_30_day_window_complete": signals["pypi_full_30_day_window_complete"],
         },
         "blockers": blockers,
         "blocked_dependencies": active_blocked_dependencies,

@@ -1075,6 +1075,7 @@ def test_application_gate_fails_closed_until_public_evidence_is_real() -> None:
     assert payload["checks"]["read_only_ci_triage_workflow"] is True
     assert payload["checks"]["agent_control_plane_demo_ready"] is True
     assert payload["checks"]["pypi_release_published"] is True
+    assert payload["checks"]["pypi_initial_download_telemetry_present"] is True
     assert payload["checks"]["external_adopters_present"] is False
     assert payload["checks"]["formal_visible_review_links_present"] is False
     assert payload["checks"]["no_placeholder_metrics_in_application_copy"] is True
@@ -1112,6 +1113,8 @@ def test_application_gate_fails_closed_until_public_evidence_is_real() -> None:
     assert payload["signals"]["ci_fixtures"] == 153
     assert payload["signals"]["public_external_adopters"] == 0
     assert payload["signals"]["owned_repo_issue_pr_cycles"] == 20
+    assert payload["signals"]["pypi_initial_download_telemetry_present"] is True
+    assert payload["signals"]["pypi_full_30_day_window_complete"] is False
     assert payload["safety"]["network_required"] is False
     assert payload["safety"]["github_write_permission_required"] is False
     assert payload["safety"]["external_model_required"] is False
