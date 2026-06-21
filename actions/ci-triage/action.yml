@@ -1,0 +1,73 @@
+name: PatchRail CI Triage
+description: Classify a CI log locally and expose PatchRail /fix triage outputs.
+
+inputs:
+  log-path:
+    description: Path to the failed CI log inside the checked-out repository.
+    required: true
+  report-dir:
+    description: Directory where PatchRail writes the markdown and JSON reports.
+    required: false
+    default: patchrail-ci-triage
+  redact:
+    description: Redact secrets, emails, and local home paths before writing reports.
+    required: false
+    default: "true"
+
+outputs:
+  failure-class:
+    description: PatchRail failure class for the CI log.
+    value: ${{ steps.outputs.outputs.failure-class }}
+  confidence:
+    description: PatchRail classifier confidence.
+    value: ${{ steps.outputs.outputs.confidence }}
+  guide-url:
+    description: getpatchrail.com /fix guide URL for the detected failure class.
+    value: ${{ steps.outputs.outputs.guide-url }}
+  pack-url:
+    description: CI Triage pack URL with attribution for this failure class.
+    value: ${{ steps.outputs.outputs.pack-url }}
+  action-url:
+    description: PatchRail action URL with attribution for this failure class.
+    value: ${{ steps.outputs.outputs.action-url }}
+  json-result:
+    description: Path to the structured PatchRail result JSON.
+    value: ${{ steps.outputs.outputs.json-result }}
+  markdown-report:
+    description: Path to the maintainer-readable PatchRail report.
+    value: ${{ steps.outputs.outputs.markdown-report }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install PatchRail
+      shell: bash
+      run: |
+        set -euo pipefail
+        python -m pip install "$GITHUB_ACTION_PATH/../.."
+
+    - name: Generate PatchRail reports
+      shell: bash
+      run: |
+        set -euo pipefail
+        log_path="${{ inputs.log-path }}"
+        report_dir="${{ inputs.report-dir }}"
+        redact_arg=""
+        if [ "${{ inputs.redact }}" = "true" ]; then
+          redact_arg="--redact"
+        fi
+
+        test -f "$log_path"
+        mkdir -p "$report_dir"
+        patchrail ci classify $redact_arg --log "$log_path" --format json --out "$report_dir/ci-result.json"
+        patchrail ci explain $redact_arg --log "$log_path" --format markdown --out "$report_dir/ci-report.md"
+
+    - name: Export action outputs
+      id: outputs
+      shell: bash
+      run: |
+        set -euo pipefail
+        python "$GITHUB_ACTION_PATH/scripts/ci_triage_action_outputs.py" \
+          --result "${{ inputs.report-dir }}/ci-result.json" \
+          --report "${{ inputs.report-dir }}/ci-report.md" \
+          --output "$GITHUB_OUTPUT"
