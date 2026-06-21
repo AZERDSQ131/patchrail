@@ -57,44 +57,53 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     output_path = tmp_path / "github-output.txt"
     summary_path = tmp_path / "step-summary.md"
 
-    assert main(
-        [
-            "ci",
-            "classify",
-            "--log",
-            str(FIXTURE),
-            "--format",
-            "json",
-            "--out",
-            str(result_path),
-        ]
-    ) == 0
-    assert main(
-        [
-            "ci",
-            "explain",
-            "--log",
-            str(FIXTURE),
-            "--format",
-            "markdown",
-            "--out",
-            str(report_path),
-        ]
-    ) == 0
+    assert (
+        main(
+            [
+                "ci",
+                "classify",
+                "--log",
+                str(FIXTURE),
+                "--format",
+                "json",
+                "--out",
+                str(result_path),
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "ci",
+                "explain",
+                "--log",
+                str(FIXTURE),
+                "--format",
+                "markdown",
+                "--out",
+                str(report_path),
+            ]
+        )
+        == 0
+    )
 
     helper = _load_helper()
-    assert helper.main(
-        [
-            "--result",
-            str(result_path),
-            "--report",
-            str(report_path),
-            "--output",
-            str(output_path),
-            "--summary",
-            str(summary_path),
-        ]
-    ) == 0
+    assert (
+        helper.main(
+            [
+                "--result",
+                str(result_path),
+                "--report",
+                str(report_path),
+                "--output",
+                str(output_path),
+                "--summary",
+                str(summary_path),
+            ]
+        )
+        == 0
+    )
 
     lines = output_path.read_text(encoding="utf-8").splitlines()
     outputs = dict(line.split("=", 1) for line in lines)
