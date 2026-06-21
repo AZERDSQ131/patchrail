@@ -34,6 +34,8 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "guide-url:" in text
     assert "pack-url:" in text
     assert "action-url:" in text
+    assert "summary-line:" in text
+    assert "GITHUB_STEP_SUMMARY" in text
 
 
 def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
@@ -53,6 +55,7 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     result_path = tmp_path / "ci-result.json"
     report_path = tmp_path / "ci-report.md"
     output_path = tmp_path / "github-output.txt"
+    summary_path = tmp_path / "step-summary.md"
 
     assert main(
         [
@@ -81,7 +84,16 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
 
     helper = _load_helper()
     assert helper.main(
-        ["--result", str(result_path), "--report", str(report_path), "--output", str(output_path)]
+        [
+            "--result",
+            str(result_path),
+            "--report",
+            str(report_path),
+            "--output",
+            str(output_path),
+            "--summary",
+            str(summary_path),
+        ]
     ) == 0
 
     lines = output_path.read_text(encoding="utf-8").splitlines()
@@ -95,3 +107,10 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert outputs["action-url"].startswith("https://github.com/patchrail/ci-triage-action")
     assert outputs["json-result"] == str(result_path)
     assert outputs["markdown-report"] == str(report_path)
+    assert outputs["summary-line"].startswith("PatchRail CI triage: python_dependency_resolution")
+    assert outputs["guide-url"] in outputs["summary-line"]
+
+    summary = summary_path.read_text(encoding="utf-8")
+    assert "## PatchRail CI triage" in summary
+    assert outputs["summary-line"] in summary
+    assert str(report_path) in summary

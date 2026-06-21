@@ -36,6 +36,9 @@ outputs:
   markdown-report:
     description: Path to the maintainer-readable PatchRail report.
     value: ${{ steps.outputs.outputs.markdown-report }}
+  summary-line:
+    description: One-line PatchRail triage summary for GitHub step summaries.
+    value: ${{ steps.outputs.outputs.summary-line }}
 
 runs:
   using: composite
@@ -67,7 +70,12 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        summary_arg=()
+        if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+          summary_arg=(--summary "$GITHUB_STEP_SUMMARY")
+        fi
         python "$GITHUB_ACTION_PATH/scripts/ci_triage_action_outputs.py" \
           --result "${{ inputs.report-dir }}/ci-result.json" \
           --report "${{ inputs.report-dir }}/ci-report.md" \
-          --output "$GITHUB_OUTPUT"
+          --output "$GITHUB_OUTPUT" \
+          "${summary_arg[@]}"
