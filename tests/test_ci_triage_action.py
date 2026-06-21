@@ -12,6 +12,7 @@ ACTION = ROOT / "actions" / "ci-triage" / "action.yml"
 HELPER = ROOT / "actions" / "ci-triage" / "scripts" / "ci_triage_action_outputs.py"
 FIXTURE = ROOT / "examples" / "ci-triage" / "dependency-failure.log"
 ACTION_SNIPPET = ROOT / "examples" / "ci-triage-action" / "README.md"
+ACTION_SAMPLE = ROOT / "examples" / "ci-triage-action" / "sample"
 
 
 def _load_helper():
@@ -51,6 +52,8 @@ def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
     assert "post comments" in text
     assert "send the log to" in text
     assert "an external service" in text
+    assert "sample/ci-result.json" in text
+    assert "utm_source=cli&utm_campaign=python-dependency-resolution" in text
 
 
 def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> None:
@@ -127,3 +130,72 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert outputs["summary-line"] in summary
     assert outputs["next-step"] in summary
     assert str(report_path) in summary
+
+
+def test_ci_triage_action_sample_matches_dependency_fixture(tmp_path: Path) -> None:
+    generated_result = tmp_path / "ci-result.json"
+    generated_report = tmp_path / "ci-report.md"
+    generated_summary = tmp_path / "step-summary.md"
+
+    assert (
+        main(
+            [
+                "ci",
+                "classify",
+                "--log",
+                str(FIXTURE),
+                "--format",
+                "json",
+                "--out",
+                str(generated_result),
+            ]
+        )
+        == 0
+    )
+    assert (
+        main(
+            [
+                "ci",
+                "explain",
+                "--log",
+                str(FIXTURE),
+                "--format",
+                "markdown",
+                "--out",
+                str(generated_report),
+            ]
+        )
+        == 0
+    )
+
+    sample_result = ACTION_SAMPLE / "ci-result.json"
+    sample_report = ACTION_SAMPLE / "ci-report.md"
+    sample_output = ACTION_SAMPLE / "github-output.txt"
+    sample_summary = ACTION_SAMPLE / "step-summary.md"
+
+    assert sample_result.read_text(encoding="utf-8") == generated_result.read_text(
+        encoding="utf-8"
+    )
+    assert sample_report.read_text(encoding="utf-8") == generated_report.read_text(
+        encoding="utf-8"
+    )
+
+    helper = _load_helper()
+    result = json.loads(sample_result.read_text(encoding="utf-8"))
+    expected_outputs = helper.action_outputs(
+        result,
+        Path("examples/ci-triage-action/sample/ci-result.json"),
+        Path("examples/ci-triage-action/sample/ci-report.md"),
+    )
+    assert sample_output.read_text(encoding="utf-8") == "".join(
+        f"{name}={value}\n" for name, value in expected_outputs.items()
+    )
+
+    helper.append_step_summary(
+        result,
+        Path("examples/ci-triage-action/sample/ci-report.md"),
+        generated_summary,
+    )
+    assert sample_summary.read_text(encoding="utf-8") == generated_summary.read_text(
+        encoding="utf-8"
+    )

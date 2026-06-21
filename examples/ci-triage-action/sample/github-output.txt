@@ -1,0 +1,9 @@
+failure-class=python_dependency_resolution
+confidence=0.95
+guide-url=https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution
+pack-url=https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-dependency-resolution
+action-url=https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-dependency-resolution
+next-step=Pin or relax the conflicting dependency range, then rerun the same install command and the affected tests.
+json-result=examples/ci-triage-action/sample/ci-result.json
+markdown-report=examples/ci-triage-action/sample/ci-report.md
+summary-line=PatchRail CI triage: python_dependency_resolution (0.95) -> https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution
