@@ -162,6 +162,10 @@ nothing leaves the runner:
     log-path: test.log
 ```
 
+The reusable snippet and report artifact shape live in
+[examples/ci-triage-action](examples/ci-triage-action/README.md), with links back
+to the `/fix` guides and CI Triage field guide using the action campaign.
+
 ## Why maintainers use PatchRail
 
 - Turn long CI logs into concise root-cause reports.

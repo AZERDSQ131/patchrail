@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ACTION = ROOT / "actions" / "ci-triage" / "action.yml"
 HELPER = ROOT / "actions" / "ci-triage" / "scripts" / "ci_triage_action_outputs.py"
 FIXTURE = ROOT / "examples" / "ci-triage" / "dependency-failure.log"
+ACTION_SNIPPET = ROOT / "examples" / "ci-triage-action" / "README.md"
 
 
 def _load_helper():
@@ -33,6 +34,19 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "guide-url:" in text
     assert "pack-url:" in text
     assert "action-url:" in text
+
+
+def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
+    text = ACTION_SNIPPET.read_text(encoding="utf-8")
+
+    assert "uses: patchrail/ci-triage-action@v1" in text
+    assert "report-dir: patchrail-ci-triage" in text
+    assert "utm_source=github&utm_campaign=ci-triage-action" in text
+    assert "patchrail.gumroad.com/l/ci-failure-triage" in text
+    assert "does not open pull requests" in text
+    assert "post comments" in text
+    assert "send the log to" in text
+    assert "an external service" in text
 
 
 def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> None:
