@@ -12,6 +12,7 @@ OUTPUT_KEYS = {
     "guide-url": "guide_url",
     "pack-url": "pack_url",
     "action-url": "action_url",
+    "next-step": "minimal_repair_strategy",
 }
 
 
@@ -45,6 +46,7 @@ def append_step_summary(result: dict[str, Any], report_path: Path, path: Path) -
         "## PatchRail CI triage",
         "",
         f"- Summary: {summary_line(result)}",
+        f"- Next step: {result.get('minimal_repair_strategy') or 'Open the report for repair details.'}",
         f"- Report: `{report_path}`",
         "",
     ]

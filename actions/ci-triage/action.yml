@@ -39,6 +39,9 @@ outputs:
   summary-line:
     description: One-line PatchRail triage summary for GitHub step summaries.
     value: ${{ steps.outputs.outputs.summary-line }}
+  next-step:
+    description: Minimal next repair step for the detected CI failure.
+    value: ${{ steps.outputs.outputs.next-step }}
 
 runs:
   using: composite

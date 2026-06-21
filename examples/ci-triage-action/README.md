@@ -18,6 +18,10 @@ and writes:
 - `patchrail-ci-triage/ci-report.md`
 - `patchrail-ci-triage/ci-result.json`
 
+Reusable outputs include `failure-class`, `guide-url`, `pack-url`, and
+`next-step`, so a downstream workflow can route the failure to a maintainer or
+attach the local report to an internal ticket.
+
 It does not open pull requests, post comments, claim funding, or send the log to
 an external service.
 

@@ -34,6 +34,7 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "guide-url:" in text
     assert "pack-url:" in text
     assert "action-url:" in text
+    assert "next-step:" in text
     assert "summary-line:" in text
     assert "GITHUB_STEP_SUMMARY" in text
 
@@ -45,6 +46,7 @@ def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
     assert "report-dir: patchrail-ci-triage" in text
     assert "utm_source=github&utm_campaign=ci-triage-action" in text
     assert "patchrail.gumroad.com/l/ci-failure-triage" in text
+    assert "`next-step`" in text
     assert "does not open pull requests" in text
     assert "post comments" in text
     assert "send the log to" in text
@@ -114,6 +116,7 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert outputs["guide-url"].startswith("https://getpatchrail.com/fix")
     assert outputs["pack-url"].startswith("https://patchrail.gumroad.com/l/ci-failure-triage")
     assert outputs["action-url"].startswith("https://github.com/patchrail/ci-triage-action")
+    assert outputs["next-step"] == result["minimal_repair_strategy"]
     assert outputs["json-result"] == str(result_path)
     assert outputs["markdown-report"] == str(report_path)
     assert outputs["summary-line"].startswith("PatchRail CI triage: python_dependency_resolution")
@@ -122,4 +125,5 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     summary = summary_path.read_text(encoding="utf-8")
     assert "## PatchRail CI triage" in summary
     assert outputs["summary-line"] in summary
+    assert outputs["next-step"] in summary
     assert str(report_path) in summary
