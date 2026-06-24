@@ -32,9 +32,11 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "patchrail ci explain" in text
     assert "$GITHUB_ACTION_PATH/../.." in text
     assert "failure-class:" in text
+    assert "failure-slug:" in text
     assert "guide-url:" in text
     assert "pack-url:" in text
     assert "action-url:" in text
+    assert "artifact-name:" in text
     assert "next-step:" in text
     assert "reproduction-command:" in text
     assert "summary-line:" in text
@@ -117,6 +119,7 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     result = json.loads(result_path.read_text(encoding="utf-8"))
 
     assert outputs["failure-class"] == result["failure_class"]
+    assert outputs["failure-slug"] == "python-dependency-resolution"
     assert outputs["confidence"] == str(result["confidence"])
     assert outputs["guide-url"].startswith("https://getpatchrail.com/fix")
     assert outputs["pack-url"].startswith("https://patchrail.gumroad.com/l/ci-failure-triage")
@@ -124,6 +127,7 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert outputs["next-step"] == result["minimal_repair_strategy"]
     assert outputs["reproduction-command"] == result["reproduction_command"]
     assert outputs["json-result"] == str(result_path)
+    assert outputs["artifact-name"] == "patchrail-ci-triage-python-dependency-resolution"
     assert outputs["markdown-report"] == str(report_path)
     assert outputs["summary-line"].startswith("PatchRail CI triage: python_dependency_resolution")
     assert outputs["guide-url"] in outputs["summary-line"]

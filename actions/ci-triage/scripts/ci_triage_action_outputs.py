@@ -34,11 +34,19 @@ def redacted_category_count(result: dict[str, Any]) -> int:
     return len(redactions)
 
 
+def failure_slug(result: dict[str, Any]) -> str:
+    failure_class = str(result.get("failure_class") or "unknown").strip() or "unknown"
+    return failure_class.replace("_", "-")
+
+
 def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path) -> dict[str, str]:
-    outputs = {
-        output_name: str(result.get(result_name, ""))
-        for output_name, result_name in OUTPUT_KEYS.items()
-    }
+    slug = failure_slug(result)
+    outputs = {}
+    for output_name, result_name in OUTPUT_KEYS.items():
+        outputs[output_name] = str(result.get(result_name, ""))
+        if output_name == "failure-class":
+            outputs["failure-slug"] = slug
+    outputs["artifact-name"] = f"patchrail-ci-triage-{slug}"
     outputs["json-result"] = str(result_path)
     outputs["markdown-report"] = str(report_path)
     outputs["summary-line"] = summary_line(result)
