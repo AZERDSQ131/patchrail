@@ -60,6 +60,12 @@ outputs:
   adoption-event-json:
     description: Single-line PatchRail adoption event JSON for workflow evidence ledgers.
     value: ${{ steps.outputs.outputs.adoption-event-json }}
+  workflow-repository:
+    description: Repository where the PatchRail triage action ran, when available.
+    value: ${{ steps.outputs.outputs.workflow-repository }}
+  workflow-run-url:
+    description: GitHub Actions run URL for the triage execution, when available.
+    value: ${{ steps.outputs.outputs.workflow-run-url }}
   next-step:
     description: Minimal next repair step for the detected CI failure.
     value: ${{ steps.outputs.outputs.next-step }}

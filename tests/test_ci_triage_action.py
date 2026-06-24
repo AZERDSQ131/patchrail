@@ -45,6 +45,8 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "redacted-categories:" in text
     assert "adoption-key:" in text
     assert "adoption-event-json:" in text
+    assert "workflow-repository:" in text
+    assert "workflow-run-url:" in text
     assert "GITHUB_STEP_SUMMARY" in text
 
 
@@ -59,6 +61,7 @@ def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
     assert "`utm-campaign`" in text
     assert "`adoption-key`" in text
     assert "`adoption-event-json`" in text
+    assert "`workflow-run-url`" in text
     assert "real workflow usage countable" in text
     assert "does not open pull requests" in text
     assert "post comments" in text
@@ -162,6 +165,8 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
         "json_result": str(result_path),
         "markdown_report": str(report_path),
     }
+    assert outputs["workflow-repository"] == ""
+    assert outputs["workflow-run-url"] == ""
 
     summary = summary_path.read_text(encoding="utf-8")
     assert "## PatchRail CI triage" in summary
@@ -199,6 +204,47 @@ def test_ci_triage_action_helper_exports_index_attribution_for_unlisted_classes(
     assert adoption_event["utm_campaign"] == "index"
     assert adoption_event["json_result"] == "ci-result.json"
     assert adoption_event["markdown_report"] == "ci-report.md"
+
+
+def test_ci_triage_action_helper_exports_workflow_context_when_available() -> None:
+    helper = _load_helper()
+    result = {
+        "failure_class": "python_lint",
+        "confidence": 0.88,
+        "guide_url": "https://getpatchrail.com/fix/python-lint?utm_source=cli&utm_campaign=python-lint",
+        "pack_url": "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-lint",
+        "action_url": "https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-lint",
+        "minimal_repair_strategy": "Run ruff locally.",
+        "reproduction_command": "ruff check .",
+    }
+    context = helper.workflow_context_from_env({
+        "GITHUB_REPOSITORY": "buyer/repo",
+        "GITHUB_RUN_ID": "123456",
+        "GITHUB_REF": "refs/heads/main",
+        "GITHUB_SHA": "abc123",
+        "GITHUB_WORKFLOW": "CI",
+        "GITHUB_JOB": "test",
+    })
+
+    outputs = helper.action_outputs(
+        result,
+        Path("ci-result.json"),
+        Path("ci-report.md"),
+        action_ref="v1",
+        action_repository="patchrail/ci-triage-action",
+        workflow_context=context,
+    )
+
+    assert outputs["workflow-repository"] == "buyer/repo"
+    assert outputs["workflow-run-url"] == "https://github.com/buyer/repo/actions/runs/123456"
+    adoption_event = json.loads(outputs["adoption-event-json"])
+    assert adoption_event["workflow_repository"] == "buyer/repo"
+    assert adoption_event["workflow_run_id"] == "123456"
+    assert adoption_event["workflow_run_url"] == "https://github.com/buyer/repo/actions/runs/123456"
+    assert adoption_event["workflow_ref"] == "refs/heads/main"
+    assert adoption_event["workflow_sha"] == "abc123"
+    assert adoption_event["workflow_name"] == "CI"
+    assert adoption_event["workflow_job"] == "test"
 
 
 def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> None:

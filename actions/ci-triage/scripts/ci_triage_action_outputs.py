@@ -65,6 +65,7 @@ def adoption_event(
     report_path: Path | None = None,
     action_ref: str = "local",
     action_repository: str = "patchrail/ci-triage-action",
+    workflow_context: dict[str, str] | None = None,
 ) -> str:
     source = attribution_value(result, "utm_source", "cli")
     campaign = attribution_value(result, "utm_campaign", slug)
@@ -86,7 +87,33 @@ def adoption_event(
         event["json_result"] = str(result_path)
     if report_path is not None:
         event["markdown_report"] = str(report_path)
+    if workflow_context:
+        event.update(workflow_context)
     return json.dumps(event, sort_keys=True, separators=(",", ":"))
+
+
+def workflow_context_from_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    source = os.environ if env is None else env
+    repository = str(source.get("GITHUB_REPOSITORY") or "").strip()
+    run_id = str(source.get("GITHUB_RUN_ID") or "").strip()
+    context: dict[str, str] = {}
+    if repository:
+        context["workflow_repository"] = repository
+    if run_id:
+        context["workflow_run_id"] = run_id
+    if repository and run_id:
+        context["workflow_run_url"] = f"https://github.com/{repository}/actions/runs/{run_id}"
+    optional_fields = {
+        "GITHUB_REF": "workflow_ref",
+        "GITHUB_SHA": "workflow_sha",
+        "GITHUB_WORKFLOW": "workflow_name",
+        "GITHUB_JOB": "workflow_job",
+    }
+    for env_name, event_name in optional_fields.items():
+        value = str(source.get(env_name) or "").strip()
+        if value:
+            context[event_name] = value
+    return context
 
 
 def action_outputs(
@@ -95,6 +122,7 @@ def action_outputs(
     report_path: Path,
     action_ref: str = "local",
     action_repository: str = "patchrail/ci-triage-action",
+    workflow_context: dict[str, str] | None = None,
 ) -> dict[str, str]:
     slug = failure_slug(result)
     outputs = {}
@@ -117,7 +145,10 @@ def action_outputs(
         report_path=report_path,
         action_ref=action_ref,
         action_repository=action_repository,
+        workflow_context=workflow_context,
     )
+    outputs["workflow-repository"] = (workflow_context or {}).get("workflow_repository", "")
+    outputs["workflow-run-url"] = (workflow_context or {}).get("workflow_run_url", "")
     return outputs
 
 
@@ -163,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
                 "GITHUB_ACTION_REPOSITORY",
                 "patchrail/ci-triage-action",
             ),
+            workflow_context=workflow_context_from_env(),
         ),
         args.output,
     )
