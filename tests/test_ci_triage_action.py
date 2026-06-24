@@ -210,12 +210,8 @@ def test_ci_triage_action_sample_matches_dependency_fixture(tmp_path: Path) -> N
     sample_output = ACTION_SAMPLE / "github-output.txt"
     sample_summary = ACTION_SAMPLE / "step-summary.md"
 
-    assert sample_result.read_text(encoding="utf-8") == generated_result.read_text(
-        encoding="utf-8"
-    )
-    assert sample_report.read_text(encoding="utf-8") == generated_report.read_text(
-        encoding="utf-8"
-    )
+    assert sample_result.read_text(encoding="utf-8") == generated_result.read_text(encoding="utf-8")
+    assert sample_report.read_text(encoding="utf-8") == generated_report.read_text(encoding="utf-8")
 
     helper = _load_helper()
     result = json.loads(sample_result.read_text(encoding="utf-8"))
