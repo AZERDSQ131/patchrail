@@ -45,6 +45,9 @@ outputs:
   next-step:
     description: Minimal next repair step for the detected CI failure.
     value: ${{ steps.outputs.outputs.next-step }}
+  reproduction-command:
+    description: Local command PatchRail recommends to reproduce the detected failure.
+    value: ${{ steps.outputs.outputs.reproduction-command }}
 
 runs:
   using: composite

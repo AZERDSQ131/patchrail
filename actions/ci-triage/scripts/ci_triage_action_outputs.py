@@ -13,6 +13,7 @@ OUTPUT_KEYS = {
     "pack-url": "pack_url",
     "action-url": "action_url",
     "next-step": "minimal_repair_strategy",
+    "reproduction-command": "reproduction_command",
 }
 
 

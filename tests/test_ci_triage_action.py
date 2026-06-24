@@ -36,6 +36,7 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "pack-url:" in text
     assert "action-url:" in text
     assert "next-step:" in text
+    assert "reproduction-command:" in text
     assert "summary-line:" in text
     assert "redacted-categories:" in text
     assert "GITHUB_STEP_SUMMARY" in text
@@ -121,6 +122,7 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert outputs["pack-url"].startswith("https://patchrail.gumroad.com/l/ci-failure-triage")
     assert outputs["action-url"].startswith("https://github.com/patchrail/ci-triage-action")
     assert outputs["next-step"] == result["minimal_repair_strategy"]
+    assert outputs["reproduction-command"] == result["reproduction_command"]
     assert outputs["json-result"] == str(result_path)
     assert outputs["markdown-report"] == str(report_path)
     assert outputs["summary-line"].startswith("PatchRail CI triage: python_dependency_resolution")
@@ -144,6 +146,7 @@ def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> N
         "pack_url": "https://patchrail.gumroad.com/l/ci-failure-triage",
         "action_url": "https://github.com/patchrail/ci-triage-action",
         "minimal_repair_strategy": "Rerun pytest locally.",
+        "reproduction_command": "pytest tests/test_app.py",
         "redaction": {
             "local_only": True,
             "redactions": {
