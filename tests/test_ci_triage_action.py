@@ -71,11 +71,20 @@ def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
     assert "utm_source=cli&utm_campaign=python-dependency-resolution" in text
 
 
-def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> None:
+def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path, monkeypatch) -> None:
     result_path = tmp_path / "ci-result.json"
     report_path = tmp_path / "ci-report.md"
     output_path = tmp_path / "github-output.txt"
     summary_path = tmp_path / "step-summary.md"
+    for name in (
+        "GITHUB_REPOSITORY",
+        "GITHUB_RUN_ID",
+        "GITHUB_REF",
+        "GITHUB_SHA",
+        "GITHUB_WORKFLOW",
+        "GITHUB_JOB",
+    ):
+        monkeypatch.delenv(name, raising=False)
 
     assert (
         main(
