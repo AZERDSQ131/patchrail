@@ -149,6 +149,8 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert adoption_event == {
         "schema_version": "patchrail.ci_triage_adoption_event.v1",
         "product": "ci-triage-action",
+        "action_ref": "local",
+        "action_repository": "patchrail/ci-triage-action",
         "adoption_key": "ci-triage:cli:python-dependency-resolution:python-dependency-resolution",
         "failure_class": "python_dependency_resolution",
         "failure_slug": "python-dependency-resolution",
@@ -157,6 +159,8 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
         "confidence": "0.95",
         "redacted_categories": 0,
         "artifact_name": "patchrail-ci-triage-python-dependency-resolution",
+        "json_result": str(result_path),
+        "markdown_report": str(report_path),
     }
 
     summary = summary_path.read_text(encoding="utf-8")
@@ -191,7 +195,10 @@ def test_ci_triage_action_helper_exports_index_attribution_for_unlisted_classes(
     assert outputs["utm-source"] == "cli"
     assert outputs["utm-campaign"] == "index"
     assert outputs["adoption-key"] == "ci-triage:cli:index:pre-commit-hook-failure"
-    assert json.loads(outputs["adoption-event-json"])["utm_campaign"] == "index"
+    adoption_event = json.loads(outputs["adoption-event-json"])
+    assert adoption_event["utm_campaign"] == "index"
+    assert adoption_event["json_result"] == "ci-result.json"
+    assert adoption_event["markdown_report"] == "ci-report.md"
 
 
 def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> None:
@@ -215,10 +222,18 @@ def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> N
 
     output_path = tmp_path / "github-output.txt"
     summary_path = tmp_path / "step-summary.md"
-    outputs = helper.action_outputs(result, Path("ci-result.json"), Path("ci-report.md"))
+    outputs = helper.action_outputs(
+        result,
+        Path("ci-result.json"),
+        Path("ci-report.md"),
+        action_ref="v1",
+        action_repository="patchrail/ci-triage-action",
+    )
 
     assert outputs["redacted-categories"] == "2"
-    assert json.loads(outputs["adoption-event-json"])["redacted_categories"] == 2
+    adoption_event = json.loads(outputs["adoption-event-json"])
+    assert adoption_event["redacted_categories"] == 2
+    assert adoption_event["action_ref"] == "v1"
 
     helper.write_github_outputs(outputs, output_path)
     assert "redacted-categories=2\n" in output_path.read_text(encoding="utf-8")

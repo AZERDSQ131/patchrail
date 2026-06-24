@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -57,12 +58,21 @@ def adoption_key(result: dict[str, Any], slug: str) -> str:
     return f"ci-triage:{source}:{campaign}:{slug}"
 
 
-def adoption_event(result: dict[str, Any], slug: str) -> str:
+def adoption_event(
+    result: dict[str, Any],
+    slug: str,
+    result_path: Path | None = None,
+    report_path: Path | None = None,
+    action_ref: str = "local",
+    action_repository: str = "patchrail/ci-triage-action",
+) -> str:
     source = attribution_value(result, "utm_source", "cli")
     campaign = attribution_value(result, "utm_campaign", slug)
     event = {
         "schema_version": "patchrail.ci_triage_adoption_event.v1",
         "product": "ci-triage-action",
+        "action_ref": action_ref or "local",
+        "action_repository": action_repository or "patchrail/ci-triage-action",
         "adoption_key": f"ci-triage:{source}:{campaign}:{slug}",
         "failure_class": str(result.get("failure_class") or "unknown"),
         "failure_slug": slug,
@@ -72,10 +82,20 @@ def adoption_event(result: dict[str, Any], slug: str) -> str:
         "redacted_categories": redacted_category_count(result),
         "artifact_name": f"patchrail-ci-triage-{slug}",
     }
+    if result_path is not None:
+        event["json_result"] = str(result_path)
+    if report_path is not None:
+        event["markdown_report"] = str(report_path)
     return json.dumps(event, sort_keys=True, separators=(",", ":"))
 
 
-def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path) -> dict[str, str]:
+def action_outputs(
+    result: dict[str, Any],
+    result_path: Path,
+    report_path: Path,
+    action_ref: str = "local",
+    action_repository: str = "patchrail/ci-triage-action",
+) -> dict[str, str]:
     slug = failure_slug(result)
     outputs = {}
     for output_name, result_name in OUTPUT_KEYS.items():
@@ -90,7 +110,14 @@ def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path)
     outputs["summary-line"] = summary_line(result)
     outputs["redacted-categories"] = str(redacted_category_count(result))
     outputs["adoption-key"] = adoption_key(result, slug)
-    outputs["adoption-event-json"] = adoption_event(result, slug)
+    outputs["adoption-event-json"] = adoption_event(
+        result,
+        slug,
+        result_path=result_path,
+        report_path=report_path,
+        action_ref=action_ref,
+        action_repository=action_repository,
+    )
     return outputs
 
 
@@ -126,7 +153,19 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     result = json.loads(args.result.read_text(encoding="utf-8"))
-    write_github_outputs(action_outputs(result, args.result, args.report), args.output)
+    write_github_outputs(
+        action_outputs(
+            result,
+            args.result,
+            args.report,
+            action_ref=os.environ.get("GITHUB_ACTION_REF", "local"),
+            action_repository=os.environ.get(
+                "GITHUB_ACTION_REPOSITORY",
+                "patchrail/ci-triage-action",
+            ),
+        ),
+        args.output,
+    )
     if args.summary is not None:
         append_step_summary(result, args.report, args.summary)
     return 0
