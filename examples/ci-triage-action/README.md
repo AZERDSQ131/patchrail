@@ -19,12 +19,13 @@ and writes:
 - `patchrail-ci-triage/ci-result.json`
 
 Reusable outputs include `failure-class`, `failure-slug`, `utm-source`,
-`utm-campaign`, `adoption-key`, `guide-url`, `pack-url`, `artifact-name`,
-`next-step`, and `reproduction-command`, so a
+`utm-campaign`, `adoption-key`, `adoption-event-json`, `guide-url`, `pack-url`,
+`artifact-name`, `next-step`, and `reproduction-command`, so a
 downstream workflow can route the failure to a maintainer or attach the local
 report to an internal ticket. `adoption-key` is stable across runs of the same
 failure class and attribution campaign, which makes real workflow usage countable
-without parsing URLs.
+without parsing URLs. `adoption-event-json` is a single-line event that can be
+appended directly to an evidence ledger artifact.
 
 It does not open pull requests, post comments, claim funding, or send the log to
 an external service.

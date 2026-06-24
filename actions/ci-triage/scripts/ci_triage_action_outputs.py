@@ -57,6 +57,24 @@ def adoption_key(result: dict[str, Any], slug: str) -> str:
     return f"ci-triage:{source}:{campaign}:{slug}"
 
 
+def adoption_event(result: dict[str, Any], slug: str) -> str:
+    source = attribution_value(result, "utm_source", "cli")
+    campaign = attribution_value(result, "utm_campaign", slug)
+    event = {
+        "schema_version": "patchrail.ci_triage_adoption_event.v1",
+        "product": "ci-triage-action",
+        "adoption_key": f"ci-triage:{source}:{campaign}:{slug}",
+        "failure_class": str(result.get("failure_class") or "unknown"),
+        "failure_slug": slug,
+        "utm_source": source,
+        "utm_campaign": campaign,
+        "confidence": str(result.get("confidence") or "0"),
+        "redacted_categories": redacted_category_count(result),
+        "artifact_name": f"patchrail-ci-triage-{slug}",
+    }
+    return json.dumps(event, sort_keys=True, separators=(",", ":"))
+
+
 def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path) -> dict[str, str]:
     slug = failure_slug(result)
     outputs = {}
@@ -72,6 +90,7 @@ def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path)
     outputs["summary-line"] = summary_line(result)
     outputs["redacted-categories"] = str(redacted_category_count(result))
     outputs["adoption-key"] = adoption_key(result, slug)
+    outputs["adoption-event-json"] = adoption_event(result, slug)
     return outputs
 
 

@@ -57,6 +57,9 @@ outputs:
   adoption-key:
     description: Stable PatchRail adoption evidence key for downstream dashboards.
     value: ${{ steps.outputs.outputs.adoption-key }}
+  adoption-event-json:
+    description: Single-line PatchRail adoption event JSON for workflow evidence ledgers.
+    value: ${{ steps.outputs.outputs.adoption-event-json }}
   next-step:
     description: Minimal next repair step for the detected CI failure.
     value: ${{ steps.outputs.outputs.next-step }}

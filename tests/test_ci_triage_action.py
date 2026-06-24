@@ -44,6 +44,7 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "summary-line:" in text
     assert "redacted-categories:" in text
     assert "adoption-key:" in text
+    assert "adoption-event-json:" in text
     assert "GITHUB_STEP_SUMMARY" in text
 
 
@@ -57,6 +58,7 @@ def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
     assert "`next-step`" in text
     assert "`utm-campaign`" in text
     assert "`adoption-key`" in text
+    assert "`adoption-event-json`" in text
     assert "real workflow usage countable" in text
     assert "does not open pull requests" in text
     assert "post comments" in text
@@ -143,6 +145,19 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert outputs["adoption-key"] == (
         "ci-triage:cli:python-dependency-resolution:python-dependency-resolution"
     )
+    adoption_event = json.loads(outputs["adoption-event-json"])
+    assert adoption_event == {
+        "schema_version": "patchrail.ci_triage_adoption_event.v1",
+        "product": "ci-triage-action",
+        "adoption_key": "ci-triage:cli:python-dependency-resolution:python-dependency-resolution",
+        "failure_class": "python_dependency_resolution",
+        "failure_slug": "python-dependency-resolution",
+        "utm_source": "cli",
+        "utm_campaign": "python-dependency-resolution",
+        "confidence": "0.95",
+        "redacted_categories": 0,
+        "artifact_name": "patchrail-ci-triage-python-dependency-resolution",
+    }
 
     summary = summary_path.read_text(encoding="utf-8")
     assert "## PatchRail CI triage" in summary
@@ -176,6 +191,7 @@ def test_ci_triage_action_helper_exports_index_attribution_for_unlisted_classes(
     assert outputs["utm-source"] == "cli"
     assert outputs["utm-campaign"] == "index"
     assert outputs["adoption-key"] == "ci-triage:cli:index:pre-commit-hook-failure"
+    assert json.loads(outputs["adoption-event-json"])["utm_campaign"] == "index"
 
 
 def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> None:
@@ -202,6 +218,7 @@ def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> N
     outputs = helper.action_outputs(result, Path("ci-result.json"), Path("ci-report.md"))
 
     assert outputs["redacted-categories"] == "2"
+    assert json.loads(outputs["adoption-event-json"])["redacted_categories"] == 2
 
     helper.write_github_outputs(outputs, output_path)
     assert "redacted-categories=2\n" in output_path.read_text(encoding="utf-8")
