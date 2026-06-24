@@ -925,6 +925,28 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
             "as_of": "2026-06-24",
         },
         "pypi_counts_as_adoption": False,
+        "next_actions": [
+            {
+                "action": "request_permissioned_external_maintainer_pilot",
+                "evidence_required": "approved public pilot summary plus consent checklist",
+                "target_date": "2026-06-30",
+                "counts_as_adoption": True,
+            },
+            {
+                "action": "record_approved_adopters_listing",
+                "evidence_required": "ADOPTERS.md entry approved by the external maintainer",
+                "target_date": "2026-06-30",
+                "counts_as_adoption": True,
+            },
+            {
+                "action": "track_complete_pypi_30_day_window",
+                "evidence_required": (
+                    "docs/metrics.md row for the first complete 30-day package window"
+                ),
+                "target_date": "2026-07-12",
+                "counts_as_adoption": False,
+            },
+        ],
         "pending_public_evidence": [
             "permissioned external maintainer pilot summary",
             "approved ADOPTERS.md listing",
@@ -971,6 +993,11 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
     )
     assert markdown_proc.returncode == 0, markdown_proc.stderr
     assert "## Adoption Evidence" in markdown_proc.stdout
+    assert "## Next Evidence Actions" in markdown_proc.stdout
+    assert "`request_permissioned_external_maintainer_pilot` by `2026-06-30`" in (
+        markdown_proc.stdout
+    )
+    assert "`track_complete_pypi_30_day_window` by `2026-07-12`" in markdown_proc.stdout
     assert "- PyPI last month downloads: `154`" in markdown_proc.stdout
     assert "- PyPI counts as adoption: `False`" in markdown_proc.stdout
 

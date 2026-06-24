@@ -427,6 +427,29 @@ def _public_external_adopters_count(metrics: str, adopters: str) -> int | None:
     return None
 
 
+def _adoption_next_actions() -> list[dict[str, Any]]:
+    return [
+        {
+            "action": "request_permissioned_external_maintainer_pilot",
+            "evidence_required": "approved public pilot summary plus consent checklist",
+            "target_date": "2026-06-30",
+            "counts_as_adoption": True,
+        },
+        {
+            "action": "record_approved_adopters_listing",
+            "evidence_required": "ADOPTERS.md entry approved by the external maintainer",
+            "target_date": "2026-06-30",
+            "counts_as_adoption": True,
+        },
+        {
+            "action": "track_complete_pypi_30_day_window",
+            "evidence_required": "docs/metrics.md row for the first complete 30-day package window",
+            "target_date": "2026-07-12",
+            "counts_as_adoption": False,
+        },
+    ]
+
+
 def _extract_markdown_links(text: str) -> list[dict[str, str]]:
     return [
         {"label": label, "url": url}
@@ -764,6 +787,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
             "countable_external_adoption_present": bool(external_adopters_count),
             "pypi_package_telemetry": pypi_telemetry,
             "pypi_counts_as_adoption": False,
+            "next_actions": _adoption_next_actions(),
             "pending_public_evidence": [
                 "permissioned external maintainer pilot summary",
                 "approved ADOPTERS.md listing",
@@ -867,9 +891,22 @@ def _render_evidence_snapshot_markdown(payload: dict[str, Any]) -> str:
         f"- PyPI last day downloads: `{pypi['last_day']}`",
         f"- PyPI counts as adoption: `{adoption['pypi_counts_as_adoption']}`",
         "",
-        "## Workstreams",
+        "## Next Evidence Actions",
         "",
     ]
+    for item in adoption["next_actions"]:
+        lines.append(
+            f"- `{item['action']}` by `{item['target_date']}`: "
+            f"{item['evidence_required']} "
+            f"(counts as adoption: `{item['counts_as_adoption']}`)"
+        )
+    lines.extend(
+        [
+            "",
+            "## Workstreams",
+            "",
+        ]
+    )
     for name, item in workstreams.items():
         details = ", ".join(f"{key}={value}" for key, value in item.items())
         lines.append(f"- `{name}`: {details}")
