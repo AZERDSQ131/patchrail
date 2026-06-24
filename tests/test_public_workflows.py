@@ -925,6 +925,18 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
             "as_of": "2026-06-24",
         },
         "pypi_counts_as_adoption": False,
+        "readiness_gate": {
+            "status": "blocked_by_external_adoption_evidence",
+            "first_countable_adoption_missing": True,
+            "blocking_requirements": [
+                "permissioned external maintainer pilot summary",
+                "approved ADOPTERS.md listing",
+            ],
+            "non_countable_signals": [
+                "PyPI package downloads",
+                "owned-repo pilot outcomes",
+            ],
+        },
         "next_actions": [
             {
                 "action": "request_permissioned_external_maintainer_pilot",
@@ -1000,6 +1012,18 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
     assert "`track_complete_pypi_30_day_window` by `2026-07-12`" in markdown_proc.stdout
     assert "- PyPI last month downloads: `154`" in markdown_proc.stdout
     assert "- PyPI counts as adoption: `False`" in markdown_proc.stdout
+    assert (
+        "- Adoption readiness gate: `blocked_by_external_adoption_evidence`"
+        in markdown_proc.stdout
+    )
+    assert "- First countable adoption missing: `True`" in markdown_proc.stdout
+    assert (
+        "- Blocking adoption requirements: `permissioned external maintainer pilot summary, "
+        "approved ADOPTERS.md listing`" in markdown_proc.stdout
+    )
+    assert "- Non-countable signals: `PyPI package downloads, owned-repo pilot outcomes`" in (
+        markdown_proc.stdout
+    )
 
 
 def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:

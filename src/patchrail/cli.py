@@ -787,6 +787,24 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
             "countable_external_adoption_present": bool(external_adopters_count),
             "pypi_package_telemetry": pypi_telemetry,
             "pypi_counts_as_adoption": False,
+            "readiness_gate": {
+                "status": (
+                    "countable_adoption_present"
+                    if external_adopters_count
+                    else "blocked_by_external_adoption_evidence"
+                ),
+                "first_countable_adoption_missing": not bool(external_adopters_count),
+                "blocking_requirements": []
+                if external_adopters_count
+                else [
+                    "permissioned external maintainer pilot summary",
+                    "approved ADOPTERS.md listing",
+                ],
+                "non_countable_signals": [
+                    "PyPI package downloads",
+                    "owned-repo pilot outcomes",
+                ],
+            },
             "next_actions": _adoption_next_actions(),
             "pending_public_evidence": [
                 "permissioned external maintainer pilot summary",
@@ -866,6 +884,7 @@ def _render_evidence_snapshot_markdown(payload: dict[str, Any]) -> str:
     workstreams = payload["workstreams"]
     adoption = payload["adoption_evidence"]
     pypi = adoption["pypi_package_telemetry"]
+    readiness_gate = adoption["readiness_gate"]
     lines = [
         "# PatchRail Open Source Evidence Snapshot",
         "",
@@ -890,6 +909,19 @@ def _render_evidence_snapshot_markdown(payload: dict[str, Any]) -> str:
         f"- PyPI last week downloads: `{pypi['last_week']}`",
         f"- PyPI last day downloads: `{pypi['last_day']}`",
         f"- PyPI counts as adoption: `{adoption['pypi_counts_as_adoption']}`",
+        f"- Adoption readiness gate: `{readiness_gate['status']}`",
+        (
+            "- First countable adoption missing: "
+            f"`{readiness_gate['first_countable_adoption_missing']}`"
+        ),
+        (
+            "- Blocking adoption requirements: "
+            f"`{', '.join(readiness_gate['blocking_requirements']) or 'none'}`"
+        ),
+        (
+            "- Non-countable signals: "
+            f"`{', '.join(readiness_gate['non_countable_signals'])}`"
+        ),
         "",
         "## Next Evidence Actions",
         "",
