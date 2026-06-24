@@ -1013,8 +1013,7 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
     assert "- PyPI last month downloads: `154`" in markdown_proc.stdout
     assert "- PyPI counts as adoption: `False`" in markdown_proc.stdout
     assert (
-        "- Adoption readiness gate: `blocked_by_external_adoption_evidence`"
-        in markdown_proc.stdout
+        "- Adoption readiness gate: `blocked_by_external_adoption_evidence`" in markdown_proc.stdout
     )
     assert "- First countable adoption missing: `True`" in markdown_proc.stdout
     assert (

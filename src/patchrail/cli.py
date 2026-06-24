@@ -918,10 +918,7 @@ def _render_evidence_snapshot_markdown(payload: dict[str, Any]) -> str:
             "- Blocking adoption requirements: "
             f"`{', '.join(readiness_gate['blocking_requirements']) or 'none'}`"
         ),
-        (
-            "- Non-countable signals: "
-            f"`{', '.join(readiness_gate['non_countable_signals'])}`"
-        ),
+        (f"- Non-countable signals: `{', '.join(readiness_gate['non_countable_signals'])}`"),
         "",
         "## Next Evidence Actions",
         "",
