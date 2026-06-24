@@ -1,4 +1,5 @@
 .venv/
+.DS_Store
 .pkg-smoke/
 .patchrail-release-smoke/
 __pycache__/
