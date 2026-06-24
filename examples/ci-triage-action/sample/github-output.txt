@@ -13,3 +13,4 @@ json-result=examples/ci-triage-action/sample/ci-result.json
 markdown-report=examples/ci-triage-action/sample/ci-report.md
 summary-line=PatchRail CI triage: python_dependency_resolution (0.95) -> https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution
 redacted-categories=0
+adoption-key=ci-triage:cli:python-dependency-resolution:python-dependency-resolution

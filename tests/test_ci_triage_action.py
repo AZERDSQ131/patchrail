@@ -43,6 +43,7 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "reproduction-command:" in text
     assert "summary-line:" in text
     assert "redacted-categories:" in text
+    assert "adoption-key:" in text
     assert "GITHUB_STEP_SUMMARY" in text
 
 
@@ -55,6 +56,8 @@ def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
     assert "patchrail.gumroad.com/l/ci-failure-triage" in text
     assert "`next-step`" in text
     assert "`utm-campaign`" in text
+    assert "`adoption-key`" in text
+    assert "real workflow usage countable" in text
     assert "does not open pull requests" in text
     assert "post comments" in text
     assert "send the log to" in text
@@ -137,12 +140,19 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert outputs["summary-line"].startswith("PatchRail CI triage: python_dependency_resolution")
     assert outputs["guide-url"] in outputs["summary-line"]
     assert outputs["redacted-categories"] == "0"
+    assert outputs["adoption-key"] == (
+        "ci-triage:cli:python-dependency-resolution:python-dependency-resolution"
+    )
 
     summary = summary_path.read_text(encoding="utf-8")
     assert "## PatchRail CI triage" in summary
     assert outputs["summary-line"] in summary
     assert outputs["next-step"] in summary
     assert "- Redacted categories: `0`" in summary
+    assert (
+        "- Adoption key: `ci-triage:cli:python-dependency-resolution:"
+        "python-dependency-resolution`"
+    ) in summary
     assert str(report_path) in summary
 
 
@@ -165,6 +175,7 @@ def test_ci_triage_action_helper_exports_index_attribution_for_unlisted_classes(
     assert outputs["failure-slug"] == "pre-commit-hook-failure"
     assert outputs["utm-source"] == "cli"
     assert outputs["utm-campaign"] == "index"
+    assert outputs["adoption-key"] == "ci-triage:cli:index:pre-commit-hook-failure"
 
 
 def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> None:

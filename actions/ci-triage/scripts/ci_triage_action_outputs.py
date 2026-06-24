@@ -51,6 +51,12 @@ def attribution_value(result: dict[str, Any], key: str, default: str) -> str:
     return default
 
 
+def adoption_key(result: dict[str, Any], slug: str) -> str:
+    source = attribution_value(result, "utm_source", "cli")
+    campaign = attribution_value(result, "utm_campaign", slug)
+    return f"ci-triage:{source}:{campaign}:{slug}"
+
+
 def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path) -> dict[str, str]:
     slug = failure_slug(result)
     outputs = {}
@@ -65,6 +71,7 @@ def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path)
     outputs["markdown-report"] = str(report_path)
     outputs["summary-line"] = summary_line(result)
     outputs["redacted-categories"] = str(redacted_category_count(result))
+    outputs["adoption-key"] = adoption_key(result, slug)
     return outputs
 
 
@@ -81,6 +88,7 @@ def append_step_summary(result: dict[str, Any], report_path: Path, path: Path) -
         "",
         f"- Summary: {summary_line(result)}",
         f"- Next step: {result.get('minimal_repair_strategy') or 'Open the report for repair details.'}",
+        f"- Adoption key: `{adoption_key(result, failure_slug(result))}`",
         f"- Redacted categories: `{redacted_category_count(result)}`",
         f"- Report: `{report_path}`",
         "",
