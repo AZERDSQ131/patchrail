@@ -12,9 +12,10 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - Repository: <https://github.com/patchrail/patchrail>
 - GitHub stars: 0 on 2026-06-03, immediately after public launch
 - PyPI package: <https://pypi.org/project/patchrail/0.1.1/>
-- Initial PyPI download telemetry: PyPIStats package-level `python_major`
-  returned 123 downloads across 2026-06-11 and 2026-06-12, including 102 downloads on 2026-06-12
-  (21 tagged Python 3, 81 with unknown Python major). This confirms package download telemetry
+- PyPI download telemetry: PyPIStats package-level `recent_downloads`
+  returned 154 downloads in the last month, 20 in the last week, and 3 in the last day on 2026-06-24.
+  The `python_major` endpoint totals 154 downloads across 2026-06-11..23
+  (32 tagged Python 3, 122 with unknown Python major). This confirms package download telemetry
   exists, but it is not version-specific and does not count as external adoption.
 - GitHub Release: <https://github.com/patchrail/patchrail/releases/tag/v0.1.1>
 - PyPI install verification, 2026-06-12: a fresh virtual environment installed

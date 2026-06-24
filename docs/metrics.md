@@ -4,7 +4,7 @@ PatchRail tracks adoption and quality metrics so public claims stay verifiable.
 Do not use placeholders as evidence for applications, release posts, or funding
 requests.
 
-Last updated: 2026-06-13.
+Last updated: 2026-06-24.
 
 ## Public Signals
 
@@ -14,7 +14,7 @@ Last updated: 2026-06-13.
 | GitHub stars | 0 | Fresh public launch snapshot |
 | PyPI package | `patchrail` 0.1.1 published | <https://pypi.org/project/patchrail/0.1.1/> |
 | Clean PyPI install smoke | Passing on 2026-06-12 | `python -m pip install patchrail==0.1.1`; `patchrail doctor`; stdin `patchrail ci explain` |
-| Monthly PyPI downloads | Initial package telemetry: 123 downloads across 2026-06-11..12, including 102 on 2026-06-12 | `curl https://pypistats.org/api/packages/patchrail/python_major`; package-level signal only, not version-specific adoption |
+| Monthly PyPI downloads | Rolling package telemetry: 154 downloads in the last month, 20 in the last week, and 3 in the last day as of 2026-06-24; `python_major` totals 154 across 2026-06-11..23 | `curl https://pypistats.org/api/packages/patchrail/recent` and `/python_major`; package-level signal only, not version-specific adoption |
 | Public external adopters | 0 | [ADOPTERS.md](../ADOPTERS.md) |
 | External contributors | 0 | GitHub contributors |
 | Public releases | 2 | <https://github.com/patchrail/patchrail/releases/tag/v0.1.1> |

@@ -670,7 +670,13 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
     owned_issue_pr_cycles = _count_owned_issue_pr_cycles(workflow_ledger)
     review_packet = _public_review_packet_payload(root)
     pypi_release_published = "PyPI package | `patchrail` 0.1.1 published" in metrics
-    pypi_initial_download_telemetry_present = "Initial package telemetry:" in metrics
+    pypi_initial_download_telemetry_present = any(
+        marker in metrics
+        for marker in (
+            "Initial package telemetry:",
+            "Rolling package telemetry:",
+        )
+    )
     pypi_full_30_day_window_complete = "Full 30-day PyPI download window complete:" in metrics
     return {
         "schema_version": "patchrail.evidence_snapshot.v1",

@@ -223,9 +223,11 @@ def test_pypi_install_verification_is_recorded_without_download_or_adoption_clai
     assert PYPI_INSTALL_COMMAND in combined
     assert "python_test_failure" in combined
     assert WHEEL_VENV_COMMAND in combined
-    assert "Initial PyPI download telemetry" in combined
-    assert "123 downloads across 2026-06-11 and 2026-06-12" in combined
-    assert "102 downloads on 2026-06-12" in combined
+    assert "PyPI download telemetry" in combined
+    assert "154 downloads in the last month" in combined
+    assert "20 in the last week" in combined
+    assert "3 in the last day on 2026-06-24" in combined
+    assert "32 tagged Python 3, 122 with unknown Python major" in combined
     assert "does not count as external adoption" in normalized
 
 
@@ -1631,9 +1633,11 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "No automatic bounty claiming" in evidence
     assert ".agents/skills/patchrail-ci-triage" in evidence
     assert "https://pypi.org/project/patchrail/0.1.1/" in evidence
-    assert "Initial PyPI download telemetry" in evidence
-    assert "123 downloads across 2026-06-11 and 2026-06-12" in evidence
-    assert "102 downloads on 2026-06-12" in evidence
+    assert "PyPI download telemetry" in evidence
+    assert "154 downloads in the last month" in evidence
+    assert "20 in the last week" in evidence
+    assert "3 in the last day on 2026-06-24" in evidence
+    assert "32 tagged Python 3, 122 with unknown Python major" in evidence
     assert "uvx --from git+https://github.com/patchrail/patchrail patchrail" in evidence
     assert "Verified public CI evidence snapshot, 2026-06-06" in evidence
     assert "https://github.com/patchrail/patchrail/actions/runs/27062668635" in evidence
@@ -1999,8 +2003,9 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "PyPI package | `patchrail` 0.1.1 published" in metrics
     assert "Clean PyPI install smoke | Passing on 2026-06-12" in metrics
     assert "Monthly PyPI downloads" in metrics
-    assert "Initial package telemetry: 123 downloads across 2026-06-11..12" in metrics
-    assert "including 102 on 2026-06-12" in metrics
+    assert "Rolling package telemetry: 154 downloads in the last month" in metrics
+    assert "20 in the last week" in metrics
+    assert "3 in the last day as of 2026-06-24" in metrics
     assert "Public external adopters | 0" in metrics
     assert "patchrail evidence snapshot --format markdown" in metrics
     assert "does not replace\npublic GitHub, PyPI, or adopter metrics" in metrics
