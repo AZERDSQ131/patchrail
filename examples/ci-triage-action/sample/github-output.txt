@@ -1,5 +1,7 @@
 failure-class=python_dependency_resolution
 failure-slug=python-dependency-resolution
+utm-source=cli
+utm-campaign=python-dependency-resolution
 confidence=0.95
 guide-url=https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution
 pack-url=https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-dependency-resolution

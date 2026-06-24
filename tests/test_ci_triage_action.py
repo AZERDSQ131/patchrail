@@ -33,6 +33,8 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "$GITHUB_ACTION_PATH/../.." in text
     assert "failure-class:" in text
     assert "failure-slug:" in text
+    assert "utm-source:" in text
+    assert "utm-campaign:" in text
     assert "guide-url:" in text
     assert "pack-url:" in text
     assert "action-url:" in text
@@ -52,6 +54,7 @@ def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
     assert "utm_source=github&utm_campaign=ci-triage-action" in text
     assert "patchrail.gumroad.com/l/ci-failure-triage" in text
     assert "`next-step`" in text
+    assert "`utm-campaign`" in text
     assert "does not open pull requests" in text
     assert "post comments" in text
     assert "send the log to" in text
@@ -120,6 +123,8 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
 
     assert outputs["failure-class"] == result["failure_class"]
     assert outputs["failure-slug"] == "python-dependency-resolution"
+    assert outputs["utm-source"] == "cli"
+    assert outputs["utm-campaign"] == "python-dependency-resolution"
     assert outputs["confidence"] == str(result["confidence"])
     assert outputs["guide-url"].startswith("https://getpatchrail.com/fix")
     assert outputs["pack-url"].startswith("https://patchrail.gumroad.com/l/ci-failure-triage")
@@ -139,6 +144,27 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert outputs["next-step"] in summary
     assert "- Redacted categories: `0`" in summary
     assert str(report_path) in summary
+
+
+def test_ci_triage_action_helper_exports_index_attribution_for_unlisted_classes() -> None:
+    helper = _load_helper()
+    outputs = helper.action_outputs(
+        {
+            "failure_class": "pre_commit_hook_failure",
+            "confidence": 0.7,
+            "guide_url": "https://getpatchrail.com/fix?utm_source=cli",
+            "pack_url": "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=index",
+            "action_url": "https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=index",
+            "minimal_repair_strategy": "Run the hook locally.",
+            "reproduction_command": "pre-commit run --all-files",
+        },
+        Path("ci-result.json"),
+        Path("ci-report.md"),
+    )
+
+    assert outputs["failure-slug"] == "pre-commit-hook-failure"
+    assert outputs["utm-source"] == "cli"
+    assert outputs["utm-campaign"] == "index"
 
 
 def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> None:

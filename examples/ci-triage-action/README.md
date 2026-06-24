@@ -18,8 +18,9 @@ and writes:
 - `patchrail-ci-triage/ci-report.md`
 - `patchrail-ci-triage/ci-result.json`
 
-Reusable outputs include `failure-class`, `failure-slug`, `guide-url`,
-`pack-url`, `artifact-name`, `next-step`, and `reproduction-command`, so a
+Reusable outputs include `failure-class`, `failure-slug`, `utm-source`,
+`utm-campaign`, `guide-url`, `pack-url`, `artifact-name`, `next-step`, and
+`reproduction-command`, so a
 downstream workflow can route the failure to a maintainer or attach the local
 report to an internal ticket.
 

@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 
 OUTPUT_KEYS = {
@@ -39,6 +40,17 @@ def failure_slug(result: dict[str, Any]) -> str:
     return failure_class.replace("_", "-")
 
 
+def attribution_value(result: dict[str, Any], key: str, default: str) -> str:
+    for field in ("pack_url", "guide_url", "action_url"):
+        url = str(result.get(field) or "")
+        if not url:
+            continue
+        values = parse_qs(urlparse(url).query).get(key)
+        if values and values[0]:
+            return values[0]
+    return default
+
+
 def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path) -> dict[str, str]:
     slug = failure_slug(result)
     outputs = {}
@@ -46,6 +58,8 @@ def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path)
         outputs[output_name] = str(result.get(result_name, ""))
         if output_name == "failure-class":
             outputs["failure-slug"] = slug
+            outputs["utm-source"] = attribution_value(result, "utm_source", "cli")
+            outputs["utm-campaign"] = attribution_value(result, "utm_campaign", slug)
     outputs["artifact-name"] = f"patchrail-ci-triage-{slug}"
     outputs["json-result"] = str(result_path)
     outputs["markdown-report"] = str(report_path)

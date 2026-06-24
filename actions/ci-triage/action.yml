@@ -21,6 +21,12 @@ outputs:
   failure-slug:
     description: URL-safe PatchRail failure class slug for labels and artifacts.
     value: ${{ steps.outputs.outputs.failure-slug }}
+  utm-source:
+    description: Attribution source used in PatchRail guide, pack, and action URLs.
+    value: ${{ steps.outputs.outputs.utm-source }}
+  utm-campaign:
+    description: Attribution campaign used in PatchRail guide, pack, and action URLs.
+    value: ${{ steps.outputs.outputs.utm-campaign }}
   confidence:
     description: PatchRail classifier confidence.
     value: ${{ steps.outputs.outputs.confidence }}
