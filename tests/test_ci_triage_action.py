@@ -174,8 +174,7 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert outputs["next-step"] in summary
     assert "- Redacted categories: `0`" in summary
     assert (
-        "- Adoption key: `ci-triage:cli:python-dependency-resolution:"
-        "python-dependency-resolution`"
+        "- Adoption key: `ci-triage:cli:python-dependency-resolution:python-dependency-resolution`"
     ) in summary
     assert str(report_path) in summary
 
@@ -217,14 +216,16 @@ def test_ci_triage_action_helper_exports_workflow_context_when_available() -> No
         "minimal_repair_strategy": "Run ruff locally.",
         "reproduction_command": "ruff check .",
     }
-    context = helper.workflow_context_from_env({
-        "GITHUB_REPOSITORY": "buyer/repo",
-        "GITHUB_RUN_ID": "123456",
-        "GITHUB_REF": "refs/heads/main",
-        "GITHUB_SHA": "abc123",
-        "GITHUB_WORKFLOW": "CI",
-        "GITHUB_JOB": "test",
-    })
+    context = helper.workflow_context_from_env(
+        {
+            "GITHUB_REPOSITORY": "buyer/repo",
+            "GITHUB_RUN_ID": "123456",
+            "GITHUB_REF": "refs/heads/main",
+            "GITHUB_SHA": "abc123",
+            "GITHUB_WORKFLOW": "CI",
+            "GITHUB_JOB": "test",
+        }
+    )
 
     outputs = helper.action_outputs(
         result,
