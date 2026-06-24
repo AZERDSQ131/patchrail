@@ -910,6 +910,27 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
     assert payload["signals"]["ci_benchmark_passed"] == 153
     assert payload["signals"]["ci_benchmark_failed"] == 0
     assert payload["signals"]["public_external_adopters"] == 0
+    assert payload["adoption_evidence"] == {
+        "public_external_adopters": 0,
+        "countable_external_adoption_present": False,
+        "pypi_package_telemetry": {
+            "present": True,
+            "source_metric": "Monthly PyPI downloads",
+            "package_level_only": True,
+            "version_specific_adoption": False,
+            "last_month": 154,
+            "last_week": 20,
+            "last_day": 3,
+            "python_major_total": 154,
+            "as_of": "2026-06-24",
+        },
+        "pypi_counts_as_adoption": False,
+        "pending_public_evidence": [
+            "permissioned external maintainer pilot summary",
+            "approved ADOPTERS.md listing",
+            "full 30-day PyPI package window",
+        ],
+    }
     assert payload["signals"]["pilot_summary_count"] == 1
     assert payload["signals"]["owned_repo_issue_pr_cycles"] == 20
     assert "release-v0.4.0-evidence.md" in payload["signals"]["release_evidence_pages"]
@@ -940,6 +961,18 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
     assert "/Volumes/" not in proc.stdout
     assert "/Users/" not in proc.stdout
     assert "/home/" not in proc.stdout
+
+    markdown_proc = subprocess.run(
+        [sys.executable, "-m", "patchrail", "evidence", "snapshot", "--format", "markdown"],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert markdown_proc.returncode == 0, markdown_proc.stderr
+    assert "## Adoption Evidence" in markdown_proc.stdout
+    assert "- PyPI last month downloads: `154`" in markdown_proc.stdout
+    assert "- PyPI counts as adoption: `False`" in markdown_proc.stdout
 
 
 def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:

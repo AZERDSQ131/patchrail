@@ -374,6 +374,59 @@ def _read_optional_text(path: Path) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
+def _metrics_table_value(markdown: str, metric: str) -> str:
+    for raw_line in markdown.splitlines():
+        line = raw_line.strip()
+        if not line.startswith("|") or "---" in line:
+            continue
+        columns = [column.strip() for column in line.strip("|").split("|")]
+        if len(columns) >= 2 and columns[0] == metric:
+            return columns[1]
+    return ""
+
+
+def _parse_int(text: str) -> int | None:
+    try:
+        return int(text.replace(",", ""))
+    except ValueError:
+        return None
+
+
+def _pypi_package_telemetry(metrics: str) -> dict[str, Any]:
+    value = _metrics_table_value(metrics, "Monthly PyPI downloads")
+    rolling_match = re.search(
+        r"(?P<last_month>[\d,]+) downloads in the last month, "
+        r"(?P<last_week>[\d,]+) in the last week, and "
+        r"(?P<last_day>[\d,]+) in the last day",
+        value,
+    )
+    python_major_match = re.search(r"python_major` totals (?P<total>[\d,]+)", value)
+    as_of_match = re.search(r"as of (?P<as_of>\d{4}-\d{2}-\d{2})", value)
+    return {
+        "present": bool(value.strip()),
+        "source_metric": "Monthly PyPI downloads",
+        "package_level_only": True,
+        "version_specific_adoption": False,
+        "last_month": _parse_int(rolling_match.group("last_month")) if rolling_match else None,
+        "last_week": _parse_int(rolling_match.group("last_week")) if rolling_match else None,
+        "last_day": _parse_int(rolling_match.group("last_day")) if rolling_match else None,
+        "python_major_total": (
+            _parse_int(python_major_match.group("total")) if python_major_match else None
+        ),
+        "as_of": as_of_match.group("as_of") if as_of_match else None,
+    }
+
+
+def _public_external_adopters_count(metrics: str, adopters: str) -> int | None:
+    value = _metrics_table_value(metrics, "Public external adopters")
+    parsed = _parse_int(value)
+    if parsed is not None:
+        return parsed
+    if "no public external adopters listed yet" in adopters:
+        return 0
+    return None
+
+
 def _extract_markdown_links(text: str) -> list[dict[str, str]]:
     return [
         {"label": label, "url": url}
@@ -678,6 +731,8 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
         )
     )
     pypi_full_30_day_window_complete = "Full 30-day PyPI download window complete:" in metrics
+    external_adopters_count = _public_external_adopters_count(metrics, adopters)
+    pypi_telemetry = _pypi_package_telemetry(metrics)
     return {
         "schema_version": "patchrail.evidence_snapshot.v1",
         "patchrail_version": __version__,
@@ -703,6 +758,17 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
             "pypi_release_published": pypi_release_published,
             "pypi_initial_download_telemetry_present": pypi_initial_download_telemetry_present,
             "pypi_full_30_day_window_complete": pypi_full_30_day_window_complete,
+        },
+        "adoption_evidence": {
+            "public_external_adopters": external_adopters_count,
+            "countable_external_adoption_present": bool(external_adopters_count),
+            "pypi_package_telemetry": pypi_telemetry,
+            "pypi_counts_as_adoption": False,
+            "pending_public_evidence": [
+                "permissioned external maintainer pilot summary",
+                "approved ADOPTERS.md listing",
+                "full 30-day PyPI package window",
+            ],
         },
         "workstreams": {
             "ci_janitor": {
@@ -774,6 +840,8 @@ def _render_evidence_snapshot_markdown(payload: dict[str, Any]) -> str:
     signals = payload["signals"]
     safety = payload["safety"]
     workstreams = payload["workstreams"]
+    adoption = payload["adoption_evidence"]
+    pypi = adoption["pypi_package_telemetry"]
     lines = [
         "# PatchRail Open Source Evidence Snapshot",
         "",
@@ -788,6 +856,16 @@ def _render_evidence_snapshot_markdown(payload: dict[str, Any]) -> str:
         f"- Public external adopters: `{signals['public_external_adopters']}`",
         f"- Pilot summaries: `{signals['pilot_summary_count']}`",
         f"- Owned repo issue-to-PR cycles: `{signals['owned_repo_issue_pr_cycles']}`",
+        "",
+        "## Adoption Evidence",
+        "",
+        f"- Public external adopters: `{adoption['public_external_adopters']}`",
+        f"- Countable external adoption present: `{adoption['countable_external_adoption_present']}`",
+        f"- PyPI package telemetry present: `{pypi['present']}`",
+        f"- PyPI last month downloads: `{pypi['last_month']}`",
+        f"- PyPI last week downloads: `{pypi['last_week']}`",
+        f"- PyPI last day downloads: `{pypi['last_day']}`",
+        f"- PyPI counts as adoption: `{adoption['pypi_counts_as_adoption']}`",
         "",
         "## Workstreams",
         "",
