@@ -39,6 +39,9 @@ outputs:
   summary-line:
     description: One-line PatchRail triage summary for GitHub step summaries.
     value: ${{ steps.outputs.outputs.summary-line }}
+  redacted-categories:
+    description: Number of local redaction categories found in the CI log.
+    value: ${{ steps.outputs.outputs.redacted-categories }}
   next-step:
     description: Minimal next repair step for the detected CI failure.
     value: ${{ steps.outputs.outputs.next-step }}

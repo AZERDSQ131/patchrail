@@ -23,6 +23,16 @@ def summary_line(result: dict[str, Any]) -> str:
     return f"PatchRail CI triage: {failure_class} ({confidence}) -> {guide_url}"
 
 
+def redacted_category_count(result: dict[str, Any]) -> int:
+    redaction = result.get("redaction")
+    if not isinstance(redaction, dict):
+        return 0
+    redactions = redaction.get("redactions")
+    if not isinstance(redactions, dict):
+        return 0
+    return len(redactions)
+
+
 def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path) -> dict[str, str]:
     outputs = {
         output_name: str(result.get(result_name, ""))
@@ -31,6 +41,7 @@ def action_outputs(result: dict[str, Any], result_path: Path, report_path: Path)
     outputs["json-result"] = str(result_path)
     outputs["markdown-report"] = str(report_path)
     outputs["summary-line"] = summary_line(result)
+    outputs["redacted-categories"] = str(redacted_category_count(result))
     return outputs
 
 
@@ -47,6 +58,7 @@ def append_step_summary(result: dict[str, Any], report_path: Path, path: Path) -
         "",
         f"- Summary: {summary_line(result)}",
         f"- Next step: {result.get('minimal_repair_strategy') or 'Open the report for repair details.'}",
+        f"- Redacted categories: `{redacted_category_count(result)}`",
         f"- Report: `{report_path}`",
         "",
     ]

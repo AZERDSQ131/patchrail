@@ -37,6 +37,7 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "action-url:" in text
     assert "next-step:" in text
     assert "summary-line:" in text
+    assert "redacted-categories:" in text
     assert "GITHUB_STEP_SUMMARY" in text
 
 
@@ -124,12 +125,45 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path) -> Non
     assert outputs["markdown-report"] == str(report_path)
     assert outputs["summary-line"].startswith("PatchRail CI triage: python_dependency_resolution")
     assert outputs["guide-url"] in outputs["summary-line"]
+    assert outputs["redacted-categories"] == "0"
 
     summary = summary_path.read_text(encoding="utf-8")
     assert "## PatchRail CI triage" in summary
     assert outputs["summary-line"] in summary
     assert outputs["next-step"] in summary
+    assert "- Redacted categories: `0`" in summary
     assert str(report_path) in summary
+
+
+def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> None:
+    helper = _load_helper()
+    result = {
+        "failure_class": "python_test_failure",
+        "confidence": 0.9,
+        "guide_url": "https://getpatchrail.com/fix/python-test-failure?utm_source=cli",
+        "pack_url": "https://patchrail.gumroad.com/l/ci-failure-triage",
+        "action_url": "https://github.com/patchrail/ci-triage-action",
+        "minimal_repair_strategy": "Rerun pytest locally.",
+        "redaction": {
+            "local_only": True,
+            "redactions": {
+                "github_token": 1,
+                "email": 2,
+            },
+        },
+    }
+
+    output_path = tmp_path / "github-output.txt"
+    summary_path = tmp_path / "step-summary.md"
+    outputs = helper.action_outputs(result, Path("ci-result.json"), Path("ci-report.md"))
+
+    assert outputs["redacted-categories"] == "2"
+
+    helper.write_github_outputs(outputs, output_path)
+    assert "redacted-categories=2\n" in output_path.read_text(encoding="utf-8")
+
+    helper.append_step_summary(result, Path("ci-report.md"), summary_path)
+    assert "- Redacted categories: `2`" in summary_path.read_text(encoding="utf-8")
 
 
 def test_ci_triage_action_sample_matches_dependency_fixture(tmp_path: Path) -> None:
