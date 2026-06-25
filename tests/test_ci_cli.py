@@ -151,6 +151,10 @@ class PatchRailCITests(unittest.TestCase):
             ],
         )
         self.assertEqual(payload["blocker_queue"][0]["blocked_at"], "2026-06-24T09:34:00Z")
+        self.assertEqual(payload["blocker_queue"][0]["blocked_days"], 1)
+        self.assertEqual(payload["blocker_queue"][1]["blocked_days"], 0)
+        self.assertEqual(payload["oldest_blocked_days"], 1)
+        self.assertEqual(payload["oldest_blocker"]["channel"], "devto")
         self.assertEqual(
             payload["recommended_channel"],
             {
@@ -161,6 +165,7 @@ class PatchRailCITests(unittest.TestCase):
                 "safe_next_step": "copywriter must create approved copy_file; worker must not draft external prose",
                 "reason": "copywriter unavailable; no approved local copy file",
                 "blocked_at": "2026-06-24T09:34:00Z",
+                "blocked_days": 1,
             },
         )
         self.assertEqual(
@@ -174,6 +179,7 @@ class PatchRailCITests(unittest.TestCase):
                     "next_action": "copywriter_required",
                     "safe_next_step": "copywriter must create approved copy_file; worker must not draft external prose",
                     "source": "blocked",
+                    "oldest_blocked_days": 1,
                 },
                 {
                     "owner": "pablo",
@@ -183,6 +189,7 @@ class PatchRailCITests(unittest.TestCase):
                     "next_action": "browser_extension_setup_required",
                     "safe_next_step": "enable/install the Codex Chrome Extension in the selected logged-in Chrome profile for show-hn; worker must not bypass profile/login controls",
                     "source": "blocked",
+                    "oldest_blocked_days": 0,
                 },
             ],
         )

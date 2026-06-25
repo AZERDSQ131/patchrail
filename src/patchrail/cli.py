@@ -297,11 +297,23 @@ def _distribution_safe_next_step(channel: str, action: str, copy_file: str = "")
     return "resolve concrete blocker, then re-run publish_post.py blockers"
 
 
+def _distribution_blocked_days(blocked_at: str, as_of: str) -> int | None:
+    if not blocked_at:
+        return None
+    try:
+        blocked_date = datetime.fromisoformat(blocked_at.replace("Z", "+00:00")).date()
+        as_of_date = datetime.fromisoformat(as_of).date()
+    except ValueError:
+        return None
+    return max((as_of_date - blocked_date).days, 0)
+
+
 def _distribution_blocker_plan(
     *,
     receipts: list[dict[str, Any]],
     publish_health: dict[str, Any],
-) -> list[dict[str, str]]:
+    as_of: str,
+) -> list[dict[str, Any]]:
     latest_by_channel: dict[str, dict[str, str]] = {}
     for receipt in receipts:
         if receipt["status"] != "blocked":
@@ -323,10 +335,11 @@ def _distribution_blocker_plan(
             "copy_file": str(item.get("copy_file") or ""),
             "blocked_at": str(item.get("blocked_at") or ""),
         }
-    plan: list[dict[str, str]] = []
+    plan: list[dict[str, Any]] = []
     for item in sorted(latest_by_channel.values(), key=lambda row: row["channel"]):
         action = _distribution_blocker_action(item["reason"], item.get("copy_file", ""))
         owner = _distribution_blocker_owner(action)
+        blocked_days = _distribution_blocked_days(item.get("blocked_at", ""), as_of)
         plan.append(
             {
                 "channel": item["channel"],
@@ -339,12 +352,13 @@ def _distribution_blocker_plan(
                 "receipt": item.get("receipt", ""),
                 "brief": item.get("brief", ""),
                 "blocked_at": item.get("blocked_at", ""),
+                "blocked_days": blocked_days,
             }
         )
     return plan
 
 
-def _distribution_blocker_queue(blocker_plan: list[dict[str, str]]) -> list[dict[str, str]]:
+def _distribution_blocker_queue(blocker_plan: list[dict[str, Any]]) -> list[dict[str, Any]]:
     owner_priority = {"worker": 0, "worker_browser": 1, "copywriter": 2, "pablo": 3}
     return [
         {
@@ -353,6 +367,7 @@ def _distribution_blocker_queue(blocker_plan: list[dict[str, str]]) -> list[dict
             "next_action": item["next_action"],
             "safe_next_step": item["safe_next_step"],
             "blocked_at": item.get("blocked_at", ""),
+            "blocked_days": item.get("blocked_days"),
             "reason": item["reason"],
         }
         for item in sorted(
@@ -367,10 +382,10 @@ def _distribution_blocker_queue(blocker_plan: list[dict[str, str]]) -> list[dict
 
 
 def _distribution_recommended_channel(
-    blocker_plan: list[dict[str, str]],
-    blocker_queue: list[dict[str, str]],
+    blocker_plan: list[dict[str, Any]],
+    blocker_queue: list[dict[str, Any]],
     publish_health: dict[str, Any],
-) -> dict[str, str] | None:
+) -> dict[str, Any] | None:
     if blocker_plan and blocker_queue:
         item = blocker_queue[0]
         return {
@@ -381,6 +396,7 @@ def _distribution_recommended_channel(
             "safe_next_step": item["safe_next_step"],
             "reason": item["reason"],
             "blocked_at": item.get("blocked_at", ""),
+            "blocked_days": item.get("blocked_days"),
         }
     uncovered_channels = publish_health.get("uncovered_channels")
     if isinstance(uncovered_channels, list) and uncovered_channels:
@@ -397,8 +413,8 @@ def _distribution_recommended_channel(
 
 
 def _distribution_owner_next_actions(
-    blocker_queue: list[dict[str, str]],
-    recommended_channel: dict[str, str] | None,
+    blocker_queue: list[dict[str, Any]],
+    recommended_channel: dict[str, Any] | None,
 ) -> list[dict[str, Any]]:
     if not blocker_queue:
         if recommended_channel is None:
@@ -412,12 +428,16 @@ def _distribution_owner_next_actions(
                 "next_action": recommended_channel["next_action"],
                 "safe_next_step": recommended_channel["safe_next_step"],
                 "source": recommended_channel["source"],
+                "oldest_blocked_days": recommended_channel.get("blocked_days"),
             }
         ]
 
     channels_by_owner: dict[str, list[str]] = defaultdict(list)
+    blocked_days_by_owner: dict[str, list[int]] = defaultdict(list)
     for item in blocker_queue:
         channels_by_owner[item["owner"]].append(item["channel"])
+        if isinstance(item.get("blocked_days"), int):
+            blocked_days_by_owner[item["owner"]].append(item["blocked_days"])
 
     actions: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -436,6 +456,9 @@ def _distribution_owner_next_actions(
                 "next_action": item["next_action"],
                 "safe_next_step": item["safe_next_step"],
                 "source": "blocked",
+                "oldest_blocked_days": max(blocked_days_by_owner[owner])
+                if blocked_days_by_owner[owner]
+                else None,
             }
         )
     return actions
@@ -492,7 +515,9 @@ def _distribution_gate_payload(
     receipts = _distribution_receipts(posted_dir)
     publish_health = _distribution_publish_health(publish_health_file)
     by_status = Counter(receipt["status"] for receipt in receipts)
-    blocker_plan = _distribution_blocker_plan(receipts=receipts, publish_health=publish_health)
+    blocker_plan = _distribution_blocker_plan(
+        receipts=receipts, publish_health=publish_health, as_of=as_of
+    )
     blocker_queue = _distribution_blocker_queue(blocker_plan)
     blocker_owner_counts = Counter(item["owner"] for item in blocker_plan)
     recommended_channel = _distribution_recommended_channel(
@@ -535,6 +560,12 @@ def _distribution_gate_payload(
         next_action = "ship_more_distribution"
     else:
         next_action = "watch_until_gate"
+    blocker_days = [
+        item["blocked_days"]
+        for item in blocker_plan
+        if isinstance(item.get("blocked_days"), int)
+    ]
+    oldest_blocker = blocker_queue[0] if blocker_queue else None
     return {
         "schema_version": _DISTRIBUTION_GATE_SCHEMA_VERSION,
         "product": "ci-failure-triage-patterns",
@@ -558,6 +589,8 @@ def _distribution_gate_payload(
         "claimed_channels": claimed_channels,
         "publish_health": publish_health,
         "blocker_owner_counts": dict(sorted(blocker_owner_counts.items())),
+        "oldest_blocked_days": max(blocker_days) if blocker_days else None,
+        "oldest_blocker": oldest_blocker,
         "blocker_plan": blocker_plan,
         "blocker_queue": blocker_queue,
         "recommended_channel": recommended_channel,
@@ -607,9 +640,20 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
         + (
             ", ".join(
                 f"{item['channel']}={item['owner']}/{item['next_action']}"
+                f"/{item.get('blocked_days')}d"
                 for item in payload["blocker_queue"][:3]
             )
             or "none"
+        ),
+        "Oldest blocker: "
+        + (
+            (
+                f"{payload['oldest_blocker']['channel']} "
+                f"({payload['oldest_blocker']['owner']}, "
+                f"{payload['oldest_blocker'].get('blocked_days')}d)"
+            )
+            if payload["oldest_blocker"]
+            else "none"
         ),
         "Recommended channel: "
         + (
