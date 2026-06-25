@@ -52,6 +52,7 @@ class PatchRailCITests(unittest.TestCase):
                         "channel": "devto",
                         "status": "blocked",
                         "reason": "copywriter unavailable; no approved local copy file",
+                        "ts_posted": "2026-06-24T09:34:00Z",
                     }
                 ),
                 encoding="utf-8",
@@ -72,6 +73,7 @@ class PatchRailCITests(unittest.TestCase):
                                 "reason": "Chrome route missing extension",
                                 "receipt": str(posted / "show-hn.json"),
                                 "path": "opportunity-desk/outbox/requests/show-hn.json",
+                                "ts_blocked": "2026-06-25T07:40:05Z",
                             }
                         ],
                     }
@@ -116,14 +118,30 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["publish_health"]["uncovered_channels"], [])
         self.assertEqual(payload["blocker_owner_counts"], {"copywriter": 1, "pablo": 1})
         self.assertEqual(
-            [(item["channel"], item["owner"], item["next_action"]) for item in payload["blocker_plan"]],
+            [
+                (item["channel"], item["owner"], item["next_action"])
+                for item in payload["blocker_plan"]
+            ],
             [
                 ("devto", "copywriter", "copywriter_required"),
                 ("show-hn", "pablo", "browser_extension_setup_required"),
             ],
         )
-        self.assertIn("worker must not draft external prose", payload["blocker_plan"][0]["safe_next_step"])
+        self.assertIn(
+            "worker must not draft external prose", payload["blocker_plan"][0]["safe_next_step"]
+        )
         self.assertIn("worker must not bypass", payload["blocker_plan"][1]["safe_next_step"])
+        self.assertEqual(
+            [
+                (item["channel"], item["owner"], item["next_action"])
+                for item in payload["blocker_queue"]
+            ],
+            [
+                ("devto", "copywriter", "copywriter_required"),
+                ("show-hn", "pablo", "browser_extension_setup_required"),
+            ],
+        )
+        self.assertEqual(payload["blocker_queue"][0]["blocked_at"], "2026-06-24T09:34:00Z")
         self.assertEqual(
             payload["recommended_channel"],
             {
@@ -133,6 +151,7 @@ class PatchRailCITests(unittest.TestCase):
                 "next_action": "copywriter_required",
                 "safe_next_step": "copywriter must create approved copy_file; worker must not draft external prose",
                 "reason": "copywriter unavailable; no approved local copy file",
+                "blocked_at": "2026-06-24T09:34:00Z",
             },
         )
         self.assertEqual(payload["next_action"], "unblock_distribution_channels")
@@ -182,6 +201,48 @@ class PatchRailCITests(unittest.TestCase):
         text = stdout.getvalue()
         self.assertIn("Recommended channel: devto (claim_uncovered_distribution_channel)", text)
         self.assertIn("Next action: claim_uncovered_distribution_channel", text)
+
+    def test_distribution_sku1_gate_unblocks_blocked_receipts_without_health_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "devto.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "blocked",
+                        "reason": "copywriter unavailable; no approved local copy file",
+                        "ts_posted": "2026-06-24T09:34:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["next_action"], "unblock_distribution_channels")
+        self.assertEqual(payload["blocker_queue"][0]["channel"], "devto")
 
     def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

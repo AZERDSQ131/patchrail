@@ -195,6 +195,7 @@ def _distribution_receipts(posted_dir: Path) -> list[dict[str, Any]]:
                 "copy_file": str(raw.get("copy_file") or ""),
                 "item_id": str(raw.get("item_id") or ""),
                 "ts_posted": str(raw.get("ts_posted") or ""),
+                "blocked_at": str(raw.get("ts_blocked") or raw.get("ts_posted") or ""),
                 "reason": str(raw.get("reason") or ""),
             }
         )
@@ -223,6 +224,7 @@ def _distribution_publish_health(path: Path | None) -> dict[str, Any]:
             "receipt": str(item.get("receipt") or ""),
             "brief": str(item.get("path") or ""),
             "copy_file": str(item.get("copy_file") or ""),
+            "blocked_at": str(item.get("ts_blocked") or ""),
         }
         for item in blocked_raw
         if isinstance(item, dict)
@@ -309,6 +311,7 @@ def _distribution_blocker_plan(
             "reason": receipt["reason"],
             "receipt": receipt["path"],
             "copy_file": str(receipt.get("copy_file") or ""),
+            "blocked_at": str(receipt.get("blocked_at") or ""),
         }
     for item in publish_health["blocked"]:
         channel = item["channel"]
@@ -318,6 +321,7 @@ def _distribution_blocker_plan(
             "receipt": item["receipt"],
             "brief": item["brief"],
             "copy_file": str(item.get("copy_file") or ""),
+            "blocked_at": str(item.get("blocked_at") or ""),
         }
     plan: list[dict[str, str]] = []
     for item in sorted(latest_by_channel.values(), key=lambda row: row["channel"]):
@@ -334,21 +338,41 @@ def _distribution_blocker_plan(
                 "reason": item["reason"],
                 "receipt": item.get("receipt", ""),
                 "brief": item.get("brief", ""),
+                "blocked_at": item.get("blocked_at", ""),
             }
         )
     return plan
 
 
+def _distribution_blocker_queue(blocker_plan: list[dict[str, str]]) -> list[dict[str, str]]:
+    owner_priority = {"worker": 0, "worker_browser": 1, "copywriter": 2, "pablo": 3}
+    return [
+        {
+            "channel": item["channel"],
+            "owner": item["owner"],
+            "next_action": item["next_action"],
+            "safe_next_step": item["safe_next_step"],
+            "blocked_at": item.get("blocked_at", ""),
+            "reason": item["reason"],
+        }
+        for item in sorted(
+            blocker_plan,
+            key=lambda row: (
+                owner_priority.get(row["owner"], 9),
+                row.get("blocked_at") or "9999-99-99T99:99:99Z",
+                row["channel"],
+            ),
+        )
+    ]
+
+
 def _distribution_recommended_channel(
     blocker_plan: list[dict[str, str]],
+    blocker_queue: list[dict[str, str]],
     publish_health: dict[str, Any],
 ) -> dict[str, str] | None:
-    if blocker_plan:
-        owner_priority = {"worker": 0, "worker_browser": 1, "copywriter": 2, "pablo": 3}
-        item = min(
-            blocker_plan,
-            key=lambda row: (owner_priority.get(row["owner"], 9), row["channel"]),
-        )
+    if blocker_plan and blocker_queue:
+        item = blocker_queue[0]
         return {
             "channel": item["channel"],
             "source": "blocked",
@@ -356,6 +380,7 @@ def _distribution_recommended_channel(
             "next_action": item["next_action"],
             "safe_next_step": item["safe_next_step"],
             "reason": item["reason"],
+            "blocked_at": item.get("blocked_at", ""),
         }
     uncovered_channels = publish_health.get("uncovered_channels")
     if isinstance(uncovered_channels, list) and uncovered_channels:
@@ -385,8 +410,11 @@ def _distribution_gate_payload(
     publish_health = _distribution_publish_health(publish_health_file)
     by_status = Counter(receipt["status"] for receipt in receipts)
     blocker_plan = _distribution_blocker_plan(receipts=receipts, publish_health=publish_health)
+    blocker_queue = _distribution_blocker_queue(blocker_plan)
     blocker_owner_counts = Counter(item["owner"] for item in blocker_plan)
-    recommended_channel = _distribution_recommended_channel(blocker_plan, publish_health)
+    recommended_channel = _distribution_recommended_channel(
+        blocker_plan, blocker_queue, publish_health
+    )
     posted_channels = sorted(
         {
             receipt["channel"]
@@ -407,7 +435,7 @@ def _distribution_gate_payload(
         next_action = "fulfill_sale"
     elif pivot_gate_fires:
         next_action = "pivot_offer"
-    elif publish_health["blocked_total"] > 0:
+    elif blocker_plan:
         next_action = "unblock_distribution_channels"
     elif publish_health["stale_claims_total"] > 0:
         next_action = "clear_stale_distribution_claims"
@@ -440,6 +468,7 @@ def _distribution_gate_payload(
         "publish_health": publish_health,
         "blocker_owner_counts": dict(sorted(blocker_owner_counts.items())),
         "blocker_plan": blocker_plan,
+        "blocker_queue": blocker_queue,
         "recommended_channel": recommended_channel,
         "receipt_status_counts": dict(sorted(by_status.items())),
         "receipts": receipts,
@@ -473,6 +502,14 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             ", ".join(
                 f"{owner}={count}"
                 for owner, count in sorted(payload["blocker_owner_counts"].items())
+            )
+            or "none"
+        ),
+        "Action queue: "
+        + (
+            ", ".join(
+                f"{item['channel']}={item['owner']}/{item['next_action']}"
+                for item in payload["blocker_queue"][:3]
             )
             or "none"
         ),
