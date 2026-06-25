@@ -20,6 +20,98 @@ from patchrail.cli import (
 
 
 class PatchRailCITests(unittest.TestCase):
+    def test_distribution_sku1_gate_reports_traffic_gap_from_receipts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "x.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "x",
+                        "status": "posted",
+                        "url": "https://x.com/pablito3_3/status/1",
+                        "item_id": "1",
+                        "ts_posted": "2026-06-19T07:38:47Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (posted / "show-hn.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "browser route unavailable",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["schema_version"], "patchrail.distribution_gate.v1")
+        self.assertEqual(payload["conversion_consumer"], "SKU #1 CI Triage $19")
+        self.assertEqual(payload["conversion_kpi"], "visits_and_sales_before_2026-06-30")
+        self.assertIn("utm_source=github_marketplace", payload["conversion_url"])
+        self.assertEqual(payload["traffic_gap"], 275)
+        self.assertEqual(payload["posted_channels"], ["x"])
+        self.assertEqual(payload["blocked_channels"], ["show-hn"])
+        self.assertEqual(payload["next_action"], "ship_more_distribution")
+        self.assertFalse(payload["requirements"]["network_required"])
+
+    def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "300",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-30",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertTrue(payload["pivot_gate_armed"])
+        self.assertTrue(payload["pivot_gate_fires"])
+        self.assertEqual(payload["next_action"], "pivot_offer")
+
     def test_ci_classify_emits_json_without_external_requirements(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             log = Path(tmpdir) / "failed.log"

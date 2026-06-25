@@ -98,6 +98,11 @@ _CI_TRIAGE_ACTION_BASE = "https://github.com/patchrail/ci-triage-action"
 _CI_TRIAGE_MARKETPLACE_BASE = "https://github.com/marketplace/actions/patchrail-ci-triage"
 _CI_TRIAGE_MARKETPLACE_CONVERSION_SOURCE = "github_marketplace"
 _CI_TRIAGE_MARKETPLACE_CONVERSION_CAMPAIGN = "ci-triage-action"
+_DISTRIBUTION_GATE_SCHEMA_VERSION = "patchrail.distribution_gate.v1"
+_SKU1_CONVERSION_CONSUMER = "SKU #1 CI Triage $19"
+_SKU1_DISTRIBUTION_KPI = "visits_and_sales_before_2026-06-30"
+_SKU1_PIVOT_GATE_DATE = "2026-06-30"
+_SKU1_PIVOT_TRAFFIC_TARGET = 300
 
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
 # Unknown or unlisted classes link to the guide index instead. Keep in sync with the
@@ -169,6 +174,113 @@ def _ci_triage_marketplace_pack_url() -> str:
         f"?utm_source={_CI_TRIAGE_MARKETPLACE_CONVERSION_SOURCE}"
         f"&utm_campaign={_CI_TRIAGE_MARKETPLACE_CONVERSION_CAMPAIGN}"
     )
+
+
+def _distribution_receipts(posted_dir: Path) -> list[dict[str, Any]]:
+    receipts: list[dict[str, Any]] = []
+    if not posted_dir.exists():
+        return receipts
+    for path in sorted(posted_dir.glob("*.json")):
+        try:
+            raw = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            raw = {"status": "invalid_json", "channel": path.stem}
+        channel = str(raw.get("channel") or path.stem)
+        receipts.append(
+            {
+                "path": str(path),
+                "channel": channel,
+                "status": str(raw.get("status") or "unknown"),
+                "url": str(raw.get("url") or ""),
+                "item_id": str(raw.get("item_id") or ""),
+                "ts_posted": str(raw.get("ts_posted") or ""),
+                "reason": str(raw.get("reason") or ""),
+            }
+        )
+    return receipts
+
+
+def _distribution_gate_payload(
+    *,
+    posted_dir: Path,
+    traffic_delivered: int,
+    sales_total: int,
+    gross_usd: float,
+    as_of: str,
+    traffic_target: int = _SKU1_PIVOT_TRAFFIC_TARGET,
+    gate_date: str = _SKU1_PIVOT_GATE_DATE,
+) -> dict[str, Any]:
+    receipts = _distribution_receipts(posted_dir)
+    by_status = Counter(receipt["status"] for receipt in receipts)
+    posted_channels = sorted(
+        {
+            receipt["channel"]
+            for receipt in receipts
+            if receipt["status"] == "posted" and receipt["url"]
+        }
+    )
+    blocked_channels = sorted(
+        {receipt["channel"] for receipt in receipts if receipt["status"] == "blocked"}
+    )
+    claimed_channels = sorted(
+        {receipt["channel"] for receipt in receipts if receipt["status"] == "claimed"}
+    )
+    traffic_gap = max(traffic_target - traffic_delivered, 0)
+    pivot_gate_armed = as_of >= gate_date
+    pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
+    if sales_total > 0:
+        next_action = "fulfill_sale"
+    elif pivot_gate_fires:
+        next_action = "pivot_offer"
+    elif traffic_gap > 0:
+        next_action = "ship_more_distribution"
+    else:
+        next_action = "watch_until_gate"
+    return {
+        "schema_version": _DISTRIBUTION_GATE_SCHEMA_VERSION,
+        "product": "ci-failure-triage-patterns",
+        "conversion_consumer": _SKU1_CONVERSION_CONSUMER,
+        "conversion_url": _ci_triage_marketplace_pack_url(),
+        "conversion_kpi": _SKU1_DISTRIBUTION_KPI,
+        "posted_dir": str(posted_dir),
+        "as_of": as_of,
+        "gate_date": gate_date,
+        "traffic_target": traffic_target,
+        "traffic_delivered": traffic_delivered,
+        "traffic_gap": traffic_gap,
+        "sales_total": sales_total,
+        "gross_usd": gross_usd,
+        "pivot_gate_armed": pivot_gate_armed,
+        "pivot_gate_fires": pivot_gate_fires,
+        "next_action": next_action,
+        "posted_channels": posted_channels,
+        "blocked_channels": blocked_channels,
+        "claimed_channels": claimed_channels,
+        "receipt_status_counts": dict(sorted(by_status.items())),
+        "receipts": receipts,
+        "requirements": {
+            "billing_required": False,
+            "external_model_required": False,
+            "network_required": False,
+            "github_write_permission_required": False,
+        },
+    }
+
+
+def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
+    lines = [
+        f"Product: {payload['product']}",
+        f"Consumer: {payload['conversion_consumer']}",
+        f"Conversion URL: {payload['conversion_url']}",
+        f"Traffic: {payload['traffic_delivered']}/{payload['traffic_target']}",
+        f"Traffic gap: {payload['traffic_gap']}",
+        f"Sales: {payload['sales_total']} (${payload['gross_usd']:.2f})",
+        f"Posted channels: {', '.join(payload['posted_channels']) or 'none'}",
+        f"Blocked channels: {', '.join(payload['blocked_channels']) or 'none'}",
+        f"Pivot gate fires: {payload['pivot_gate_fires']}",
+        f"Next action: {payload['next_action']}",
+    ]
+    return "\n".join(lines) + "\n"
 
 
 def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
@@ -377,6 +489,24 @@ def _doctor(args: argparse.Namespace) -> int:
         text = _render_doctor_text(result)
     _write_or_print(text, args.out)
     return 0 if result["status"] == "ok" else 1
+
+
+def _distribution_gate(args: argparse.Namespace) -> int:
+    payload = _distribution_gate_payload(
+        posted_dir=args.posted_dir,
+        traffic_delivered=args.traffic_delivered,
+        sales_total=args.sales_total,
+        gross_usd=args.gross_usd,
+        as_of=args.as_of,
+        traffic_target=args.traffic_target,
+        gate_date=args.gate_date,
+    )
+    if args.format == "json":
+        text = _json_dump(payload)
+    else:
+        text = _render_distribution_gate_text(payload)
+    _write_or_print(text, args.out)
+    return 0
 
 
 def _read_optional_text(path: Path) -> str:
@@ -8591,6 +8721,67 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     doctor.add_argument("--out", type=Path, help="Optional output path.")
     doctor.set_defaults(func=_doctor)
+
+    distribution = subparsers.add_parser(
+        "distribution",
+        help="Summarize product distribution gates from local receipts.",
+    )
+    distribution_subparsers = distribution.add_subparsers(
+        dest="distribution_command",
+        required=True,
+    )
+    distribution_sku1 = distribution_subparsers.add_parser(
+        "sku1-gate",
+        help="Summarize CI Triage SKU #1 traffic, sales and pivot gate status.",
+    )
+    distribution_sku1.add_argument(
+        "--posted-dir",
+        type=Path,
+        default=Path("products/gumroad/distribution/posted"),
+        help="Directory containing local publish_post.py receipt JSON files.",
+    )
+    distribution_sku1.add_argument(
+        "--traffic-delivered",
+        type=int,
+        required=True,
+        help="Verified delivered traffic for SKU #1 distribution.",
+    )
+    distribution_sku1.add_argument(
+        "--sales-total",
+        type=int,
+        required=True,
+        help="Verified Gumroad sales count for SKU #1.",
+    )
+    distribution_sku1.add_argument(
+        "--gross-usd",
+        type=float,
+        required=True,
+        help="Verified gross USD for SKU #1.",
+    )
+    distribution_sku1.add_argument(
+        "--as-of",
+        required=True,
+        help="Snapshot date in YYYY-MM-DD form.",
+    )
+    distribution_sku1.add_argument(
+        "--traffic-target",
+        type=int,
+        default=_SKU1_PIVOT_TRAFFIC_TARGET,
+        help="Traffic threshold before the pivot gate can fire.",
+    )
+    distribution_sku1.add_argument(
+        "--gate-date",
+        default=_SKU1_PIVOT_GATE_DATE,
+        help="Pivot gate date in YYYY-MM-DD form.",
+    )
+    distribution_sku1.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="text",
+        help="Output format.",
+    )
+    distribution_sku1.add_argument("--out", type=Path, help="Optional output path.")
+    distribution_sku1.set_defaults(func=_distribution_gate)
 
     web_metrics = subparsers.add_parser(
         "web-metrics",
