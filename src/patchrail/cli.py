@@ -319,16 +319,17 @@ def _distribution_blocker_plan(
     as_of: str,
 ) -> list[dict[str, Any]]:
     latest_by_channel: dict[str, dict[str, str]] = {}
-    for receipt in receipts:
-        if receipt["status"] != "blocked":
-            continue
-        latest_by_channel[receipt["channel"]] = {
-            "channel": receipt["channel"],
-            "reason": receipt["reason"],
-            "receipt": receipt["path"],
-            "copy_file": str(receipt.get("copy_file") or ""),
-            "blocked_at": str(receipt.get("blocked_at") or ""),
-        }
+    if not publish_health["available"]:
+        for receipt in receipts:
+            if receipt["status"] != "blocked":
+                continue
+            latest_by_channel[receipt["channel"]] = {
+                "channel": receipt["channel"],
+                "reason": receipt["reason"],
+                "receipt": receipt["path"],
+                "copy_file": str(receipt.get("copy_file") or ""),
+                "blocked_at": str(receipt.get("blocked_at") or ""),
+            }
     for item in publish_health["blocked"]:
         channel = item["channel"]
         latest_by_channel[channel] = {
@@ -803,9 +804,7 @@ def _distribution_gate_payload(
             if receipt["status"] == "posted" and receipt["url"]
         }
     )
-    blocked_channels = sorted(
-        {receipt["channel"] for receipt in receipts if receipt["status"] == "blocked"}
-    )
+    blocked_channels = sorted({item["channel"] for item in blocker_plan})
     claimed_channels = sorted(
         {receipt["channel"] for receipt in receipts if receipt["status"] == "claimed"}
     )

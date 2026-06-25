@@ -506,6 +506,70 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["next_action"], "unblock_distribution_channels")
         self.assertEqual(payload["blocker_queue"][0]["channel"], "devto")
 
+    def test_distribution_sku1_gate_uses_health_to_clear_historical_blocked_receipts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "devto-old-block.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "blocked",
+                        "reason": "copywriter unavailable; no approved local copy file for channel",
+                        "ts_blocked": "2026-06-24T09:34:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "covered_channels": ["devto"],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "blocked": [],
+                        "stale_claims": [],
+                        "uncovered": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "28",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["next_action"], "ship_more_distribution")
+        self.assertEqual(payload["blocked_channels"], [])
+        self.assertEqual(payload["blocker_plan"], [])
+        self.assertEqual(payload["blocker_queue"], [])
+        self.assertEqual(payload["receipt_status_counts"], {"blocked": 1})
+        self.assertEqual(payload["publish_health"]["blocked_total"], 0)
+
     def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"
