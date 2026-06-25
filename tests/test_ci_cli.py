@@ -856,7 +856,7 @@ class PatchRailCITests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         payload = json.loads(stdout.getvalue())
-        self.assertEqual(payload["next_action"], "preflight_guarded_ads_or_measure_gate")
+        self.assertEqual(payload["next_action"], "measure_gate_until_eligible_ad_account")
         self.assertEqual(payload["blocked_channels"], [])
         self.assertEqual(payload["blocker_plan"], [])
         self.assertEqual(payload["blocker_queue"], [])
@@ -1244,7 +1244,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         payload = json.loads(stdout.getvalue())
         self.assertIsNone(payload["recommended_channel"])
-        self.assertEqual(payload["next_action"], "preflight_guarded_ads_or_measure_gate")
+        self.assertEqual(payload["next_action"], "measure_gate_until_eligible_ad_account")
         self.assertEqual(payload["traffic_execution_plan"]["recommended_channel"], None)
         self.assertEqual(payload["covered_channel_plan"]["next_channel"], None)
         self.assertEqual(
@@ -1292,11 +1292,23 @@ class PatchRailCITests(unittest.TestCase):
                     "--amount 75.00 --platform sku1-traffic-boost "
                     "--campaign ci-triage-sku1-gate"
                 ),
-                "commit_command_template": (
-                    "python3 opportunity-desk/scripts/ad_spend_guard.py commit "
-                    "--amount 75.00 --platform sku1-traffic-boost "
-                    "--campaign ci-triage-sku1-gate --evidence <receipt_or_ad_manager_url>"
-                ),
+                "eligibility_required": True,
+                "spend_executable": False,
+                "ad_account_eligibility": {
+                    "source": "not_provided",
+                    "proof_path": "",
+                    "platform": "sku1-traffic-boost",
+                    "eligible": False,
+                    "reason": "missing_logged_in_preexisting_ad_account_proof",
+                    "required_fields": [
+                        "platform",
+                        "logged_in",
+                        "preexisting_account",
+                        "card_on_file",
+                    ],
+                },
+                "commit_command_template": "",
+                "fallback_action": "measure_gate_until_eligible_ad_account",
                 "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd,"
@@ -1304,8 +1316,9 @@ class PatchRailCITests(unittest.TestCase):
                     "~/.openclaw/run/patchrail_supervisor_last.json"
                 ),
                 "safe_next_step": (
-                    "Run the ad_spend_guard preflight before any paid boost; if no logged-in "
-                    "eligible ad account is available, record measurement and wait for the next signal."
+                    "Measure the gate until a logged-in preexisting ad account with card-on-file "
+                    "is proven; do not create accounts, add cards, bypass login, or spend from "
+                    "unproven eligibility."
                 ),
             },
         )
@@ -1318,6 +1331,94 @@ class PatchRailCITests(unittest.TestCase):
             ],
             [("linkedin", "posted", False)],
         )
+
+    def test_distribution_sku1_gate_marks_paid_boost_executable_with_eligibility_proof(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            posted.joinpath("linkedin.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "linkedin",
+                        "status": "posted",
+                        "url": "https://www.linkedin.com/posts/patchrail",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "covered_channels": [
+                            "devto",
+                            "hashnode",
+                            "linkedin",
+                            "reddit-sideproject",
+                            "show-hn",
+                            "x",
+                        ],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "blocked": [],
+                        "stale_claims": [],
+                        "uncovered": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            eligibility_file = Path(tmpdir) / "ad-account-eligibility.json"
+            eligibility_file.write_text(
+                json.dumps(
+                    {
+                        "platform": "sku1-traffic-boost",
+                        "logged_in": True,
+                        "preexisting_account": True,
+                        "card_on_file": True,
+                        "login_required": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--ad-account-eligibility-file",
+                        str(eligibility_file),
+                        "--traffic-delivered",
+                        "28",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["next_action"], "preflight_guarded_ads_or_measure_gate")
+        packet = payload["paid_ad_execution_packet"]
+        self.assertTrue(packet["required"])
+        self.assertTrue(packet["spend_executable"])
+        self.assertEqual(packet["fallback_action"], "")
+        self.assertEqual(packet["ad_account_eligibility"]["reason"], "eligible_preexisting_logged_in_account")
+        self.assertIn("--amount 75.00", packet["commit_command_template"])
 
     def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -692,6 +692,56 @@ def _distribution_ad_spend_source(
     }
 
 
+def _distribution_ad_account_eligibility(
+    path: Path | None,
+    platform: str,
+) -> dict[str, Any]:
+    if path is None:
+        return {
+            "source": "not_provided",
+            "proof_path": "",
+            "platform": platform,
+            "eligible": False,
+            "reason": "missing_logged_in_preexisting_ad_account_proof",
+            "required_fields": ["platform", "logged_in", "preexisting_account", "card_on_file"],
+        }
+    if not path.exists():
+        raise FileNotFoundError(f"ad account eligibility proof not found: {path}")
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("ad account eligibility proof must be a JSON object")
+
+    proof_platform = str(raw.get("platform") or platform)
+    logged_in = bool(raw.get("logged_in"))
+    preexisting_account = bool(raw.get("preexisting_account"))
+    card_on_file = bool(raw.get("card_on_file"))
+    login_required = bool(raw.get("login_required") or raw.get("captcha_or_2fa_required"))
+    platform_matches = proof_platform == platform
+    eligible = bool(
+        platform_matches and logged_in and preexisting_account and card_on_file and not login_required
+    )
+    missing = [
+        field
+        for field, ok in (
+            ("platform", platform_matches),
+            ("logged_in", logged_in),
+            ("preexisting_account", preexisting_account),
+            ("card_on_file", card_on_file),
+            ("no_login_or_2fa_required", not login_required),
+        )
+        if not ok
+    ]
+    return {
+        "source": "file",
+        "proof_path": str(path),
+        "platform": proof_platform,
+        "eligible": eligible,
+        "reason": "eligible_preexisting_logged_in_account" if eligible else "eligibility_failed",
+        "missing_or_failed": missing,
+    }
+
+
 def _distribution_traffic_execution_plan(
     *,
     traffic_pressure: dict[str, Any],
@@ -1035,6 +1085,7 @@ def _distribution_paid_ad_execution_packet(
     channel_closeout_plan: dict[str, Any],
     traffic_execution_plan: dict[str, Any],
     paid_traffic_plan: dict[str, Any],
+    ad_account_eligibility: dict[str, Any],
 ) -> dict[str, Any]:
     amount_usd = round(float(traffic_execution_plan["paid_budget_usd"]), 2)
     required = bool(
@@ -1042,11 +1093,18 @@ def _distribution_paid_ad_execution_packet(
         and paid_traffic_plan["preflight_required"]
         and amount_usd > 0
     )
+    spend_executable = bool(required and ad_account_eligibility.get("eligible"))
     preflight_command = (
         "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
         f"--amount {amount_usd:.2f} --platform {_SKU1_PAID_TRAFFIC_PLATFORM} "
         f"--campaign {_SKU1_PAID_TRAFFIC_CAMPAIGN}"
     )
+    safe_next_step = channel_closeout_plan["safe_next_step"]
+    if required and not spend_executable:
+        safe_next_step = (
+            "Measure the gate until a logged-in preexisting ad account with card-on-file is proven; "
+            "do not create accounts, add cards, bypass login, or spend from unproven eligibility."
+        )
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
@@ -1058,19 +1116,25 @@ def _distribution_paid_ad_execution_packet(
         "paid_click_target": traffic_execution_plan["paid_click_target"] if required else 0,
         "url": _distribution_paid_traffic_url() if required else "",
         "preflight_command": preflight_command if required else "",
+        "eligibility_required": required,
+        "spend_executable": spend_executable,
+        "ad_account_eligibility": ad_account_eligibility,
         "commit_command_template": (
             "python3 opportunity-desk/scripts/ad_spend_guard.py commit "
             f"--amount {amount_usd:.2f} --platform {_SKU1_PAID_TRAFFIC_PLATFORM} "
             f"--campaign {_SKU1_PAID_TRAFFIC_CAMPAIGN} --evidence <receipt_or_ad_manager_url>"
         )
-        if required
+        if spend_executable
+        else "",
+        "fallback_action": "measure_gate_until_eligible_ad_account"
+        if required and not spend_executable
         else "",
         "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
         "measurement_command": (
             "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd,"
             ".ad_spend_committed_usd,.ad_cap_usd' ~/.openclaw/run/patchrail_supervisor_last.json"
         ),
-        "safe_next_step": channel_closeout_plan["safe_next_step"],
+        "safe_next_step": safe_next_step,
     }
 
 
@@ -1269,6 +1333,7 @@ def _distribution_gate_payload(
     ad_cap_usd: float = _SKU1_AD_SPEND_CAP_USD,
     ad_spend_committed_usd: float = 0.0,
     ad_spend_source: dict[str, Any] | None = None,
+    ad_account_eligibility: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     receipts = _distribution_receipts(posted_dir)
     publish_health = _distribution_publish_health(publish_health_file)
@@ -1346,6 +1411,8 @@ def _distribution_gate_payload(
         channel_closeout_plan=channel_closeout_plan,
         traffic_execution_plan=traffic_execution_plan,
         paid_traffic_plan=paid_traffic_plan,
+        ad_account_eligibility=ad_account_eligibility
+        or _distribution_ad_account_eligibility(None, _SKU1_PAID_TRAFFIC_PLATFORM),
     )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
@@ -1354,6 +1421,8 @@ def _distribution_gate_payload(
         next_action = "fulfill_sale"
     elif pivot_gate_fires:
         next_action = "pivot_offer"
+    elif paid_ad_execution_packet["required"] and not paid_ad_execution_packet["spend_executable"]:
+        next_action = "measure_gate_until_eligible_ad_account"
     elif channel_closeout_plan["required"] and channel_closeout_plan["next_action"] != "none":
         next_action = channel_closeout_plan["next_action"]
     elif blocker_plan:
@@ -1844,6 +1913,10 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         args.ad_spend_ledger,
         args.ad_spend_committed_usd,
     )
+    ad_account_eligibility = _distribution_ad_account_eligibility(
+        args.ad_account_eligibility_file,
+        _SKU1_PAID_TRAFFIC_PLATFORM,
+    )
     payload = _distribution_gate_payload(
         posted_dir=args.posted_dir,
         publish_health_file=args.publish_health_file,
@@ -1859,6 +1932,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         ad_cap_usd=args.ad_cap_usd,
         ad_spend_committed_usd=ad_spend_source["committed_usd"],
         ad_spend_source=ad_spend_source,
+        ad_account_eligibility=ad_account_eligibility,
     )
     if args.write_copy_brief is not None:
         copy_brief_request = payload["channel_execution_packet"].get("copy_brief_request")
@@ -10194,6 +10268,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Optional append-only ad spend ledger JSONL; committed charge/preauth/adjustment "
             "rows minus refunds override --ad-spend-committed-usd."
+        ),
+    )
+    distribution_sku1.add_argument(
+        "--ad-account-eligibility-file",
+        type=Path,
+        help=(
+            "Optional JSON proof that the paid boost platform is already logged in, preexisting, "
+            "and has card-on-file; without this proof spend is marked non-executable."
         ),
     )
     distribution_sku1.add_argument(
