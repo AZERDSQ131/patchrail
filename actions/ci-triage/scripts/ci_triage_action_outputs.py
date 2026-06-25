@@ -96,13 +96,17 @@ def workflow_context_from_env(env: dict[str, str] | None = None) -> dict[str, st
     source = os.environ if env is None else env
     repository = str(source.get("GITHUB_REPOSITORY") or "").strip()
     run_id = str(source.get("GITHUB_RUN_ID") or "").strip()
+    raw_server_url = str(source.get("GITHUB_SERVER_URL") or "").strip()
+    server_url = raw_server_url or "https://github.com"
     context: dict[str, str] = {}
     if repository:
         context["workflow_repository"] = repository
     if run_id:
         context["workflow_run_id"] = run_id
     if repository and run_id:
-        context["workflow_run_url"] = f"https://github.com/{repository}/actions/runs/{run_id}"
+        context["workflow_run_url"] = f"{server_url.rstrip('/')}/{repository}/actions/runs/{run_id}"
+    if raw_server_url or repository or run_id:
+        context["workflow_run_host"] = urlparse(server_url).netloc or server_url
     optional_fields = {
         "GITHUB_REF": "workflow_ref",
         "GITHUB_SHA": "workflow_sha",
@@ -149,6 +153,7 @@ def action_outputs(
     )
     outputs["workflow-repository"] = (workflow_context or {}).get("workflow_repository", "")
     outputs["workflow-run-url"] = (workflow_context or {}).get("workflow_run_url", "")
+    outputs["workflow-run-host"] = (workflow_context or {}).get("workflow_run_host", "")
     return outputs
 
 

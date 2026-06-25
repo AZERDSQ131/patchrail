@@ -66,6 +66,9 @@ outputs:
   workflow-run-url:
     description: GitHub Actions run URL for the triage execution, when available.
     value: ${{ steps.outputs.outputs.workflow-run-url }}
+  workflow-run-host:
+    description: Host that executed the triage workflow, for github.com/GHES attribution.
+    value: ${{ steps.outputs.outputs.workflow-run-host }}
   next-step:
     description: Minimal next repair step for the detected CI failure.
     value: ${{ steps.outputs.outputs.next-step }}

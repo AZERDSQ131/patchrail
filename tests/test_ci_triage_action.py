@@ -47,6 +47,7 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "adoption-event-json:" in text
     assert "workflow-repository:" in text
     assert "workflow-run-url:" in text
+    assert "workflow-run-host:" in text
     assert "GITHUB_STEP_SUMMARY" in text
 
 
@@ -62,6 +63,7 @@ def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
     assert "`adoption-key`" in text
     assert "`adoption-event-json`" in text
     assert "`workflow-run-url`" in text
+    assert "`workflow-run-host`" in text
     assert "real workflow usage countable" in text
     assert "does not open pull requests" in text
     assert "post comments" in text
@@ -176,6 +178,7 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path, monkey
     }
     assert outputs["workflow-repository"] == ""
     assert outputs["workflow-run-url"] == ""
+    assert outputs["workflow-run-host"] == ""
 
     summary = summary_path.read_text(encoding="utf-8")
     assert "## PatchRail CI triage" in summary
@@ -233,6 +236,7 @@ def test_ci_triage_action_helper_exports_workflow_context_when_available() -> No
             "GITHUB_SHA": "abc123",
             "GITHUB_WORKFLOW": "CI",
             "GITHUB_JOB": "test",
+            "GITHUB_SERVER_URL": "https://github.enterprise.test",
         }
     )
 
@@ -246,11 +250,19 @@ def test_ci_triage_action_helper_exports_workflow_context_when_available() -> No
     )
 
     assert outputs["workflow-repository"] == "buyer/repo"
-    assert outputs["workflow-run-url"] == "https://github.com/buyer/repo/actions/runs/123456"
+    assert (
+        outputs["workflow-run-url"]
+        == "https://github.enterprise.test/buyer/repo/actions/runs/123456"
+    )
+    assert outputs["workflow-run-host"] == "github.enterprise.test"
     adoption_event = json.loads(outputs["adoption-event-json"])
     assert adoption_event["workflow_repository"] == "buyer/repo"
     assert adoption_event["workflow_run_id"] == "123456"
-    assert adoption_event["workflow_run_url"] == "https://github.com/buyer/repo/actions/runs/123456"
+    assert (
+        adoption_event["workflow_run_url"]
+        == "https://github.enterprise.test/buyer/repo/actions/runs/123456"
+    )
+    assert adoption_event["workflow_run_host"] == "github.enterprise.test"
     assert adoption_event["workflow_ref"] == "refs/heads/main"
     assert adoption_event["workflow_sha"] == "abc123"
     assert adoption_event["workflow_name"] == "CI"
