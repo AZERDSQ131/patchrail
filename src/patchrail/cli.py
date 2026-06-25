@@ -1479,6 +1479,16 @@ def _distribution_stalled_handoff(
                 "python3 opportunity-desk/scripts/publish_post.py claim "
                 f"--channel {shlex.quote(channel)} --copy-file <copywriter-approved-copy-file>"
             )
+        elif (
+            owner == "pablo"
+            and item.get("next_action") == "browser_extension_setup_required"
+            and item.get("copy_file")
+        ):
+            command = (
+                "python3 opportunity-desk/scripts/publish_post.py claim "
+                f"--channel {shlex.quote(channel)} "
+                f"--copy-file {shlex.quote(str(item['copy_file']))}"
+            )
         elif owner in {"worker", "worker_browser"}:
             command = (
                 "python3 opportunity-desk/scripts/publish_post.py block "
