@@ -631,10 +631,7 @@ def _distribution_channel_conversion_plan(
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
         "channel": channel,
-        "url": (
-            f"{_CI_TRIAGE_PACK_BASE}?utm_source={quote(channel)}"
-            f"&utm_campaign={_SKU1_CHANNEL_UTM_CAMPAIGN}"
-        ),
+        "url": _distribution_channel_url(channel),
         "measurement_command": (
             "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
             "~/.openclaw/run/patchrail_supervisor_last.json"
@@ -645,6 +642,52 @@ def _distribution_channel_conversion_plan(
         ),
         "next_action": recommended_channel["next_action"],
     }
+
+
+def _distribution_channel_url(channel: str) -> str:
+    return (
+        f"{_CI_TRIAGE_PACK_BASE}?utm_source={quote(channel)}"
+        f"&utm_campaign={_SKU1_CHANNEL_UTM_CAMPAIGN}"
+    )
+
+
+def _distribution_channel_measurement_urls(
+    blocker_queue: list[dict[str, Any]],
+    recommended_channel: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def add(channel: str, owner: str, next_action: str, source: str) -> None:
+        if not channel or channel in seen:
+            return
+        seen.add(channel)
+        rows.append(
+            {
+                "channel": channel,
+                "owner": owner,
+                "source": source,
+                "next_action": next_action,
+                "url": _distribution_channel_url(channel),
+                "measurement_event": "sku1_visits_and_sales_delta",
+            }
+        )
+
+    if recommended_channel is not None:
+        add(
+            str(recommended_channel["channel"]),
+            str(recommended_channel["owner"]),
+            str(recommended_channel["next_action"]),
+            str(recommended_channel["source"]),
+        )
+    for item in blocker_queue:
+        add(
+            str(item["channel"]),
+            str(item["owner"]),
+            str(item["next_action"]),
+            "blocked",
+        )
+    return rows
 
 
 def _distribution_execution_checklist(
@@ -859,6 +902,9 @@ def _distribution_gate_payload(
         recommended_channel=recommended_channel,
     )
     channel_conversion_plan = _distribution_channel_conversion_plan(recommended_channel)
+    channel_measurement_urls = _distribution_channel_measurement_urls(
+        blocker_queue, recommended_channel
+    )
     publish_post_commands = _distribution_publish_post_commands(recommended_channel)
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
@@ -897,6 +943,7 @@ def _distribution_gate_payload(
         "paid_traffic_plan": paid_traffic_plan,
         "traffic_execution_plan": traffic_execution_plan,
         "channel_conversion_plan": channel_conversion_plan,
+        "channel_measurement_urls": channel_measurement_urls,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
@@ -970,6 +1017,14 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             )
             if payload["channel_conversion_plan"]["channel"]
             else "none"
+        ),
+        "Channel measurement URLs: "
+        + (
+            "; ".join(
+                f"{item['channel']}={item['url']}"
+                for item in payload["channel_measurement_urls"][:5]
+            )
+            or "none"
         ),
         "Execution checklist: "
         + (

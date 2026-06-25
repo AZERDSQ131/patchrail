@@ -180,6 +180,33 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
         self.assertEqual(
+            payload["channel_measurement_urls"],
+            [
+                {
+                    "channel": "devto",
+                    "owner": "copywriter",
+                    "source": "blocked",
+                    "next_action": "copywriter_required",
+                    "url": (
+                        "https://patchrail.gumroad.com/l/ci-failure-triage"
+                        "?utm_source=devto&utm_campaign=sku1-organic-distribution"
+                    ),
+                    "measurement_event": "sku1_visits_and_sales_delta",
+                },
+                {
+                    "channel": "show-hn",
+                    "owner": "pablo",
+                    "source": "blocked",
+                    "next_action": "browser_extension_setup_required",
+                    "url": (
+                        "https://patchrail.gumroad.com/l/ci-failure-triage"
+                        "?utm_source=show-hn&utm_campaign=sku1-organic-distribution"
+                    ),
+                    "measurement_event": "sku1_visits_and_sales_delta",
+                },
+            ],
+        )
+        self.assertEqual(
             payload["execution_checklist"],
             [
                 {
@@ -451,6 +478,12 @@ class PatchRailCITests(unittest.TestCase):
             text,
         )
         self.assertIn(
+            "Channel measurement URLs: "
+            "devto=https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=devto&utm_campaign=sku1-organic-distribution",
+            text,
+        )
+        self.assertIn(
             "Execution checklist: paid_ads_preflight=worker, organic_distribution=worker, "
             "measure_gate=worker",
             text,
@@ -643,6 +676,22 @@ class PatchRailCITests(unittest.TestCase):
             payload["channel_conversion_plan"]["url"],
             "https://patchrail.gumroad.com/l/ci-failure-triage"
             "?utm_source=linkedin&utm_campaign=sku1-organic-distribution",
+        )
+        self.assertEqual(
+            payload["channel_measurement_urls"],
+            [
+                {
+                    "channel": "linkedin",
+                    "owner": "worker",
+                    "source": "expansion",
+                    "next_action": "create_social_post_brief",
+                    "url": (
+                        "https://patchrail.gumroad.com/l/ci-failure-triage"
+                        "?utm_source=linkedin&utm_campaign=sku1-organic-distribution"
+                    ),
+                    "measurement_event": "sku1_visits_and_sales_delta",
+                }
+            ],
         )
         self.assertFalse(payload["channel_conversion_plan"]["ready_to_publish"])
         self.assertEqual(
