@@ -99,6 +99,8 @@ class PatchRailCITests(unittest.TestCase):
                         "0",
                         "--as-of",
                         "2026-06-25",
+                        "--stalled-after-days",
+                        "1",
                         "--format",
                         "json",
                     ]
@@ -195,6 +197,16 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(payload["next_action"], "unblock_distribution_channels")
         self.assertFalse(payload["requirements"]["network_required"])
+        self.assertEqual(payload["stalled_after_days"], 1)
+        self.assertEqual(payload["stalled_owner_counts"], {"copywriter": 1})
+        self.assertEqual(
+            [
+                (item["channel"], item["owner"], item["blocked_days"])
+                for item in payload["stalled_blockers"]
+            ],
+            [("devto", "copywriter", 1)],
+        )
+        self.assertEqual(payload["stalled_handoff_owner"], "copywriter")
 
     def test_distribution_sku1_gate_recommends_uncovered_channel_when_no_blockers(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -248,6 +260,7 @@ class PatchRailCITests(unittest.TestCase):
             "Owner next actions: worker=devto/claim_uncovered_distribution_channel (1 channel)",
             text,
         )
+        self.assertIn("Stalled blockers: none", text)
         self.assertIn("Next action: claim_uncovered_distribution_channel", text)
 
     def test_distribution_sku1_gate_unblocks_blocked_receipts_without_health_file(self) -> None:

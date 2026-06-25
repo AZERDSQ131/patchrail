@@ -464,6 +464,18 @@ def _distribution_owner_next_actions(
     return actions
 
 
+def _distribution_stalled_blockers(
+    blocker_queue: list[dict[str, Any]],
+    stalled_after_days: int,
+) -> list[dict[str, Any]]:
+    threshold = max(stalled_after_days, 0)
+    return [
+        item
+        for item in blocker_queue
+        if isinstance(item.get("blocked_days"), int) and item["blocked_days"] >= threshold
+    ]
+
+
 def _distribution_traffic_pressure(
     *,
     traffic_delivered: int,
@@ -511,6 +523,7 @@ def _distribution_gate_payload(
     as_of: str,
     traffic_target: int = _SKU1_PIVOT_TRAFFIC_TARGET,
     gate_date: str = _SKU1_PIVOT_GATE_DATE,
+    stalled_after_days: int = 1,
 ) -> dict[str, Any]:
     receipts = _distribution_receipts(posted_dir)
     publish_health = _distribution_publish_health(publish_health_file)
@@ -524,6 +537,8 @@ def _distribution_gate_payload(
         blocker_plan, blocker_queue, publish_health
     )
     owner_next_actions = _distribution_owner_next_actions(blocker_queue, recommended_channel)
+    stalled_blockers = _distribution_stalled_blockers(blocker_queue, stalled_after_days)
+    stalled_owner_counts = Counter(item["owner"] for item in stalled_blockers)
     posted_channels = sorted(
         {
             receipt["channel"]
@@ -589,6 +604,10 @@ def _distribution_gate_payload(
         "claimed_channels": claimed_channels,
         "publish_health": publish_health,
         "blocker_owner_counts": dict(sorted(blocker_owner_counts.items())),
+        "stalled_after_days": max(stalled_after_days, 0),
+        "stalled_blockers": stalled_blockers,
+        "stalled_owner_counts": dict(sorted(stalled_owner_counts.items())),
+        "stalled_handoff_owner": stalled_blockers[0]["owner"] if stalled_blockers else None,
         "oldest_blocked_days": max(blocker_days) if blocker_days else None,
         "oldest_blocker": oldest_blocker,
         "blocker_plan": blocker_plan,
@@ -642,6 +661,14 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
                 f"{item['channel']}={item['owner']}/{item['next_action']}"
                 f"/{item.get('blocked_days')}d"
                 for item in payload["blocker_queue"][:3]
+            )
+            or "none"
+        ),
+        "Stalled blockers: "
+        + (
+            ", ".join(
+                f"{owner}={count}"
+                for owner, count in sorted(payload["stalled_owner_counts"].items())
             )
             or "none"
         ),
@@ -898,6 +925,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         as_of=args.as_of,
         traffic_target=args.traffic_target,
         gate_date=args.gate_date,
+        stalled_after_days=args.stalled_after_days,
     )
     if args.format == "json":
         text = _json_dump(payload)
@@ -9174,6 +9202,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--gate-date",
         default=_SKU1_PIVOT_GATE_DATE,
         help="Pivot gate date in YYYY-MM-DD form.",
+    )
+    distribution_sku1.add_argument(
+        "--stalled-after-days",
+        type=int,
+        default=1,
+        help="Blocked distribution channels at or above this age are reported as stalled.",
     )
     distribution_sku1.add_argument(
         "--format",
