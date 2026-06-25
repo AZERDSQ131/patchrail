@@ -96,6 +96,8 @@ _FIX_GUIDE_BASE = "https://getpatchrail.com/fix"
 _CI_TRIAGE_PACK_BASE = "https://patchrail.gumroad.com/l/ci-failure-triage"
 _CI_TRIAGE_ACTION_BASE = "https://github.com/patchrail/ci-triage-action"
 _CI_TRIAGE_MARKETPLACE_BASE = "https://github.com/marketplace/actions/patchrail-ci-triage"
+_CI_TRIAGE_MARKETPLACE_CONVERSION_SOURCE = "github_marketplace"
+_CI_TRIAGE_MARKETPLACE_CONVERSION_CAMPAIGN = "ci-triage-action"
 
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
 # Unknown or unlisted classes link to the guide index instead. Keep in sync with the
@@ -159,6 +161,14 @@ def _ci_triage_action_url(failure_class: Any) -> str:
     slug = str(failure_class or "").replace("_", "-")
     campaign = slug if slug and slug in _FIX_GUIDE_SLUGS else "index"
     return f"{_CI_TRIAGE_ACTION_BASE}?utm_source=cli&utm_campaign={campaign}"
+
+
+def _ci_triage_marketplace_pack_url() -> str:
+    return (
+        f"{_CI_TRIAGE_PACK_BASE}"
+        f"?utm_source={_CI_TRIAGE_MARKETPLACE_CONVERSION_SOURCE}"
+        f"&utm_campaign={_CI_TRIAGE_MARKETPLACE_CONVERSION_CAMPAIGN}"
+    )
 
 
 def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
@@ -841,6 +851,9 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
                 "marketplace_counts_as_adoption": github_action_marketplace[
                     "counts_as_adoption"
                 ],
+                "conversion_consumer": "SKU #1 CI Triage $19",
+                "conversion_url": _ci_triage_marketplace_pack_url(),
+                "conversion_kpi": "visits_and_sales_before_2026-06-30",
             },
             "agent_control_plane": {
                 "status": "local_demo",

@@ -977,6 +977,16 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
         == "https://github.com/marketplace/actions/patchrail-ci-triage"
     )
     assert payload["workstreams"]["github_action"]["marketplace_counts_as_adoption"] is False
+    assert payload["workstreams"]["github_action"]["conversion_consumer"] == "SKU #1 CI Triage $19"
+    assert (
+        payload["workstreams"]["github_action"]["conversion_url"]
+        == "https://patchrail.gumroad.com/l/ci-failure-triage"
+        "?utm_source=github_marketplace&utm_campaign=ci-triage-action"
+    )
+    assert (
+        payload["workstreams"]["github_action"]["conversion_kpi"]
+        == "visits_and_sales_before_2026-06-30"
+    )
     assert payload["workstreams"]["agent_control_plane"]["demo_present"] is True
     assert payload["workstreams"]["funded_issue_scout"]["demo_present"] is True
     assert payload["workstreams"]["release_packaging"]["package_smoke_in_ci"] is True
@@ -1031,6 +1041,12 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
         "- Non-countable signals: `PyPI package downloads, owned-repo pilot outcomes, "
         "GitHub Marketplace action listing`" in markdown_proc.stdout
     )
+    assert "conversion_consumer=SKU #1 CI Triage $19" in markdown_proc.stdout
+    assert (
+        "conversion_url=https://patchrail.gumroad.com/l/ci-failure-triage"
+        "?utm_source=github_marketplace&utm_campaign=ci-triage-action" in markdown_proc.stdout
+    )
+    assert "conversion_kpi=visits_and_sales_before_2026-06-30" in markdown_proc.stdout
 
 
 def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:
