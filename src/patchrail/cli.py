@@ -200,9 +200,51 @@ def _distribution_receipts(posted_dir: Path) -> list[dict[str, Any]]:
     return receipts
 
 
+def _read_optional_json(path: Path | None) -> dict[str, Any]:
+    if path is None or not path.exists():
+        return {}
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {"ok": False, "error": "invalid_json", "path": str(path)}
+    return (
+        raw if isinstance(raw, dict) else {"ok": False, "error": "not_an_object", "path": str(path)}
+    )
+
+
+def _distribution_publish_health(path: Path | None) -> dict[str, Any]:
+    raw = _read_optional_json(path)
+    blocked_raw = raw.get("blocked", []) if isinstance(raw.get("blocked"), list) else []
+    blocked = [
+        {
+            "channel": str(item.get("channel") or ""),
+            "reason": str(item.get("reason") or ""),
+            "receipt": str(item.get("receipt") or ""),
+            "brief": str(item.get("path") or ""),
+        }
+        for item in blocked_raw
+        if isinstance(item, dict)
+    ]
+    uncovered = raw.get("uncovered", []) if isinstance(raw.get("uncovered"), list) else []
+    stale_claims = raw.get("stale_claims", []) if isinstance(raw.get("stale_claims"), list) else []
+    return {
+        "path": str(path) if path else "",
+        "available": bool(raw),
+        "ok": bool(raw.get("ok")) if raw else False,
+        "blocked_total": int(raw.get("social_post_blocked_total") or len(blocked)),
+        "uncovered_total": int(raw.get("social_post_uncovered_total") or len(uncovered)),
+        "stale_claims_total": int(raw.get("social_post_stale_claims_total") or len(stale_claims)),
+        "covered_channels": [str(channel) for channel in raw.get("covered_channels", [])]
+        if isinstance(raw.get("covered_channels"), list)
+        else [],
+        "blocked": blocked,
+    }
+
+
 def _distribution_gate_payload(
     *,
     posted_dir: Path,
+    publish_health_file: Path | None = None,
     traffic_delivered: int,
     sales_total: int,
     gross_usd: float,
@@ -211,6 +253,7 @@ def _distribution_gate_payload(
     gate_date: str = _SKU1_PIVOT_GATE_DATE,
 ) -> dict[str, Any]:
     receipts = _distribution_receipts(posted_dir)
+    publish_health = _distribution_publish_health(publish_health_file)
     by_status = Counter(receipt["status"] for receipt in receipts)
     posted_channels = sorted(
         {
@@ -232,6 +275,12 @@ def _distribution_gate_payload(
         next_action = "fulfill_sale"
     elif pivot_gate_fires:
         next_action = "pivot_offer"
+    elif publish_health["blocked_total"] > 0:
+        next_action = "unblock_distribution_channels"
+    elif publish_health["stale_claims_total"] > 0:
+        next_action = "clear_stale_distribution_claims"
+    elif publish_health["uncovered_total"] > 0:
+        next_action = "claim_uncovered_distribution_channel"
     elif traffic_gap > 0:
         next_action = "ship_more_distribution"
     else:
@@ -256,6 +305,7 @@ def _distribution_gate_payload(
         "posted_channels": posted_channels,
         "blocked_channels": blocked_channels,
         "claimed_channels": claimed_channels,
+        "publish_health": publish_health,
         "receipt_status_counts": dict(sorted(by_status.items())),
         "receipts": receipts,
         "requirements": {
@@ -277,6 +327,12 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
         f"Sales: {payload['sales_total']} (${payload['gross_usd']:.2f})",
         f"Posted channels: {', '.join(payload['posted_channels']) or 'none'}",
         f"Blocked channels: {', '.join(payload['blocked_channels']) or 'none'}",
+        (
+            "Publish health: "
+            f"blocked={payload['publish_health']['blocked_total']}, "
+            f"uncovered={payload['publish_health']['uncovered_total']}, "
+            f"stale_claims={payload['publish_health']['stale_claims_total']}"
+        ),
         f"Pivot gate fires: {payload['pivot_gate_fires']}",
         f"Next action: {payload['next_action']}",
     ]
@@ -494,6 +550,7 @@ def _doctor(args: argparse.Namespace) -> int:
 def _distribution_gate(args: argparse.Namespace) -> int:
     payload = _distribution_gate_payload(
         posted_dir=args.posted_dir,
+        publish_health_file=args.publish_health_file,
         traffic_delivered=args.traffic_delivered,
         sales_total=args.sales_total,
         gross_usd=args.gross_usd,
@@ -978,9 +1035,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
                 "install_url": _CI_TRIAGE_ACTION_BASE,
                 "marketplace_listed": github_action_marketplace["listed"],
                 "marketplace_url": github_action_marketplace["url"],
-                "marketplace_counts_as_adoption": github_action_marketplace[
-                    "counts_as_adoption"
-                ],
+                "marketplace_counts_as_adoption": github_action_marketplace["counts_as_adoption"],
                 "conversion_consumer": "SKU #1 CI Triage $19",
                 "conversion_url": _ci_triage_marketplace_pack_url(),
                 "conversion_kpi": "visits_and_sales_before_2026-06-30",
@@ -8739,6 +8794,11 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=Path("products/gumroad/distribution/posted"),
         help="Directory containing local publish_post.py receipt JSON files.",
+    )
+    distribution_sku1.add_argument(
+        "--publish-health-file",
+        type=Path,
+        help="Optional JSON output from publish_post.py health --json.",
     )
     distribution_sku1.add_argument(
         "--traffic-delivered",

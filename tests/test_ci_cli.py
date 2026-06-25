@@ -46,6 +46,27 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "covered_channels": ["show-hn", "x"],
+                        "social_post_blocked_total": 1,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "blocked": [
+                            {
+                                "channel": "show-hn",
+                                "reason": "Chrome route missing extension",
+                                "receipt": str(posted / "show-hn.json"),
+                                "path": "opportunity-desk/outbox/requests/show-hn.json",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
 
             stdout = StringIO()
             with redirect_stdout(stdout):
@@ -55,6 +76,8 @@ class PatchRailCITests(unittest.TestCase):
                         "sku1-gate",
                         "--posted-dir",
                         str(posted),
+                        "--publish-health-file",
+                        str(health_file),
                         "--traffic-delivered",
                         "25",
                         "--sales-total",
@@ -77,7 +100,9 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["traffic_gap"], 275)
         self.assertEqual(payload["posted_channels"], ["x"])
         self.assertEqual(payload["blocked_channels"], ["show-hn"])
-        self.assertEqual(payload["next_action"], "ship_more_distribution")
+        self.assertEqual(payload["publish_health"]["blocked_total"], 1)
+        self.assertEqual(payload["publish_health"]["blocked"][0]["channel"], "show-hn")
+        self.assertEqual(payload["next_action"], "unblock_distribution_channels")
         self.assertFalse(payload["requirements"]["network_required"])
 
     def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:
