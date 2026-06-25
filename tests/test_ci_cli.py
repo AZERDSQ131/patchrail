@@ -1165,6 +1165,98 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(payload["approved_copy"][0]["channel"], "linkedin")
 
+    def test_distribution_sku1_gate_does_not_recommend_posted_expansion_channel(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            posted.joinpath("linkedin.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "linkedin",
+                        "status": "posted",
+                        "url": "https://www.linkedin.com/feed/update/urn:li:activity:123",
+                        "ts_posted": "2026-06-25T14:22:03Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "covered_channels": [
+                            "devto",
+                            "hashnode",
+                            "reddit-sideproject",
+                            "show-hn",
+                            "x",
+                        ],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "blocked": [],
+                        "stale_claims": [],
+                        "uncovered": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            approved_copy_dir = Path(tmpdir) / "sent"
+            approved_copy_dir.mkdir()
+            approved_copy_dir.joinpath("sku1-linkedin-social-post.json").write_text(
+                json.dumps(
+                    {
+                        "type": "social_post",
+                        "channel": "linkedin",
+                        "copy_file": str(Path(tmpdir) / "linkedin.md"),
+                        "thread_ref": "distribution sku1-gate channel=linkedin",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--approved-copy-dir",
+                        str(approved_copy_dir),
+                        "--traffic-delivered",
+                        "28",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertIsNone(payload["recommended_channel"])
+        self.assertEqual(payload["next_action"], "ship_more_distribution")
+        self.assertEqual(payload["traffic_execution_plan"]["recommended_channel"], None)
+        self.assertEqual(payload["covered_channel_plan"]["next_channel"], None)
+        self.assertIn("posted", payload["covered_channel_plan"]["status_counts"])
+        self.assertEqual(
+            [
+                (item["channel"], item["status"], item["recommended"])
+                for item in payload["covered_channel_plan"]["channels"]
+                if item["channel"] == "linkedin"
+            ],
+            [("linkedin", "posted", False)],
+        )
+
     def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

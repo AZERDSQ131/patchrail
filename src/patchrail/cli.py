@@ -478,7 +478,7 @@ def _distribution_recommended_channel(
         and _SKU1_BASE_DISTRIBUTION_CHANNELS.issubset(covered_channels)
     ):
         for channel in _SKU1_EXPANSION_DISTRIBUTION_CHANNELS:
-            if channel in covered_channels:
+            if channel in posted_channels or channel in covered_channels:
                 continue
             return {
                 "channel": channel,
@@ -806,6 +806,97 @@ def _distribution_channel_measurement_urls(
     return rows
 
 
+def _distribution_covered_channel_plan(
+    *,
+    receipts: list[dict[str, Any]],
+    publish_health: dict[str, Any],
+    approved_copy: list[dict[str, str]],
+    blocker_plan: list[dict[str, Any]],
+    recommended_channel: dict[str, Any] | None,
+) -> dict[str, Any]:
+    latest_receipt_by_channel: dict[str, dict[str, Any]] = {}
+    for receipt in receipts:
+        latest_receipt_by_channel[receipt["channel"]] = receipt
+    blockers_by_channel = {item["channel"]: item for item in blocker_plan}
+    approved_copy_by_channel = {item["channel"]: item for item in approved_copy}
+    covered_channels = {str(channel) for channel in publish_health.get("covered_channels") or []}
+    uncovered_channels = {str(channel) for channel in publish_health.get("uncovered_channels") or []}
+    recommended_name = str(recommended_channel["channel"]) if recommended_channel else ""
+    channels = set(latest_receipt_by_channel) | covered_channels | uncovered_channels
+    channels |= set(blockers_by_channel) | set(approved_copy_by_channel)
+    if recommended_name:
+        channels.add(recommended_name)
+
+    rows: list[dict[str, Any]] = []
+    for channel in sorted(channels):
+        receipt = latest_receipt_by_channel.get(channel)
+        blocker = blockers_by_channel.get(channel)
+        approved = approved_copy_by_channel.get(channel)
+        is_recommended = channel == recommended_name
+        if receipt and receipt["status"] == "posted" and receipt["url"]:
+            status = "posted"
+        elif receipt and receipt["status"] == "claimed":
+            status = "claimed"
+        elif blocker:
+            status = "blocked"
+        elif approved and channel not in covered_channels:
+            status = "approved_copy_pending"
+        elif channel in uncovered_channels:
+            status = "uncovered"
+        elif channel in covered_channels:
+            status = "covered"
+        elif is_recommended:
+            status = "recommended"
+        else:
+            status = "unknown"
+
+        next_action = ""
+        owner = ""
+        source = ""
+        if is_recommended and recommended_channel:
+            next_action = str(recommended_channel["next_action"])
+            owner = str(recommended_channel["owner"])
+            source = str(recommended_channel["source"])
+        elif blocker:
+            next_action = str(blocker["next_action"])
+            owner = str(blocker["owner"])
+            source = "blocked"
+        elif status == "approved_copy_pending":
+            next_action = "claim_approved_copy"
+            owner = "worker_browser"
+            source = "approved_copy"
+        elif status == "uncovered":
+            next_action = "claim_uncovered_distribution_channel"
+            owner = "worker"
+            source = "publish_health"
+
+        rows.append(
+            {
+                "channel": channel,
+                "status": status,
+                "url": receipt["url"] if receipt and receipt["url"] else _distribution_channel_url(channel),
+                "owner": owner,
+                "next_action": next_action,
+                "source": source,
+                "recommended": is_recommended,
+                "receipt": receipt["path"] if receipt else "",
+                "copy_file": (approved or {}).get("copy_file", ""),
+            }
+        )
+
+    by_status = Counter(row["status"] for row in rows)
+    next_row = next((row for row in rows if row["recommended"]), None)
+    return {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "total_channels": len(rows),
+        "status_counts": dict(sorted(by_status.items())),
+        "next_channel": next_row["channel"] if next_row else None,
+        "next_action": next_row["next_action"] if next_row else "",
+        "channels": rows,
+    }
+
+
 def _distribution_execution_checklist(
     *,
     traffic_execution_plan: dict[str, Any],
@@ -1125,6 +1216,13 @@ def _distribution_gate_payload(
         recommended_channel=recommended_channel,
         publish_post_commands=publish_post_commands,
     )
+    covered_channel_plan = _distribution_covered_channel_plan(
+        receipts=receipts,
+        publish_health=publish_health,
+        approved_copy=approved_copy,
+        blocker_plan=blocker_plan,
+        recommended_channel=recommended_channel,
+    )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
@@ -1168,6 +1266,7 @@ def _distribution_gate_payload(
         "channel_conversion_plan": channel_conversion_plan,
         "channel_measurement_urls": channel_measurement_urls,
         "channel_execution_packet": channel_execution_packet,
+        "covered_channel_plan": covered_channel_plan,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
@@ -1250,6 +1349,22 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
                 for item in payload["channel_measurement_urls"][:5]
             )
             or "none"
+        ),
+        "Covered channel plan: "
+        + (
+            (
+                f"total={payload['covered_channel_plan']['total_channels']}, "
+                f"next={payload['covered_channel_plan']['next_channel'] or 'none'}/"
+                f"{payload['covered_channel_plan']['next_action'] or 'none'}, "
+                + ", ".join(
+                    f"{status}={count}"
+                    for status, count in payload["covered_channel_plan"][
+                        "status_counts"
+                    ].items()
+                )
+            )
+            if payload["covered_channel_plan"]["total_channels"]
+            else "none"
         ),
         "Execution checklist: "
         + (
