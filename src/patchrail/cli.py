@@ -1386,8 +1386,7 @@ def _distribution_browser_extension_handoff(
                 "copy_file": copy_file,
                 "safe_next_step": item["safe_next_step"],
                 "verify_command": (
-                    "python3 opportunity-desk/scripts/publish_post.py blockers "
-                    "--owner pablo --json"
+                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
                 ),
                 "claim_after_setup_command": (
                     "python3 opportunity-desk/scripts/publish_post.py claim "

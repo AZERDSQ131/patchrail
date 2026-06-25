@@ -395,8 +395,7 @@ class PatchRailCITests(unittest.TestCase):
                 "pending_count": 1,
                 "next_channel": "show-hn",
                 "next_verify_command": (
-                    "python3 opportunity-desk/scripts/publish_post.py blockers "
-                    "--owner pablo --json"
+                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
                 ),
                 "next_claim_after_setup_command": "",
                 "checklist": [
