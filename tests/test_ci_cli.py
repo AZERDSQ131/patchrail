@@ -1229,6 +1229,68 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(payload["approved_copy"][0]["channel"], "linkedin")
 
+    def test_distribution_sku1_gate_unblocks_copywriter_receipt_with_approved_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            posted.joinpath("devto-20260624T093400Z.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "blocked",
+                        "reason": "copywriter unavailable; no approved local copy file for channel",
+                        "ts_blocked": "2026-06-24T09:34:00+00:00",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            approved_copy_dir = Path(tmpdir) / "sent"
+            approved_copy_dir.mkdir()
+            copy_file = Path(tmpdir) / "devto.md"
+            approved_copy_dir.joinpath("sku1-devto-social-post.json").write_text(
+                json.dumps(
+                    {
+                        "type": "social_post",
+                        "channel": "devto",
+                        "copy_file": str(copy_file),
+                        "thread_ref": "distribution sku1-gate channel=devto",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--approved-copy-dir",
+                        str(approved_copy_dir),
+                        "--traffic-delivered",
+                        "28",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["recommended_channel"]["channel"], "devto")
+        self.assertEqual(payload["recommended_channel"]["next_action"], "claim_approved_copy")
+        self.assertEqual(payload["recommended_channel"]["owner"], "worker")
+        self.assertEqual(payload["recommended_channel"]["copy_file"], str(copy_file))
+        self.assertEqual(payload["blocker_owner_counts"], {"worker": 1})
+        self.assertFalse(payload["channel_execution_packet"]["copywriter_required"])
+
     def test_distribution_sku1_gate_does_not_recommend_posted_expansion_channel(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

@@ -354,8 +354,10 @@ def _distribution_blocker_plan(
     *,
     receipts: list[dict[str, Any]],
     publish_health: dict[str, Any],
+    approved_copy: list[dict[str, str]],
     as_of: str,
 ) -> list[dict[str, Any]]:
+    approved_by_channel = {item["channel"]: item for item in approved_copy}
     latest_by_channel: dict[str, dict[str, str]] = {}
     if not publish_health["available"]:
         for receipt in receipts:
@@ -380,7 +382,11 @@ def _distribution_blocker_plan(
         }
     plan: list[dict[str, Any]] = []
     for item in sorted(latest_by_channel.values(), key=lambda row: row["channel"]):
-        action = _distribution_blocker_action(item["reason"], item.get("copy_file", ""))
+        approved = approved_by_channel.get(item["channel"])
+        copy_file = item.get("copy_file", "") or (approved or {}).get("copy_file", "")
+        action = _distribution_blocker_action(item["reason"], copy_file)
+        if action == "copywriter_required" and copy_file:
+            action = "claim_approved_copy"
         owner = _distribution_blocker_owner(action)
         blocked_days = _distribution_blocked_days(item.get("blocked_at", ""), as_of)
         plan.append(
@@ -388,12 +394,11 @@ def _distribution_blocker_plan(
                 "channel": item["channel"],
                 "owner": owner,
                 "next_action": action,
-                "safe_next_step": _distribution_safe_next_step(
-                    item["channel"], action, item.get("copy_file", "")
-                ),
+                "safe_next_step": _distribution_safe_next_step(item["channel"], action, copy_file),
                 "reason": item["reason"],
                 "receipt": item.get("receipt", ""),
                 "brief": item.get("brief", ""),
+                "copy_file": copy_file,
                 "blocked_at": item.get("blocked_at", ""),
                 "blocked_days": blocked_days,
             }
@@ -412,6 +417,7 @@ def _distribution_blocker_queue(blocker_plan: list[dict[str, Any]]) -> list[dict
             "blocked_at": item.get("blocked_at", ""),
             "blocked_days": item.get("blocked_days"),
             "brief": item.get("brief", ""),
+            "copy_file": item.get("copy_file", ""),
             "reason": item["reason"],
         }
         for item in sorted(
@@ -435,7 +441,7 @@ def _distribution_recommended_channel(
 ) -> dict[str, Any] | None:
     if blocker_plan and blocker_queue:
         item = blocker_queue[0]
-        return {
+        row = {
             "channel": item["channel"],
             "source": "blocked",
             "owner": item["owner"],
@@ -445,6 +451,9 @@ def _distribution_recommended_channel(
             "blocked_at": item.get("blocked_at", ""),
             "blocked_days": item.get("blocked_days"),
         }
+        if item.get("copy_file"):
+            row["copy_file"] = item["copy_file"]
+        return row
     covered_channels = set(publish_health.get("covered_channels") or [])
     if traffic_gap > 0:
         for item in approved_copy:
@@ -1422,7 +1431,10 @@ def _distribution_gate_payload(
     approved_copy = _distribution_approved_copy(approved_copy_dir)
     by_status = Counter(receipt["status"] for receipt in receipts)
     blocker_plan = _distribution_blocker_plan(
-        receipts=receipts, publish_health=publish_health, as_of=as_of
+        receipts=receipts,
+        publish_health=publish_health,
+        approved_copy=approved_copy,
+        as_of=as_of,
     )
     blocker_queue = _distribution_blocker_queue(blocker_plan)
     blocker_owner_counts = Counter(item["owner"] for item in blocker_plan)
@@ -1521,14 +1533,14 @@ def _distribution_gate_payload(
         next_action = "measure_gate_until_eligible_ad_account"
     elif channel_closeout_plan["required"] and channel_closeout_plan["next_action"] != "none":
         next_action = channel_closeout_plan["next_action"]
+    elif recommended_channel and recommended_channel.get("next_action") == "claim_approved_copy":
+        next_action = "claim_approved_copy"
     elif blocker_plan:
         next_action = "unblock_distribution_channels"
     elif publish_health["stale_claims_total"] > 0:
         next_action = "clear_stale_distribution_claims"
     elif publish_health["uncovered_total"] > 0:
         next_action = "claim_uncovered_distribution_channel"
-    elif recommended_channel and recommended_channel.get("next_action") == "claim_approved_copy":
-        next_action = "claim_approved_copy"
     elif traffic_gap > 0:
         next_action = "ship_more_distribution"
     else:
