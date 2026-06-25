@@ -302,6 +302,56 @@ class PatchRailCITests(unittest.TestCase):
                     "python3 opportunity-desk/scripts/publish_post.py block "
                     "--channel devto --reason <concrete_blocker>"
                 ),
+                "copy_brief_request": {
+                    "write_path": (
+                        "opportunity-desk/outbox/requests/"
+                        "<timestamp>-sku1-devto-social-post.json"
+                    ),
+                    "schema": "copy_brief.social_post.v1",
+                    "prohibited_fields": ["body", "draft", "email_body"],
+                    "payload": {
+                        "type": "social_post",
+                        "channel": "devto",
+                        "lead": "SKU #1 CI Triage $19",
+                        "goal": (
+                            "Create approved PatchRail social copy for devto that drives "
+                            "measured visits to SKU #1 before 2026-06-30."
+                        ),
+                        "key_facts": [
+                            "Product: SKU #1 CI Triage $19.",
+                            "KPI: visits_and_sales_before_2026-06-30.",
+                            (
+                                "Channel URL with UTM: "
+                                "https://patchrail.gumroad.com/l/ci-failure-triage"
+                                "?utm_source=devto&utm_campaign=sku1-organic-distribution."
+                            ),
+                            "Organic click target: 125.",
+                            "Daily organic target: 25.0.",
+                            "Source: blocked.",
+                            "Reason: copywriter unavailable; no approved local copy file.",
+                        ],
+                        "tone": "Concise, practical, maintainer-safe, no hype.",
+                        "constraints": [
+                            (
+                                "Copywriter authors final external prose; worker does not draft "
+                                "publishable text."
+                            ),
+                            "Brand-only: PatchRail.",
+                            (
+                                "No internal model/tool names, no payout or sales guarantees, "
+                                "no calls or Calendly."
+                            ),
+                            "Use the provided UTM URL exactly for measurement.",
+                        ],
+                        "urgency": "normal",
+                        "thread_ref": (
+                            "distribution sku1-gate channel=devto; "
+                            "kpi=visits_and_sales_before_2026-06-30; "
+                            "url=https://patchrail.gumroad.com/l/ci-failure-triage"
+                            "?utm_source=devto&utm_campaign=sku1-organic-distribution"
+                        ),
+                    },
+                },
             },
         )
         self.assertEqual(
@@ -775,6 +825,56 @@ class PatchRailCITests(unittest.TestCase):
                     "python3 opportunity-desk/scripts/publish_post.py block "
                     "--channel linkedin --reason <concrete_blocker>"
                 ),
+                "copy_brief_request": {
+                    "write_path": (
+                        "opportunity-desk/outbox/requests/"
+                        "<timestamp>-sku1-linkedin-social-post.json"
+                    ),
+                    "schema": "copy_brief.social_post.v1",
+                    "prohibited_fields": ["body", "draft", "email_body"],
+                    "payload": {
+                        "type": "social_post",
+                        "channel": "linkedin",
+                        "lead": "SKU #1 CI Triage $19",
+                        "goal": (
+                            "Create approved PatchRail social copy for linkedin that drives "
+                            "measured visits to SKU #1 before 2026-06-30."
+                        ),
+                        "key_facts": [
+                            "Product: SKU #1 CI Triage $19.",
+                            "KPI: visits_and_sales_before_2026-06-30.",
+                            (
+                                "Channel URL with UTM: "
+                                "https://patchrail.gumroad.com/l/ci-failure-triage"
+                                "?utm_source=linkedin&utm_campaign=sku1-organic-distribution."
+                            ),
+                            "Organic click target: 172.",
+                            "Daily organic target: 34.4.",
+                            "Source: expansion.",
+                            "Reason: traffic_gap_remaining_after_base_channels_covered.",
+                        ],
+                        "tone": "Concise, practical, maintainer-safe, no hype.",
+                        "constraints": [
+                            (
+                                "Copywriter authors final external prose; worker does not draft "
+                                "publishable text."
+                            ),
+                            "Brand-only: PatchRail.",
+                            (
+                                "No internal model/tool names, no payout or sales guarantees, "
+                                "no calls or Calendly."
+                            ),
+                            "Use the provided UTM URL exactly for measurement.",
+                        ],
+                        "urgency": "normal",
+                        "thread_ref": (
+                            "distribution sku1-gate channel=linkedin; "
+                            "kpi=visits_and_sales_before_2026-06-30; "
+                            "url=https://patchrail.gumroad.com/l/ci-failure-triage"
+                            "?utm_source=linkedin&utm_campaign=sku1-organic-distribution"
+                        ),
+                    },
+                },
             },
         )
         self.assertFalse(payload["channel_conversion_plan"]["ready_to_publish"])

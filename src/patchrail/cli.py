@@ -802,6 +802,56 @@ def _distribution_channel_execution_packet(
         "claim_command": publish_post_commands.get("claim_command", ""),
         "record_command": publish_post_commands.get("record_command", ""),
         "block_command": publish_post_commands.get("block_command", ""),
+        "copy_brief_request": _distribution_social_post_brief_request(
+            traffic_execution_plan=traffic_execution_plan,
+            channel_conversion_plan=channel_conversion_plan,
+            recommended_channel=recommended_channel,
+        ),
+    }
+
+
+def _distribution_social_post_brief_request(
+    *,
+    traffic_execution_plan: dict[str, Any],
+    channel_conversion_plan: dict[str, Any],
+    recommended_channel: dict[str, Any],
+) -> dict[str, Any]:
+    channel = str(recommended_channel["channel"])
+    url = str(channel_conversion_plan["url"])
+    return {
+        "write_path": f"opportunity-desk/outbox/requests/<timestamp>-sku1-{channel}-social-post.json",
+        "schema": "copy_brief.social_post.v1",
+        "prohibited_fields": ["body", "draft", "email_body"],
+        "payload": {
+            "type": "social_post",
+            "channel": channel,
+            "lead": _SKU1_CONVERSION_CONSUMER,
+            "goal": (
+                f"Create approved PatchRail social copy for {channel} that drives measured "
+                f"visits to SKU #1 before {_SKU1_PIVOT_GATE_DATE}."
+            ),
+            "key_facts": [
+                f"Product: {_SKU1_CONVERSION_CONSUMER}.",
+                f"KPI: {_SKU1_DISTRIBUTION_KPI}.",
+                f"Channel URL with UTM: {url}.",
+                f"Organic click target: {traffic_execution_plan['organic_click_target']}.",
+                f"Daily organic target: {traffic_execution_plan['daily_organic_click_target']}.",
+                f"Source: {recommended_channel['source']}.",
+                f"Reason: {recommended_channel['reason']}.",
+            ],
+            "tone": "Concise, practical, maintainer-safe, no hype.",
+            "constraints": [
+                "Copywriter authors final external prose; worker does not draft publishable text.",
+                "Brand-only: PatchRail.",
+                "No internal model/tool names, no payout or sales guarantees, no calls or Calendly.",
+                "Use the provided UTM URL exactly for measurement.",
+            ],
+            "urgency": "normal",
+            "thread_ref": (
+                f"distribution sku1-gate channel={channel}; "
+                f"kpi={_SKU1_DISTRIBUTION_KPI}; url={url}"
+            ),
+        },
     }
 
 
