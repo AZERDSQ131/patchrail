@@ -347,6 +347,40 @@ class PatchRailCITests(unittest.TestCase):
             ],
             [("devto", "copywriter", 1)],
         )
+        self.assertEqual(
+            payload["stalled_handoff"],
+            {
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "required": True,
+                "pending_count": 1,
+                "next_owner": "copywriter",
+                "next_channel": "devto",
+                "next_blocked_days": 1,
+                "next_brief": "opportunity-desk/outbox/requests/devto.json",
+                "next_unblock_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py claim "
+                    "--channel devto --copy-file <copywriter-approved-copy-file>"
+                ),
+                "pending": [
+                    {
+                        "channel": "devto",
+                        "owner": "copywriter",
+                        "blocked_days": 1,
+                        "brief": "opportunity-desk/outbox/requests/devto.json",
+                        "reason": "copywriter unavailable; no approved local copy file",
+                        "safe_next_step": (
+                            "copywriter must create approved copy_file; "
+                            "worker must not draft external prose"
+                        ),
+                        "unblock_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py claim "
+                            "--channel devto --copy-file <copywriter-approved-copy-file>"
+                        ),
+                    }
+                ],
+            },
+        )
         self.assertEqual(payload["stalled_handoff_owner"], "copywriter")
 
     def test_distribution_sku1_gate_recommends_uncovered_channel_when_no_blockers(self) -> None:
@@ -427,6 +461,7 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertIn("Copywriter handoff: none", text)
         self.assertIn("Stalled blockers: none", text)
+        self.assertIn("Stalled handoff: none", text)
         self.assertIn("Next action: claim_uncovered_distribution_channel", text)
 
     def test_distribution_sku1_gate_unblocks_blocked_receipts_without_health_file(self) -> None:

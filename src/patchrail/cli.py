@@ -724,6 +724,49 @@ def _distribution_copywriter_handoff(
     }
 
 
+def _distribution_stalled_handoff(
+    stalled_blockers: list[dict[str, Any]],
+) -> dict[str, Any]:
+    pending = []
+    for item in stalled_blockers:
+        channel = str(item["channel"])
+        owner = str(item["owner"])
+        command = "python3 opportunity-desk/scripts/publish_post.py health --json"
+        if owner == "copywriter":
+            command = (
+                "python3 opportunity-desk/scripts/publish_post.py claim "
+                f"--channel {shlex.quote(channel)} --copy-file <copywriter-approved-copy-file>"
+            )
+        elif owner in {"worker", "worker_browser"}:
+            command = (
+                "python3 opportunity-desk/scripts/publish_post.py block "
+                f"--channel {shlex.quote(channel)} --reason <concrete_blocker>"
+            )
+        pending.append(
+            {
+                "channel": channel,
+                "owner": owner,
+                "blocked_days": item.get("blocked_days"),
+                "brief": str(item.get("brief") or ""),
+                "reason": item["reason"],
+                "safe_next_step": item["safe_next_step"],
+                "unblock_command": command,
+            }
+        )
+    return {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "required": bool(pending),
+        "pending_count": len(pending),
+        "next_owner": pending[0]["owner"] if pending else None,
+        "next_channel": pending[0]["channel"] if pending else None,
+        "next_blocked_days": pending[0]["blocked_days"] if pending else None,
+        "next_brief": pending[0]["brief"] if pending else "",
+        "next_unblock_command": pending[0]["unblock_command"] if pending else "",
+        "pending": pending,
+    }
+
+
 def _distribution_gate_payload(
     *,
     posted_dir: Path,
@@ -751,6 +794,7 @@ def _distribution_gate_payload(
     )
     owner_next_actions = _distribution_owner_next_actions(blocker_queue, recommended_channel)
     stalled_blockers = _distribution_stalled_blockers(blocker_queue, stalled_after_days)
+    stalled_handoff = _distribution_stalled_handoff(stalled_blockers)
     stalled_owner_counts = Counter(item["owner"] for item in stalled_blockers)
     posted_channels = sorted(
         {
@@ -841,6 +885,7 @@ def _distribution_gate_payload(
         "blocker_owner_counts": dict(sorted(blocker_owner_counts.items())),
         "stalled_after_days": max(stalled_after_days, 0),
         "stalled_blockers": stalled_blockers,
+        "stalled_handoff": stalled_handoff,
         "stalled_owner_counts": dict(sorted(stalled_owner_counts.items())),
         "stalled_handoff_owner": stalled_blockers[0]["owner"] if stalled_blockers else None,
         "oldest_blocked_days": max(blocker_days) if blocker_days else None,
@@ -941,6 +986,17 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
                 for owner, count in sorted(payload["stalled_owner_counts"].items())
             )
             or "none"
+        ),
+        "Stalled handoff: "
+        + (
+            (
+                f"{payload['stalled_handoff']['next_owner']}="
+                f"{payload['stalled_handoff']['next_channel']}/"
+                f"{payload['stalled_handoff']['next_blocked_days']}d "
+                f"({payload['stalled_handoff']['pending_count']} pending)"
+            )
+            if payload["stalled_handoff"]["required"]
+            else "none"
         ),
         "Oldest blocker: "
         + (
