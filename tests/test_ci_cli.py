@@ -756,6 +756,71 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["traffic_execution_plan"]["paid_budget_usd"], 59.25)
         self.assertIn("--amount 59.25", payload["execution_checklist"][0]["command"])
 
+    def test_distribution_sku1_gate_reads_committed_ad_spend_from_guard_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            ledger = Path(tmpdir) / "patchrail_ad_spend.json"
+            ledger.write_text(
+                json.dumps(
+                    {
+                        "ad_cap_usd": 75.0,
+                        "ad_charges": 0,
+                        "ad_spend_committed_usd": 12.5,
+                        "ad_spend_remaining_usd": 62.5,
+                        "by_platform": {},
+                        "halted": False,
+                        "source": "ad_spend_guard",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--paid-click-cpc-usd",
+                        "0.75",
+                        "--ad-cap-usd",
+                        "75",
+                        "--ad-spend-ledger",
+                        str(ledger),
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(
+            payload["ad_spend_source"],
+            {
+                "source": "ad_spend_guard",
+                "ledger_path": str(ledger),
+                "committed_usd": 12.5,
+                "line_count": 1,
+                "committed_lines": 1,
+                "ignored_lines": 0,
+                "snapshot_format": "json_object",
+            },
+        )
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 12.5)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 62.5)
+        self.assertEqual(payload["measurement_packet"]["ad_remaining_usd"], 62.5)
+
     def test_distribution_sku1_gate_unblocks_blocked_receipts_without_health_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

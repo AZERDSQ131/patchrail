@@ -658,11 +658,42 @@ def _distribution_ad_spend_source(
     if not ledger_path.exists():
         raise FileNotFoundError(f"ad spend ledger not found: {ledger_path}")
 
+    text = ledger_path.read_text(encoding="utf-8")
+    stripped = text.strip()
+    if not stripped:
+        return {
+            "source": "ledger",
+            "ledger_path": str(ledger_path),
+            "committed_usd": 0.0,
+            "line_count": 0,
+            "committed_lines": 0,
+            "ignored_lines": 0,
+        }
+    if stripped.startswith("{"):
+        try:
+            row = json.loads(stripped)
+        except json.JSONDecodeError:
+            row = None
+        if isinstance(row, dict):
+            committed = max(
+                _ad_spend_money(row.get("ad_spend_committed_usd", row.get("committed_usd", 0))),
+                Decimal("0.00"),
+            )
+            return {
+                "source": str(row.get("source") or "json_snapshot"),
+                "ledger_path": str(ledger_path),
+                "committed_usd": float(committed),
+                "line_count": 1,
+                "committed_lines": 1,
+                "ignored_lines": 0,
+                "snapshot_format": "json_object",
+            }
+
     total = Decimal("0.00")
     line_count = 0
     committed_lines = 0
     ignored_lines = 0
-    for line_number, raw_line in enumerate(ledger_path.read_text(encoding="utf-8").splitlines(), 1):
+    for line_number, raw_line in enumerate(text.splitlines(), 1):
         line = raw_line.strip()
         if not line:
             continue
@@ -10337,8 +10368,8 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ad-spend-ledger",
         type=Path,
         help=(
-            "Optional append-only ad spend ledger JSONL; committed charge/preauth/adjustment "
-            "rows minus refunds override --ad-spend-committed-usd."
+            "Optional ad spend state file. Accepts the ad_spend_guard JSON snapshot or an "
+            "append-only JSONL ledger; committed spend overrides --ad-spend-committed-usd."
         ),
     )
     distribution_sku1.add_argument(
