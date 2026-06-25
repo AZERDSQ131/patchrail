@@ -763,6 +763,48 @@ def _distribution_publish_post_commands(
     }
 
 
+def _distribution_channel_execution_packet(
+    *,
+    traffic_execution_plan: dict[str, Any],
+    channel_conversion_plan: dict[str, Any],
+    recommended_channel: dict[str, Any] | None,
+    publish_post_commands: dict[str, str],
+) -> dict[str, Any]:
+    if recommended_channel is None:
+        return {
+            "consumer": _SKU1_CONVERSION_CONSUMER,
+            "kpi": _SKU1_DISTRIBUTION_KPI,
+            "required": False,
+            "channel": None,
+            "url": "",
+            "next_action": "ship_more_distribution",
+            "measurement_command": channel_conversion_plan["measurement_command"],
+        }
+
+    return {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "required": True,
+        "deadline": traffic_execution_plan["deadline"],
+        "channel": recommended_channel["channel"],
+        "owner": recommended_channel["owner"],
+        "source": recommended_channel["source"],
+        "next_action": recommended_channel["next_action"],
+        "safe_next_step": recommended_channel["safe_next_step"],
+        "url": channel_conversion_plan["url"],
+        "ready_to_publish": channel_conversion_plan["ready_to_publish"],
+        "copywriter_required": recommended_channel["owner"] == "copywriter"
+        or recommended_channel["next_action"] == "create_social_post_brief",
+        "organic_click_target": traffic_execution_plan["organic_click_target"],
+        "daily_organic_click_target": traffic_execution_plan["daily_organic_click_target"],
+        "measurement_event": traffic_execution_plan["measurement_event"],
+        "measurement_command": channel_conversion_plan["measurement_command"],
+        "claim_command": publish_post_commands.get("claim_command", ""),
+        "record_command": publish_post_commands.get("record_command", ""),
+        "block_command": publish_post_commands.get("block_command", ""),
+    }
+
+
 def _distribution_copywriter_handoff(
     blocker_queue: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -906,6 +948,12 @@ def _distribution_gate_payload(
         blocker_queue, recommended_channel
     )
     publish_post_commands = _distribution_publish_post_commands(recommended_channel)
+    channel_execution_packet = _distribution_channel_execution_packet(
+        traffic_execution_plan=traffic_execution_plan,
+        channel_conversion_plan=channel_conversion_plan,
+        recommended_channel=recommended_channel,
+        publish_post_commands=publish_post_commands,
+    )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
@@ -944,6 +992,7 @@ def _distribution_gate_payload(
         "traffic_execution_plan": traffic_execution_plan,
         "channel_conversion_plan": channel_conversion_plan,
         "channel_measurement_urls": channel_measurement_urls,
+        "channel_execution_packet": channel_execution_packet,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,

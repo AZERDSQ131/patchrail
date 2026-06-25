@@ -263,6 +263,48 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
         self.assertEqual(
+            payload["channel_execution_packet"],
+            {
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "required": True,
+                "deadline": "2026-06-30",
+                "channel": "devto",
+                "owner": "copywriter",
+                "source": "blocked",
+                "next_action": "copywriter_required",
+                "safe_next_step": (
+                    "copywriter must create approved copy_file; "
+                    "worker must not draft external prose"
+                ),
+                "url": (
+                    "https://patchrail.gumroad.com/l/ci-failure-triage"
+                    "?utm_source=devto&utm_campaign=sku1-organic-distribution"
+                ),
+                "ready_to_publish": False,
+                "copywriter_required": True,
+                "organic_click_target": 125,
+                "daily_organic_click_target": 25.0,
+                "measurement_event": "sku1_visits_and_sales_delta",
+                "measurement_command": (
+                    "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                ),
+                "claim_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py claim "
+                    "--channel devto --copy-file <copywriter-approved-copy-file>"
+                ),
+                "record_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py record "
+                    "--channel devto --url <submission_url>"
+                ),
+                "block_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py block "
+                    "--channel devto --reason <concrete_blocker>"
+                ),
+            },
+        )
+        self.assertEqual(
             payload["copywriter_handoff"],
             {
                 "consumer": "SKU #1 CI Triage $19",
@@ -692,6 +734,48 @@ class PatchRailCITests(unittest.TestCase):
                     "measurement_event": "sku1_visits_and_sales_delta",
                 }
             ],
+        )
+        self.assertEqual(
+            payload["channel_execution_packet"],
+            {
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "required": True,
+                "deadline": "2026-06-30",
+                "channel": "linkedin",
+                "owner": "worker",
+                "source": "expansion",
+                "next_action": "create_social_post_brief",
+                "safe_next_step": (
+                    "create facts-only social_post brief for linkedin; "
+                    "copywriter authors external prose before claim/publish"
+                ),
+                "url": (
+                    "https://patchrail.gumroad.com/l/ci-failure-triage"
+                    "?utm_source=linkedin&utm_campaign=sku1-organic-distribution"
+                ),
+                "ready_to_publish": False,
+                "copywriter_required": True,
+                "organic_click_target": 172,
+                "daily_organic_click_target": 34.4,
+                "measurement_event": "sku1_visits_and_sales_delta",
+                "measurement_command": (
+                    "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                ),
+                "claim_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py claim "
+                    "--channel linkedin --copy-file <copywriter-approved-copy-file>"
+                ),
+                "record_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py record "
+                    "--channel linkedin --url <submission_url>"
+                ),
+                "block_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py block "
+                    "--channel linkedin --reason <concrete_blocker>"
+                ),
+            },
         )
         self.assertFalse(payload["channel_conversion_plan"]["ready_to_publish"])
         self.assertEqual(
