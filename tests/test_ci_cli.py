@@ -395,6 +395,8 @@ class PatchRailCITests(unittest.TestCase):
                 "required": True,
                 "owner": "pablo",
                 "pending_count": 1,
+                "pending_channels": ["show-hn"],
+                "claimable_after_setup_count": 1,
                 "next_channel": "show-hn",
                 "next_verify_command": (
                     "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
@@ -406,6 +408,15 @@ class PatchRailCITests(unittest.TestCase):
                 "next_verify_after_claim_command": (
                     "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
                 ),
+                "claim_after_setup_commands": [
+                    (
+                        "python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "
+                        "--copy-file products/gumroad/distribution/posts/show-hn.md"
+                    )
+                ],
+                "verify_after_claim_commands": [
+                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                ],
                 "checklist": [
                     "Open chrome://extensions in the selected logged-in Chrome profile.",
                     "Enable or install the Codex Chrome Extension for that profile.",

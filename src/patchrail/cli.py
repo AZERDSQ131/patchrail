@@ -1429,6 +1429,10 @@ def _distribution_browser_extension_handoff(
         "required": bool(pending),
         "owner": "pablo",
         "pending_count": len(pending),
+        "pending_channels": [item["channel"] for item in pending],
+        "claimable_after_setup_count": sum(
+            1 for item in pending if item["claim_after_setup_command"]
+        ),
         "next_channel": pending[0]["channel"] if pending else None,
         "next_verify_command": pending[0]["verify_command"] if pending else "",
         "next_claim_after_setup_command": pending[0]["claim_after_setup_command"]
@@ -1437,6 +1441,16 @@ def _distribution_browser_extension_handoff(
         "next_verify_after_claim_command": pending[0]["verify_after_claim_command"]
         if pending
         else "",
+        "claim_after_setup_commands": [
+            item["claim_after_setup_command"]
+            for item in pending
+            if item["claim_after_setup_command"]
+        ],
+        "verify_after_claim_commands": [
+            item["verify_after_claim_command"]
+            for item in pending
+            if item["verify_after_claim_command"]
+        ],
         "checklist": [
             "Open chrome://extensions in the selected logged-in Chrome profile.",
             "Enable or install the Codex Chrome Extension for that profile.",
