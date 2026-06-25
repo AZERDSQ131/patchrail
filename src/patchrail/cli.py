@@ -1295,6 +1295,8 @@ def _distribution_gate_payload(
         next_action = "fulfill_sale"
     elif pivot_gate_fires:
         next_action = "pivot_offer"
+    elif channel_closeout_plan["required"] and channel_closeout_plan["next_action"] != "none":
+        next_action = channel_closeout_plan["next_action"]
     elif blocker_plan:
         next_action = "unblock_distribution_channels"
     elif publish_health["stale_claims_total"] > 0:

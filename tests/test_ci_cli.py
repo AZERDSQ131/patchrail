@@ -856,7 +856,7 @@ class PatchRailCITests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         payload = json.loads(stdout.getvalue())
-        self.assertEqual(payload["next_action"], "ship_more_distribution")
+        self.assertEqual(payload["next_action"], "preflight_guarded_ads_or_measure_gate")
         self.assertEqual(payload["blocked_channels"], [])
         self.assertEqual(payload["blocker_plan"], [])
         self.assertEqual(payload["blocker_queue"], [])
@@ -1244,7 +1244,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         payload = json.loads(stdout.getvalue())
         self.assertIsNone(payload["recommended_channel"])
-        self.assertEqual(payload["next_action"], "ship_more_distribution")
+        self.assertEqual(payload["next_action"], "preflight_guarded_ads_or_measure_gate")
         self.assertEqual(payload["traffic_execution_plan"]["recommended_channel"], None)
         self.assertEqual(payload["covered_channel_plan"]["next_channel"], None)
         self.assertEqual(
