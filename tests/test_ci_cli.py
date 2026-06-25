@@ -114,22 +114,25 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["publish_health"]["blocked_total"], 2)
         self.assertEqual(payload["publish_health"]["blocked"][0]["channel"], "show-hn")
         self.assertEqual(payload["publish_health"]["uncovered_channels"], [])
-        self.assertEqual(payload["blocker_owner_counts"], {"browser_route": 1, "copywriter": 1})
+        self.assertEqual(payload["blocker_owner_counts"], {"copywriter": 1, "pablo": 1})
         self.assertEqual(
             [(item["channel"], item["owner"], item["next_action"]) for item in payload["blocker_plan"]],
             [
-                ("devto", "copywriter", "wait_for_approved_copy_file"),
-                ("show-hn", "browser_route", "restore_logged_in_browser_route"),
+                ("devto", "copywriter", "copywriter_required"),
+                ("show-hn", "pablo", "browser_extension_setup_required"),
             ],
         )
+        self.assertIn("worker must not draft external prose", payload["blocker_plan"][0]["safe_next_step"])
+        self.assertIn("worker must not bypass", payload["blocker_plan"][1]["safe_next_step"])
         self.assertEqual(
             payload["recommended_channel"],
             {
-                "channel": "show-hn",
+                "channel": "devto",
                 "source": "blocked",
-                "owner": "browser_route",
-                "next_action": "restore_logged_in_browser_route",
-                "reason": "Chrome route missing extension",
+                "owner": "copywriter",
+                "next_action": "copywriter_required",
+                "safe_next_step": "copywriter must create approved copy_file; worker must not draft external prose",
+                "reason": "copywriter unavailable; no approved local copy file",
             },
         )
         self.assertEqual(payload["next_action"], "unblock_distribution_channels")

@@ -249,26 +249,50 @@ def _distribution_publish_health(path: Path | None) -> dict[str, Any]:
     }
 
 
-def _distribution_blocker_owner(reason: str, copy_file: str = "") -> str:
+def _distribution_blocker_action(reason: str, copy_file: str = "") -> str:
     normalized = f"{reason} {copy_file}".lower()
-    if "copywriter" in normalized or "copy file" in normalized or "copy_file" in normalized:
-        return "copywriter"
-    if (
-        "chrome" in normalized
-        or "browser" in normalized
-        or "extension" in normalized
-        or "computer use" in normalized
+    if any(token in normalized for token in ("login", "2fa", "captcha", "account creation")):
+        return "human_auth_required"
+    if "extension" in normalized and any(
+        token in normalized
+        for token in ("missing", "lacks", "not installed", "installed=false", "enabled=false")
     ):
-        return "browser_route"
+        return "browser_extension_setup_required"
+    if "copywriter" in normalized or "copy file" in normalized or "copy_file" in normalized:
+        return "copywriter_required"
+    if any(token in normalized for token in ("chrome", "browser", "extension", "computer use")):
+        return "browser_route_required"
+    return "resolve_blocker"
+
+
+def _distribution_blocker_owner(action: str) -> str:
+    if action == "copywriter_required":
+        return "copywriter"
+    if action in {"browser_extension_setup_required", "human_auth_required"}:
+        return "pablo"
+    if action == "browser_route_required":
+        return "worker_browser"
     return "worker"
 
 
-def _distribution_blocker_action(owner: str) -> str:
-    if owner == "copywriter":
-        return "wait_for_approved_copy_file"
-    if owner == "browser_route":
-        return "restore_logged_in_browser_route"
-    return "inspect_channel_blocker"
+def _distribution_safe_next_step(channel: str, action: str, copy_file: str = "") -> str:
+    if action == "copywriter_required":
+        return "copywriter must create approved copy_file; worker must not draft external prose"
+    if action == "browser_extension_setup_required":
+        return (
+            f"enable/install the Codex Chrome Extension in the selected logged-in Chrome profile "
+            f"for {channel}; worker must not bypass profile/login controls"
+        )
+    if action == "human_auth_required":
+        return "queue Pablo handoff; do not bypass login/2FA/CAPTCHA/account creation"
+    if action == "browser_route_required":
+        return (
+            f"restore the approved browser route for {channel}, then publish once and record receipt; "
+            "login/2FA/CAPTCHA=STOP"
+        )
+    if copy_file:
+        return f"run claim for {channel} with approved copy_file={copy_file}"
+    return "resolve concrete blocker, then re-run publish_post.py blockers"
 
 
 def _distribution_blocker_plan(
@@ -297,12 +321,16 @@ def _distribution_blocker_plan(
         }
     plan: list[dict[str, str]] = []
     for item in sorted(latest_by_channel.values(), key=lambda row: row["channel"]):
-        owner = _distribution_blocker_owner(item["reason"], item.get("copy_file", ""))
+        action = _distribution_blocker_action(item["reason"], item.get("copy_file", ""))
+        owner = _distribution_blocker_owner(action)
         plan.append(
             {
                 "channel": item["channel"],
                 "owner": owner,
-                "next_action": _distribution_blocker_action(owner),
+                "next_action": action,
+                "safe_next_step": _distribution_safe_next_step(
+                    item["channel"], action, item.get("copy_file", "")
+                ),
                 "reason": item["reason"],
                 "receipt": item.get("receipt", ""),
                 "brief": item.get("brief", ""),
@@ -316,7 +344,7 @@ def _distribution_recommended_channel(
     publish_health: dict[str, Any],
 ) -> dict[str, str] | None:
     if blocker_plan:
-        owner_priority = {"worker": 0, "browser_route": 1, "copywriter": 2}
+        owner_priority = {"worker": 0, "worker_browser": 1, "copywriter": 2, "pablo": 3}
         item = min(
             blocker_plan,
             key=lambda row: (owner_priority.get(row["owner"], 9), row["channel"]),
@@ -326,6 +354,7 @@ def _distribution_recommended_channel(
             "source": "blocked",
             "owner": item["owner"],
             "next_action": item["next_action"],
+            "safe_next_step": item["safe_next_step"],
             "reason": item["reason"],
         }
     uncovered_channels = publish_health.get("uncovered_channels")
