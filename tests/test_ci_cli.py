@@ -1789,6 +1789,64 @@ class PatchRailCITests(unittest.TestCase):
             self.assertEqual(payload["copy_brief_write"]["status"], "already_exists")
             self.assertEqual(json.loads(brief_path.read_text(encoding="utf-8")), original)
 
+    def test_distribution_sku1_gate_does_not_write_copy_brief_for_extension_blocker(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            copy_file = Path(tmpdir) / "devto.md"
+            posted.joinpath("devto-blocked.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "blocked",
+                        "copy_file": str(copy_file),
+                        "reason": "Codex Chrome Extension missing installed=false",
+                        "ts_blocked": "2026-06-25T21:10:00+00:00",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            brief_path = Path(tmpdir) / "requests" / "sku1-devto-social-post.json"
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-26",
+                        "--format",
+                        "json",
+                        "--write-copy-brief",
+                        str(brief_path),
+                    ]
+                )
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(
+                payload["recommended_channel"]["next_action"], "browser_extension_setup_required"
+            )
+            self.assertEqual(payload["channel_execution_packet"]["copy_file"], str(copy_file))
+            self.assertEqual(payload["copy_brief_write"]["status"], "skipped")
+            self.assertEqual(
+                payload["copy_brief_write"]["reason"],
+                "copy_brief_not_required_for_recommended_channel",
+            )
+            self.assertEqual(payload["copy_brief_write"]["copy_file"], str(copy_file))
+            self.assertFalse(brief_path.exists())
+
     def test_ci_classify_emits_json_without_external_requirements(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             log = Path(tmpdir) / "failed.log"

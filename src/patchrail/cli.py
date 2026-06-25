@@ -1128,6 +1128,18 @@ def _distribution_channel_execution_packet(
     }
 
 
+def _distribution_copy_brief_needed(channel_execution_packet: dict[str, Any]) -> bool:
+    if not channel_execution_packet.get("required"):
+        return False
+    if channel_execution_packet.get("copy_file"):
+        return False
+    return str(channel_execution_packet.get("next_action") or "") in {
+        "claim_uncovered_distribution_channel",
+        "copywriter_required",
+        "create_social_post_brief",
+    }
+
+
 def _distribution_paid_ad_execution_packet(
     *,
     channel_closeout_plan: dict[str, Any],
@@ -2125,12 +2137,17 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         ad_account_eligibility=ad_account_eligibility,
     )
     if args.write_copy_brief is not None:
-        copy_brief_request = payload["channel_execution_packet"].get("copy_brief_request")
-        if not copy_brief_request:
+        channel_execution_packet = payload["channel_execution_packet"]
+        copy_brief_request = channel_execution_packet.get("copy_brief_request")
+        if not copy_brief_request or not _distribution_copy_brief_needed(channel_execution_packet):
             payload["copy_brief_write"] = {
                 "status": "skipped",
-                "reason": "no_recommended_channel",
+                "reason": "copy_brief_not_required_for_recommended_channel"
+                if copy_brief_request
+                else "no_recommended_channel",
                 "path": str(args.write_copy_brief),
+                "next_action": str(channel_execution_packet.get("next_action") or ""),
+                "copy_file": str(channel_execution_packet.get("copy_file") or ""),
             }
         else:
             brief_path = args.write_copy_brief
