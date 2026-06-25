@@ -228,6 +228,11 @@ def _distribution_publish_health(path: Path | None) -> dict[str, Any]:
         if isinstance(item, dict)
     ]
     uncovered = raw.get("uncovered", []) if isinstance(raw.get("uncovered"), list) else []
+    uncovered_channels = [
+        str(item.get("channel") if isinstance(item, dict) else item)
+        for item in uncovered
+        if str(item.get("channel") if isinstance(item, dict) else item)
+    ]
     stale_claims = raw.get("stale_claims", []) if isinstance(raw.get("stale_claims"), list) else []
     return {
         "path": str(path) if path else "",
@@ -236,6 +241,7 @@ def _distribution_publish_health(path: Path | None) -> dict[str, Any]:
         "blocked_total": int(raw.get("social_post_blocked_total") or len(blocked)),
         "uncovered_total": int(raw.get("social_post_uncovered_total") or len(uncovered)),
         "stale_claims_total": int(raw.get("social_post_stale_claims_total") or len(stale_claims)),
+        "uncovered_channels": sorted(uncovered_channels),
         "covered_channels": [str(channel) for channel in raw.get("covered_channels", [])]
         if isinstance(raw.get("covered_channels"), list)
         else [],
@@ -305,6 +311,36 @@ def _distribution_blocker_plan(
     return plan
 
 
+def _distribution_recommended_channel(
+    blocker_plan: list[dict[str, str]],
+    publish_health: dict[str, Any],
+) -> dict[str, str] | None:
+    if blocker_plan:
+        owner_priority = {"worker": 0, "browser_route": 1, "copywriter": 2}
+        item = min(
+            blocker_plan,
+            key=lambda row: (owner_priority.get(row["owner"], 9), row["channel"]),
+        )
+        return {
+            "channel": item["channel"],
+            "source": "blocked",
+            "owner": item["owner"],
+            "next_action": item["next_action"],
+            "reason": item["reason"],
+        }
+    uncovered_channels = publish_health.get("uncovered_channels")
+    if isinstance(uncovered_channels, list) and uncovered_channels:
+        channel = str(sorted(uncovered_channels)[0])
+        return {
+            "channel": channel,
+            "source": "uncovered",
+            "owner": "worker",
+            "next_action": "claim_uncovered_distribution_channel",
+            "reason": "channel_has_no_post_or_block_receipt",
+        }
+    return None
+
+
 def _distribution_gate_payload(
     *,
     posted_dir: Path,
@@ -321,6 +357,7 @@ def _distribution_gate_payload(
     by_status = Counter(receipt["status"] for receipt in receipts)
     blocker_plan = _distribution_blocker_plan(receipts=receipts, publish_health=publish_health)
     blocker_owner_counts = Counter(item["owner"] for item in blocker_plan)
+    recommended_channel = _distribution_recommended_channel(blocker_plan, publish_health)
     posted_channels = sorted(
         {
             receipt["channel"]
@@ -374,6 +411,7 @@ def _distribution_gate_payload(
         "publish_health": publish_health,
         "blocker_owner_counts": dict(sorted(blocker_owner_counts.items())),
         "blocker_plan": blocker_plan,
+        "recommended_channel": recommended_channel,
         "receipt_status_counts": dict(sorted(by_status.items())),
         "receipts": receipts,
         "requirements": {
@@ -408,6 +446,15 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
                 for owner, count in sorted(payload["blocker_owner_counts"].items())
             )
             or "none"
+        ),
+        "Recommended channel: "
+        + (
+            (
+                f"{payload['recommended_channel']['channel']} "
+                f"({payload['recommended_channel']['next_action']})"
+            )
+            if payload["recommended_channel"]
+            else "none"
         ),
         f"Pivot gate fires: {payload['pivot_gate_fires']}",
         f"Next action: {payload['next_action']}",

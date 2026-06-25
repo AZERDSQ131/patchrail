@@ -65,6 +65,7 @@ class PatchRailCITests(unittest.TestCase):
                         "social_post_blocked_total": 2,
                         "social_post_uncovered_total": 0,
                         "social_post_stale_claims_total": 0,
+                        "uncovered": [],
                         "blocked": [
                             {
                                 "channel": "show-hn",
@@ -112,6 +113,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["blocked_channels"], ["devto", "show-hn"])
         self.assertEqual(payload["publish_health"]["blocked_total"], 2)
         self.assertEqual(payload["publish_health"]["blocked"][0]["channel"], "show-hn")
+        self.assertEqual(payload["publish_health"]["uncovered_channels"], [])
         self.assertEqual(payload["blocker_owner_counts"], {"browser_route": 1, "copywriter": 1})
         self.assertEqual(
             [(item["channel"], item["owner"], item["next_action"]) for item in payload["blocker_plan"]],
@@ -120,8 +122,63 @@ class PatchRailCITests(unittest.TestCase):
                 ("show-hn", "browser_route", "restore_logged_in_browser_route"),
             ],
         )
+        self.assertEqual(
+            payload["recommended_channel"],
+            {
+                "channel": "show-hn",
+                "source": "blocked",
+                "owner": "browser_route",
+                "next_action": "restore_logged_in_browser_route",
+                "reason": "Chrome route missing extension",
+            },
+        )
         self.assertEqual(payload["next_action"], "unblock_distribution_channels")
         self.assertFalse(payload["requirements"]["network_required"])
+
+    def test_distribution_sku1_gate_recommends_uncovered_channel_when_no_blockers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "covered_channels": ["x"],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 2,
+                        "social_post_stale_claims_total": 0,
+                        "uncovered": [{"channel": "linkedin"}, "devto"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        text = stdout.getvalue()
+        self.assertIn("Recommended channel: devto (claim_uncovered_distribution_channel)", text)
+        self.assertIn("Next action: claim_uncovered_distribution_channel", text)
 
     def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
