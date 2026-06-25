@@ -547,6 +547,43 @@ def _distribution_paid_traffic_plan(
     }
 
 
+def _distribution_traffic_execution_plan(
+    *,
+    traffic_pressure: dict[str, Any],
+    paid_traffic_plan: dict[str, Any],
+    recommended_channel: dict[str, Any] | None,
+    gate_date: str,
+) -> dict[str, Any]:
+    paid_click_target = 0
+    if paid_traffic_plan["preflight_required"]:
+        paid_click_target = min(
+            paid_traffic_plan["cap_click_capacity"],
+            paid_traffic_plan["traffic_gap"],
+        )
+    paid_budget_usd = round(paid_click_target * paid_traffic_plan["paid_click_cpc_usd"], 2)
+    organic_click_target = paid_traffic_plan["remaining_organic_gap_after_cap"]
+    days_to_gate = traffic_pressure.get("days_to_gate")
+    if isinstance(days_to_gate, int) and days_to_gate >= 0:
+        days_remaining = max(days_to_gate, 1)
+        daily_organic_click_target = round(organic_click_target / days_remaining, 2)
+    elif organic_click_target > 0:
+        daily_organic_click_target = float(organic_click_target)
+    else:
+        daily_organic_click_target = 0.0
+
+    return {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "deadline": gate_date,
+        "paid_click_target": paid_click_target,
+        "paid_budget_usd": paid_budget_usd,
+        "organic_click_target": organic_click_target,
+        "daily_organic_click_target": daily_organic_click_target,
+        "recommended_channel": recommended_channel["channel"] if recommended_channel else None,
+        "measurement_event": "sku1_visits_and_sales_delta",
+    }
+
+
 def _distribution_gate_payload(
     *,
     posted_dir: Path,
@@ -600,6 +637,12 @@ def _distribution_gate_payload(
         paid_click_cpc_usd=paid_click_cpc_usd,
         ad_cap_usd=ad_cap_usd,
     )
+    traffic_execution_plan = _distribution_traffic_execution_plan(
+        traffic_pressure=traffic_pressure,
+        paid_traffic_plan=paid_traffic_plan,
+        recommended_channel=recommended_channel,
+        gate_date=gate_date,
+    )
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
     if sales_total > 0:
@@ -636,6 +679,7 @@ def _distribution_gate_payload(
         "traffic_gap": traffic_gap,
         "traffic_pressure": traffic_pressure,
         "paid_traffic_plan": paid_traffic_plan,
+        "traffic_execution_plan": traffic_execution_plan,
         "sales_total": sales_total,
         "gross_usd": gross_usd,
         "pivot_gate_armed": pivot_gate_armed,
@@ -687,6 +731,14 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"capacity={payload['paid_traffic_plan']['cap_click_capacity']}, "
             f"remaining_organic_gap={payload['paid_traffic_plan']['remaining_organic_gap_after_cap']}, "
             f"recommendation={payload['paid_traffic_plan']['recommendation']}"
+        ),
+        (
+            "Traffic execution: "
+            f"paid_clicks={payload['traffic_execution_plan']['paid_click_target']}, "
+            f"paid_budget=${payload['traffic_execution_plan']['paid_budget_usd']:.2f}, "
+            f"organic_clicks={payload['traffic_execution_plan']['organic_click_target']}, "
+            f"daily_organic={payload['traffic_execution_plan']['daily_organic_click_target']}, "
+            f"channel={payload['traffic_execution_plan']['recommended_channel'] or 'none'}"
         ),
         f"Sales: {payload['sales_total']} (${payload['gross_usd']:.2f})",
         f"Posted channels: {', '.join(payload['posted_channels']) or 'none'}",

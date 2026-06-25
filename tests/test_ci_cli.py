@@ -140,6 +140,20 @@ class PatchRailCITests(unittest.TestCase):
                 "preflight_required": True,
             },
         )
+        self.assertEqual(
+            payload["traffic_execution_plan"],
+            {
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "deadline": "2026-06-30",
+                "paid_click_target": 150,
+                "paid_budget_usd": 75.0,
+                "organic_click_target": 125,
+                "daily_organic_click_target": 25.0,
+                "recommended_channel": "devto",
+                "measurement_event": "sku1_visits_and_sales_delta",
+            },
+        )
         self.assertEqual(payload["posted_channels"], ["x"])
         self.assertEqual(payload["blocked_channels"], ["devto", "show-hn"])
         self.assertEqual(payload["publish_health"]["blocked_total"], 2)
@@ -275,6 +289,11 @@ class PatchRailCITests(unittest.TestCase):
             text,
         )
         self.assertIn(
+            "Traffic execution: paid_clicks=100, paid_budget=$75.00, "
+            "organic_clicks=175, daily_organic=35.0, channel=devto",
+            text,
+        )
+        self.assertIn(
             "Owner next actions: worker=devto/claim_uncovered_distribution_channel (1 channel)",
             text,
         )
@@ -354,6 +373,8 @@ class PatchRailCITests(unittest.TestCase):
         self.assertTrue(payload["pivot_gate_armed"])
         self.assertTrue(payload["pivot_gate_fires"])
         self.assertEqual(payload["next_action"], "pivot_offer")
+        self.assertEqual(payload["traffic_execution_plan"]["paid_click_target"], 0)
+        self.assertEqual(payload["traffic_execution_plan"]["organic_click_target"], 0)
 
     def test_ci_classify_emits_json_without_external_requirements(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
