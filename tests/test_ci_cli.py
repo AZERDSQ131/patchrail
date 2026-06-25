@@ -1247,6 +1247,31 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["next_action"], "ship_more_distribution")
         self.assertEqual(payload["traffic_execution_plan"]["recommended_channel"], None)
         self.assertEqual(payload["covered_channel_plan"]["next_channel"], None)
+        self.assertEqual(
+            payload["channel_closeout_plan"],
+            {
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "required": True,
+                "all_channels_covered": True,
+                "covered_channels": 6,
+                "total_channels": 6,
+                "next_action": "preflight_guarded_ads_or_measure_gate",
+                "safe_next_step": (
+                    "Run the ad_spend_guard preflight before any paid boost; if no logged-in "
+                    "eligible ad account is available, record measurement and wait for the next signal."
+                ),
+                "paid_preflight_command": (
+                    "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
+                    "--amount 75.00 --platform sku1-traffic-boost "
+                    "--campaign ci-triage-sku1-gate"
+                ),
+                "measurement_command": (
+                    "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                ),
+            },
+        )
         self.assertIn("posted", payload["covered_channel_plan"]["status_counts"])
         self.assertEqual(
             [

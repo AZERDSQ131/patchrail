@@ -1020,6 +1020,64 @@ def _distribution_channel_execution_packet(
     }
 
 
+def _distribution_channel_closeout_plan(
+    *,
+    covered_channel_plan: dict[str, Any],
+    traffic_execution_plan: dict[str, Any],
+    paid_traffic_plan: dict[str, Any],
+    publish_health: dict[str, Any],
+    recommended_channel: dict[str, Any] | None,
+) -> dict[str, Any]:
+    status_counts = covered_channel_plan["status_counts"]
+    total_channels = covered_channel_plan["total_channels"]
+    posted_or_covered = status_counts.get("posted", 0) + status_counts.get("covered", 0)
+    all_channels_covered = bool(total_channels) and posted_or_covered == total_channels
+    no_channel_work_open = (
+        recommended_channel is None
+        and not publish_health.get("blocked_total")
+        and not publish_health.get("uncovered_total")
+        and not publish_health.get("stale_claims_total")
+    )
+    required = (
+        no_channel_work_open
+        and all_channels_covered
+        and traffic_execution_plan["organic_click_target"] > 0
+    )
+    next_action = "none"
+    safe_next_step = "No organic channel work remains; keep measuring the gate."
+    if required and paid_traffic_plan["preflight_required"]:
+        next_action = "preflight_guarded_ads_or_measure_gate"
+        safe_next_step = (
+            "Run the ad_spend_guard preflight before any paid boost; if no logged-in "
+            "eligible ad account is available, record measurement and wait for the next signal."
+        )
+    elif required:
+        next_action = "measure_gate"
+        safe_next_step = "Record traffic/sales deltas and wait for a new organic channel signal."
+
+    return {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "required": required,
+        "all_channels_covered": all_channels_covered,
+        "covered_channels": posted_or_covered,
+        "total_channels": total_channels,
+        "next_action": next_action,
+        "safe_next_step": safe_next_step,
+        "paid_preflight_command": (
+            "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
+            f"--amount {traffic_execution_plan['paid_budget_usd']:.2f} "
+            "--platform sku1-traffic-boost --campaign ci-triage-sku1-gate"
+        )
+        if required and paid_traffic_plan["preflight_required"]
+        else "",
+        "measurement_command": (
+            "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
+            "~/.openclaw/run/patchrail_supervisor_last.json"
+        ),
+    }
+
+
 def _distribution_social_post_brief_request(
     *,
     traffic_execution_plan: dict[str, Any],
@@ -1223,6 +1281,13 @@ def _distribution_gate_payload(
         blocker_plan=blocker_plan,
         recommended_channel=recommended_channel,
     )
+    channel_closeout_plan = _distribution_channel_closeout_plan(
+        covered_channel_plan=covered_channel_plan,
+        traffic_execution_plan=traffic_execution_plan,
+        paid_traffic_plan=paid_traffic_plan,
+        publish_health=publish_health,
+        recommended_channel=recommended_channel,
+    )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
@@ -1267,6 +1332,7 @@ def _distribution_gate_payload(
         "channel_measurement_urls": channel_measurement_urls,
         "channel_execution_packet": channel_execution_packet,
         "covered_channel_plan": covered_channel_plan,
+        "channel_closeout_plan": channel_closeout_plan,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
@@ -1364,6 +1430,16 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
                 )
             )
             if payload["covered_channel_plan"]["total_channels"]
+            else "none"
+        ),
+        "Channel closeout: "
+        + (
+            (
+                f"{payload['channel_closeout_plan']['next_action']} "
+                f"covered={payload['channel_closeout_plan']['covered_channels']}/"
+                f"{payload['channel_closeout_plan']['total_channels']}"
+            )
+            if payload["channel_closeout_plan"]["required"]
             else "none"
         ),
         "Execution checklist: "
