@@ -1839,6 +1839,12 @@ class PatchRailCITests(unittest.TestCase):
                 payload["recommended_channel"]["next_action"], "browser_extension_setup_required"
             )
             self.assertEqual(payload["channel_execution_packet"]["copy_file"], str(copy_file))
+            covered_devto = next(
+                row
+                for row in payload["covered_channel_plan"]["channels"]
+                if row["channel"] == "devto"
+            )
+            self.assertEqual(covered_devto["copy_file"], str(copy_file))
             self.assertEqual(payload["copy_brief_write"]["status"], "skipped")
             self.assertEqual(
                 payload["copy_brief_write"]["reason"],

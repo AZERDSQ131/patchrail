@@ -976,6 +976,16 @@ def _distribution_covered_channel_plan(
             owner = "worker"
             source = "publish_health"
 
+        copy_file = (
+            (approved or {}).get("copy_file", "")
+            or (blocker or {}).get("copy_file", "")
+            or (
+                str(recommended_channel.get("copy_file") or "")
+                if is_recommended and recommended_channel
+                else ""
+            )
+            or (receipt or {}).get("copy_file", "")
+        )
         rows.append(
             {
                 "channel": channel,
@@ -988,7 +998,7 @@ def _distribution_covered_channel_plan(
                 "source": source,
                 "recommended": is_recommended,
                 "receipt": receipt["path"] if receipt else "",
-                "copy_file": (approved or {}).get("copy_file", ""),
+                "copy_file": copy_file,
             }
         )
 
