@@ -370,6 +370,7 @@ def _distribution_blocker_queue(blocker_plan: list[dict[str, Any]]) -> list[dict
             "safe_next_step": item["safe_next_step"],
             "blocked_at": item.get("blocked_at", ""),
             "blocked_days": item.get("blocked_days"),
+            "brief": item.get("brief", ""),
             "reason": item["reason"],
         }
         for item in sorted(
@@ -657,6 +658,39 @@ def _distribution_publish_post_commands(
     }
 
 
+def _distribution_copywriter_handoff(
+    blocker_queue: list[dict[str, Any]],
+) -> dict[str, Any]:
+    pending = []
+    for item in blocker_queue:
+        if item["owner"] != "copywriter":
+            continue
+        channel = str(item["channel"])
+        pending.append(
+            {
+                "channel": channel,
+                "brief": str(item.get("brief") or ""),
+                "blocked_days": item.get("blocked_days"),
+                "reason": item["reason"],
+                "next_action": item["next_action"],
+                "safe_next_step": item["safe_next_step"],
+                "claim_after_copy_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py claim "
+                    f"--channel {shlex.quote(channel)} --copy-file <copywriter-approved-copy-file>"
+                ),
+            }
+        )
+    return {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "required": bool(pending),
+        "pending_count": len(pending),
+        "next_channel": pending[0]["channel"] if pending else None,
+        "next_brief": pending[0]["brief"] if pending else "",
+        "pending": pending,
+    }
+
+
 def _distribution_gate_payload(
     *,
     posted_dir: Path,
@@ -721,6 +755,7 @@ def _distribution_gate_payload(
         recommended_channel=recommended_channel,
     )
     publish_post_commands = _distribution_publish_post_commands(recommended_channel)
+    copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
     if sales_total > 0:
@@ -758,6 +793,7 @@ def _distribution_gate_payload(
         "traffic_execution_plan": traffic_execution_plan,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
+        "copywriter_handoff": copywriter_handoff,
         "sales_total": sales_total,
         "gross_usd": gross_usd,
         "pivot_gate_armed": pivot_gate_armed,
@@ -899,6 +935,16 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
                 for item in payload["owner_next_actions"]
             )
             or "none"
+        ),
+        "Copywriter handoff: "
+        + (
+            (
+                f"{payload['copywriter_handoff']['next_channel']}="
+                f"{payload['copywriter_handoff']['next_brief']} "
+                f"({payload['copywriter_handoff']['pending_count']} pending)"
+            )
+            if payload["copywriter_handoff"]["required"]
+            else "none"
         ),
         f"Pivot gate fires: {payload['pivot_gate_fires']}",
         f"Next action: {payload['next_action']}",

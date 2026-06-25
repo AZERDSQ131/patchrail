@@ -74,6 +74,13 @@ class PatchRailCITests(unittest.TestCase):
                                 "receipt": str(posted / "show-hn.json"),
                                 "path": "opportunity-desk/outbox/requests/show-hn.json",
                                 "ts_blocked": "2026-06-25T07:40:05Z",
+                            },
+                            {
+                                "channel": "devto",
+                                "reason": "copywriter unavailable; no approved local copy file",
+                                "receipt": str(posted / "devto.json"),
+                                "path": "opportunity-desk/outbox/requests/devto.json",
+                                "ts_blocked": "2026-06-24T09:34:00Z",
                             }
                         ],
                     }
@@ -208,6 +215,34 @@ class PatchRailCITests(unittest.TestCase):
                     "python3 opportunity-desk/scripts/publish_post.py block "
                     "--channel devto --reason <concrete_blocker>"
                 ),
+            },
+        )
+        self.assertEqual(
+            payload["copywriter_handoff"],
+            {
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "required": True,
+                "pending_count": 1,
+                "next_channel": "devto",
+                "next_brief": "opportunity-desk/outbox/requests/devto.json",
+                "pending": [
+                    {
+                        "channel": "devto",
+                        "brief": "opportunity-desk/outbox/requests/devto.json",
+                        "blocked_days": 1,
+                        "reason": "copywriter unavailable; no approved local copy file",
+                        "next_action": "copywriter_required",
+                        "safe_next_step": (
+                            "copywriter must create approved copy_file; "
+                            "worker must not draft external prose"
+                        ),
+                        "claim_after_copy_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py claim "
+                            "--channel devto --copy-file <copywriter-approved-copy-file>"
+                        ),
+                    }
+                ],
             },
         )
         self.assertEqual(payload["posted_channels"], ["x"])
@@ -366,6 +401,7 @@ class PatchRailCITests(unittest.TestCase):
             "Owner next actions: worker=devto/claim_uncovered_distribution_channel (1 channel)",
             text,
         )
+        self.assertIn("Copywriter handoff: none", text)
         self.assertIn("Stalled blockers: none", text)
         self.assertIn("Next action: claim_uncovered_distribution_channel", text)
 
