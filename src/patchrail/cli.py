@@ -2136,17 +2136,30 @@ def _distribution_gate(args: argparse.Namespace) -> int:
             brief_path = args.write_copy_brief
             brief_path.parent.mkdir(parents=True, exist_ok=True)
             copy_brief_payload = dict(copy_brief_request["payload"])
-            brief_path.write_text(_json_dump(copy_brief_payload), encoding="utf-8")
             copy_brief_request["write_path"] = str(brief_path)
-            payload["copy_brief_write"] = {
-                "status": "written",
-                "path": str(brief_path),
-                "type": copy_brief_payload["type"],
-                "channel": copy_brief_payload.get("channel", ""),
-                "forbidden_fields_absent": not any(
-                    field in copy_brief_payload for field in copy_brief_request["prohibited_fields"]
-                ),
-            }
+            if brief_path.exists():
+                payload["copy_brief_write"] = {
+                    "status": "already_exists",
+                    "path": str(brief_path),
+                    "type": copy_brief_payload["type"],
+                    "channel": copy_brief_payload.get("channel", ""),
+                    "forbidden_fields_absent": not any(
+                        field in copy_brief_payload
+                        for field in copy_brief_request["prohibited_fields"]
+                    ),
+                }
+            else:
+                brief_path.write_text(_json_dump(copy_brief_payload), encoding="utf-8")
+                payload["copy_brief_write"] = {
+                    "status": "written",
+                    "path": str(brief_path),
+                    "type": copy_brief_payload["type"],
+                    "channel": copy_brief_payload.get("channel", ""),
+                    "forbidden_fields_absent": not any(
+                        field in copy_brief_payload
+                        for field in copy_brief_request["prohibited_fields"]
+                    ),
+                }
     if args.format == "json":
         text = _json_dump(payload)
     else:

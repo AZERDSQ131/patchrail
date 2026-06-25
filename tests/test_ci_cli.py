@@ -1736,6 +1736,59 @@ class PatchRailCITests(unittest.TestCase):
         self.assertNotIn("draft", brief)
         self.assertNotIn("email_body", brief)
 
+    def test_distribution_sku1_gate_does_not_overwrite_existing_social_copy_brief(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "covered_channels": ["x"],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 1,
+                        "social_post_stale_claims_total": 0,
+                        "uncovered": [{"channel": "devto"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            brief_path = Path(tmpdir) / "requests" / "sku1-devto-social-post.json"
+            brief_path.parent.mkdir()
+            original = {"type": "social_post", "channel": "devto", "sentinel": "keep"}
+            brief_path.write_text(json.dumps(original), encoding="utf-8")
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                        "--write-copy-brief",
+                        str(brief_path),
+                    ]
+                )
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["copy_brief_write"]["status"], "already_exists")
+            self.assertEqual(json.loads(brief_path.read_text(encoding="utf-8")), original)
+
     def test_ci_classify_emits_json_without_external_requirements(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             log = Path(tmpdir) / "failed.log"
