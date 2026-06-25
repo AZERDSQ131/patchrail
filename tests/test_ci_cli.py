@@ -570,6 +570,100 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["receipt_status_counts"], {"blocked": 1})
         self.assertEqual(payload["publish_health"]["blocked_total"], 0)
 
+    def test_distribution_sku1_gate_recommends_linkedin_expansion_after_base_channels(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "covered_channels": [
+                            "devto",
+                            "hashnode",
+                            "reddit-sideproject",
+                            "show-hn",
+                            "x",
+                        ],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "blocked": [],
+                        "stale_claims": [],
+                        "uncovered": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "28",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["next_action"], "ship_more_distribution")
+        self.assertEqual(
+            payload["recommended_channel"],
+            {
+                "channel": "linkedin",
+                "source": "expansion",
+                "owner": "worker",
+                "next_action": "create_social_post_brief",
+                "safe_next_step": (
+                    "create facts-only social_post brief for linkedin; "
+                    "copywriter authors external prose before claim/publish"
+                ),
+                "reason": "traffic_gap_remaining_after_base_channels_covered",
+            },
+        )
+        self.assertEqual(payload["traffic_execution_plan"]["recommended_channel"], "linkedin")
+        self.assertEqual(payload["channel_conversion_plan"]["channel"], "linkedin")
+        self.assertEqual(
+            payload["channel_conversion_plan"]["url"],
+            "https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=linkedin&utm_campaign=sku1-organic-distribution",
+        )
+        self.assertFalse(payload["channel_conversion_plan"]["ready_to_publish"])
+        self.assertEqual(
+            payload["owner_next_actions"],
+            [
+                {
+                    "owner": "worker",
+                    "channel": "linkedin",
+                    "pending_channels": ["linkedin"],
+                    "pending_count": 1,
+                    "next_action": "create_social_post_brief",
+                    "safe_next_step": (
+                        "create facts-only social_post brief for linkedin; "
+                        "copywriter authors external prose before claim/publish"
+                    ),
+                    "source": "expansion",
+                    "oldest_blocked_days": None,
+                }
+            ],
+        )
+
     def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

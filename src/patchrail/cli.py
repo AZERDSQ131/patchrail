@@ -107,6 +107,10 @@ _SKU1_PIVOT_TRAFFIC_TARGET = 300
 _SKU1_AD_SPEND_CAP_USD = 75.0
 _SKU1_PAID_CLICK_CPC_USD = 0.75
 _SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
+_SKU1_BASE_DISTRIBUTION_CHANNELS = frozenset(
+    {"devto", "hashnode", "reddit-sideproject", "show-hn", "x"}
+)
+_SKU1_EXPANSION_DISTRIBUTION_CHANNELS = ("linkedin",)
 
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
 # Unknown or unlisted classes link to the guide index instead. Keep in sync with the
@@ -391,6 +395,7 @@ def _distribution_recommended_channel(
     blocker_plan: list[dict[str, Any]],
     blocker_queue: list[dict[str, Any]],
     publish_health: dict[str, Any],
+    traffic_gap: int = 0,
 ) -> dict[str, Any] | None:
     if blocker_plan and blocker_queue:
         item = blocker_queue[0]
@@ -415,6 +420,26 @@ def _distribution_recommended_channel(
             "safe_next_step": f"claim {channel}, publish once with approved copy, then record receipt",
             "reason": "channel_has_no_post_or_block_receipt",
         }
+    covered_channels = set(publish_health.get("covered_channels") or [])
+    if (
+        traffic_gap > 0
+        and publish_health.get("ok")
+        and _SKU1_BASE_DISTRIBUTION_CHANNELS.issubset(covered_channels)
+    ):
+        for channel in _SKU1_EXPANSION_DISTRIBUTION_CHANNELS:
+            if channel in covered_channels:
+                continue
+            return {
+                "channel": channel,
+                "source": "expansion",
+                "owner": "worker",
+                "next_action": "create_social_post_brief",
+                "safe_next_step": (
+                    f"create facts-only social_post brief for {channel}; "
+                    "copywriter authors external prose before claim/publish"
+                ),
+                "reason": "traffic_gap_remaining_after_base_channels_covered",
+            }
     return None
 
 
@@ -614,7 +639,10 @@ def _distribution_channel_conversion_plan(
             "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
             "~/.openclaw/run/patchrail_supervisor_last.json"
         ),
-        "ready_to_publish": recommended_channel.get("owner") == "worker",
+        "ready_to_publish": (
+            recommended_channel.get("owner") == "worker"
+            and recommended_channel["next_action"] != "create_social_post_brief"
+        ),
         "next_action": recommended_channel["next_action"],
     }
 
@@ -790,8 +818,9 @@ def _distribution_gate_payload(
     )
     blocker_queue = _distribution_blocker_queue(blocker_plan)
     blocker_owner_counts = Counter(item["owner"] for item in blocker_plan)
+    traffic_gap = max(traffic_target - traffic_delivered, 0)
     recommended_channel = _distribution_recommended_channel(
-        blocker_plan, blocker_queue, publish_health
+        blocker_plan, blocker_queue, publish_health, traffic_gap
     )
     owner_next_actions = _distribution_owner_next_actions(blocker_queue, recommended_channel)
     stalled_blockers = _distribution_stalled_blockers(blocker_queue, stalled_after_days)
@@ -808,7 +837,6 @@ def _distribution_gate_payload(
     claimed_channels = sorted(
         {receipt["channel"] for receipt in receipts if receipt["status"] == "claimed"}
     )
-    traffic_gap = max(traffic_target - traffic_delivered, 0)
     traffic_pressure = _distribution_traffic_pressure(
         traffic_delivered=traffic_delivered,
         traffic_target=traffic_target,
