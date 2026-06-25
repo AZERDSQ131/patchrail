@@ -1272,6 +1272,43 @@ class PatchRailCITests(unittest.TestCase):
                 ),
             },
         )
+        self.assertEqual(
+            payload["paid_ad_execution_packet"],
+            {
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "required": True,
+                "owner": "worker",
+                "platform": "sku1-traffic-boost",
+                "campaign": "ci-triage-sku1-gate",
+                "amount_usd": 75.0,
+                "paid_click_target": 100,
+                "url": (
+                    "https://patchrail.gumroad.com/l/ci-failure-triage"
+                    "?utm_source=guarded_paid_boost&utm_campaign=ci-triage-sku1-gate"
+                ),
+                "preflight_command": (
+                    "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
+                    "--amount 75.00 --platform sku1-traffic-boost "
+                    "--campaign ci-triage-sku1-gate"
+                ),
+                "commit_command_template": (
+                    "python3 opportunity-desk/scripts/ad_spend_guard.py commit "
+                    "--amount 75.00 --platform sku1-traffic-boost "
+                    "--campaign ci-triage-sku1-gate --evidence <receipt_or_ad_manager_url>"
+                ),
+                "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
+                "measurement_command": (
+                    "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd,"
+                    ".ad_spend_committed_usd,.ad_cap_usd' "
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                ),
+                "safe_next_step": (
+                    "Run the ad_spend_guard preflight before any paid boost; if no logged-in "
+                    "eligible ad account is available, record measurement and wait for the next signal."
+                ),
+            },
+        )
         self.assertIn("posted", payload["covered_channel_plan"]["status_counts"])
         self.assertEqual(
             [

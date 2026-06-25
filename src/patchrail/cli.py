@@ -108,6 +108,9 @@ _SKU1_PIVOT_TRAFFIC_TARGET = 300
 _SKU1_AD_SPEND_CAP_USD = 75.0
 _SKU1_PAID_CLICK_CPC_USD = 0.75
 _SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
+_SKU1_PAID_TRAFFIC_PLATFORM = "sku1-traffic-boost"
+_SKU1_PAID_TRAFFIC_CAMPAIGN = "ci-triage-sku1-gate"
+_SKU1_PAID_TRAFFIC_SOURCE = "guarded_paid_boost"
 _AD_SPEND_CENTS = Decimal("0.01")
 _AD_SPEND_LEDGER_KIND_SIGN = {
     "charge": Decimal("1"),
@@ -767,6 +770,13 @@ def _distribution_channel_url(channel: str) -> str:
     )
 
 
+def _distribution_paid_traffic_url() -> str:
+    return (
+        f"{_CI_TRIAGE_PACK_BASE}?utm_source={quote(_SKU1_PAID_TRAFFIC_SOURCE)}"
+        f"&utm_campaign={quote(_SKU1_PAID_TRAFFIC_CAMPAIGN)}"
+    )
+
+
 def _distribution_channel_measurement_urls(
     blocker_queue: list[dict[str, Any]],
     recommended_channel: dict[str, Any] | None,
@@ -913,11 +923,11 @@ def _distribution_execution_checklist(
             "required": paid_budget_usd > 0,
             "owner": "worker",
             "amount_usd": paid_budget_usd,
-            "platform": "sku1-traffic-boost",
+            "platform": _SKU1_PAID_TRAFFIC_PLATFORM,
             "command": (
                 "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
-                f"--amount {paid_budget_usd:.2f} --platform sku1-traffic-boost "
-                "--campaign ci-triage-sku1-gate"
+                f"--amount {paid_budget_usd:.2f} --platform {_SKU1_PAID_TRAFFIC_PLATFORM} "
+                f"--campaign {_SKU1_PAID_TRAFFIC_CAMPAIGN}"
             )
             if paid_budget_usd > 0
             else "",
@@ -1020,6 +1030,50 @@ def _distribution_channel_execution_packet(
     }
 
 
+def _distribution_paid_ad_execution_packet(
+    *,
+    channel_closeout_plan: dict[str, Any],
+    traffic_execution_plan: dict[str, Any],
+    paid_traffic_plan: dict[str, Any],
+) -> dict[str, Any]:
+    amount_usd = round(float(traffic_execution_plan["paid_budget_usd"]), 2)
+    required = bool(
+        channel_closeout_plan["required"]
+        and paid_traffic_plan["preflight_required"]
+        and amount_usd > 0
+    )
+    preflight_command = (
+        "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
+        f"--amount {amount_usd:.2f} --platform {_SKU1_PAID_TRAFFIC_PLATFORM} "
+        f"--campaign {_SKU1_PAID_TRAFFIC_CAMPAIGN}"
+    )
+    return {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "required": required,
+        "owner": "worker",
+        "platform": _SKU1_PAID_TRAFFIC_PLATFORM,
+        "campaign": _SKU1_PAID_TRAFFIC_CAMPAIGN,
+        "amount_usd": amount_usd if required else 0.0,
+        "paid_click_target": traffic_execution_plan["paid_click_target"] if required else 0,
+        "url": _distribution_paid_traffic_url() if required else "",
+        "preflight_command": preflight_command if required else "",
+        "commit_command_template": (
+            "python3 opportunity-desk/scripts/ad_spend_guard.py commit "
+            f"--amount {amount_usd:.2f} --platform {_SKU1_PAID_TRAFFIC_PLATFORM} "
+            f"--campaign {_SKU1_PAID_TRAFFIC_CAMPAIGN} --evidence <receipt_or_ad_manager_url>"
+        )
+        if required
+        else "",
+        "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
+        "measurement_command": (
+            "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd,"
+            ".ad_spend_committed_usd,.ad_cap_usd' ~/.openclaw/run/patchrail_supervisor_last.json"
+        ),
+        "safe_next_step": channel_closeout_plan["safe_next_step"],
+    }
+
+
 def _distribution_channel_closeout_plan(
     *,
     covered_channel_plan: dict[str, Any],
@@ -1067,7 +1121,7 @@ def _distribution_channel_closeout_plan(
         "paid_preflight_command": (
             "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
             f"--amount {traffic_execution_plan['paid_budget_usd']:.2f} "
-            "--platform sku1-traffic-boost --campaign ci-triage-sku1-gate"
+            f"--platform {_SKU1_PAID_TRAFFIC_PLATFORM} --campaign {_SKU1_PAID_TRAFFIC_CAMPAIGN}"
         )
         if required and paid_traffic_plan["preflight_required"]
         else "",
@@ -1288,6 +1342,11 @@ def _distribution_gate_payload(
         publish_health=publish_health,
         recommended_channel=recommended_channel,
     )
+    paid_ad_execution_packet = _distribution_paid_ad_execution_packet(
+        channel_closeout_plan=channel_closeout_plan,
+        traffic_execution_plan=traffic_execution_plan,
+        paid_traffic_plan=paid_traffic_plan,
+    )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
@@ -1335,6 +1394,7 @@ def _distribution_gate_payload(
         "channel_execution_packet": channel_execution_packet,
         "covered_channel_plan": covered_channel_plan,
         "channel_closeout_plan": channel_closeout_plan,
+        "paid_ad_execution_packet": paid_ad_execution_packet,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
@@ -1442,6 +1502,16 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
                 f"{payload['channel_closeout_plan']['total_channels']}"
             )
             if payload["channel_closeout_plan"]["required"]
+            else "none"
+        ),
+        "Paid ad packet: "
+        + (
+            (
+                f"{payload['paid_ad_execution_packet']['platform']} "
+                f"amount=${payload['paid_ad_execution_packet']['amount_usd']:.2f} "
+                f"url={payload['paid_ad_execution_packet']['url']}"
+            )
+            if payload["paid_ad_execution_packet"]["required"]
             else "none"
         ),
         "Execution checklist: "
