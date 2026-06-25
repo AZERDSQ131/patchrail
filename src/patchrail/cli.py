@@ -441,6 +441,43 @@ def _distribution_owner_next_actions(
     return actions
 
 
+def _distribution_traffic_pressure(
+    *,
+    traffic_delivered: int,
+    traffic_target: int,
+    as_of: str,
+    gate_date: str,
+) -> dict[str, Any]:
+    traffic_gap = max(traffic_target - traffic_delivered, 0)
+    try:
+        as_of_date = datetime.fromisoformat(as_of).date()
+        gate = datetime.fromisoformat(gate_date).date()
+        days_to_gate = (gate - as_of_date).days
+    except ValueError:
+        days_to_gate = None
+
+    if days_to_gate is None:
+        required_daily_traffic = None
+        status = "unknown_date"
+    elif traffic_gap == 0:
+        required_daily_traffic = 0.0
+        status = "traffic_target_met"
+    elif days_to_gate < 0:
+        required_daily_traffic = float(traffic_gap)
+        status = "traffic_gap_after_gate"
+    else:
+        days_remaining = max(days_to_gate, 1)
+        required_daily_traffic = round(traffic_gap / days_remaining, 2)
+        status = "traffic_gap_before_gate"
+
+    return {
+        "traffic_gap": traffic_gap,
+        "days_to_gate": days_to_gate,
+        "required_daily_traffic": required_daily_traffic,
+        "status": status,
+    }
+
+
 def _distribution_gate_payload(
     *,
     posted_dir: Path,
@@ -476,6 +513,12 @@ def _distribution_gate_payload(
         {receipt["channel"] for receipt in receipts if receipt["status"] == "claimed"}
     )
     traffic_gap = max(traffic_target - traffic_delivered, 0)
+    traffic_pressure = _distribution_traffic_pressure(
+        traffic_delivered=traffic_delivered,
+        traffic_target=traffic_target,
+        as_of=as_of,
+        gate_date=gate_date,
+    )
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
     if sales_total > 0:
@@ -504,6 +547,7 @@ def _distribution_gate_payload(
         "traffic_target": traffic_target,
         "traffic_delivered": traffic_delivered,
         "traffic_gap": traffic_gap,
+        "traffic_pressure": traffic_pressure,
         "sales_total": sales_total,
         "gross_usd": gross_usd,
         "pivot_gate_armed": pivot_gate_armed,
@@ -536,6 +580,12 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
         f"Conversion URL: {payload['conversion_url']}",
         f"Traffic: {payload['traffic_delivered']}/{payload['traffic_target']}",
         f"Traffic gap: {payload['traffic_gap']}",
+        (
+            "Traffic pressure: "
+            f"{payload['traffic_pressure']['status']}, "
+            f"days_to_gate={payload['traffic_pressure']['days_to_gate']}, "
+            f"required_daily_traffic={payload['traffic_pressure']['required_daily_traffic']}"
+        ),
         f"Sales: {payload['sales_total']} (${payload['gross_usd']:.2f})",
         f"Posted channels: {', '.join(payload['posted_channels']) or 'none'}",
         f"Blocked channels: {', '.join(payload['blocked_channels']) or 'none'}",

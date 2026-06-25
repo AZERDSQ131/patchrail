@@ -111,6 +111,15 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["conversion_kpi"], "visits_and_sales_before_2026-06-30")
         self.assertIn("utm_source=github_marketplace", payload["conversion_url"])
         self.assertEqual(payload["traffic_gap"], 275)
+        self.assertEqual(
+            payload["traffic_pressure"],
+            {
+                "traffic_gap": 275,
+                "days_to_gate": 5,
+                "required_daily_traffic": 55.0,
+                "status": "traffic_gap_before_gate",
+            },
+        )
         self.assertEqual(payload["posted_channels"], ["x"])
         self.assertEqual(payload["blocked_channels"], ["devto", "show-hn"])
         self.assertEqual(payload["publish_health"]["blocked_total"], 2)
@@ -223,6 +232,11 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         text = stdout.getvalue()
         self.assertIn("Recommended channel: devto (claim_uncovered_distribution_channel)", text)
+        self.assertIn(
+            "Traffic pressure: traffic_gap_before_gate, days_to_gate=5, "
+            "required_daily_traffic=55.0",
+            text,
+        )
         self.assertIn(
             "Owner next actions: worker=devto/claim_uncovered_distribution_channel (1 channel)",
             text,
