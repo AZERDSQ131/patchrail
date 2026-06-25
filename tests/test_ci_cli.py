@@ -154,6 +154,43 @@ class PatchRailCITests(unittest.TestCase):
                 "measurement_event": "sku1_visits_and_sales_delta",
             },
         )
+        self.assertEqual(
+            payload["execution_checklist"],
+            [
+                {
+                    "name": "paid_ads_preflight",
+                    "required": True,
+                    "owner": "worker",
+                    "amount_usd": 75.0,
+                    "platform": "sku1-traffic-boost",
+                    "command": (
+                        "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
+                        "--amount 75.00 --platform sku1-traffic-boost "
+                        "--campaign ci-triage-sku1-gate"
+                    ),
+                    "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
+                },
+                {
+                    "name": "organic_distribution",
+                    "required": True,
+                    "owner": "copywriter",
+                    "channel": "devto",
+                    "target_clicks": 125,
+                    "daily_target_clicks": 25.0,
+                    "next_action": "copywriter_required",
+                },
+                {
+                    "name": "measure_gate",
+                    "required": True,
+                    "owner": "worker",
+                    "event": "sku1_visits_and_sales_delta",
+                    "command": (
+                        "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
+                        "~/.openclaw/run/patchrail_supervisor_last.json"
+                    ),
+                },
+            ],
+        )
         self.assertEqual(payload["posted_channels"], ["x"])
         self.assertEqual(payload["blocked_channels"], ["devto", "show-hn"])
         self.assertEqual(payload["publish_health"]["blocked_total"], 2)
@@ -291,6 +328,11 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn(
             "Traffic execution: paid_clicks=100, paid_budget=$75.00, "
             "organic_clicks=175, daily_organic=35.0, channel=devto",
+            text,
+        )
+        self.assertIn(
+            "Execution checklist: paid_ads_preflight=worker, organic_distribution=worker, "
+            "measure_gate=worker",
             text,
         )
         self.assertIn(

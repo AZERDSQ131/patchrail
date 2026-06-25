@@ -584,6 +584,54 @@ def _distribution_traffic_execution_plan(
     }
 
 
+def _distribution_execution_checklist(
+    *,
+    traffic_execution_plan: dict[str, Any],
+    recommended_channel: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    paid_budget_usd = traffic_execution_plan["paid_budget_usd"]
+    organic_click_target = traffic_execution_plan["organic_click_target"]
+    channel = traffic_execution_plan["recommended_channel"] or ""
+    channel_owner = recommended_channel["owner"] if recommended_channel else ""
+    channel_action = recommended_channel["next_action"] if recommended_channel else ""
+    return [
+        {
+            "name": "paid_ads_preflight",
+            "required": paid_budget_usd > 0,
+            "owner": "worker",
+            "amount_usd": paid_budget_usd,
+            "platform": "sku1-traffic-boost",
+            "command": (
+                "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
+                f"--amount {paid_budget_usd:.2f} --platform sku1-traffic-boost "
+                "--campaign ci-triage-sku1-gate"
+            )
+            if paid_budget_usd > 0
+            else "",
+            "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
+        },
+        {
+            "name": "organic_distribution",
+            "required": organic_click_target > 0,
+            "owner": channel_owner or "worker",
+            "channel": channel,
+            "target_clicks": organic_click_target,
+            "daily_target_clicks": traffic_execution_plan["daily_organic_click_target"],
+            "next_action": channel_action or "ship_more_distribution",
+        },
+        {
+            "name": "measure_gate",
+            "required": True,
+            "owner": "worker",
+            "event": traffic_execution_plan["measurement_event"],
+            "command": (
+                "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
+                "~/.openclaw/run/patchrail_supervisor_last.json"
+            ),
+        },
+    ]
+
+
 def _distribution_gate_payload(
     *,
     posted_dir: Path,
@@ -643,6 +691,10 @@ def _distribution_gate_payload(
         recommended_channel=recommended_channel,
         gate_date=gate_date,
     )
+    execution_checklist = _distribution_execution_checklist(
+        traffic_execution_plan=traffic_execution_plan,
+        recommended_channel=recommended_channel,
+    )
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
     if sales_total > 0:
@@ -660,9 +712,7 @@ def _distribution_gate_payload(
     else:
         next_action = "watch_until_gate"
     blocker_days = [
-        item["blocked_days"]
-        for item in blocker_plan
-        if isinstance(item.get("blocked_days"), int)
+        item["blocked_days"] for item in blocker_plan if isinstance(item.get("blocked_days"), int)
     ]
     oldest_blocker = blocker_queue[0] if blocker_queue else None
     return {
@@ -680,6 +730,7 @@ def _distribution_gate_payload(
         "traffic_pressure": traffic_pressure,
         "paid_traffic_plan": paid_traffic_plan,
         "traffic_execution_plan": traffic_execution_plan,
+        "execution_checklist": execution_checklist,
         "sales_total": sales_total,
         "gross_usd": gross_usd,
         "pivot_gate_armed": pivot_gate_armed,
@@ -739,6 +790,15 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"organic_clicks={payload['traffic_execution_plan']['organic_click_target']}, "
             f"daily_organic={payload['traffic_execution_plan']['daily_organic_click_target']}, "
             f"channel={payload['traffic_execution_plan']['recommended_channel'] or 'none'}"
+        ),
+        "Execution checklist: "
+        + (
+            ", ".join(
+                f"{item['name']}={item['owner']}"
+                for item in payload["execution_checklist"]
+                if item["required"]
+            )
+            or "none"
         ),
         f"Sales: {payload['sales_total']} (${payload['gross_usd']:.2f})",
         f"Posted channels: {', '.join(payload['posted_channels']) or 'none'}",
