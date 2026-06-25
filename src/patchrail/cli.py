@@ -1368,6 +1368,58 @@ def _distribution_copywriter_handoff(
     }
 
 
+def _distribution_browser_extension_handoff(
+    blocker_queue: list[dict[str, Any]],
+) -> dict[str, Any]:
+    pending = []
+    for item in blocker_queue:
+        if item["next_action"] != "browser_extension_setup_required":
+            continue
+        channel = str(item["channel"])
+        copy_file = str(item.get("copy_file") or "")
+        pending.append(
+            {
+                "channel": channel,
+                "owner": "pablo",
+                "blocked_days": item.get("blocked_days"),
+                "reason": item["reason"],
+                "copy_file": copy_file,
+                "safe_next_step": item["safe_next_step"],
+                "verify_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py blockers "
+                    "--owner pablo --json"
+                ),
+                "claim_after_setup_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py claim "
+                    f"--channel {shlex.quote(channel)} --copy-file {shlex.quote(copy_file)}"
+                )
+                if copy_file
+                else "",
+            }
+        )
+    return {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "required": bool(pending),
+        "owner": "pablo",
+        "pending_count": len(pending),
+        "next_channel": pending[0]["channel"] if pending else None,
+        "next_verify_command": pending[0]["verify_command"] if pending else "",
+        "next_claim_after_setup_command": pending[0]["claim_after_setup_command"]
+        if pending
+        else "",
+        "checklist": [
+            "Open chrome://extensions in the selected logged-in Chrome profile.",
+            "Enable or install the Codex Chrome Extension for that profile.",
+            "Do not bypass login, 2FA, CAPTCHA, profile, or account controls.",
+            "After setup, rerun the verify command and claim the channel only if copy_file exists.",
+        ]
+        if pending
+        else [],
+        "pending": pending,
+    }
+
+
 def _distribution_stalled_handoff(
     stalled_blockers: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -1526,6 +1578,7 @@ def _distribution_gate_payload(
         gate_date=gate_date,
     )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
+    browser_extension_handoff = _distribution_browser_extension_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
     if sales_total > 0:
@@ -1579,6 +1632,7 @@ def _distribution_gate_payload(
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
+        "browser_extension_handoff": browser_extension_handoff,
         "sales_total": sales_total,
         "gross_usd": gross_usd,
         "pivot_gate_armed": pivot_gate_armed,
@@ -1809,6 +1863,15 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
                 f"({payload['copywriter_handoff']['pending_count']} pending)"
             )
             if payload["copywriter_handoff"]["required"]
+            else "none"
+        ),
+        "Browser extension handoff: "
+        + (
+            (
+                f"{payload['browser_extension_handoff']['next_channel']} "
+                f"({payload['browser_extension_handoff']['pending_count']} pending)"
+            )
+            if payload["browser_extension_handoff"]["required"]
             else "none"
         ),
         f"Pivot gate fires: {payload['pivot_gate_fires']}",

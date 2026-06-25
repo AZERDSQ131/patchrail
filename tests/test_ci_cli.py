@@ -385,6 +385,50 @@ class PatchRailCITests(unittest.TestCase):
                 ],
             },
         )
+        self.assertEqual(
+            payload["browser_extension_handoff"],
+            {
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "required": True,
+                "owner": "pablo",
+                "pending_count": 1,
+                "next_channel": "show-hn",
+                "next_verify_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py blockers "
+                    "--owner pablo --json"
+                ),
+                "next_claim_after_setup_command": "",
+                "checklist": [
+                    "Open chrome://extensions in the selected logged-in Chrome profile.",
+                    "Enable or install the Codex Chrome Extension for that profile.",
+                    "Do not bypass login, 2FA, CAPTCHA, profile, or account controls.",
+                    (
+                        "After setup, rerun the verify command and claim the channel only "
+                        "if copy_file exists."
+                    ),
+                ],
+                "pending": [
+                    {
+                        "channel": "show-hn",
+                        "owner": "pablo",
+                        "blocked_days": 0,
+                        "reason": "Chrome route missing extension",
+                        "copy_file": "",
+                        "safe_next_step": (
+                            "enable/install the Codex Chrome Extension in the selected "
+                            "logged-in Chrome profile for show-hn; worker must not bypass "
+                            "profile/login controls"
+                        ),
+                        "verify_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py blockers "
+                            "--owner pablo --json"
+                        ),
+                        "claim_after_setup_command": "",
+                    }
+                ],
+            },
+        )
         self.assertEqual(payload["posted_channels"], ["x"])
         self.assertEqual(payload["blocked_channels"], ["devto", "show-hn"])
         self.assertEqual(payload["publish_health"]["blocked_total"], 2)
