@@ -651,6 +651,112 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["traffic_execution_plan"]["paid_budget_usd"], 24.75)
         self.assertIn("--amount 24.75", payload["execution_checklist"][0]["command"])
 
+    def test_distribution_sku1_gate_reads_committed_ad_spend_from_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "covered_channels": ["reddit-sideproject", "x"],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 1,
+                        "social_post_stale_claims_total": 0,
+                        "uncovered": [{"channel": "devto"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            ledger = Path(tmpdir) / "ledger.jsonl"
+            ledger.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "status": "committed",
+                                "kind": "charge",
+                                "amount_usd": "12.34",
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "status": "refused",
+                                "kind": "charge",
+                                "amount_usd": "99.00",
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "status": "committed",
+                                "kind": "preauth",
+                                "amount_usd": "5.00",
+                            }
+                        ),
+                        json.dumps(
+                            {
+                                "status": "committed",
+                                "kind": "refund",
+                                "amount_usd": "2.00",
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--paid-click-cpc-usd",
+                        "0.75",
+                        "--ad-cap-usd",
+                        "75",
+                        "--ad-spend-committed-usd",
+                        "50",
+                        "--ad-spend-ledger",
+                        str(ledger),
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(
+            payload["ad_spend_source"],
+            {
+                "source": "ledger",
+                "ledger_path": str(ledger),
+                "committed_usd": 15.34,
+                "line_count": 4,
+                "committed_lines": 3,
+                "ignored_lines": 1,
+            },
+        )
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 15.34)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 59.66)
+        self.assertEqual(payload["traffic_execution_plan"]["paid_click_target"], 79)
+        self.assertEqual(payload["traffic_execution_plan"]["paid_budget_usd"], 59.25)
+        self.assertIn("--amount 59.25", payload["execution_checklist"][0]["command"])
+
     def test_distribution_sku1_gate_unblocks_blocked_receipts_without_health_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

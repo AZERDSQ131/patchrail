@@ -13,6 +13,7 @@ import tempfile
 import threading
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
@@ -107,6 +108,13 @@ _SKU1_PIVOT_TRAFFIC_TARGET = 300
 _SKU1_AD_SPEND_CAP_USD = 75.0
 _SKU1_PAID_CLICK_CPC_USD = 0.75
 _SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
+_AD_SPEND_CENTS = Decimal("0.01")
+_AD_SPEND_LEDGER_KIND_SIGN = {
+    "charge": Decimal("1"),
+    "preauth": Decimal("1"),
+    "adjustment": Decimal("1"),
+    "refund": Decimal("-1"),
+}
 _SKU1_BASE_DISTRIBUTION_CHANNELS = frozenset(
     {"devto", "hashnode", "reddit-sideproject", "show-hn", "x"}
 )
@@ -624,6 +632,63 @@ def _distribution_paid_traffic_plan(
     }
 
 
+def _ad_spend_money(value: Any) -> Decimal:
+    try:
+        return Decimal(str(value)).quantize(_AD_SPEND_CENTS, rounding=ROUND_HALF_UP)
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ValueError(f"invalid ad spend amount {value!r}") from exc
+
+
+def _distribution_ad_spend_source(
+    ledger_path: Path | None,
+    committed_usd: float,
+) -> dict[str, Any]:
+    if ledger_path is None:
+        return {
+            "source": "argument",
+            "ledger_path": "",
+            "committed_usd": round(max(committed_usd, 0.0), 2),
+            "line_count": 0,
+            "committed_lines": 0,
+            "ignored_lines": 0,
+        }
+    if not ledger_path.exists():
+        raise FileNotFoundError(f"ad spend ledger not found: {ledger_path}")
+
+    total = Decimal("0.00")
+    line_count = 0
+    committed_lines = 0
+    ignored_lines = 0
+    for line_number, raw_line in enumerate(ledger_path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw_line.strip()
+        if not line:
+            continue
+        line_count += 1
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid ad spend ledger JSON on line {line_number}") from exc
+        if not isinstance(row, dict):
+            ignored_lines += 1
+            continue
+        kind = str(row.get("kind") or "")
+        if row.get("status") != "committed" or kind not in _AD_SPEND_LEDGER_KIND_SIGN:
+            ignored_lines += 1
+            continue
+        total += _ad_spend_money(row.get("amount_usd", 0)) * _AD_SPEND_LEDGER_KIND_SIGN[kind]
+        committed_lines += 1
+
+    total = max(total, Decimal("0.00")).quantize(_AD_SPEND_CENTS, rounding=ROUND_HALF_UP)
+    return {
+        "source": "ledger",
+        "ledger_path": str(ledger_path),
+        "committed_usd": float(total),
+        "line_count": line_count,
+        "committed_lines": committed_lines,
+        "ignored_lines": ignored_lines,
+    }
+
+
 def _distribution_traffic_execution_plan(
     *,
     traffic_pressure: dict[str, Any],
@@ -1000,6 +1065,7 @@ def _distribution_gate_payload(
     paid_click_cpc_usd: float = _SKU1_PAID_CLICK_CPC_USD,
     ad_cap_usd: float = _SKU1_AD_SPEND_CAP_USD,
     ad_spend_committed_usd: float = 0.0,
+    ad_spend_source: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     receipts = _distribution_receipts(posted_dir)
     publish_health = _distribution_publish_health(publish_health_file)
@@ -1095,6 +1161,8 @@ def _distribution_gate_payload(
         "traffic_delivered": traffic_delivered,
         "traffic_gap": traffic_gap,
         "traffic_pressure": traffic_pressure,
+        "ad_spend_source": ad_spend_source
+        or _distribution_ad_spend_source(None, ad_spend_committed_usd),
         "paid_traffic_plan": paid_traffic_plan,
         "traffic_execution_plan": traffic_execution_plan,
         "channel_conversion_plan": channel_conversion_plan,
@@ -1509,6 +1577,10 @@ def _doctor(args: argparse.Namespace) -> int:
 
 
 def _distribution_gate(args: argparse.Namespace) -> int:
+    ad_spend_source = _distribution_ad_spend_source(
+        args.ad_spend_ledger,
+        args.ad_spend_committed_usd,
+    )
     payload = _distribution_gate_payload(
         posted_dir=args.posted_dir,
         publish_health_file=args.publish_health_file,
@@ -1522,7 +1594,8 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         stalled_after_days=args.stalled_after_days,
         paid_click_cpc_usd=args.paid_click_cpc_usd,
         ad_cap_usd=args.ad_cap_usd,
-        ad_spend_committed_usd=args.ad_spend_committed_usd,
+        ad_spend_committed_usd=ad_spend_source["committed_usd"],
+        ad_spend_source=ad_spend_source,
     )
     if args.write_copy_brief is not None:
         copy_brief_request = payload["channel_execution_packet"].get("copy_brief_request")
@@ -9851,6 +9924,14 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=0.0,
         help="Already committed autonomous ad spend, subtracted from the SKU #1 cap.",
+    )
+    distribution_sku1.add_argument(
+        "--ad-spend-ledger",
+        type=Path,
+        help=(
+            "Optional append-only ad spend ledger JSONL; committed charge/preauth/adjustment "
+            "rows minus refunds override --ad-spend-committed-usd."
+        ),
     )
     distribution_sku1.add_argument(
         "--format",
