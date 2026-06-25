@@ -459,6 +459,13 @@ class PatchRailCITests(unittest.TestCase):
             ],
         )
         self.assertEqual(payload["next_action"], "unblock_distribution_channels")
+        self.assertEqual(payload["channel_closeout_plan"]["required"], False)
+        self.assertEqual(payload["channel_closeout_plan"]["all_channels_covered"], False)
+        self.assertEqual(payload["channel_closeout_plan"]["next_action"], "copywriter_required")
+        self.assertEqual(
+            payload["channel_closeout_plan"]["safe_next_step"],
+            "copywriter must create approved copy_file; worker must not draft external prose",
+        )
         self.assertFalse(payload["requirements"]["network_required"])
         self.assertEqual(payload["stalled_after_days"], 1)
         self.assertEqual(payload["stalled_owner_counts"], {"copywriter": 1})

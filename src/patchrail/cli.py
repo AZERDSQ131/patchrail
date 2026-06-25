@@ -1255,7 +1255,10 @@ def _distribution_channel_closeout_plan(
     )
     next_action = "none"
     safe_next_step = "No organic channel work remains; keep measuring the gate."
-    if required and paid_traffic_plan["preflight_required"]:
+    if recommended_channel is not None:
+        next_action = str(recommended_channel["next_action"])
+        safe_next_step = str(recommended_channel["safe_next_step"])
+    elif required and paid_traffic_plan["preflight_required"]:
         next_action = "preflight_guarded_ads_or_measure_gate"
         safe_next_step = (
             "Run the ad_spend_guard preflight before any paid boost; if no logged-in "
