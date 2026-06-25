@@ -95,6 +95,7 @@ def _read_log(path: Path | None) -> str:
 _FIX_GUIDE_BASE = "https://getpatchrail.com/fix"
 _CI_TRIAGE_PACK_BASE = "https://patchrail.gumroad.com/l/ci-failure-triage"
 _CI_TRIAGE_ACTION_BASE = "https://github.com/patchrail/ci-triage-action"
+_CI_TRIAGE_MARKETPLACE_BASE = "https://github.com/marketplace/actions/patchrail-ci-triage"
 
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
 # Unknown or unlisted classes link to the guide index instead. Keep in sync with the
@@ -450,6 +451,15 @@ def _adoption_next_actions() -> list[dict[str, Any]]:
     ]
 
 
+def _github_action_marketplace_listing(readme: str) -> dict[str, Any]:
+    listed = _CI_TRIAGE_MARKETPLACE_BASE in readme
+    return {
+        "listed": listed,
+        "url": _CI_TRIAGE_MARKETPLACE_BASE if listed else "",
+        "counts_as_adoption": False,
+    }
+
+
 def _extract_markdown_links(text: str) -> list[dict[str, str]]:
     return [
         {"label": label, "url": url}
@@ -698,6 +708,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
     ci_workflow = _read_optional_text(root / ".github" / "workflows" / "ci.yml")
     adopters = _read_optional_text(root / "ADOPTERS.md")
     metrics = _read_optional_text(root / "docs" / "metrics.md")
+    readme = _read_optional_text(root / "README.md")
     workflow_ledger = _read_optional_text(root / "docs" / "public-workflow-ledger.md")
     pilot_summaries = sorted((root / "examples" / "pilot-outcome").glob("*.summary.json"))
     approved_pilot_repositories: list[str] = []
@@ -756,6 +767,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
     pypi_full_30_day_window_complete = "Full 30-day PyPI download window complete:" in metrics
     external_adopters_count = _public_external_adopters_count(metrics, adopters)
     pypi_telemetry = _pypi_package_telemetry(metrics)
+    github_action_marketplace = _github_action_marketplace_listing(readme)
     return {
         "schema_version": "patchrail.evidence_snapshot.v1",
         "patchrail_version": __version__,
@@ -781,6 +793,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
             "pypi_release_published": pypi_release_published,
             "pypi_initial_download_telemetry_present": pypi_initial_download_telemetry_present,
             "pypi_full_30_day_window_complete": pypi_full_30_day_window_complete,
+            "github_action_marketplace_listed": github_action_marketplace["listed"],
         },
         "adoption_evidence": {
             "public_external_adopters": external_adopters_count,
@@ -803,6 +816,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
                 "non_countable_signals": [
                     "PyPI package downloads",
                     "owned-repo pilot outcomes",
+                    "GitHub Marketplace action listing",
                 ],
             },
             "next_actions": _adoption_next_actions(),
@@ -821,6 +835,12 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
             "github_action": {
                 "status": "read_only_artifact",
                 "read_only_permissions": read_only_workflow,
+                "install_url": _CI_TRIAGE_ACTION_BASE,
+                "marketplace_listed": github_action_marketplace["listed"],
+                "marketplace_url": github_action_marketplace["url"],
+                "marketplace_counts_as_adoption": github_action_marketplace[
+                    "counts_as_adoption"
+                ],
             },
             "agent_control_plane": {
                 "status": "local_demo",

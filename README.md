@@ -150,6 +150,8 @@ checklist pack.
 
 Drop the same triage into any workflow with
 [`patchrail/ci-triage-action`](https://github.com/patchrail/ci-triage-action).
+It is also listed on
+[GitHub Marketplace](https://github.com/marketplace/actions/patchrail-ci-triage).
 On a red run it classifies the log locally and links the matching
 [getpatchrail.com/fix](https://getpatchrail.com/fix) guide — no PR, no comment,
 nothing leaves the runner:

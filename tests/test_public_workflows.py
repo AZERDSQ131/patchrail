@@ -935,6 +935,7 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
             "non_countable_signals": [
                 "PyPI package downloads",
                 "owned-repo pilot outcomes",
+                "GitHub Marketplace action listing",
             ],
         },
         "next_actions": [
@@ -970,6 +971,12 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
     assert "release-v0.4.0-evidence.md" in payload["signals"]["release_evidence_pages"]
     assert payload["workstreams"]["ci_janitor"]["benchmark_green"] is True
     assert payload["workstreams"]["github_action"]["read_only_permissions"] is True
+    assert payload["workstreams"]["github_action"]["marketplace_listed"] is True
+    assert (
+        payload["workstreams"]["github_action"]["marketplace_url"]
+        == "https://github.com/marketplace/actions/patchrail-ci-triage"
+    )
+    assert payload["workstreams"]["github_action"]["marketplace_counts_as_adoption"] is False
     assert payload["workstreams"]["agent_control_plane"]["demo_present"] is True
     assert payload["workstreams"]["funded_issue_scout"]["demo_present"] is True
     assert payload["workstreams"]["release_packaging"]["package_smoke_in_ci"] is True
@@ -1020,8 +1027,9 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
         "- Blocking adoption requirements: `permissioned external maintainer pilot summary, "
         "approved ADOPTERS.md listing`" in markdown_proc.stdout
     )
-    assert "- Non-countable signals: `PyPI package downloads, owned-repo pilot outcomes`" in (
-        markdown_proc.stdout
+    assert (
+        "- Non-countable signals: `PyPI package downloads, owned-repo pilot outcomes, "
+        "GitHub Marketplace action listing`" in markdown_proc.stdout
     )
 
 
