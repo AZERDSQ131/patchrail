@@ -931,6 +931,65 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["traffic_execution_plan"]["paid_click_target"], 0)
         self.assertEqual(payload["traffic_execution_plan"]["organic_click_target"], 0)
 
+    def test_distribution_sku1_gate_writes_social_copy_brief(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "covered_channels": ["x"],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 1,
+                        "social_post_stale_claims_total": 0,
+                        "uncovered": [{"channel": "devto"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            brief_path = Path(tmpdir) / "requests" / "sku1-devto-social-post.json"
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                        "--write-copy-brief",
+                        str(brief_path),
+                    ]
+                )
+            brief = json.loads(brief_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["copy_brief_write"]["status"], "written")
+            self.assertEqual(payload["copy_brief_write"]["path"], str(brief_path))
+            self.assertTrue(payload["copy_brief_write"]["forbidden_fields_absent"])
+        self.assertEqual(brief["type"], "social_post")
+        self.assertEqual(brief["channel"], "devto")
+        self.assertEqual(brief["lead"], "SKU #1 CI Triage $19")
+        self.assertIn("utm_source=devto", brief["thread_ref"])
+        self.assertNotIn("body", brief)
+        self.assertNotIn("draft", brief)
+        self.assertNotIn("email_body", brief)
+
     def test_ci_classify_emits_json_without_external_requirements(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             log = Path(tmpdir) / "failed.log"

@@ -1456,6 +1456,29 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         paid_click_cpc_usd=args.paid_click_cpc_usd,
         ad_cap_usd=args.ad_cap_usd,
     )
+    if args.write_copy_brief is not None:
+        copy_brief_request = payload["channel_execution_packet"].get("copy_brief_request")
+        if not copy_brief_request:
+            payload["copy_brief_write"] = {
+                "status": "skipped",
+                "reason": "no_recommended_channel",
+                "path": str(args.write_copy_brief),
+            }
+        else:
+            brief_path = args.write_copy_brief
+            brief_path.parent.mkdir(parents=True, exist_ok=True)
+            copy_brief_payload = dict(copy_brief_request["payload"])
+            brief_path.write_text(_json_dump(copy_brief_payload), encoding="utf-8")
+            copy_brief_request["write_path"] = str(brief_path)
+            payload["copy_brief_write"] = {
+                "status": "written",
+                "path": str(brief_path),
+                "type": copy_brief_payload["type"],
+                "channel": copy_brief_payload.get("channel", ""),
+                "forbidden_fields_absent": not any(
+                    field in copy_brief_payload for field in copy_brief_request["prohibited_fields"]
+                ),
+            }
     if args.format == "json":
         text = _json_dump(payload)
     else:
@@ -9757,6 +9780,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Output format.",
     )
     distribution_sku1.add_argument("--out", type=Path, help="Optional output path.")
+    distribution_sku1.add_argument(
+        "--write-copy-brief",
+        type=Path,
+        help="Optional requests/ path for the recommended channel facts-only copy brief.",
+    )
     distribution_sku1.set_defaults(func=_distribution_gate)
 
     web_metrics = subparsers.add_parser(
