@@ -592,10 +592,13 @@ def _distribution_paid_traffic_plan(
     traffic_gap: int,
     paid_click_cpc_usd: float,
     ad_cap_usd: float,
+    ad_spend_committed_usd: float = 0.0,
 ) -> dict[str, Any]:
     capped_cpc = max(paid_click_cpc_usd, 0.01)
     capped_budget = max(ad_cap_usd, 0.0)
-    cap_clicks = int(capped_budget / capped_cpc)
+    committed_spend = min(max(ad_spend_committed_usd, 0.0), capped_budget)
+    remaining_budget = max(capped_budget - committed_spend, 0.0)
+    cap_clicks = int(remaining_budget / capped_cpc)
     budget_for_gap = round(traffic_gap * capped_cpc, 2)
     cap_covers_gap = cap_clicks >= traffic_gap
     remaining_organic_gap = max(traffic_gap - cap_clicks, 0)
@@ -608,6 +611,8 @@ def _distribution_paid_traffic_plan(
 
     return {
         "ad_cap_usd": round(capped_budget, 2),
+        "ad_spend_committed_usd": round(committed_spend, 2),
+        "ad_remaining_usd": round(remaining_budget, 2),
         "paid_click_cpc_usd": round(capped_cpc, 2),
         "traffic_gap": traffic_gap,
         "budget_for_gap_usd": budget_for_gap,
@@ -994,6 +999,7 @@ def _distribution_gate_payload(
     stalled_after_days: int = 1,
     paid_click_cpc_usd: float = _SKU1_PAID_CLICK_CPC_USD,
     ad_cap_usd: float = _SKU1_AD_SPEND_CAP_USD,
+    ad_spend_committed_usd: float = 0.0,
 ) -> dict[str, Any]:
     receipts = _distribution_receipts(posted_dir)
     publish_health = _distribution_publish_health(publish_health_file)
@@ -1030,6 +1036,7 @@ def _distribution_gate_payload(
         traffic_gap=traffic_gap,
         paid_click_cpc_usd=paid_click_cpc_usd,
         ad_cap_usd=ad_cap_usd,
+        ad_spend_committed_usd=ad_spend_committed_usd,
     )
     traffic_execution_plan = _distribution_traffic_execution_plan(
         traffic_pressure=traffic_pressure,
@@ -1515,6 +1522,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         stalled_after_days=args.stalled_after_days,
         paid_click_cpc_usd=args.paid_click_cpc_usd,
         ad_cap_usd=args.ad_cap_usd,
+        ad_spend_committed_usd=args.ad_spend_committed_usd,
     )
     if args.write_copy_brief is not None:
         copy_brief_request = payload["channel_execution_packet"].get("copy_brief_request")
@@ -9837,6 +9845,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=_SKU1_AD_SPEND_CAP_USD,
         help="Maximum autonomous ad-spend cap used for traffic sizing only.",
+    )
+    distribution_sku1.add_argument(
+        "--ad-spend-committed-usd",
+        type=float,
+        default=0.0,
+        help="Already committed autonomous ad spend, subtracted from the SKU #1 cap.",
     )
     distribution_sku1.add_argument(
         "--format",

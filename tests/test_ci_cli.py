@@ -137,6 +137,8 @@ class PatchRailCITests(unittest.TestCase):
             payload["paid_traffic_plan"],
             {
                 "ad_cap_usd": 75.0,
+                "ad_spend_committed_usd": 0.0,
+                "ad_remaining_usd": 75.0,
                 "paid_click_cpc_usd": 0.5,
                 "traffic_gap": 275,
                 "budget_for_gap_usd": 137.5,
@@ -147,6 +149,7 @@ class PatchRailCITests(unittest.TestCase):
                 "preflight_required": True,
             },
         )
+
         self.assertEqual(
             payload["traffic_execution_plan"],
             {
@@ -589,6 +592,64 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("Stalled blockers: none", text)
         self.assertIn("Stalled handoff: none", text)
         self.assertIn("Next action: claim_uncovered_distribution_channel", text)
+
+    def test_distribution_sku1_gate_subtracts_committed_ad_spend_from_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "covered_channels": ["reddit-sideproject", "x"],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 1,
+                        "social_post_stale_claims_total": 0,
+                        "uncovered": [{"channel": "devto"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--paid-click-cpc-usd",
+                        "0.75",
+                        "--ad-cap-usd",
+                        "75",
+                        "--ad-spend-committed-usd",
+                        "50",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["paid_traffic_plan"]["ad_cap_usd"], 75.0)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 50.0)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 25.0)
+        self.assertEqual(payload["paid_traffic_plan"]["cap_click_capacity"], 33)
+        self.assertEqual(payload["traffic_execution_plan"]["paid_click_target"], 33)
+        self.assertEqual(payload["traffic_execution_plan"]["paid_budget_usd"], 24.75)
+        self.assertIn("--amount 24.75", payload["execution_checklist"][0]["command"])
 
     def test_distribution_sku1_gate_unblocks_blocked_receipts_without_health_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
