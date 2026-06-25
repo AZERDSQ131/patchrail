@@ -632,6 +632,31 @@ def _distribution_execution_checklist(
     ]
 
 
+def _distribution_publish_post_commands(
+    recommended_channel: dict[str, Any] | None,
+) -> dict[str, str]:
+    if recommended_channel is None:
+        return {}
+    channel = str(recommended_channel["channel"])
+    quoted_channel = shlex.quote(channel)
+    return {
+        "channel": channel,
+        "health_command": "python3 opportunity-desk/scripts/publish_post.py health --json",
+        "claim_command": (
+            "python3 opportunity-desk/scripts/publish_post.py claim "
+            f"--channel {quoted_channel} --copy-file <copywriter-approved-copy-file>"
+        ),
+        "record_command": (
+            "python3 opportunity-desk/scripts/publish_post.py record "
+            f"--channel {quoted_channel} --url <submission_url>"
+        ),
+        "block_command": (
+            "python3 opportunity-desk/scripts/publish_post.py block "
+            f"--channel {quoted_channel} --reason <concrete_blocker>"
+        ),
+    }
+
+
 def _distribution_gate_payload(
     *,
     posted_dir: Path,
@@ -695,6 +720,7 @@ def _distribution_gate_payload(
         traffic_execution_plan=traffic_execution_plan,
         recommended_channel=recommended_channel,
     )
+    publish_post_commands = _distribution_publish_post_commands(recommended_channel)
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
     if sales_total > 0:
@@ -731,6 +757,7 @@ def _distribution_gate_payload(
         "paid_traffic_plan": paid_traffic_plan,
         "traffic_execution_plan": traffic_execution_plan,
         "execution_checklist": execution_checklist,
+        "publish_post_commands": publish_post_commands,
         "sales_total": sales_total,
         "gross_usd": gross_usd,
         "pivot_gate_armed": pivot_gate_armed,
@@ -851,6 +878,16 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
                 f"({payload['recommended_channel']['next_action']})"
             )
             if payload["recommended_channel"]
+            else "none"
+        ),
+        "Publish commands: "
+        + (
+            (
+                f"health={payload['publish_post_commands']['health_command']}; "
+                f"claim={payload['publish_post_commands']['claim_command']}; "
+                f"record={payload['publish_post_commands']['record_command']}"
+            )
+            if payload["publish_post_commands"]
             else "none"
         ),
         "Owner next actions: "

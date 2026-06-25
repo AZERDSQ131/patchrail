@@ -191,6 +191,25 @@ class PatchRailCITests(unittest.TestCase):
                 },
             ],
         )
+        self.assertEqual(
+            payload["publish_post_commands"],
+            {
+                "channel": "devto",
+                "health_command": "python3 opportunity-desk/scripts/publish_post.py health --json",
+                "claim_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py claim "
+                    "--channel devto --copy-file <copywriter-approved-copy-file>"
+                ),
+                "record_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py record "
+                    "--channel devto --url <submission_url>"
+                ),
+                "block_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py block "
+                    "--channel devto --reason <concrete_blocker>"
+                ),
+            },
+        )
         self.assertEqual(payload["posted_channels"], ["x"])
         self.assertEqual(payload["blocked_channels"], ["devto", "show-hn"])
         self.assertEqual(payload["publish_health"]["blocked_total"], 2)
@@ -320,6 +339,14 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         text = stdout.getvalue()
         self.assertIn("Recommended channel: devto (claim_uncovered_distribution_channel)", text)
+        self.assertIn(
+            "Publish commands: health=python3 opportunity-desk/scripts/publish_post.py health --json; "
+            "claim=python3 opportunity-desk/scripts/publish_post.py claim --channel devto "
+            "--copy-file <copywriter-approved-copy-file>; "
+            "record=python3 opportunity-desk/scripts/publish_post.py record --channel devto "
+            "--url <submission_url>",
+            text,
+        )
         self.assertIn(
             "Traffic pressure: traffic_gap_before_gate, days_to_gate=5, "
             "required_daily_traffic=55.0",
