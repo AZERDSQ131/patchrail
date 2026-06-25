@@ -103,6 +103,8 @@ _SKU1_CONVERSION_CONSUMER = "SKU #1 CI Triage $19"
 _SKU1_DISTRIBUTION_KPI = "visits_and_sales_before_2026-06-30"
 _SKU1_PIVOT_GATE_DATE = "2026-06-30"
 _SKU1_PIVOT_TRAFFIC_TARGET = 300
+_SKU1_AD_SPEND_CAP_USD = 75.0
+_SKU1_PAID_CLICK_CPC_USD = 0.75
 
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
 # Unknown or unlisted classes link to the guide index instead. Keep in sync with the
@@ -513,6 +515,38 @@ def _distribution_traffic_pressure(
     }
 
 
+def _distribution_paid_traffic_plan(
+    *,
+    traffic_gap: int,
+    paid_click_cpc_usd: float,
+    ad_cap_usd: float,
+) -> dict[str, Any]:
+    capped_cpc = max(paid_click_cpc_usd, 0.01)
+    capped_budget = max(ad_cap_usd, 0.0)
+    cap_clicks = int(capped_budget / capped_cpc)
+    budget_for_gap = round(traffic_gap * capped_cpc, 2)
+    cap_covers_gap = cap_clicks >= traffic_gap
+    remaining_organic_gap = max(traffic_gap - cap_clicks, 0)
+    if traffic_gap <= 0:
+        recommendation = "no_paid_traffic_needed"
+    elif cap_covers_gap:
+        recommendation = "paid_boost_can_cover_gap_if_preflight_passes"
+    else:
+        recommendation = "organic_distribution_required_before_or_alongside_ads"
+
+    return {
+        "ad_cap_usd": round(capped_budget, 2),
+        "paid_click_cpc_usd": round(capped_cpc, 2),
+        "traffic_gap": traffic_gap,
+        "budget_for_gap_usd": budget_for_gap,
+        "cap_click_capacity": cap_clicks,
+        "cap_covers_gap": cap_covers_gap,
+        "remaining_organic_gap_after_cap": remaining_organic_gap,
+        "recommendation": recommendation,
+        "preflight_required": traffic_gap > 0,
+    }
+
+
 def _distribution_gate_payload(
     *,
     posted_dir: Path,
@@ -524,6 +558,8 @@ def _distribution_gate_payload(
     traffic_target: int = _SKU1_PIVOT_TRAFFIC_TARGET,
     gate_date: str = _SKU1_PIVOT_GATE_DATE,
     stalled_after_days: int = 1,
+    paid_click_cpc_usd: float = _SKU1_PAID_CLICK_CPC_USD,
+    ad_cap_usd: float = _SKU1_AD_SPEND_CAP_USD,
 ) -> dict[str, Any]:
     receipts = _distribution_receipts(posted_dir)
     publish_health = _distribution_publish_health(publish_health_file)
@@ -558,6 +594,11 @@ def _distribution_gate_payload(
         traffic_target=traffic_target,
         as_of=as_of,
         gate_date=gate_date,
+    )
+    paid_traffic_plan = _distribution_paid_traffic_plan(
+        traffic_gap=traffic_gap,
+        paid_click_cpc_usd=paid_click_cpc_usd,
+        ad_cap_usd=ad_cap_usd,
     )
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
@@ -594,6 +635,7 @@ def _distribution_gate_payload(
         "traffic_delivered": traffic_delivered,
         "traffic_gap": traffic_gap,
         "traffic_pressure": traffic_pressure,
+        "paid_traffic_plan": paid_traffic_plan,
         "sales_total": sales_total,
         "gross_usd": gross_usd,
         "pivot_gate_armed": pivot_gate_armed,
@@ -637,6 +679,14 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"{payload['traffic_pressure']['status']}, "
             f"days_to_gate={payload['traffic_pressure']['days_to_gate']}, "
             f"required_daily_traffic={payload['traffic_pressure']['required_daily_traffic']}"
+        ),
+        (
+            "Paid traffic plan: "
+            f"cap=${payload['paid_traffic_plan']['ad_cap_usd']:.2f}, "
+            f"cpc=${payload['paid_traffic_plan']['paid_click_cpc_usd']:.2f}, "
+            f"capacity={payload['paid_traffic_plan']['cap_click_capacity']}, "
+            f"remaining_organic_gap={payload['paid_traffic_plan']['remaining_organic_gap_after_cap']}, "
+            f"recommendation={payload['paid_traffic_plan']['recommendation']}"
         ),
         f"Sales: {payload['sales_total']} (${payload['gross_usd']:.2f})",
         f"Posted channels: {', '.join(payload['posted_channels']) or 'none'}",
@@ -926,6 +976,8 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         traffic_target=args.traffic_target,
         gate_date=args.gate_date,
         stalled_after_days=args.stalled_after_days,
+        paid_click_cpc_usd=args.paid_click_cpc_usd,
+        ad_cap_usd=args.ad_cap_usd,
     )
     if args.format == "json":
         text = _json_dump(payload)
@@ -9208,6 +9260,18 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=1,
         help="Blocked distribution channels at or above this age are reported as stalled.",
+    )
+    distribution_sku1.add_argument(
+        "--paid-click-cpc-usd",
+        type=float,
+        default=_SKU1_PAID_CLICK_CPC_USD,
+        help="Assumed paid click CPC for sizing a SKU #1 traffic boost without spending.",
+    )
+    distribution_sku1.add_argument(
+        "--ad-cap-usd",
+        type=float,
+        default=_SKU1_AD_SPEND_CAP_USD,
+        help="Maximum autonomous ad-spend cap used for traffic sizing only.",
     )
     distribution_sku1.add_argument(
         "--format",

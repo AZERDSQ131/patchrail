@@ -101,6 +101,10 @@ class PatchRailCITests(unittest.TestCase):
                         "2026-06-25",
                         "--stalled-after-days",
                         "1",
+                        "--paid-click-cpc-usd",
+                        "0.50",
+                        "--ad-cap-usd",
+                        "75",
                         "--format",
                         "json",
                     ]
@@ -120,6 +124,20 @@ class PatchRailCITests(unittest.TestCase):
                 "days_to_gate": 5,
                 "required_daily_traffic": 55.0,
                 "status": "traffic_gap_before_gate",
+            },
+        )
+        self.assertEqual(
+            payload["paid_traffic_plan"],
+            {
+                "ad_cap_usd": 75.0,
+                "paid_click_cpc_usd": 0.5,
+                "traffic_gap": 275,
+                "budget_for_gap_usd": 137.5,
+                "cap_click_capacity": 150,
+                "cap_covers_gap": False,
+                "remaining_organic_gap_after_cap": 125,
+                "recommendation": "organic_distribution_required_before_or_alongside_ads",
+                "preflight_required": True,
             },
         )
         self.assertEqual(payload["posted_channels"], ["x"])
