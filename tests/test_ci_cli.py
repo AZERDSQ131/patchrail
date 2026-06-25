@@ -46,13 +46,23 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            (posted / "devto.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "blocked",
+                        "reason": "copywriter unavailable; no approved local copy file",
+                    }
+                ),
+                encoding="utf-8",
+            )
             health_file = Path(tmpdir) / "publish-health.json"
             health_file.write_text(
                 json.dumps(
                     {
                         "ok": False,
-                        "covered_channels": ["show-hn", "x"],
-                        "social_post_blocked_total": 1,
+                        "covered_channels": ["devto", "show-hn", "x"],
+                        "social_post_blocked_total": 2,
                         "social_post_uncovered_total": 0,
                         "social_post_stale_claims_total": 0,
                         "blocked": [
@@ -99,9 +109,17 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("utm_source=github_marketplace", payload["conversion_url"])
         self.assertEqual(payload["traffic_gap"], 275)
         self.assertEqual(payload["posted_channels"], ["x"])
-        self.assertEqual(payload["blocked_channels"], ["show-hn"])
-        self.assertEqual(payload["publish_health"]["blocked_total"], 1)
+        self.assertEqual(payload["blocked_channels"], ["devto", "show-hn"])
+        self.assertEqual(payload["publish_health"]["blocked_total"], 2)
         self.assertEqual(payload["publish_health"]["blocked"][0]["channel"], "show-hn")
+        self.assertEqual(payload["blocker_owner_counts"], {"browser_route": 1, "copywriter": 1})
+        self.assertEqual(
+            [(item["channel"], item["owner"], item["next_action"]) for item in payload["blocker_plan"]],
+            [
+                ("devto", "copywriter", "wait_for_approved_copy_file"),
+                ("show-hn", "browser_route", "restore_logged_in_browser_route"),
+            ],
+        )
         self.assertEqual(payload["next_action"], "unblock_distribution_channels")
         self.assertFalse(payload["requirements"]["network_required"])
 

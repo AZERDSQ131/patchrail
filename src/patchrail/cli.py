@@ -192,6 +192,7 @@ def _distribution_receipts(posted_dir: Path) -> list[dict[str, Any]]:
                 "channel": channel,
                 "status": str(raw.get("status") or "unknown"),
                 "url": str(raw.get("url") or ""),
+                "copy_file": str(raw.get("copy_file") or ""),
                 "item_id": str(raw.get("item_id") or ""),
                 "ts_posted": str(raw.get("ts_posted") or ""),
                 "reason": str(raw.get("reason") or ""),
@@ -221,6 +222,7 @@ def _distribution_publish_health(path: Path | None) -> dict[str, Any]:
             "reason": str(item.get("reason") or ""),
             "receipt": str(item.get("receipt") or ""),
             "brief": str(item.get("path") or ""),
+            "copy_file": str(item.get("copy_file") or ""),
         }
         for item in blocked_raw
         if isinstance(item, dict)
@@ -241,6 +243,68 @@ def _distribution_publish_health(path: Path | None) -> dict[str, Any]:
     }
 
 
+def _distribution_blocker_owner(reason: str, copy_file: str = "") -> str:
+    normalized = f"{reason} {copy_file}".lower()
+    if "copywriter" in normalized or "copy file" in normalized or "copy_file" in normalized:
+        return "copywriter"
+    if (
+        "chrome" in normalized
+        or "browser" in normalized
+        or "extension" in normalized
+        or "computer use" in normalized
+    ):
+        return "browser_route"
+    return "worker"
+
+
+def _distribution_blocker_action(owner: str) -> str:
+    if owner == "copywriter":
+        return "wait_for_approved_copy_file"
+    if owner == "browser_route":
+        return "restore_logged_in_browser_route"
+    return "inspect_channel_blocker"
+
+
+def _distribution_blocker_plan(
+    *,
+    receipts: list[dict[str, Any]],
+    publish_health: dict[str, Any],
+) -> list[dict[str, str]]:
+    latest_by_channel: dict[str, dict[str, str]] = {}
+    for receipt in receipts:
+        if receipt["status"] != "blocked":
+            continue
+        latest_by_channel[receipt["channel"]] = {
+            "channel": receipt["channel"],
+            "reason": receipt["reason"],
+            "receipt": receipt["path"],
+            "copy_file": str(receipt.get("copy_file") or ""),
+        }
+    for item in publish_health["blocked"]:
+        channel = item["channel"]
+        latest_by_channel[channel] = {
+            "channel": channel,
+            "reason": item["reason"],
+            "receipt": item["receipt"],
+            "brief": item["brief"],
+            "copy_file": str(item.get("copy_file") or ""),
+        }
+    plan: list[dict[str, str]] = []
+    for item in sorted(latest_by_channel.values(), key=lambda row: row["channel"]):
+        owner = _distribution_blocker_owner(item["reason"], item.get("copy_file", ""))
+        plan.append(
+            {
+                "channel": item["channel"],
+                "owner": owner,
+                "next_action": _distribution_blocker_action(owner),
+                "reason": item["reason"],
+                "receipt": item.get("receipt", ""),
+                "brief": item.get("brief", ""),
+            }
+        )
+    return plan
+
+
 def _distribution_gate_payload(
     *,
     posted_dir: Path,
@@ -255,6 +319,8 @@ def _distribution_gate_payload(
     receipts = _distribution_receipts(posted_dir)
     publish_health = _distribution_publish_health(publish_health_file)
     by_status = Counter(receipt["status"] for receipt in receipts)
+    blocker_plan = _distribution_blocker_plan(receipts=receipts, publish_health=publish_health)
+    blocker_owner_counts = Counter(item["owner"] for item in blocker_plan)
     posted_channels = sorted(
         {
             receipt["channel"]
@@ -306,6 +372,8 @@ def _distribution_gate_payload(
         "blocked_channels": blocked_channels,
         "claimed_channels": claimed_channels,
         "publish_health": publish_health,
+        "blocker_owner_counts": dict(sorted(blocker_owner_counts.items())),
+        "blocker_plan": blocker_plan,
         "receipt_status_counts": dict(sorted(by_status.items())),
         "receipts": receipts,
         "requirements": {
@@ -332,6 +400,14 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"blocked={payload['publish_health']['blocked_total']}, "
             f"uncovered={payload['publish_health']['uncovered_total']}, "
             f"stale_claims={payload['publish_health']['stale_claims_total']}"
+        ),
+        "Blocker owners: "
+        + (
+            ", ".join(
+                f"{owner}={count}"
+                for owner, count in sorted(payload["blocker_owner_counts"].items())
+            )
+            or "none"
         ),
         f"Pivot gate fires: {payload['pivot_gate_fires']}",
         f"Next action: {payload['next_action']}",
