@@ -85,6 +85,7 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path, monkey
         "GITHUB_SHA",
         "GITHUB_WORKFLOW",
         "GITHUB_JOB",
+        "GITHUB_SERVER_URL",
     ):
         monkeypatch.delenv(name, raising=False)
 
