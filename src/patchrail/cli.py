@@ -17,6 +17,7 @@ from http.server import ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from patchrail import __version__
@@ -105,6 +106,7 @@ _SKU1_PIVOT_GATE_DATE = "2026-06-30"
 _SKU1_PIVOT_TRAFFIC_TARGET = 300
 _SKU1_AD_SPEND_CAP_USD = 75.0
 _SKU1_PAID_CLICK_CPC_USD = 0.75
+_SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
 
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
 # Unknown or unlisted classes link to the guide index instead. Keep in sync with the
@@ -585,6 +587,37 @@ def _distribution_traffic_execution_plan(
     }
 
 
+def _distribution_channel_conversion_plan(
+    recommended_channel: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if recommended_channel is None:
+        return {
+            "consumer": _SKU1_CONVERSION_CONSUMER,
+            "kpi": _SKU1_DISTRIBUTION_KPI,
+            "channel": None,
+            "url": "",
+            "measurement_command": "",
+            "ready_to_publish": False,
+            "next_action": "ship_more_distribution",
+        }
+    channel = str(recommended_channel["channel"])
+    return {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "channel": channel,
+        "url": (
+            f"{_CI_TRIAGE_PACK_BASE}?utm_source={quote(channel)}"
+            f"&utm_campaign={_SKU1_CHANNEL_UTM_CAMPAIGN}"
+        ),
+        "measurement_command": (
+            "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
+            "~/.openclaw/run/patchrail_supervisor_last.json"
+        ),
+        "ready_to_publish": recommended_channel.get("owner") == "worker",
+        "next_action": recommended_channel["next_action"],
+    }
+
+
 def _distribution_execution_checklist(
     *,
     traffic_execution_plan: dict[str, Any],
@@ -754,6 +787,7 @@ def _distribution_gate_payload(
         traffic_execution_plan=traffic_execution_plan,
         recommended_channel=recommended_channel,
     )
+    channel_conversion_plan = _distribution_channel_conversion_plan(recommended_channel)
     publish_post_commands = _distribution_publish_post_commands(recommended_channel)
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
@@ -791,6 +825,7 @@ def _distribution_gate_payload(
         "traffic_pressure": traffic_pressure,
         "paid_traffic_plan": paid_traffic_plan,
         "traffic_execution_plan": traffic_execution_plan,
+        "channel_conversion_plan": channel_conversion_plan,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
@@ -853,6 +888,16 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"organic_clicks={payload['traffic_execution_plan']['organic_click_target']}, "
             f"daily_organic={payload['traffic_execution_plan']['daily_organic_click_target']}, "
             f"channel={payload['traffic_execution_plan']['recommended_channel'] or 'none'}"
+        ),
+        "Channel conversion: "
+        + (
+            (
+                f"{payload['channel_conversion_plan']['channel']} "
+                f"url={payload['channel_conversion_plan']['url']} "
+                f"ready={payload['channel_conversion_plan']['ready_to_publish']}"
+            )
+            if payload["channel_conversion_plan"]["channel"]
+            else "none"
         ),
         "Execution checklist: "
         + (

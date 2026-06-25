@@ -162,6 +162,24 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
         self.assertEqual(
+            payload["channel_conversion_plan"],
+            {
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "channel": "devto",
+                "url": (
+                    "https://patchrail.gumroad.com/l/ci-failure-triage"
+                    "?utm_source=devto&utm_campaign=sku1-organic-distribution"
+                ),
+                "measurement_command": (
+                    "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                ),
+                "ready_to_publish": False,
+                "next_action": "copywriter_required",
+            },
+        )
+        self.assertEqual(
             payload["execution_checklist"],
             [
                 {
@@ -390,6 +408,12 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn(
             "Traffic execution: paid_clicks=100, paid_budget=$75.00, "
             "organic_clicks=175, daily_organic=35.0, channel=devto",
+            text,
+        )
+        self.assertIn(
+            "Channel conversion: devto "
+            "url=https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=devto&utm_campaign=sku1-organic-distribution ready=True",
             text,
         )
         self.assertIn(
