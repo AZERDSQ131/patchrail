@@ -1394,6 +1394,11 @@ def _distribution_browser_extension_handoff(
                 )
                 if copy_file
                 else "",
+                "verify_after_claim_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                )
+                if copy_file
+                else "",
             }
         )
     return {
@@ -1407,11 +1412,17 @@ def _distribution_browser_extension_handoff(
         "next_claim_after_setup_command": pending[0]["claim_after_setup_command"]
         if pending
         else "",
+        "next_verify_after_claim_command": pending[0]["verify_after_claim_command"]
+        if pending
+        else "",
         "checklist": [
             "Open chrome://extensions in the selected logged-in Chrome profile.",
             "Enable or install the Codex Chrome Extension for that profile.",
             "Do not bypass login, 2FA, CAPTCHA, profile, or account controls.",
-            "After setup, rerun the verify command and claim the channel only if copy_file exists.",
+            (
+                "After setup, run the claim-after-setup command for the channel if copy_file "
+                "exists, then rerun the verify-after-claim command."
+            ),
         ]
         if pending
         else [],

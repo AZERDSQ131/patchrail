@@ -42,6 +42,7 @@ class PatchRailCITests(unittest.TestCase):
                         "channel": "show-hn",
                         "status": "blocked",
                         "reason": "browser route unavailable",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn.md",
                     }
                 ),
                 encoding="utf-8",
@@ -73,6 +74,7 @@ class PatchRailCITests(unittest.TestCase):
                                 "reason": "Chrome route missing extension",
                                 "receipt": str(posted / "show-hn.json"),
                                 "path": "opportunity-desk/outbox/requests/show-hn.json",
+                                "copy_file": "products/gumroad/distribution/posts/show-hn.md",
                                 "ts_blocked": "2026-06-25T07:40:05Z",
                             },
                             {
@@ -397,14 +399,20 @@ class PatchRailCITests(unittest.TestCase):
                 "next_verify_command": (
                     "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
                 ),
-                "next_claim_after_setup_command": "",
+                "next_claim_after_setup_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "
+                    "--copy-file products/gumroad/distribution/posts/show-hn.md"
+                ),
+                "next_verify_after_claim_command": (
+                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                ),
                 "checklist": [
                     "Open chrome://extensions in the selected logged-in Chrome profile.",
                     "Enable or install the Codex Chrome Extension for that profile.",
                     "Do not bypass login, 2FA, CAPTCHA, profile, or account controls.",
                     (
-                        "After setup, rerun the verify command and claim the channel only "
-                        "if copy_file exists."
+                        "After setup, run the claim-after-setup command for the channel if "
+                        "copy_file exists, then rerun the verify-after-claim command."
                     ),
                 ],
                 "pending": [
@@ -413,7 +421,7 @@ class PatchRailCITests(unittest.TestCase):
                         "owner": "pablo",
                         "blocked_days": 0,
                         "reason": "Chrome route missing extension",
-                        "copy_file": "",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn.md",
                         "safe_next_step": (
                             "enable/install the Codex Chrome Extension in the selected "
                             "logged-in Chrome profile for show-hn; worker must not bypass "
@@ -423,7 +431,15 @@ class PatchRailCITests(unittest.TestCase):
                             "python3 opportunity-desk/scripts/publish_post.py blockers "
                             "--owner pablo --json"
                         ),
-                        "claim_after_setup_command": "",
+                        "claim_after_setup_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py claim "
+                            "--channel show-hn --copy-file "
+                            "products/gumroad/distribution/posts/show-hn.md"
+                        ),
+                        "verify_after_claim_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py blockers "
+                            "--owner pablo --json"
+                        ),
                     }
                 ],
             },
