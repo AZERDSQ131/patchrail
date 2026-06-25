@@ -283,6 +283,7 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 "ready_to_publish": False,
                 "copywriter_required": True,
+                "copy_file": "",
                 "organic_click_target": 125,
                 "daily_organic_click_target": 25.0,
                 "measurement_event": "sku1_visits_and_sales_delta",
@@ -806,6 +807,7 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 "ready_to_publish": False,
                 "copywriter_required": True,
+                "copy_file": "",
                 "organic_click_target": 172,
                 "daily_organic_click_target": 34.4,
                 "measurement_event": "sku1_visits_and_sales_delta",
@@ -896,6 +898,105 @@ class PatchRailCITests(unittest.TestCase):
                 }
             ],
         )
+
+    def test_distribution_sku1_gate_recommends_claiming_approved_copy(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "covered_channels": [
+                            "devto",
+                            "hashnode",
+                            "reddit-sideproject",
+                            "show-hn",
+                            "x",
+                        ],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "blocked": [],
+                        "stale_claims": [],
+                        "uncovered": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            approved_copy_dir = Path(tmpdir) / "sent"
+            approved_copy_dir.mkdir()
+            copy_file = Path(tmpdir) / "linkedin.md"
+            approved_copy_dir.joinpath("sku1-linkedin-social-post.json").write_text(
+                json.dumps(
+                    {
+                        "type": "social_post",
+                        "channel": "linkedin",
+                        "copy_file": str(copy_file),
+                        "thread_ref": (
+                            "distribution sku1-gate channel=linkedin; "
+                            "url=https://patchrail.gumroad.com/l/ci-failure-triage"
+                            "?utm_source=linkedin&utm_campaign=sku1-organic-distribution"
+                        ),
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--approved-copy-dir",
+                        str(approved_copy_dir),
+                        "--traffic-delivered",
+                        "28",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["next_action"], "claim_approved_copy")
+        self.assertEqual(
+            payload["recommended_channel"],
+            {
+                "channel": "linkedin",
+                "source": "approved_copy",
+                "owner": "worker_browser",
+                "next_action": "claim_approved_copy",
+                "safe_next_step": (
+                    f"claim linkedin with approved copy_file={copy_file}, "
+                    "publish once, then record receipt; login/2FA/CAPTCHA=STOP"
+                ),
+                "reason": "copywriter_approved_copy_pending_publication",
+                "copy_file": str(copy_file),
+                "copy_source": str(approved_copy_dir / "sku1-linkedin-social-post.json"),
+            },
+        )
+        self.assertTrue(payload["channel_conversion_plan"]["ready_to_publish"])
+        self.assertFalse(payload["channel_execution_packet"]["copywriter_required"])
+        self.assertEqual(payload["channel_execution_packet"]["copy_file"], str(copy_file))
+        self.assertEqual(
+            payload["publish_post_commands"]["claim_command"],
+            "python3 opportunity-desk/scripts/publish_post.py claim "
+            f"--channel linkedin --copy-file {copy_file}",
+        )
+        self.assertEqual(payload["approved_copy"][0]["channel"], "linkedin")
 
     def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

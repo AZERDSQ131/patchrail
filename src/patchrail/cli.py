@@ -259,6 +259,29 @@ def _distribution_publish_health(path: Path | None) -> dict[str, Any]:
     }
 
 
+def _distribution_approved_copy(path: Path | None) -> list[dict[str, str]]:
+    if path is None or not path.exists():
+        return []
+    approved: list[dict[str, str]] = []
+    for item_path in sorted(path.glob("*.json")):
+        raw = _read_optional_json(item_path)
+        if raw.get("type") != "social_post":
+            continue
+        channel = str(raw.get("channel") or "")
+        copy_file = str(raw.get("copy_file") or "")
+        if not channel or not copy_file:
+            continue
+        approved.append(
+            {
+                "channel": channel,
+                "copy_file": copy_file,
+                "path": str(item_path),
+                "thread_ref": str(raw.get("thread_ref") or ""),
+            }
+        )
+    return approved
+
+
 def _distribution_blocker_action(reason: str, copy_file: str = "") -> str:
     normalized = f"{reason} {copy_file}".lower()
     if any(token in normalized for token in ("login", "2fa", "captcha", "account creation")):
@@ -395,6 +418,8 @@ def _distribution_recommended_channel(
     blocker_plan: list[dict[str, Any]],
     blocker_queue: list[dict[str, Any]],
     publish_health: dict[str, Any],
+    approved_copy: list[dict[str, str]],
+    posted_channels: set[str],
     traffic_gap: int = 0,
 ) -> dict[str, Any] | None:
     if blocker_plan and blocker_queue:
@@ -409,6 +434,25 @@ def _distribution_recommended_channel(
             "blocked_at": item.get("blocked_at", ""),
             "blocked_days": item.get("blocked_days"),
         }
+    covered_channels = set(publish_health.get("covered_channels") or [])
+    if traffic_gap > 0:
+        for item in approved_copy:
+            channel = item["channel"]
+            if channel in posted_channels or channel in covered_channels:
+                continue
+            return {
+                "channel": channel,
+                "source": "approved_copy",
+                "owner": "worker_browser",
+                "next_action": "claim_approved_copy",
+                "safe_next_step": (
+                    f"claim {channel} with approved copy_file={item['copy_file']}, "
+                    "publish once, then record receipt; login/2FA/CAPTCHA=STOP"
+                ),
+                "reason": "copywriter_approved_copy_pending_publication",
+                "copy_file": item["copy_file"],
+                "copy_source": item["path"],
+            }
     uncovered_channels = publish_health.get("uncovered_channels")
     if isinstance(uncovered_channels, list) and uncovered_channels:
         channel = str(sorted(uncovered_channels)[0])
@@ -420,7 +464,6 @@ def _distribution_recommended_channel(
             "safe_next_step": f"claim {channel}, publish once with approved copy, then record receipt",
             "reason": "channel_has_no_post_or_block_receipt",
         }
-    covered_channels = set(publish_health.get("covered_channels") or [])
     if (
         traffic_gap > 0
         and publish_health.get("ok")
@@ -637,8 +680,11 @@ def _distribution_channel_conversion_plan(
             "~/.openclaw/run/patchrail_supervisor_last.json"
         ),
         "ready_to_publish": (
-            recommended_channel.get("owner") == "worker"
-            and recommended_channel["next_action"] != "create_social_post_brief"
+            recommended_channel["next_action"] == "claim_approved_copy"
+            or (
+                recommended_channel.get("owner") == "worker"
+                and recommended_channel["next_action"] != "create_social_post_brief"
+            )
         ),
         "next_action": recommended_channel["next_action"],
     }
@@ -745,12 +791,14 @@ def _distribution_publish_post_commands(
         return {}
     channel = str(recommended_channel["channel"])
     quoted_channel = shlex.quote(channel)
+    copy_file = str(recommended_channel.get("copy_file") or "")
+    copy_file_arg = shlex.quote(copy_file) if copy_file else "<copywriter-approved-copy-file>"
     return {
         "channel": channel,
         "health_command": "python3 opportunity-desk/scripts/publish_post.py health --json",
         "claim_command": (
             "python3 opportunity-desk/scripts/publish_post.py claim "
-            f"--channel {quoted_channel} --copy-file <copywriter-approved-copy-file>"
+            f"--channel {quoted_channel} --copy-file {copy_file_arg}"
         ),
         "record_command": (
             "python3 opportunity-desk/scripts/publish_post.py record "
@@ -795,6 +843,7 @@ def _distribution_channel_execution_packet(
         "ready_to_publish": channel_conversion_plan["ready_to_publish"],
         "copywriter_required": recommended_channel["owner"] == "copywriter"
         or recommended_channel["next_action"] == "create_social_post_brief",
+        "copy_file": str(recommended_channel.get("copy_file") or ""),
         "organic_click_target": traffic_execution_plan["organic_click_target"],
         "daily_organic_click_target": traffic_execution_plan["daily_organic_click_target"],
         "measurement_event": traffic_execution_plan["measurement_event"],
@@ -935,6 +984,7 @@ def _distribution_gate_payload(
     *,
     posted_dir: Path,
     publish_health_file: Path | None = None,
+    approved_copy_dir: Path | None = None,
     traffic_delivered: int,
     sales_total: int,
     gross_usd: float,
@@ -947,6 +997,7 @@ def _distribution_gate_payload(
 ) -> dict[str, Any]:
     receipts = _distribution_receipts(posted_dir)
     publish_health = _distribution_publish_health(publish_health_file)
+    approved_copy = _distribution_approved_copy(approved_copy_dir)
     by_status = Counter(receipt["status"] for receipt in receipts)
     blocker_plan = _distribution_blocker_plan(
         receipts=receipts, publish_health=publish_health, as_of=as_of
@@ -954,20 +1005,17 @@ def _distribution_gate_payload(
     blocker_queue = _distribution_blocker_queue(blocker_plan)
     blocker_owner_counts = Counter(item["owner"] for item in blocker_plan)
     traffic_gap = max(traffic_target - traffic_delivered, 0)
+    posted_channels = {
+        receipt["channel"] for receipt in receipts if receipt["status"] == "posted" and receipt["url"]
+    }
     recommended_channel = _distribution_recommended_channel(
-        blocker_plan, blocker_queue, publish_health, traffic_gap
+        blocker_plan, blocker_queue, publish_health, approved_copy, posted_channels, traffic_gap
     )
     owner_next_actions = _distribution_owner_next_actions(blocker_queue, recommended_channel)
     stalled_blockers = _distribution_stalled_blockers(blocker_queue, stalled_after_days)
     stalled_handoff = _distribution_stalled_handoff(stalled_blockers)
     stalled_owner_counts = Counter(item["owner"] for item in stalled_blockers)
-    posted_channels = sorted(
-        {
-            receipt["channel"]
-            for receipt in receipts
-            if receipt["status"] == "posted" and receipt["url"]
-        }
-    )
+    posted_channels_sorted = sorted(posted_channels)
     blocked_channels = sorted({item["channel"] for item in blocker_plan})
     claimed_channels = sorted(
         {receipt["channel"] for receipt in receipts if receipt["status"] == "claimed"}
@@ -1017,6 +1065,8 @@ def _distribution_gate_payload(
         next_action = "clear_stale_distribution_claims"
     elif publish_health["uncovered_total"] > 0:
         next_action = "claim_uncovered_distribution_channel"
+    elif recommended_channel and recommended_channel.get("next_action") == "claim_approved_copy":
+        next_action = "claim_approved_copy"
     elif traffic_gap > 0:
         next_action = "ship_more_distribution"
     else:
@@ -1051,10 +1101,11 @@ def _distribution_gate_payload(
         "pivot_gate_armed": pivot_gate_armed,
         "pivot_gate_fires": pivot_gate_fires,
         "next_action": next_action,
-        "posted_channels": posted_channels,
+        "posted_channels": posted_channels_sorted,
         "blocked_channels": blocked_channels,
         "claimed_channels": claimed_channels,
         "publish_health": publish_health,
+        "approved_copy": approved_copy,
         "blocker_owner_counts": dict(sorted(blocker_owner_counts.items())),
         "stalled_after_days": max(stalled_after_days, 0),
         "stalled_blockers": stalled_blockers,
@@ -1136,6 +1187,14 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
         ),
         f"Sales: {payload['sales_total']} (${payload['gross_usd']:.2f})",
         f"Posted channels: {', '.join(payload['posted_channels']) or 'none'}",
+        "Approved copy: "
+        + (
+            ", ".join(
+                f"{item['channel']}={item['copy_file']}"
+                for item in payload["approved_copy"][:5]
+            )
+            or "none"
+        ),
         f"Blocked channels: {', '.join(payload['blocked_channels']) or 'none'}",
         (
             "Publish health: "
@@ -1446,6 +1505,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
     payload = _distribution_gate_payload(
         posted_dir=args.posted_dir,
         publish_health_file=args.publish_health_file,
+        approved_copy_dir=args.approved_copy_dir,
         traffic_delivered=args.traffic_delivered,
         sales_total=args.sales_total,
         gross_usd=args.gross_usd,
@@ -9720,6 +9780,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--publish-health-file",
         type=Path,
         help="Optional JSON output from publish_post.py health --json.",
+    )
+    distribution_sku1.add_argument(
+        "--approved-copy-dir",
+        type=Path,
+        help="Optional directory of copywriter-approved social_post JSON handoffs.",
     )
     distribution_sku1.add_argument(
         "--traffic-delivered",
