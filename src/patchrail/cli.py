@@ -719,7 +719,11 @@ def _distribution_ad_account_eligibility(
     login_required = bool(raw.get("login_required") or raw.get("captcha_or_2fa_required"))
     platform_matches = proof_platform == platform
     eligible = bool(
-        platform_matches and logged_in and preexisting_account and card_on_file and not login_required
+        platform_matches
+        and logged_in
+        and preexisting_account
+        and card_on_file
+        and not login_required
     )
     missing = [
         field
@@ -880,7 +884,9 @@ def _distribution_covered_channel_plan(
     blockers_by_channel = {item["channel"]: item for item in blocker_plan}
     approved_copy_by_channel = {item["channel"]: item for item in approved_copy}
     covered_channels = {str(channel) for channel in publish_health.get("covered_channels") or []}
-    uncovered_channels = {str(channel) for channel in publish_health.get("uncovered_channels") or []}
+    uncovered_channels = {
+        str(channel) for channel in publish_health.get("uncovered_channels") or []
+    }
     recommended_name = str(recommended_channel["channel"]) if recommended_channel else ""
     channels = set(latest_receipt_by_channel) | covered_channels | uncovered_channels
     channels |= set(blockers_by_channel) | set(approved_copy_by_channel)
@@ -934,7 +940,9 @@ def _distribution_covered_channel_plan(
             {
                 "channel": channel,
                 "status": status,
-                "url": receipt["url"] if receipt and receipt["url"] else _distribution_channel_url(channel),
+                "url": receipt["url"]
+                if receipt and receipt["url"]
+                else _distribution_channel_url(channel),
                 "owner": owner,
                 "next_action": next_action,
                 "source": source,
@@ -1138,6 +1146,50 @@ def _distribution_paid_ad_execution_packet(
     }
 
 
+def _distribution_measurement_packet(
+    *,
+    traffic_delivered: int,
+    traffic_target: int,
+    traffic_gap: int,
+    sales_total: int,
+    gross_usd: float,
+    traffic_pressure: dict[str, Any],
+    paid_traffic_plan: dict[str, Any],
+    paid_ad_execution_packet: dict[str, Any],
+    as_of: str,
+    gate_date: str,
+) -> dict[str, Any]:
+    blocked_reason = ""
+    if paid_ad_execution_packet["required"] and not paid_ad_execution_packet["spend_executable"]:
+        blocked_reason = str(paid_ad_execution_packet["ad_account_eligibility"].get("reason") or "")
+    return {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "as_of": as_of,
+        "gate_date": gate_date,
+        "traffic_delivered": traffic_delivered,
+        "traffic_target": traffic_target,
+        "traffic_gap": traffic_gap,
+        "sales_total": sales_total,
+        "gross_usd": round(gross_usd, 2),
+        "days_to_gate": traffic_pressure["days_to_gate"],
+        "required_daily_traffic": traffic_pressure["required_daily_traffic"],
+        "ad_remaining_usd": paid_traffic_plan["ad_remaining_usd"],
+        "paid_click_capacity": paid_traffic_plan["cap_click_capacity"],
+        "paid_boost_blocked_reason": blocked_reason,
+        "next_measurement_command": (
+            "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
+            ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
+            ".ad_spend_committed_usd,.ad_cap_usd' "
+            "~/.openclaw/run/patchrail_supervisor_last.json"
+        ),
+        "safe_next_step": (
+            "Measure visits and sales until SKU #1 reaches 300 visits before 2026-06-30, "
+            "or until a proven eligible ad account makes the guarded boost executable."
+        ),
+    }
+
+
 def _distribution_channel_closeout_plan(
     *,
     covered_channel_plan: dict[str, Any],
@@ -1234,8 +1286,7 @@ def _distribution_social_post_brief_request(
             ],
             "urgency": "normal",
             "thread_ref": (
-                f"distribution sku1-gate channel={channel}; "
-                f"kpi={_SKU1_DISTRIBUTION_KPI}; url={url}"
+                f"distribution sku1-gate channel={channel}; kpi={_SKU1_DISTRIBUTION_KPI}; url={url}"
             ),
         },
     }
@@ -1346,7 +1397,9 @@ def _distribution_gate_payload(
     blocker_owner_counts = Counter(item["owner"] for item in blocker_plan)
     traffic_gap = max(traffic_target - traffic_delivered, 0)
     posted_channels = {
-        receipt["channel"] for receipt in receipts if receipt["status"] == "posted" and receipt["url"]
+        receipt["channel"]
+        for receipt in receipts
+        if receipt["status"] == "posted" and receipt["url"]
     }
     recommended_channel = _distribution_recommended_channel(
         blocker_plan, blocker_queue, publish_health, approved_copy, posted_channels, traffic_gap
@@ -1414,6 +1467,18 @@ def _distribution_gate_payload(
         ad_account_eligibility=ad_account_eligibility
         or _distribution_ad_account_eligibility(None, _SKU1_PAID_TRAFFIC_PLATFORM),
     )
+    measurement_packet = _distribution_measurement_packet(
+        traffic_delivered=traffic_delivered,
+        traffic_target=traffic_target,
+        traffic_gap=traffic_gap,
+        sales_total=sales_total,
+        gross_usd=gross_usd,
+        traffic_pressure=traffic_pressure,
+        paid_traffic_plan=paid_traffic_plan,
+        paid_ad_execution_packet=paid_ad_execution_packet,
+        as_of=as_of,
+        gate_date=gate_date,
+    )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
@@ -1464,6 +1529,7 @@ def _distribution_gate_payload(
         "covered_channel_plan": covered_channel_plan,
         "channel_closeout_plan": channel_closeout_plan,
         "paid_ad_execution_packet": paid_ad_execution_packet,
+        "measurement_packet": measurement_packet,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
@@ -1555,9 +1621,7 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
                 f"{payload['covered_channel_plan']['next_action'] or 'none'}, "
                 + ", ".join(
                     f"{status}={count}"
-                    for status, count in payload["covered_channel_plan"][
-                        "status_counts"
-                    ].items()
+                    for status, count in payload["covered_channel_plan"]["status_counts"].items()
                 )
             )
             if payload["covered_channel_plan"]["total_channels"]
@@ -1583,6 +1647,14 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             if payload["paid_ad_execution_packet"]["required"]
             else "none"
         ),
+        (
+            "Measurement packet: "
+            f"traffic={payload['measurement_packet']['traffic_delivered']}/"
+            f"{payload['measurement_packet']['traffic_target']}, "
+            f"gap={payload['measurement_packet']['traffic_gap']}, "
+            f"sales={payload['measurement_packet']['sales_total']}, "
+            f"blocked={payload['measurement_packet']['paid_boost_blocked_reason'] or 'none'}"
+        ),
         "Execution checklist: "
         + (
             ", ".join(
@@ -1597,8 +1669,7 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
         "Approved copy: "
         + (
             ", ".join(
-                f"{item['channel']}={item['copy_file']}"
-                for item in payload["approved_copy"][:5]
+                f"{item['channel']}={item['copy_file']}" for item in payload["approved_copy"][:5]
             )
             or "none"
         ),

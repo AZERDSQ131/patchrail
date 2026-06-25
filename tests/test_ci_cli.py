@@ -81,7 +81,7 @@ class PatchRailCITests(unittest.TestCase):
                                 "receipt": str(posted / "devto.json"),
                                 "path": "opportunity-desk/outbox/requests/devto.json",
                                 "ts_blocked": "2026-06-24T09:34:00Z",
-                            }
+                            },
                         ],
                     }
                 ),
@@ -308,8 +308,7 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 "copy_brief_request": {
                     "write_path": (
-                        "opportunity-desk/outbox/requests/"
-                        "<timestamp>-sku1-devto-social-post.json"
+                        "opportunity-desk/outbox/requests/<timestamp>-sku1-devto-social-post.json"
                     ),
                     "schema": "copy_brief.social_post.v1",
                     "prohibited_fields": ["body", "draft", "email_body"],
@@ -1322,6 +1321,35 @@ class PatchRailCITests(unittest.TestCase):
                 ),
             },
         )
+        self.assertEqual(
+            payload["measurement_packet"],
+            {
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "as_of": "2026-06-25",
+                "gate_date": "2026-06-30",
+                "traffic_delivered": 28,
+                "traffic_target": 300,
+                "traffic_gap": 272,
+                "sales_total": 0,
+                "gross_usd": 0.0,
+                "days_to_gate": 5,
+                "required_daily_traffic": 54.4,
+                "ad_remaining_usd": 75.0,
+                "paid_click_capacity": 100,
+                "paid_boost_blocked_reason": "missing_logged_in_preexisting_ad_account_proof",
+                "next_measurement_command": (
+                    "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
+                    ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
+                    ".ad_spend_committed_usd,.ad_cap_usd' "
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                ),
+                "safe_next_step": (
+                    "Measure visits and sales until SKU #1 reaches 300 visits before 2026-06-30, "
+                    "or until a proven eligible ad account makes the guarded boost executable."
+                ),
+            },
+        )
         self.assertIn("posted", payload["covered_channel_plan"]["status_counts"])
         self.assertEqual(
             [
@@ -1417,7 +1445,9 @@ class PatchRailCITests(unittest.TestCase):
         self.assertTrue(packet["required"])
         self.assertTrue(packet["spend_executable"])
         self.assertEqual(packet["fallback_action"], "")
-        self.assertEqual(packet["ad_account_eligibility"]["reason"], "eligible_preexisting_logged_in_account")
+        self.assertEqual(
+            packet["ad_account_eligibility"]["reason"], "eligible_preexisting_logged_in_account"
+        )
         self.assertIn("--amount 75.00", packet["commit_command_template"])
 
     def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:
