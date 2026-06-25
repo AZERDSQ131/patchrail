@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 import threading
-from collections import Counter
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from http.server import ThreadingHTTPServer
 from importlib.resources import files
@@ -390,9 +390,55 @@ def _distribution_recommended_channel(
             "source": "uncovered",
             "owner": "worker",
             "next_action": "claim_uncovered_distribution_channel",
+            "safe_next_step": f"claim {channel}, publish once with approved copy, then record receipt",
             "reason": "channel_has_no_post_or_block_receipt",
         }
     return None
+
+
+def _distribution_owner_next_actions(
+    blocker_queue: list[dict[str, str]],
+    recommended_channel: dict[str, str] | None,
+) -> list[dict[str, Any]]:
+    if not blocker_queue:
+        if recommended_channel is None:
+            return []
+        return [
+            {
+                "owner": recommended_channel["owner"],
+                "channel": recommended_channel["channel"],
+                "pending_channels": [recommended_channel["channel"]],
+                "pending_count": 1,
+                "next_action": recommended_channel["next_action"],
+                "safe_next_step": recommended_channel["safe_next_step"],
+                "source": recommended_channel["source"],
+            }
+        ]
+
+    channels_by_owner: dict[str, list[str]] = defaultdict(list)
+    for item in blocker_queue:
+        channels_by_owner[item["owner"]].append(item["channel"])
+
+    actions: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in blocker_queue:
+        owner = item["owner"]
+        if owner in seen:
+            continue
+        seen.add(owner)
+        pending_channels = channels_by_owner[owner]
+        actions.append(
+            {
+                "owner": owner,
+                "channel": item["channel"],
+                "pending_channels": pending_channels,
+                "pending_count": len(pending_channels),
+                "next_action": item["next_action"],
+                "safe_next_step": item["safe_next_step"],
+                "source": "blocked",
+            }
+        )
+    return actions
 
 
 def _distribution_gate_payload(
@@ -415,6 +461,7 @@ def _distribution_gate_payload(
     recommended_channel = _distribution_recommended_channel(
         blocker_plan, blocker_queue, publish_health
     )
+    owner_next_actions = _distribution_owner_next_actions(blocker_queue, recommended_channel)
     posted_channels = sorted(
         {
             receipt["channel"]
@@ -470,6 +517,7 @@ def _distribution_gate_payload(
         "blocker_plan": blocker_plan,
         "blocker_queue": blocker_queue,
         "recommended_channel": recommended_channel,
+        "owner_next_actions": owner_next_actions,
         "receipt_status_counts": dict(sorted(by_status.items())),
         "receipts": receipts,
         "requirements": {
@@ -521,6 +569,16 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             )
             if payload["recommended_channel"]
             else "none"
+        ),
+        "Owner next actions: "
+        + (
+            ", ".join(
+                f"{item['owner']}={item['channel']}/{item['next_action']}"
+                f" ({item['pending_count']} channel"
+                f"{'' if item['pending_count'] == 1 else 's'})"
+                for item in payload["owner_next_actions"]
+            )
+            or "none"
         ),
         f"Pivot gate fires: {payload['pivot_gate_fires']}",
         f"Next action: {payload['next_action']}",

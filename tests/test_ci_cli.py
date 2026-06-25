@@ -154,6 +154,29 @@ class PatchRailCITests(unittest.TestCase):
                 "blocked_at": "2026-06-24T09:34:00Z",
             },
         )
+        self.assertEqual(
+            payload["owner_next_actions"],
+            [
+                {
+                    "owner": "copywriter",
+                    "channel": "devto",
+                    "pending_channels": ["devto"],
+                    "pending_count": 1,
+                    "next_action": "copywriter_required",
+                    "safe_next_step": "copywriter must create approved copy_file; worker must not draft external prose",
+                    "source": "blocked",
+                },
+                {
+                    "owner": "pablo",
+                    "channel": "show-hn",
+                    "pending_channels": ["show-hn"],
+                    "pending_count": 1,
+                    "next_action": "browser_extension_setup_required",
+                    "safe_next_step": "enable/install the Codex Chrome Extension in the selected logged-in Chrome profile for show-hn; worker must not bypass profile/login controls",
+                    "source": "blocked",
+                },
+            ],
+        )
         self.assertEqual(payload["next_action"], "unblock_distribution_channels")
         self.assertFalse(payload["requirements"]["network_required"])
 
@@ -200,6 +223,10 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         text = stdout.getvalue()
         self.assertIn("Recommended channel: devto (claim_uncovered_distribution_channel)", text)
+        self.assertIn(
+            "Owner next actions: worker=devto/claim_uncovered_distribution_channel (1 channel)",
+            text,
+        )
         self.assertIn("Next action: claim_uncovered_distribution_channel", text)
 
     def test_distribution_sku1_gate_unblocks_blocked_receipts_without_health_file(self) -> None:
