@@ -14,7 +14,7 @@ maintainers stay in control.
 **CI Failure Triage Patterns** — a field guide covering 31 CI failure classes
 with the signals that distinguish them and the narrow fix for each. It pairs
 directly with the `patchrail ci explain` classifier in this repo:
-[patchrail.gumroad.com/l/ci-failure-triage](https://patchrail.gumroad.com/l/ci-failure-triage).
+[patchrail.gumroad.com/l/ci-failure-triage](https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=github&utm_campaign=readme).
 
 Read the per-class fixes here: **[docs/fix/](docs/fix/README.md)** — each page lists
 the literal log signatures, what actually happened, and the step-by-step fix.
