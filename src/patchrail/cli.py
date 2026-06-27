@@ -887,9 +887,9 @@ def _distribution_ad_account_eligibility(
         raise ValueError("ad account eligibility proof must be a JSON object")
 
     proof_platform = str(raw.get("platform") or "")
-    logged_in = bool(raw.get("logged_in"))
-    preexisting_account = bool(raw.get("preexisting_account"))
-    card_on_file = bool(raw.get("card_on_file"))
+    logged_in = raw.get("logged_in") is True
+    preexisting_account = raw.get("preexisting_account") is True
+    card_on_file = raw.get("card_on_file") is True
     evidence_ref = str(
         raw.get("proof_url") or raw.get("evidence_path") or raw.get("local_screenshot_path") or ""
     ).strip()
@@ -901,7 +901,7 @@ def _distribution_ad_account_eligibility(
         "card_setup_required",
         "billing_or_identity_form_required",
     )
-    stop_conditions_triggered = [field for field in stop_condition_fields if bool(raw.get(field))]
+    stop_conditions_triggered = [field for field in stop_condition_fields if raw.get(field) is True]
     platform_matches = proof_platform == platform
     eligible = bool(
         platform_matches
