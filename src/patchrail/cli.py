@@ -12,7 +12,7 @@ import sys
 import tempfile
 import threading
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from http.server import ThreadingHTTPServer
 from importlib.resources import files
@@ -111,6 +111,7 @@ _SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
 _SKU1_PAID_TRAFFIC_PLATFORM = "sku1-traffic-boost"
 _SKU1_PAID_TRAFFIC_CAMPAIGN = "ci-triage-sku1-gate"
 _SKU1_PAID_TRAFFIC_SOURCE = "guarded_paid_boost"
+_SKU1_AD_ELIGIBILITY_PROOF_MAX_AGE_DAYS = 7
 _AD_SPEND_CENTS = Decimal("0.01")
 _AD_SPEND_LEDGER_KIND_SIGN = {
     "charge": Decimal("1"),
@@ -881,6 +882,8 @@ def _distribution_ad_spend_source(
 def _distribution_ad_account_eligibility(
     path: Path | None,
     platform: str,
+    *,
+    as_of: str | None = None,
 ) -> dict[str, Any]:
     if path is None:
         return {
@@ -908,6 +911,26 @@ def _distribution_ad_account_eligibility(
     logged_in = raw.get("logged_in") is True
     preexisting_account = raw.get("preexisting_account") is True
     card_on_file = raw.get("card_on_file") is True
+    capture_ref = str(raw.get("captured_at") or raw.get("verified_at") or "").strip()
+    capture_status = "not_provided"
+    capture_age_days: int | None = None
+    capture_fresh = True
+    if capture_ref:
+        try:
+            as_of_date = date.fromisoformat((as_of or date.today().isoformat())[:10])
+            capture_date = date.fromisoformat(capture_ref[:10])
+            capture_age_days = (as_of_date - capture_date).days
+            if capture_age_days < 0:
+                capture_status = "future_capture"
+                capture_fresh = False
+            elif capture_age_days > _SKU1_AD_ELIGIBILITY_PROOF_MAX_AGE_DAYS:
+                capture_status = "stale_capture"
+                capture_fresh = False
+            else:
+                capture_status = "fresh"
+        except ValueError:
+            capture_status = "invalid_capture_date"
+            capture_fresh = False
     evidence_field = ""
     evidence_ref = ""
     for field in ("proof_url", "evidence_path", "local_screenshot_path"):
@@ -964,6 +987,7 @@ def _distribution_ad_account_eligibility(
         and logged_in
         and preexisting_account
         and card_on_file
+        and capture_fresh
         and evidence_valid
         and not stop_conditions_triggered
     )
@@ -974,6 +998,7 @@ def _distribution_ad_account_eligibility(
             ("logged_in", logged_in),
             ("preexisting_account", preexisting_account),
             ("card_on_file", card_on_file),
+            ("fresh_capture", capture_fresh),
             ("proof_url_or_evidence_path", evidence_valid),
             ("no_gated_stop_conditions", not stop_conditions_triggered),
         )
@@ -996,6 +1021,10 @@ def _distribution_ad_account_eligibility(
         ),
         "evidence_field": evidence_field,
         "evidence_ref": evidence_ref,
+        "capture_status": capture_status,
+        "captured_at": capture_ref,
+        "capture_age_days": capture_age_days,
+        "max_capture_age_days": _SKU1_AD_ELIGIBILITY_PROOF_MAX_AGE_DAYS,
         "missing_or_failed": missing,
         "stop_conditions_triggered": stop_conditions_triggered,
     }
@@ -1429,6 +1458,7 @@ def _distribution_paid_ad_execution_packet(
                 "new_account_required": False,
                 "card_setup_required": False,
                 "billing_or_identity_form_required": False,
+                "captured_at": "YYYY-MM-DD",
                 "proof_url": "<ad_manager_url_or_local_screenshot_path>",
             },
             "stop_conditions": [
@@ -1913,7 +1943,7 @@ def _distribution_gate_payload(
         traffic_execution_plan=traffic_execution_plan,
         paid_traffic_plan=paid_traffic_plan,
         ad_account_eligibility=ad_account_eligibility
-        or _distribution_ad_account_eligibility(None, _SKU1_PAID_TRAFFIC_PLATFORM),
+        or _distribution_ad_account_eligibility(None, _SKU1_PAID_TRAFFIC_PLATFORM, as_of=as_of),
     )
     measurement_packet = _distribution_measurement_packet(
         traffic_delivered=traffic_delivered,
@@ -2448,6 +2478,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
     ad_account_eligibility = _distribution_ad_account_eligibility(
         args.ad_account_eligibility_file,
         _SKU1_PAID_TRAFFIC_PLATFORM,
+        as_of=args.as_of,
     )
     payload = _distribution_gate_payload(
         posted_dir=args.posted_dir,
