@@ -879,6 +879,16 @@ def _distribution_ad_spend_source(
     }
 
 
+def _is_placeholder_or_local_proof_url(parsed_url: Any) -> bool:
+    host = (parsed_url.hostname or "").lower().strip("[]")
+    if not host:
+        return True
+    if host in {"localhost", "127.0.0.1", "0.0.0.0", "::1"}:
+        return True
+    reserved_example_domains = ("example.com", "example.org", "example.net")
+    return any(host == domain or host.endswith(f".{domain}") for domain in reserved_example_domains)
+
+
 def _distribution_ad_account_eligibility(
     path: Path | None,
     platform: str,
@@ -947,24 +957,31 @@ def _distribution_ad_account_eligibility(
         evidence_failure = "ambiguous_evidence_fields"
     elif evidence_field == "proof_url":
         parsed_evidence_url = urlparse(evidence_ref)
+        evidence_url_is_http = parsed_evidence_url.scheme in {"http", "https"} and bool(
+            parsed_evidence_url.netloc
+        )
         evidence_url_text = evidence_ref.lower()
         evidence_url_matches_campaign = (
             platform.lower() in evidence_url_text
             or _SKU1_PAID_TRAFFIC_CAMPAIGN.lower() in evidence_url_text
         )
+        evidence_url_is_placeholder = evidence_url_is_http and _is_placeholder_or_local_proof_url(
+            parsed_evidence_url
+        )
         evidence_valid = (
-            parsed_evidence_url.scheme in {"http", "https"}
-            and bool(parsed_evidence_url.netloc)
+            evidence_url_is_http
             and not evidence_placeholder
+            and not evidence_url_is_placeholder
             and evidence_url_matches_campaign
         )
-        evidence_failure = (
-            "unlinked_proof_url"
-            if parsed_evidence_url.scheme in {"http", "https"}
-            and bool(parsed_evidence_url.netloc)
-            and not evidence_placeholder
-            else "invalid_proof_url"
-        )
+        if not evidence_url_is_http or evidence_placeholder:
+            evidence_failure = "invalid_proof_url"
+        elif not evidence_url_matches_campaign:
+            evidence_failure = "unlinked_proof_url"
+        elif evidence_url_is_placeholder:
+            evidence_failure = "placeholder_or_local_proof_url"
+        else:
+            evidence_failure = "invalid_proof_url"
     elif evidence_ref:
         evidence_path = Path(evidence_ref).expanduser()
         if not evidence_path.is_absolute():
