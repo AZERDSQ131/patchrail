@@ -917,6 +917,11 @@ def _sku1_ad_evidence_ref_matches_campaign(ref: str, platform: str) -> bool:
     return platform.lower() in ref_lower or _SKU1_PAID_TRAFFIC_CAMPAIGN.lower() in ref_lower
 
 
+def _sku1_ad_proof_url_path_matches_campaign(parsed_url: Any, platform: str) -> bool:
+    path_lower = (parsed_url.path or "").lower()
+    return platform.lower() in path_lower or _SKU1_PAID_TRAFFIC_CAMPAIGN.lower() in path_lower
+
+
 def _distribution_ad_account_eligibility(
     path: Path | None,
     platform: str,
@@ -991,8 +996,8 @@ def _distribution_ad_account_eligibility(
         evidence_url_is_https = parsed_evidence_url.scheme == "https" and bool(
             parsed_evidence_url.netloc
         )
-        evidence_url_matches_campaign = _sku1_ad_evidence_ref_matches_campaign(
-            evidence_ref, platform
+        evidence_url_matches_campaign = _sku1_ad_proof_url_path_matches_campaign(
+            parsed_evidence_url, platform
         )
         evidence_url_is_placeholder = evidence_url_is_http and _is_placeholder_or_local_proof_url(
             parsed_evidence_url
