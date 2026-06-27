@@ -744,7 +744,9 @@ def _distribution_paid_traffic_plan(
 ) -> dict[str, Any]:
     capped_cpc = max(paid_click_cpc_usd, 0.01)
     capped_budget = max(ad_cap_usd, 0.0)
-    committed_spend = min(max(ad_spend_committed_usd, 0.0), capped_budget)
+    reported_spend = max(ad_spend_committed_usd, 0.0)
+    over_cap_spend = max(reported_spend - capped_budget, 0.0)
+    committed_spend = min(reported_spend, capped_budget)
     remaining_budget = max(capped_budget - committed_spend, 0.0)
     cap_clicks = int(remaining_budget / capped_cpc)
     budget_for_gap = round(traffic_gap * capped_cpc, 2)
@@ -758,11 +760,18 @@ def _distribution_paid_traffic_plan(
         recommendation = "ad_cap_exhausted_organic_distribution_required"
     else:
         recommendation = "organic_distribution_required_before_or_alongside_ads"
-    preflight_blocked_reason = "ad_cap_exhausted" if traffic_gap > 0 and cap_clicks <= 0 else ""
+    if traffic_gap > 0 and over_cap_spend > 0:
+        preflight_blocked_reason = "ad_cap_exceeded"
+    elif traffic_gap > 0 and cap_clicks <= 0:
+        preflight_blocked_reason = "ad_cap_exhausted"
+    else:
+        preflight_blocked_reason = ""
 
     return {
         "ad_cap_usd": round(capped_budget, 2),
+        "ad_spend_reported_usd": round(reported_spend, 2),
         "ad_spend_committed_usd": round(committed_spend, 2),
+        "ad_spend_over_cap_usd": round(over_cap_spend, 2),
         "ad_remaining_usd": round(remaining_budget, 2),
         "paid_click_cpc_usd": round(capped_cpc, 2),
         "traffic_gap": traffic_gap,
@@ -815,7 +824,12 @@ def _distribution_ad_spend_source(
             row = json.loads(stripped)
         except json.JSONDecodeError:
             row = None
-        if isinstance(row, dict):
+        is_single_jsonl_entry = isinstance(row, dict) and {
+            "status",
+            "kind",
+            "amount_usd",
+        }.issubset(row)
+        if isinstance(row, dict) and not is_single_jsonl_entry:
             committed = max(
                 _ad_spend_money(row.get("ad_spend_committed_usd", row.get("committed_usd", 0))),
                 Decimal("0.00"),

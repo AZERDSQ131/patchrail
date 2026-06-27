@@ -139,7 +139,9 @@ class PatchRailCITests(unittest.TestCase):
             payload["paid_traffic_plan"],
             {
                 "ad_cap_usd": 75.0,
+                "ad_spend_reported_usd": 0.0,
                 "ad_spend_committed_usd": 0.0,
+                "ad_spend_over_cap_usd": 0.0,
                 "ad_remaining_usd": 75.0,
                 "paid_click_cpc_usd": 0.5,
                 "traffic_gap": 275,
@@ -1042,7 +1044,9 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         payload = json.loads(stdout.getvalue())
         self.assertEqual(payload["paid_traffic_plan"]["ad_cap_usd"], 75.0)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_reported_usd"], 50.0)
         self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 50.0)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_over_cap_usd"], 0.0)
         self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 25.0)
         self.assertEqual(payload["paid_traffic_plan"]["cap_click_capacity"], 33)
         self.assertEqual(payload["traffic_execution_plan"]["paid_click_target"], 33)
@@ -1150,6 +1154,8 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
         self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 15.34)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_reported_usd"], 15.34)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_over_cap_usd"], 0.0)
         self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 59.66)
         self.assertEqual(payload["traffic_execution_plan"]["paid_click_target"], 79)
         self.assertEqual(payload["traffic_execution_plan"]["paid_budget_usd"], 59.25)
@@ -1217,8 +1223,73 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
         self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 12.5)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_reported_usd"], 12.5)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_over_cap_usd"], 0.0)
         self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 62.5)
         self.assertEqual(payload["measurement_packet"]["ad_remaining_usd"], 62.5)
+
+    def test_distribution_sku1_gate_exposes_ad_spend_over_cap_from_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            ledger = Path(tmpdir) / "ledger.jsonl"
+            ledger.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "status": "committed",
+                                "kind": "charge",
+                                "amount_usd": "80.25",
+                            }
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--paid-click-cpc-usd",
+                        "0.75",
+                        "--ad-cap-usd",
+                        "75",
+                        "--ad-spend-ledger",
+                        str(ledger),
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["ad_spend_source"]["committed_usd"], 80.25)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_reported_usd"], 80.25)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 75.0)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_over_cap_usd"], 5.25)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 0.0)
+        self.assertEqual(
+            payload["paid_traffic_plan"]["preflight_blocked_reason"], "ad_cap_exceeded"
+        )
+        self.assertEqual(
+            payload["paid_ad_execution_packet"]["preflight_blocked_reason"], "ad_cap_exceeded"
+        )
+        self.assertEqual(payload["paid_ad_execution_packet"]["commit_command_template"], "")
 
     def test_distribution_sku1_gate_reports_exhausted_ad_cap_even_with_valid_proof(
         self,
@@ -1272,6 +1343,8 @@ class PatchRailCITests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_reported_usd"], 75.0)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_over_cap_usd"], 0.0)
         self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 0.0)
         self.assertEqual(payload["paid_traffic_plan"]["cap_click_capacity"], 0)
         self.assertEqual(
