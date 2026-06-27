@@ -702,14 +702,12 @@ class PatchRailCITests(unittest.TestCase):
                         "keep_path": str(posted / "devto-first.json"),
                         "archive_paths": [str(posted / "devto-second.json")],
                         "reason": (
-                            "keep posted receipt when present, "
-                            "else latest blocked/claimed receipt"
+                            "keep posted receipt when present, else latest blocked/claimed receipt"
                         ),
                     }
                 ],
                 "safe_next_action": (
-                    "archive duplicate receipt files after confirming "
-                    "no publication is in flight"
+                    "archive duplicate receipt files after confirming no publication is in flight"
                 ),
             },
         )
