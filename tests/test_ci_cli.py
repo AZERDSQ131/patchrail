@@ -624,6 +624,32 @@ class PatchRailCITests(unittest.TestCase):
                 },
             },
         )
+        self.assertEqual(
+            payload["adoption_evidence_packet"]["schema_version"], "patchrail.adoption_evidence.v1"
+        )
+        self.assertEqual(
+            payload["adoption_evidence_packet"]["github_issue"], "patchrail/patchrail#69"
+        )
+        self.assertEqual(
+            payload["adoption_evidence_packet"]["evidence_status"], "distribution_signal_only"
+        )
+        self.assertFalse(payload["adoption_evidence_packet"]["qualifies_as_adoption"])
+        self.assertEqual(
+            payload["adoption_evidence_packet"]["metric_snapshot"],
+            {
+                "traffic_delivered": 25,
+                "traffic_target": 300,
+                "traffic_gap": 275,
+                "traffic_target_met": False,
+                "sales_total": 0,
+                "gross_usd": 0.0,
+                "posted_channel_total": 1,
+            },
+        )
+        self.assertIn(
+            "do not count distribution traffic as adoption",
+            payload["adoption_evidence_packet"]["safe_next_step"],
+        )
 
     def test_distribution_sku1_gate_reports_duplicate_channel_receipts(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

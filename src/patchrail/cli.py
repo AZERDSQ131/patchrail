@@ -1602,6 +1602,80 @@ def _distribution_measurement_packet(
     }
 
 
+def _distribution_adoption_evidence_packet(
+    *,
+    traffic_delivered: int,
+    traffic_target: int,
+    traffic_gap: int,
+    sales_total: int,
+    gross_usd: float,
+    posted_channels: list[str],
+    channel_measurement_urls: list[dict[str, Any]],
+    receipt_audit: dict[str, Any],
+    as_of: str,
+) -> dict[str, Any]:
+    qualifies_as_adoption = sales_total > 0
+    traffic_target_met = traffic_delivered >= traffic_target
+    if qualifies_as_adoption:
+        evidence_status = "paid_adoption"
+        safe_next_step = "Record SKU #1 as paid adoption evidence with sale and traffic snapshot."
+    elif traffic_target_met:
+        evidence_status = "traffic_target_met_no_sales"
+        safe_next_step = (
+            "Do not record this as adoption; use it as pivot evidence because traffic target was met "
+            "with zero sales."
+        )
+    elif traffic_delivered > 0 or posted_channels:
+        evidence_status = "distribution_signal_only"
+        safe_next_step = (
+            "Keep measuring visits and sales; do not count distribution traffic as adoption."
+        )
+    else:
+        evidence_status = "no_signal"
+        safe_next_step = "Ship measurable distribution before recording ecosystem evidence."
+
+    return {
+        "schema_version": "patchrail.adoption_evidence.v1",
+        "github_issue": "patchrail/patchrail#69",
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "as_of": as_of,
+        "evidence_kind": "sku1_distribution_experiment",
+        "evidence_status": evidence_status,
+        "qualifies_as_adoption": qualifies_as_adoption,
+        "metric_snapshot": {
+            "traffic_delivered": traffic_delivered,
+            "traffic_target": traffic_target,
+            "traffic_gap": traffic_gap,
+            "traffic_target_met": traffic_target_met,
+            "sales_total": sales_total,
+            "gross_usd": round(gross_usd, 2),
+            "posted_channel_total": len(posted_channels),
+        },
+        "posted_channels": posted_channels,
+        "measurement_urls": channel_measurement_urls,
+        "receipt_measurement_risk": receipt_audit["measurement_risk"],
+        "evidence_assertions": [
+            {
+                "name": "paid_sale",
+                "met": qualifies_as_adoption,
+                "required_for_adoption": True,
+            },
+            {
+                "name": "traffic_target",
+                "met": traffic_target_met,
+                "required_for_adoption": False,
+            },
+            {
+                "name": "deduplicated_receipts",
+                "met": receipt_audit["measurement_risk"] == "none",
+                "required_for_adoption": False,
+            },
+        ],
+        "safe_next_step": safe_next_step,
+    }
+
+
 def _distribution_channel_closeout_plan(
     *,
     covered_channel_plan: dict[str, Any],
@@ -1985,6 +2059,17 @@ def _distribution_gate_payload(
         as_of=as_of,
         gate_date=gate_date,
     )
+    adoption_evidence_packet = _distribution_adoption_evidence_packet(
+        traffic_delivered=traffic_delivered,
+        traffic_target=traffic_target,
+        traffic_gap=traffic_gap,
+        sales_total=sales_total,
+        gross_usd=gross_usd,
+        posted_channels=posted_channels_sorted,
+        channel_measurement_urls=channel_measurement_urls,
+        receipt_audit=receipt_audit,
+        as_of=as_of,
+    )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     browser_extension_handoff = _distribution_browser_extension_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
@@ -2037,6 +2122,7 @@ def _distribution_gate_payload(
         "channel_closeout_plan": channel_closeout_plan,
         "paid_ad_execution_packet": paid_ad_execution_packet,
         "measurement_packet": measurement_packet,
+        "adoption_evidence_packet": adoption_evidence_packet,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
