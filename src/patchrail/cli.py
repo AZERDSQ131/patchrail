@@ -893,7 +893,8 @@ def _distribution_ad_account_eligibility(
     evidence_ref = str(
         raw.get("proof_url") or raw.get("evidence_path") or raw.get("local_screenshot_path") or ""
     ).strip()
-    evidence_present = bool(evidence_ref)
+    evidence_placeholder = bool(evidence_ref and ("<" in evidence_ref or ">" in evidence_ref))
+    evidence_present = bool(evidence_ref and not evidence_placeholder)
     stop_condition_fields = (
         "login_required",
         "captcha_or_2fa_required",
@@ -933,6 +934,9 @@ def _distribution_ad_account_eligibility(
         else (
             "gated_stop_condition_present" if stop_conditions_triggered else "eligibility_failed"
         ),
+        "evidence_status": "placeholder"
+        if evidence_placeholder
+        else ("present" if evidence_ref else "missing"),
         "evidence_ref": evidence_ref,
         "missing_or_failed": missing,
         "stop_conditions_triggered": stop_conditions_triggered,
