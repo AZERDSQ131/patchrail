@@ -988,6 +988,9 @@ def _distribution_ad_account_eligibility(
         evidence_url_is_http = parsed_evidence_url.scheme in {"http", "https"} and bool(
             parsed_evidence_url.netloc
         )
+        evidence_url_is_https = parsed_evidence_url.scheme == "https" and bool(
+            parsed_evidence_url.netloc
+        )
         evidence_url_matches_campaign = _sku1_ad_evidence_ref_matches_campaign(
             evidence_ref, platform
         )
@@ -1001,14 +1004,14 @@ def _distribution_ad_account_eligibility(
             parsed_evidence_url
         )
         evidence_valid = (
-            evidence_url_is_http
+            evidence_url_is_https
             and not evidence_placeholder
             and not evidence_url_is_placeholder
             and evidence_url_is_allowed_ad_manager
             and not evidence_url_contains_userinfo
             and evidence_url_matches_campaign
         )
-        if not evidence_url_is_http or evidence_placeholder:
+        if not evidence_url_is_https or evidence_placeholder:
             evidence_failure = "invalid_proof_url"
         elif evidence_url_is_placeholder:
             evidence_failure = "placeholder_or_local_proof_url"
