@@ -1611,6 +1611,7 @@ def _distribution_adoption_evidence_packet(
     gross_usd: float,
     posted_channels: list[str],
     channel_measurement_urls: list[dict[str, Any]],
+    receipt_status_counts: dict[str, int],
     receipt_audit: dict[str, Any],
     as_of: str,
 ) -> dict[str, Any]:
@@ -1654,6 +1655,13 @@ def _distribution_adoption_evidence_packet(
         },
         "posted_channels": posted_channels,
         "measurement_urls": channel_measurement_urls,
+        "distribution_signal_breakdown": {
+            "receipt_status_counts": dict(sorted(receipt_status_counts.items())),
+            "measurement_url_total": len(channel_measurement_urls),
+            "posted_channel_total": len(posted_channels),
+            "receipt_measurement_risk": receipt_audit["measurement_risk"],
+            "clean_receipt_measurement": receipt_audit["measurement_risk"] == "none",
+        },
         "receipt_measurement_risk": receipt_audit["measurement_risk"],
         "evidence_assertions": [
             {
@@ -2067,6 +2075,7 @@ def _distribution_gate_payload(
         gross_usd=gross_usd,
         posted_channels=posted_channels_sorted,
         channel_measurement_urls=channel_measurement_urls,
+        receipt_status_counts=dict(by_status),
         receipt_audit=receipt_audit,
         as_of=as_of,
     )

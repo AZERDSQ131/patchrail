@@ -646,6 +646,19 @@ class PatchRailCITests(unittest.TestCase):
                 "posted_channel_total": 1,
             },
         )
+        self.assertEqual(
+            payload["adoption_evidence_packet"]["distribution_signal_breakdown"],
+            {
+                "receipt_status_counts": {
+                    "blocked": 2,
+                    "posted": 1,
+                },
+                "measurement_url_total": 2,
+                "posted_channel_total": 1,
+                "receipt_measurement_risk": "none",
+                "clean_receipt_measurement": True,
+            },
+        )
         self.assertIn(
             "do not count distribution traffic as adoption",
             payload["adoption_evidence_packet"]["safe_next_step"],
