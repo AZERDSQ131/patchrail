@@ -871,7 +871,13 @@ def _distribution_ad_account_eligibility(
             "platform": platform,
             "eligible": False,
             "reason": "missing_logged_in_preexisting_ad_account_proof",
-            "required_fields": ["platform", "logged_in", "preexisting_account", "card_on_file"],
+            "required_fields": [
+                "platform",
+                "logged_in",
+                "preexisting_account",
+                "card_on_file",
+                "proof_url_or_evidence_path",
+            ],
         }
     if not path.exists():
         raise FileNotFoundError(f"ad account eligibility proof not found: {path}")
@@ -884,6 +890,10 @@ def _distribution_ad_account_eligibility(
     logged_in = bool(raw.get("logged_in"))
     preexisting_account = bool(raw.get("preexisting_account"))
     card_on_file = bool(raw.get("card_on_file"))
+    evidence_ref = str(
+        raw.get("proof_url") or raw.get("evidence_path") or raw.get("local_screenshot_path") or ""
+    ).strip()
+    evidence_present = bool(evidence_ref)
     stop_condition_fields = (
         "login_required",
         "captcha_or_2fa_required",
@@ -898,6 +908,7 @@ def _distribution_ad_account_eligibility(
         and logged_in
         and preexisting_account
         and card_on_file
+        and evidence_present
         and not stop_conditions_triggered
     )
     missing = [
@@ -907,6 +918,7 @@ def _distribution_ad_account_eligibility(
             ("logged_in", logged_in),
             ("preexisting_account", preexisting_account),
             ("card_on_file", card_on_file),
+            ("proof_url_or_evidence_path", evidence_present),
             ("no_gated_stop_conditions", not stop_conditions_triggered),
         )
         if not ok
@@ -921,6 +933,7 @@ def _distribution_ad_account_eligibility(
         else (
             "gated_stop_condition_present" if stop_conditions_triggered else "eligibility_failed"
         ),
+        "evidence_ref": evidence_ref,
         "missing_or_failed": missing,
         "stop_conditions_triggered": stop_conditions_triggered,
     }
@@ -1347,6 +1360,9 @@ def _distribution_paid_ad_execution_packet(
                 "card_on_file": True,
                 "login_required": False,
                 "captcha_or_2fa_required": False,
+                "new_account_required": False,
+                "card_setup_required": False,
+                "billing_or_identity_form_required": False,
                 "proof_url": "<ad_manager_url_or_local_screenshot_path>",
             },
             "stop_conditions": [
