@@ -227,9 +227,11 @@ def _distribution_receipt_audit(receipts: list[dict[str, Any]]) -> dict[str, Any
         by_channel[str(receipt["channel"])].append(receipt)
 
     duplicate_channels = []
+    cleanup_items = []
     for channel, channel_receipts in sorted(by_channel.items()):
         if len(channel_receipts) < 2:
             continue
+        canonical_receipt = max(channel_receipts, key=_distribution_receipt_canonical_key)
         statuses = sorted({str(receipt["status"]) for receipt in channel_receipts})
         urls = sorted(
             {str(receipt["url"]) for receipt in channel_receipts if str(receipt.get("url") or "")}
@@ -244,6 +246,18 @@ def _distribution_receipt_audit(receipts: list[dict[str, Any]]) -> dict[str, Any
                 "measurement_risk": "duplicate_channel_receipts",
             }
         )
+        cleanup_items.append(
+            {
+                "channel": channel,
+                "keep_path": str(canonical_receipt["path"]),
+                "archive_paths": [
+                    str(receipt["path"])
+                    for receipt in channel_receipts
+                    if str(receipt["path"]) != str(canonical_receipt["path"])
+                ],
+                "reason": "keep posted receipt when present, else latest blocked/claimed receipt",
+            }
+        )
 
     return {
         "total_receipts": len(receipts),
@@ -251,7 +265,26 @@ def _distribution_receipt_audit(receipts: list[dict[str, Any]]) -> dict[str, Any
         "duplicate_channel_total": len(duplicate_channels),
         "duplicate_channels": duplicate_channels,
         "measurement_risk": "duplicate_channel_receipts" if duplicate_channels else "none",
+        "cleanup_plan": {
+            "required": bool(cleanup_items),
+            "items": cleanup_items,
+            "safe_next_action": (
+                "archive duplicate receipt files after confirming no publication is in flight"
+                if cleanup_items
+                else ""
+            ),
+        },
     }
+
+
+def _distribution_receipt_canonical_key(receipt: dict[str, Any]) -> tuple[int, str, str]:
+    status_rank = {
+        "posted": 3,
+        "blocked": 2,
+        "claimed": 1,
+    }.get(str(receipt.get("status") or ""), 0)
+    timestamp = str(receipt.get("ts_posted") or receipt.get("blocked_at") or "")
+    return (status_rank, timestamp, str(receipt.get("path") or ""))
 
 
 def _read_optional_json(path: Path | None) -> dict[str, Any]:

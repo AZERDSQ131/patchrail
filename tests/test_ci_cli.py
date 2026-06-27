@@ -614,6 +614,11 @@ class PatchRailCITests(unittest.TestCase):
                 "duplicate_channel_total": 0,
                 "duplicate_channels": [],
                 "measurement_risk": "none",
+                "cleanup_plan": {
+                    "required": False,
+                    "items": [],
+                    "safe_next_action": "",
+                },
             },
         )
 
@@ -686,6 +691,27 @@ class PatchRailCITests(unittest.TestCase):
                     "measurement_risk": "duplicate_channel_receipts",
                 }
             ],
+        )
+        self.assertEqual(
+            payload["receipt_audit"]["cleanup_plan"],
+            {
+                "required": True,
+                "items": [
+                    {
+                        "channel": "devto",
+                        "keep_path": str(posted / "devto-first.json"),
+                        "archive_paths": [str(posted / "devto-second.json")],
+                        "reason": (
+                            "keep posted receipt when present, "
+                            "else latest blocked/claimed receipt"
+                        ),
+                    }
+                ],
+                "safe_next_action": (
+                    "archive duplicate receipt files after confirming "
+                    "no publication is in flight"
+                ),
+            },
         )
 
     def test_distribution_sku1_gate_gives_pablo_claim_command_for_stalled_extension_blocker(
