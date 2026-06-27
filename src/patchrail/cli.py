@@ -901,12 +901,24 @@ def _distribution_ad_account_eligibility(
     evidence_placeholder = bool(evidence_ref and ("<" in evidence_ref or ">" in evidence_ref))
     if evidence_field == "proof_url":
         parsed_evidence_url = urlparse(evidence_ref)
+        evidence_url_text = evidence_ref.lower()
+        evidence_url_matches_campaign = (
+            platform.lower() in evidence_url_text
+            or _SKU1_PAID_TRAFFIC_CAMPAIGN.lower() in evidence_url_text
+        )
         evidence_valid = (
             parsed_evidence_url.scheme in {"http", "https"}
             and bool(parsed_evidence_url.netloc)
             and not evidence_placeholder
+            and evidence_url_matches_campaign
         )
-        evidence_failure = "invalid_proof_url"
+        evidence_failure = (
+            "unlinked_proof_url"
+            if parsed_evidence_url.scheme in {"http", "https"}
+            and bool(parsed_evidence_url.netloc)
+            and not evidence_placeholder
+            else "invalid_proof_url"
+        )
     elif evidence_ref:
         evidence_path = Path(evidence_ref).expanduser()
         if not evidence_path.is_absolute():

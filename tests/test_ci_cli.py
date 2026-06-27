@@ -1991,7 +1991,7 @@ class PatchRailCITests(unittest.TestCase):
                         "preexisting_account": True,
                         "card_on_file": True,
                         "login_required": False,
-                        "proof_url": "https://ads.example.com/campaigns/ci-triage",
+                        "proof_url": "https://ads.example.com/campaigns/ci-triage-sku1-gate",
                     }
                 ),
                 encoding="utf-8",
@@ -2034,10 +2034,93 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(
             packet["ad_account_eligibility"]["evidence_ref"],
-            "https://ads.example.com/campaigns/ci-triage",
+            "https://ads.example.com/campaigns/ci-triage-sku1-gate",
         )
         self.assertFalse(packet["eligibility_handoff"]["required"])
         self.assertIn("--amount 75.00", packet["commit_command_template"])
+
+    def test_distribution_sku1_gate_rejects_paid_boost_when_proof_url_is_unlinked(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "covered_channels": [
+                            "devto",
+                            "hashnode",
+                            "linkedin",
+                            "reddit-sideproject",
+                            "show-hn",
+                            "x",
+                        ],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "blocked": [],
+                        "stale_claims": [],
+                        "uncovered": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            eligibility_file = Path(tmpdir) / "ad-account-eligibility.json"
+            eligibility_file.write_text(
+                json.dumps(
+                    {
+                        "platform": "sku1-traffic-boost",
+                        "logged_in": True,
+                        "preexisting_account": True,
+                        "card_on_file": True,
+                        "proof_url": "https://ads.example.com/campaigns/brand-awareness",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--ad-account-eligibility-file",
+                        str(eligibility_file),
+                        "--traffic-delivered",
+                        "28",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        packet = payload["paid_ad_execution_packet"]
+        self.assertTrue(packet["required"])
+        self.assertFalse(packet["spend_executable"])
+        self.assertEqual(payload["next_action"], "measure_gate_until_eligible_ad_account")
+        self.assertEqual(packet["ad_account_eligibility"]["reason"], "eligibility_failed")
+        self.assertEqual(packet["ad_account_eligibility"]["evidence_status"], "unlinked_proof_url")
+        self.assertEqual(
+            packet["ad_account_eligibility"]["missing_or_failed"],
+            ["proof_url_or_evidence_path"],
+        )
+        self.assertEqual(packet["commit_command_template"], "")
+        self.assertTrue(packet["eligibility_handoff"]["required"])
 
     def test_distribution_sku1_gate_rejects_paid_boost_when_proof_has_gated_stop_condition(
         self,
@@ -2077,7 +2160,7 @@ class PatchRailCITests(unittest.TestCase):
                         "preexisting_account": True,
                         "card_on_file": True,
                         "billing_or_identity_form_required": True,
-                        "proof_url": "https://ads.example.com/billing-check",
+                        "proof_url": "https://ads.example.com/campaigns/ci-triage-sku1-gate",
                     }
                 ),
                 encoding="utf-8",
@@ -2162,7 +2245,7 @@ class PatchRailCITests(unittest.TestCase):
                         "logged_in": True,
                         "preexisting_account": True,
                         "card_on_file": True,
-                        "proof_url": "https://ads.example.com/missing-platform",
+                        "proof_url": "https://ads.example.com/campaigns/ci-triage-sku1-gate",
                     }
                 ),
                 encoding="utf-8",
@@ -2324,7 +2407,7 @@ class PatchRailCITests(unittest.TestCase):
                         "preexisting_account": "true",
                         "card_on_file": "true",
                         "login_required": "false",
-                        "proof_url": "https://ads.example.com/string-booleans",
+                        "proof_url": "https://ads.example.com/campaigns/ci-triage-sku1-gate",
                     }
                 ),
                 encoding="utf-8",
