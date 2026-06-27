@@ -212,6 +212,31 @@ class PatchRailCITests(unittest.TestCase):
             ],
         )
         self.assertEqual(
+            payload["measurement_packet"]["url_check_commands"][:2],
+            [
+                {
+                    "source": "organic",
+                    "channel": "devto",
+                    "command": (
+                        "curl -fsSL -o /dev/null -w '%{http_code} %{url_effective}\\n' "
+                        "'https://patchrail.gumroad.com/l/ci-failure-triage?"
+                        "utm_source=devto&utm_campaign=sku1-organic-distribution'"
+                    ),
+                    "success_criteria": "curl_exit_0",
+                },
+                {
+                    "source": "organic",
+                    "channel": "show-hn",
+                    "command": (
+                        "curl -fsSL -o /dev/null -w '%{http_code} %{url_effective}\\n' "
+                        "'https://patchrail.gumroad.com/l/ci-failure-triage?"
+                        "utm_source=show-hn&utm_campaign=sku1-organic-distribution'"
+                    ),
+                    "success_criteria": "curl_exit_0",
+                },
+            ],
+        )
+        self.assertEqual(
             payload["execution_checklist"],
             [
                 {
@@ -1639,6 +1664,19 @@ class PatchRailCITests(unittest.TestCase):
                             "&utm_campaign=ci-triage-sku1-gate"
                         ),
                         "measurement_event": "sku1_paid_visits_and_sales_delta",
+                    }
+                ],
+                "url_check_commands": [
+                    {
+                        "source": "paid",
+                        "channel": "sku1-traffic-boost",
+                        "command": (
+                            "curl -fsSL -o /dev/null -w '%{http_code} %{url_effective}\\n' "
+                            "'https://patchrail.gumroad.com/l/ci-failure-triage?"
+                            "utm_source=guarded_paid_boost"
+                            "&utm_campaign=ci-triage-sku1-gate'"
+                        ),
+                        "success_criteria": "curl_exit_0",
                     }
                 ],
                 "next_measurement_command": (

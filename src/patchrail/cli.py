@@ -1247,6 +1247,18 @@ def _distribution_measurement_packet(
                 "measurement_event": "sku1_paid_visits_and_sales_delta",
             }
         )
+    url_check_commands = [
+        {
+            "source": str(item["source"]),
+            "channel": str(item["channel"]),
+            "command": (
+                "curl -fsSL -o /dev/null -w '%{http_code} %{url_effective}\\n' "
+                f"{shlex.quote(str(item['url']))}"
+            ),
+            "success_criteria": "curl_exit_0",
+        }
+        for item in measurement_urls
+    ]
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
@@ -1263,6 +1275,7 @@ def _distribution_measurement_packet(
         "paid_click_capacity": paid_traffic_plan["cap_click_capacity"],
         "paid_boost_blocked_reason": blocked_reason,
         "measurement_urls": measurement_urls,
+        "url_check_commands": url_check_commands,
         "next_measurement_command": (
             "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
             ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
