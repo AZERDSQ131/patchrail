@@ -112,6 +112,17 @@ _SKU1_PAID_TRAFFIC_PLATFORM = "sku1-traffic-boost"
 _SKU1_PAID_TRAFFIC_CAMPAIGN = "ci-triage-sku1-gate"
 _SKU1_PAID_TRAFFIC_SOURCE = "guarded_paid_boost"
 _SKU1_AD_ELIGIBILITY_PROOF_MAX_AGE_DAYS = 7
+_SKU1_AD_MANAGER_PROOF_HOSTS = frozenset(
+    {
+        "ads.google.com",
+        "business.facebook.com",
+        "adsmanager.facebook.com",
+        "ads.linkedin.com",
+        "ads.reddit.com",
+        "ads.twitter.com",
+        "ads.x.com",
+    }
+)
 _AD_SPEND_CENTS = Decimal("0.01")
 _AD_SPEND_LEDGER_KIND_SIGN = {
     "charge": Decimal("1"),
@@ -889,6 +900,14 @@ def _is_placeholder_or_local_proof_url(parsed_url: Any) -> bool:
     return any(host == domain or host.endswith(f".{domain}") for domain in reserved_example_domains)
 
 
+def _is_allowed_ad_manager_proof_url(parsed_url: Any) -> bool:
+    host = (parsed_url.hostname or "").lower().strip("[]")
+    return any(
+        host == allowed_host or host.endswith(f".{allowed_host}")
+        for allowed_host in _SKU1_AD_MANAGER_PROOF_HOSTS
+    )
+
+
 def _distribution_ad_account_eligibility(
     path: Path | None,
     platform: str,
@@ -968,18 +987,24 @@ def _distribution_ad_account_eligibility(
         evidence_url_is_placeholder = evidence_url_is_http and _is_placeholder_or_local_proof_url(
             parsed_evidence_url
         )
+        evidence_url_is_allowed_ad_manager = (
+            evidence_url_is_http and _is_allowed_ad_manager_proof_url(parsed_evidence_url)
+        )
         evidence_valid = (
             evidence_url_is_http
             and not evidence_placeholder
             and not evidence_url_is_placeholder
+            and evidence_url_is_allowed_ad_manager
             and evidence_url_matches_campaign
         )
         if not evidence_url_is_http or evidence_placeholder:
             evidence_failure = "invalid_proof_url"
-        elif not evidence_url_matches_campaign:
-            evidence_failure = "unlinked_proof_url"
         elif evidence_url_is_placeholder:
             evidence_failure = "placeholder_or_local_proof_url"
+        elif not evidence_url_is_allowed_ad_manager:
+            evidence_failure = "untrusted_ad_manager_url"
+        elif not evidence_url_matches_campaign:
+            evidence_failure = "unlinked_proof_url"
         else:
             evidence_failure = "invalid_proof_url"
     elif evidence_ref:
