@@ -754,8 +754,11 @@ def _distribution_paid_traffic_plan(
         recommendation = "no_paid_traffic_needed"
     elif cap_covers_gap:
         recommendation = "paid_boost_can_cover_gap_if_preflight_passes"
+    elif cap_clicks <= 0:
+        recommendation = "ad_cap_exhausted_organic_distribution_required"
     else:
         recommendation = "organic_distribution_required_before_or_alongside_ads"
+    preflight_blocked_reason = "ad_cap_exhausted" if traffic_gap > 0 and cap_clicks <= 0 else ""
 
     return {
         "ad_cap_usd": round(capped_budget, 2),
@@ -769,6 +772,7 @@ def _distribution_paid_traffic_plan(
         "remaining_organic_gap_after_cap": remaining_organic_gap,
         "recommendation": recommendation,
         "preflight_required": traffic_gap > 0,
+        "preflight_blocked_reason": preflight_blocked_reason,
     }
 
 
@@ -1356,7 +1360,10 @@ def _distribution_paid_ad_execution_packet(
         and paid_traffic_plan["preflight_required"]
         and amount_usd > 0
     )
-    spend_executable = bool(required and ad_account_eligibility.get("eligible"))
+    preflight_blocked_reason = str(paid_traffic_plan.get("preflight_blocked_reason") or "")
+    spend_executable = bool(
+        required and ad_account_eligibility.get("eligible") and not preflight_blocked_reason
+    )
     preflight_command = (
         "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
         f"--amount {amount_usd:.2f} --platform {_SKU1_PAID_TRAFFIC_PLATFORM} "
@@ -1386,6 +1393,7 @@ def _distribution_paid_ad_execution_packet(
         "preflight_command": preflight_command if required else "",
         "eligibility_required": required,
         "spend_executable": spend_executable,
+        "preflight_blocked_reason": preflight_blocked_reason,
         "ad_account_eligibility": ad_account_eligibility,
         "eligibility_handoff": {
             "required": eligibility_handoff_required,

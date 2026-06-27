@@ -149,6 +149,7 @@ class PatchRailCITests(unittest.TestCase):
                 "remaining_organic_gap_after_cap": 125,
                 "recommendation": "organic_distribution_required_before_or_alongside_ads",
                 "preflight_required": True,
+                "preflight_blocked_reason": "",
             },
         )
 
@@ -1219,6 +1220,73 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 62.5)
         self.assertEqual(payload["measurement_packet"]["ad_remaining_usd"], 62.5)
 
+    def test_distribution_sku1_gate_reports_exhausted_ad_cap_even_with_valid_proof(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            eligibility_file = Path(tmpdir) / "ad-account-eligibility.json"
+            eligibility_file.write_text(
+                json.dumps(
+                    {
+                        "platform": "sku1-traffic-boost",
+                        "logged_in": True,
+                        "preexisting_account": True,
+                        "card_on_file": True,
+                        "login_required": False,
+                        "proof_url": "https://ads.example.com/campaigns/ci-triage-sku1-gate",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--ad-account-eligibility-file",
+                        str(eligibility_file),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--paid-click-cpc-usd",
+                        "0.75",
+                        "--ad-cap-usd",
+                        "75",
+                        "--ad-spend-committed-usd",
+                        "75",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 0.0)
+        self.assertEqual(payload["paid_traffic_plan"]["cap_click_capacity"], 0)
+        self.assertEqual(
+            payload["paid_traffic_plan"]["recommendation"],
+            "ad_cap_exhausted_organic_distribution_required",
+        )
+        self.assertEqual(
+            payload["paid_traffic_plan"]["preflight_blocked_reason"], "ad_cap_exhausted"
+        )
+        packet = payload["paid_ad_execution_packet"]
+        self.assertFalse(packet["required"])
+        self.assertFalse(packet["spend_executable"])
+        self.assertEqual(packet["preflight_blocked_reason"], "ad_cap_exhausted")
+        self.assertEqual(packet["commit_command_template"], "")
+
     def test_distribution_sku1_gate_unblocks_blocked_receipts_without_health_file(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"
@@ -1818,6 +1886,7 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 "eligibility_required": True,
                 "spend_executable": False,
+                "preflight_blocked_reason": "",
                 "ad_account_eligibility": {
                     "source": "not_provided",
                     "proof_path": "",
