@@ -914,7 +914,7 @@ def _distribution_ad_account_eligibility(
     capture_ref = str(raw.get("captured_at") or raw.get("verified_at") or "").strip()
     capture_status = "not_provided"
     capture_age_days: int | None = None
-    capture_fresh = True
+    capture_fresh = False
     if capture_ref:
         try:
             as_of_date = date.fromisoformat((as_of or date.today().isoformat())[:10])
@@ -928,6 +928,7 @@ def _distribution_ad_account_eligibility(
                 capture_fresh = False
             else:
                 capture_status = "fresh"
+                capture_fresh = True
         except ValueError:
             capture_status = "invalid_capture_date"
             capture_fresh = False
