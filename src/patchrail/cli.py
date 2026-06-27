@@ -1076,6 +1076,9 @@ def _distribution_ad_account_eligibility(
         if field in raw and raw.get(field) is not True and raw.get(field) is not False
     ]
     platform_matches = proof_platform == platform
+    platform_status = (
+        "present" if platform_matches else ("missing" if not proof_platform else "mismatch")
+    )
     eligible = bool(
         platform_matches
         and logged_in
@@ -1106,6 +1109,8 @@ def _distribution_ad_account_eligibility(
         "source": "file",
         "proof_path": str(path),
         "platform": proof_platform,
+        "expected_platform": platform,
+        "platform_status": platform_status,
         "eligible": eligible,
         "reason": "eligible_preexisting_logged_in_account"
         if eligible
