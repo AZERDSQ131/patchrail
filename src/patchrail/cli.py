@@ -884,14 +884,23 @@ def _distribution_ad_account_eligibility(
     logged_in = bool(raw.get("logged_in"))
     preexisting_account = bool(raw.get("preexisting_account"))
     card_on_file = bool(raw.get("card_on_file"))
-    login_required = bool(raw.get("login_required") or raw.get("captcha_or_2fa_required"))
+    stop_condition_fields = (
+        "login_required",
+        "captcha_or_2fa_required",
+        "new_account_required",
+        "card_setup_required",
+        "billing_or_identity_form_required",
+    )
+    stop_conditions_triggered = [
+        field for field in stop_condition_fields if bool(raw.get(field))
+    ]
     platform_matches = proof_platform == platform
     eligible = bool(
         platform_matches
         and logged_in
         and preexisting_account
         and card_on_file
-        and not login_required
+        and not stop_conditions_triggered
     )
     missing = [
         field
@@ -900,7 +909,7 @@ def _distribution_ad_account_eligibility(
             ("logged_in", logged_in),
             ("preexisting_account", preexisting_account),
             ("card_on_file", card_on_file),
-            ("no_login_or_2fa_required", not login_required),
+            ("no_gated_stop_conditions", not stop_conditions_triggered),
         )
         if not ok
     ]
@@ -909,8 +918,15 @@ def _distribution_ad_account_eligibility(
         "proof_path": str(path),
         "platform": proof_platform,
         "eligible": eligible,
-        "reason": "eligible_preexisting_logged_in_account" if eligible else "eligibility_failed",
+        "reason": "eligible_preexisting_logged_in_account"
+        if eligible
+        else (
+            "gated_stop_condition_present"
+            if stop_conditions_triggered
+            else "eligibility_failed"
+        ),
         "missing_or_failed": missing,
+        "stop_conditions_triggered": stop_conditions_triggered,
     }
 
 
