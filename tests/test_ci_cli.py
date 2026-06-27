@@ -606,6 +606,87 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
         self.assertEqual(payload["stalled_handoff_owner"], "copywriter")
+        self.assertEqual(
+            payload["receipt_audit"],
+            {
+                "total_receipts": 3,
+                "unique_channels": 3,
+                "duplicate_channel_total": 0,
+                "duplicate_channels": [],
+                "measurement_risk": "none",
+            },
+        )
+
+    def test_distribution_sku1_gate_reports_duplicate_channel_receipts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "devto-first.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "posted",
+                        "url": "https://dev.to/patchrail/first",
+                        "ts_posted": "2026-06-24T09:34:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (posted / "devto-second.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "ts_blocked": "2026-06-25T09:34:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "17",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-27",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["receipt_audit"]["total_receipts"], 2)
+        self.assertEqual(payload["receipt_audit"]["unique_channels"], 1)
+        self.assertEqual(payload["receipt_audit"]["duplicate_channel_total"], 1)
+        self.assertEqual(payload["receipt_audit"]["measurement_risk"], "duplicate_channel_receipts")
+        self.assertEqual(
+            payload["receipt_audit"]["duplicate_channels"],
+            [
+                {
+                    "channel": "devto",
+                    "receipt_count": 2,
+                    "statuses": ["blocked", "posted"],
+                    "paths": [
+                        str(posted / "devto-first.json"),
+                        str(posted / "devto-second.json"),
+                    ],
+                    "urls": ["https://dev.to/patchrail/first"],
+                    "measurement_risk": "duplicate_channel_receipts",
+                }
+            ],
+        )
 
     def test_distribution_sku1_gate_gives_pablo_claim_command_for_stalled_extension_blocker(
         self,

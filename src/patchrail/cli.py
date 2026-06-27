@@ -221,6 +221,39 @@ def _distribution_receipts(posted_dir: Path) -> list[dict[str, Any]]:
     return receipts
 
 
+def _distribution_receipt_audit(receipts: list[dict[str, Any]]) -> dict[str, Any]:
+    by_channel: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for receipt in receipts:
+        by_channel[str(receipt["channel"])].append(receipt)
+
+    duplicate_channels = []
+    for channel, channel_receipts in sorted(by_channel.items()):
+        if len(channel_receipts) < 2:
+            continue
+        statuses = sorted({str(receipt["status"]) for receipt in channel_receipts})
+        urls = sorted(
+            {str(receipt["url"]) for receipt in channel_receipts if str(receipt.get("url") or "")}
+        )
+        duplicate_channels.append(
+            {
+                "channel": channel,
+                "receipt_count": len(channel_receipts),
+                "statuses": statuses,
+                "paths": [str(receipt["path"]) for receipt in channel_receipts],
+                "urls": urls,
+                "measurement_risk": "duplicate_channel_receipts",
+            }
+        )
+
+    return {
+        "total_receipts": len(receipts),
+        "unique_channels": len(by_channel),
+        "duplicate_channel_total": len(duplicate_channels),
+        "duplicate_channels": duplicate_channels,
+        "measurement_risk": "duplicate_channel_receipts" if duplicate_channels else "none",
+    }
+
+
 def _read_optional_json(path: Path | None) -> dict[str, Any]:
     if path is None or not path.exists():
         return {}
@@ -1575,6 +1608,7 @@ def _distribution_gate_payload(
     ad_account_eligibility: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     receipts = _distribution_receipts(posted_dir)
+    receipt_audit = _distribution_receipt_audit(receipts)
     publish_health = _distribution_publish_health(publish_health_file)
     approved_copy = _distribution_approved_copy(approved_copy_dir)
     by_status = Counter(receipt["status"] for receipt in receipts)
@@ -1750,6 +1784,7 @@ def _distribution_gate_payload(
         "recommended_channel": recommended_channel,
         "owner_next_actions": owner_next_actions,
         "receipt_status_counts": dict(sorted(by_status.items())),
+        "receipt_audit": receipt_audit,
         "receipts": receipts,
         "requirements": {
             "billing_required": False,
