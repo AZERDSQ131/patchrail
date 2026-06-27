@@ -932,16 +932,20 @@ def _distribution_ad_account_eligibility(
         except ValueError:
             capture_status = "invalid_capture_date"
             capture_fresh = False
-    evidence_field = ""
-    evidence_ref = ""
-    for field in ("proof_url", "evidence_path", "local_screenshot_path"):
-        value = str(raw.get(field) or "").strip()
-        if value:
-            evidence_field = field
-            evidence_ref = value
-            break
+    evidence_candidates = [
+        (field, str(raw.get(field) or "").strip())
+        for field in ("proof_url", "evidence_path", "local_screenshot_path")
+        if str(raw.get(field) or "").strip()
+    ]
+    evidence_field = evidence_candidates[0][0] if evidence_candidates else ""
+    evidence_ref = evidence_candidates[0][1] if evidence_candidates else ""
+    evidence_fields = [field for field, _ in evidence_candidates]
+    ambiguous_evidence = len(evidence_candidates) > 1
     evidence_placeholder = bool(evidence_ref and ("<" in evidence_ref or ">" in evidence_ref))
-    if evidence_field == "proof_url":
+    if ambiguous_evidence:
+        evidence_valid = False
+        evidence_failure = "ambiguous_evidence_fields"
+    elif evidence_field == "proof_url":
         parsed_evidence_url = urlparse(evidence_ref)
         evidence_url_text = evidence_ref.lower()
         evidence_url_matches_campaign = (
@@ -1041,6 +1045,7 @@ def _distribution_ad_account_eligibility(
             else ("present" if evidence_valid else evidence_failure)
         ),
         "evidence_field": evidence_field,
+        "evidence_fields": evidence_fields,
         "evidence_ref": evidence_ref,
         "capture_status": capture_status,
         "captured_at": capture_ref,
