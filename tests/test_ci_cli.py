@@ -653,6 +653,10 @@ class PatchRailCITests(unittest.TestCase):
                     "blocked": 2,
                     "posted": 1,
                 },
+                "blocker_owner_counts": {
+                    "copywriter": 1,
+                    "pablo": 1,
+                },
                 "measurement_url_total": 2,
                 "posted_channel_total": 1,
                 "receipt_measurement_risk": "none",

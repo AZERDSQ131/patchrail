@@ -1613,6 +1613,7 @@ def _distribution_adoption_evidence_packet(
     channel_measurement_urls: list[dict[str, Any]],
     receipt_status_counts: dict[str, int],
     receipt_audit: dict[str, Any],
+    blocker_owner_counts: dict[str, int],
     as_of: str,
 ) -> dict[str, Any]:
     qualifies_as_adoption = sales_total > 0
@@ -1657,6 +1658,7 @@ def _distribution_adoption_evidence_packet(
         "measurement_urls": channel_measurement_urls,
         "distribution_signal_breakdown": {
             "receipt_status_counts": dict(sorted(receipt_status_counts.items())),
+            "blocker_owner_counts": dict(sorted(blocker_owner_counts.items())),
             "measurement_url_total": len(channel_measurement_urls),
             "posted_channel_total": len(posted_channels),
             "receipt_measurement_risk": receipt_audit["measurement_risk"],
@@ -2077,6 +2079,7 @@ def _distribution_gate_payload(
         channel_measurement_urls=channel_measurement_urls,
         receipt_status_counts=dict(by_status),
         receipt_audit=receipt_audit,
+        blocker_owner_counts=dict(blocker_owner_counts),
         as_of=as_of,
     )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
