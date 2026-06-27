@@ -1831,6 +1831,33 @@ class PatchRailCITests(unittest.TestCase):
                         "card_on_file",
                     ],
                 },
+                "eligibility_handoff": {
+                    "required": True,
+                    "owner": "worker",
+                    "platform": "sku1-traffic-boost",
+                    "write_path": "runs/<timestamp>-sku1-ad-account-eligibility/proof.json",
+                    "rerun_arg": "--ad-account-eligibility-file <proof.json>",
+                    "proof_template": {
+                        "platform": "sku1-traffic-boost",
+                        "logged_in": True,
+                        "preexisting_account": True,
+                        "card_on_file": True,
+                        "login_required": False,
+                        "captcha_or_2fa_required": False,
+                        "proof_url": "<ad_manager_url_or_local_screenshot_path>",
+                    },
+                    "stop_conditions": [
+                        "login_required",
+                        "captcha_or_2fa_required",
+                        "new_account_required",
+                        "card_setup_required",
+                        "billing_or_identity_form_required",
+                    ],
+                    "safe_next_step": (
+                        "Create proof only from an already logged-in preexisting ad account with "
+                        "a card already on file; otherwise leave spend non-executable."
+                    ),
+                },
                 "commit_command_template": "",
                 "fallback_action": "measure_gate_until_eligible_ad_account",
                 "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
@@ -2000,6 +2027,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(
             packet["ad_account_eligibility"]["reason"], "eligible_preexisting_logged_in_account"
         )
+        self.assertFalse(packet["eligibility_handoff"]["required"])
         self.assertIn("--amount 75.00", packet["commit_command_template"])
 
     def test_distribution_sku1_gate_fires_only_after_target_and_gate_date(self) -> None:

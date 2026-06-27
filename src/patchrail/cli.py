@@ -1303,6 +1303,11 @@ def _distribution_paid_ad_execution_packet(
             "Measure the gate until a logged-in preexisting ad account with card-on-file is proven; "
             "do not create accounts, add cards, bypass login, or spend from unproven eligibility."
         )
+    eligibility_handoff_required = bool(
+        paid_traffic_plan["preflight_required"]
+        and amount_usd > 0
+        and not ad_account_eligibility.get("eligible")
+    )
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
@@ -1317,6 +1322,35 @@ def _distribution_paid_ad_execution_packet(
         "eligibility_required": required,
         "spend_executable": spend_executable,
         "ad_account_eligibility": ad_account_eligibility,
+        "eligibility_handoff": {
+            "required": eligibility_handoff_required,
+            "owner": "worker",
+            "platform": _SKU1_PAID_TRAFFIC_PLATFORM,
+            "write_path": "runs/<timestamp>-sku1-ad-account-eligibility/proof.json",
+            "rerun_arg": "--ad-account-eligibility-file <proof.json>",
+            "proof_template": {
+                "platform": _SKU1_PAID_TRAFFIC_PLATFORM,
+                "logged_in": True,
+                "preexisting_account": True,
+                "card_on_file": True,
+                "login_required": False,
+                "captcha_or_2fa_required": False,
+                "proof_url": "<ad_manager_url_or_local_screenshot_path>",
+            },
+            "stop_conditions": [
+                "login_required",
+                "captcha_or_2fa_required",
+                "new_account_required",
+                "card_setup_required",
+                "billing_or_identity_form_required",
+            ],
+            "safe_next_step": (
+                "Create proof only from an already logged-in preexisting ad account with a card "
+                "already on file; otherwise leave spend non-executable."
+            )
+            if eligibility_handoff_required
+            else "",
+        },
         "commit_command_template": (
             "python3 opportunity-desk/scripts/ad_spend_guard.py commit "
             f"--amount {amount_usd:.2f} --platform {_SKU1_PAID_TRAFFIC_PLATFORM} "
