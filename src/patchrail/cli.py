@@ -984,7 +984,20 @@ def _distribution_ad_account_eligibility(
         "card_setup_required",
         "billing_or_identity_form_required",
     )
-    stop_conditions_triggered = [field for field in stop_condition_fields if raw.get(field) is True]
+    stop_conditions_triggered = [
+        field
+        for field in stop_condition_fields
+        if raw.get(field) is True
+        or (
+            isinstance(raw.get(field), str)
+            and raw.get(field).strip().lower() in {"1", "true", "yes"}
+        )
+    ]
+    invalid_stop_conditions = [
+        field
+        for field in stop_condition_fields
+        if field in raw and raw.get(field) is not True and raw.get(field) is not False
+    ]
     platform_matches = proof_platform == platform
     eligible = bool(
         platform_matches
@@ -994,6 +1007,7 @@ def _distribution_ad_account_eligibility(
         and capture_fresh
         and evidence_valid
         and not stop_conditions_triggered
+        and not invalid_stop_conditions
     )
     missing = [
         field
@@ -1004,7 +1018,10 @@ def _distribution_ad_account_eligibility(
             ("card_on_file", card_on_file),
             ("fresh_capture", capture_fresh),
             ("proof_url_or_evidence_path", evidence_valid),
-            ("no_gated_stop_conditions", not stop_conditions_triggered),
+            (
+                "no_gated_stop_conditions",
+                not stop_conditions_triggered and not invalid_stop_conditions,
+            ),
         )
         if not ok
     ]
@@ -1031,6 +1048,7 @@ def _distribution_ad_account_eligibility(
         "max_capture_age_days": _SKU1_AD_ELIGIBILITY_PROOF_MAX_AGE_DAYS,
         "missing_or_failed": missing,
         "stop_conditions_triggered": stop_conditions_triggered,
+        "invalid_stop_condition_fields": invalid_stop_conditions,
     }
 
 
