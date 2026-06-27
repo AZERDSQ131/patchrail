@@ -714,6 +714,112 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
 
+    def test_distribution_receipt_cleanup_dry_run_reports_archives_without_moving(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            keep = posted / "devto-first.json"
+            duplicate = posted / "devto-second.json"
+            keep.write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "posted",
+                        "url": "https://dev.to/patchrail/first",
+                        "ts_posted": "2026-06-24T09:34:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            duplicate.write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "ts_blocked": "2026-06-25T09:34:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "receipt-cleanup",
+                        "--posted-dir",
+                        str(posted),
+                    ]
+                )
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["mode"], "dry_run")
+            self.assertTrue(payload["required"])
+            self.assertEqual(payload["duplicate_channel_total"], 1)
+            self.assertEqual(payload["action_total"], 1)
+            self.assertTrue(keep.exists())
+            self.assertTrue(duplicate.exists())
+            self.assertFalse((posted / ".archive" / duplicate.name).exists())
+
+    def test_distribution_receipt_cleanup_apply_archives_duplicate_receipts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            keep = posted / "devto-first.json"
+            duplicate = posted / "devto-second.json"
+            keep.write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "posted",
+                        "url": "https://dev.to/patchrail/first",
+                        "ts_posted": "2026-06-24T09:34:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            duplicate.write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "ts_blocked": "2026-06-25T09:34:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "receipt-cleanup",
+                        "--posted-dir",
+                        str(posted),
+                        "--apply",
+                    ]
+                )
+
+            self.assertEqual(exit_code, 0)
+            payload = json.loads(stdout.getvalue())
+            archived = posted / ".archive" / duplicate.name
+            self.assertEqual(payload["mode"], "apply")
+            self.assertEqual(payload["action_total"], 1)
+            self.assertEqual(payload["errors"], [])
+            self.assertTrue(keep.exists())
+            self.assertFalse(duplicate.exists())
+            self.assertTrue(archived.exists())
+            self.assertEqual(payload["actions"][0]["keep_path"], str(keep))
+            self.assertEqual(
+                payload["actions"][0]["archived_paths"],
+                [{"source": str(duplicate), "destination": str(archived)}],
+            )
+
     def test_distribution_sku1_gate_gives_pablo_claim_command_for_stalled_extension_blocker(
         self,
     ) -> None:

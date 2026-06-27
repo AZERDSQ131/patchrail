@@ -287,6 +287,68 @@ def _distribution_receipt_canonical_key(receipt: dict[str, Any]) -> tuple[int, s
     return (status_rank, timestamp, str(receipt.get("path") or ""))
 
 
+def _distribution_receipt_cleanup_payload(
+    posted_dir: Path,
+    archive_dir: Path | None = None,
+    *,
+    apply: bool = False,
+) -> dict[str, Any]:
+    receipts = _distribution_receipts(posted_dir)
+    audit = _distribution_receipt_audit(receipts)
+    resolved_archive_dir = archive_dir or posted_dir / ".archive"
+    actions = []
+    errors = []
+    for item in audit["cleanup_plan"]["items"]:
+        archived_paths = []
+        for archive_path_raw in item["archive_paths"]:
+            source = Path(archive_path_raw)
+            if not source.exists():
+                errors.append(
+                    {
+                        "channel": item["channel"],
+                        "source": str(source),
+                        "error": "source_missing",
+                    }
+                )
+                continue
+            destination = resolved_archive_dir / source.name
+            if apply:
+                resolved_archive_dir.mkdir(parents=True, exist_ok=True)
+                if destination.exists():
+                    errors.append(
+                        {
+                            "channel": item["channel"],
+                            "source": str(source),
+                            "destination": str(destination),
+                            "error": "destination_exists",
+                        }
+                    )
+                    continue
+                source.rename(destination)
+            archived_paths.append({"source": str(source), "destination": str(destination)})
+        actions.append(
+            {
+                "channel": item["channel"],
+                "keep_path": item["keep_path"],
+                "archived_paths": archived_paths,
+                "reason": item["reason"],
+            }
+        )
+    return {
+        "schema_version": "patchrail.distribution_receipt_cleanup.v1",
+        "posted_dir": str(posted_dir),
+        "archive_dir": str(resolved_archive_dir),
+        "mode": "apply" if apply else "dry_run",
+        "required": audit["cleanup_plan"]["required"],
+        "duplicate_channel_total": audit["duplicate_channel_total"],
+        "action_total": sum(len(item["archived_paths"]) for item in actions),
+        "error_total": len(errors),
+        "actions": actions,
+        "errors": errors,
+        "status": "error" if errors else "ok",
+    }
+
+
 def _read_optional_json(path: Path | None) -> dict[str, Any]:
     if path is None or not path.exists():
         return {}
@@ -2323,6 +2385,16 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         text = _render_distribution_gate_text(payload)
     _write_or_print(text, args.out)
     return 0
+
+
+def _distribution_receipt_cleanup(args: argparse.Namespace) -> int:
+    payload = _distribution_receipt_cleanup_payload(
+        posted_dir=args.posted_dir,
+        archive_dir=args.archive_dir,
+        apply=args.apply,
+    )
+    _write_or_print(_json_dump(payload), args.out)
+    return 0 if payload["status"] == "ok" else 1
 
 
 def _read_optional_text(path: Path) -> str:
@@ -10651,6 +10723,29 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional requests/ path for the recommended channel facts-only copy brief.",
     )
     distribution_sku1.set_defaults(func=_distribution_gate)
+
+    distribution_receipt_cleanup = distribution_subparsers.add_parser(
+        "receipt-cleanup",
+        help="Archive duplicate local distribution receipt files after sku1-gate reports them.",
+    )
+    distribution_receipt_cleanup.add_argument(
+        "--posted-dir",
+        type=Path,
+        default=Path("products/gumroad/distribution/posted"),
+        help="Directory containing local publish_post.py receipt JSON files.",
+    )
+    distribution_receipt_cleanup.add_argument(
+        "--archive-dir",
+        type=Path,
+        help="Directory where duplicate receipt files are archived. Defaults to <posted-dir>/.archive.",
+    )
+    distribution_receipt_cleanup.add_argument(
+        "--apply",
+        action="store_true",
+        help="Move duplicate receipts into the archive directory. Without this flag, dry-run only.",
+    )
+    distribution_receipt_cleanup.add_argument("--out", type=Path, help="Optional output path.")
+    distribution_receipt_cleanup.set_defaults(func=_distribution_receipt_cleanup)
 
     web_metrics = subparsers.add_parser(
         "web-metrics",
