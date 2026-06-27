@@ -941,8 +941,12 @@ def _distribution_ad_account_eligibility(
         evidence_path = Path(evidence_ref).expanduser()
         if not evidence_path.is_absolute():
             evidence_path = path.parent / evidence_path
-        evidence_valid = evidence_path.exists() and not evidence_placeholder
-        evidence_failure = "missing_local_evidence_file"
+        evidence_valid = evidence_path.is_file() and not evidence_placeholder
+        evidence_failure = (
+            "invalid_local_evidence_file"
+            if evidence_path.exists() and not evidence_path.is_file()
+            else "missing_local_evidence_file"
+        )
     else:
         evidence_valid = False
         evidence_failure = "missing"
