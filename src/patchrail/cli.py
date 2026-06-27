@@ -912,6 +912,11 @@ def _proof_url_contains_userinfo(parsed_url: Any) -> bool:
     return bool(parsed_url.username or parsed_url.password)
 
 
+def _sku1_ad_evidence_ref_matches_campaign(ref: str, platform: str) -> bool:
+    ref_lower = ref.lower()
+    return platform.lower() in ref_lower or _SKU1_PAID_TRAFFIC_CAMPAIGN.lower() in ref_lower
+
+
 def _distribution_ad_account_eligibility(
     path: Path | None,
     platform: str,
@@ -983,10 +988,8 @@ def _distribution_ad_account_eligibility(
         evidence_url_is_http = parsed_evidence_url.scheme in {"http", "https"} and bool(
             parsed_evidence_url.netloc
         )
-        evidence_url_text = evidence_ref.lower()
-        evidence_url_matches_campaign = (
-            platform.lower() in evidence_url_text
-            or _SKU1_PAID_TRAFFIC_CAMPAIGN.lower() in evidence_url_text
+        evidence_url_matches_campaign = _sku1_ad_evidence_ref_matches_campaign(
+            evidence_ref, platform
         )
         evidence_url_is_placeholder = evidence_url_is_http and _is_placeholder_or_local_proof_url(
             parsed_evidence_url
@@ -1023,11 +1026,21 @@ def _distribution_ad_account_eligibility(
             evidence_path = path.parent / evidence_path
         evidence_is_file = evidence_path.is_file()
         evidence_is_empty = evidence_is_file and evidence_path.stat().st_size == 0
-        evidence_valid = evidence_is_file and not evidence_is_empty and not evidence_placeholder
+        evidence_ref_matches_campaign = _sku1_ad_evidence_ref_matches_campaign(
+            str(evidence_path), platform
+        )
+        evidence_valid = (
+            evidence_is_file
+            and not evidence_is_empty
+            and not evidence_placeholder
+            and evidence_ref_matches_campaign
+        )
         if evidence_is_file and evidence_is_empty:
             evidence_failure = "empty_local_evidence_file"
         elif evidence_path.exists() and not evidence_is_file:
             evidence_failure = "invalid_local_evidence_file"
+        elif evidence_is_file and not evidence_ref_matches_campaign:
+            evidence_failure = "unlinked_local_evidence_file"
         else:
             evidence_failure = "missing_local_evidence_file"
     else:

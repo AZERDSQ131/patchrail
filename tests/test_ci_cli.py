@@ -2227,6 +2227,102 @@ class PatchRailCITests(unittest.TestCase):
         self.assertFalse(packet["eligibility_handoff"]["required"])
         self.assertIn("--amount 75.00", packet["commit_command_template"])
 
+    def test_distribution_sku1_gate_requires_local_proof_path_linked_to_campaign(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "covered_channels": [
+                            "devto",
+                            "hashnode",
+                            "linkedin",
+                            "reddit-sideproject",
+                            "show-hn",
+                            "x",
+                        ],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "blocked": [],
+                        "stale_claims": [],
+                        "uncovered": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            linked_evidence = Path(tmpdir) / "ci-triage-sku1-gate-screenshot.png"
+            linked_evidence.write_bytes(b"fake screenshot bytes")
+            generic_evidence = Path(tmpdir) / "screenshot.png"
+            generic_evidence.write_bytes(b"fake screenshot bytes")
+            eligibility_file = Path(tmpdir) / "ad-account-eligibility.json"
+
+            def run_gate(local_screenshot_path: str) -> dict[str, object]:
+                eligibility_file.write_text(
+                    json.dumps(
+                        {
+                            "platform": "sku1-traffic-boost",
+                            "logged_in": True,
+                            "preexisting_account": True,
+                            "card_on_file": True,
+                            "captured_at": "2026-06-25",
+                            "local_screenshot_path": local_screenshot_path,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                stdout = StringIO()
+                with redirect_stdout(stdout):
+                    exit_code = main(
+                        [
+                            "distribution",
+                            "sku1-gate",
+                            "--posted-dir",
+                            str(posted),
+                            "--publish-health-file",
+                            str(health_file),
+                            "--ad-account-eligibility-file",
+                            str(eligibility_file),
+                            "--traffic-delivered",
+                            "28",
+                            "--sales-total",
+                            "0",
+                            "--gross-usd",
+                            "0",
+                            "--as-of",
+                            "2026-06-25",
+                            "--format",
+                            "json",
+                        ]
+                    )
+                self.assertEqual(exit_code, 0)
+                return json.loads(stdout.getvalue())
+
+            linked_payload = run_gate(str(linked_evidence))
+            linked_packet = linked_payload["paid_ad_execution_packet"]
+            self.assertTrue(linked_packet["spend_executable"])
+            self.assertEqual(linked_packet["ad_account_eligibility"]["evidence_status"], "present")
+
+            generic_payload = run_gate(str(generic_evidence))
+            generic_packet = generic_payload["paid_ad_execution_packet"]
+            self.assertFalse(generic_packet["spend_executable"])
+            self.assertEqual(
+                generic_payload["next_action"], "measure_gate_until_eligible_ad_account"
+            )
+            self.assertEqual(
+                generic_packet["ad_account_eligibility"]["evidence_status"],
+                "unlinked_local_evidence_file",
+            )
+            self.assertEqual(
+                generic_packet["ad_account_eligibility"]["missing_or_failed"],
+                ["proof_url_or_evidence_path"],
+            )
+
     def test_distribution_sku1_gate_rejects_paid_boost_when_proof_url_is_placeholder_domain(
         self,
     ) -> None:
