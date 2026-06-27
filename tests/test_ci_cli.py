@@ -1627,6 +1627,20 @@ class PatchRailCITests(unittest.TestCase):
                 "ad_remaining_usd": 75.0,
                 "paid_click_capacity": 100,
                 "paid_boost_blocked_reason": "missing_logged_in_preexisting_ad_account_proof",
+                "measurement_urls": [
+                    {
+                        "source": "paid",
+                        "channel": "sku1-traffic-boost",
+                        "owner": "worker",
+                        "next_action": "preflight_guarded_ads_or_measure_gate",
+                        "url": (
+                            "https://patchrail.gumroad.com/l/ci-failure-triage"
+                            "?utm_source=guarded_paid_boost"
+                            "&utm_campaign=ci-triage-sku1-gate"
+                        ),
+                        "measurement_event": "sku1_paid_visits_and_sales_delta",
+                    }
+                ],
                 "next_measurement_command": (
                     "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
                     ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"

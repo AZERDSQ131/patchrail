@@ -1218,12 +1218,35 @@ def _distribution_measurement_packet(
     traffic_pressure: dict[str, Any],
     paid_traffic_plan: dict[str, Any],
     paid_ad_execution_packet: dict[str, Any],
+    channel_measurement_urls: list[dict[str, Any]],
     as_of: str,
     gate_date: str,
 ) -> dict[str, Any]:
     blocked_reason = ""
     if paid_ad_execution_packet["required"] and not paid_ad_execution_packet["spend_executable"]:
         blocked_reason = str(paid_ad_execution_packet["ad_account_eligibility"].get("reason") or "")
+    measurement_urls = [
+        {
+            "source": "organic",
+            "channel": str(item["channel"]),
+            "owner": str(item["owner"]),
+            "next_action": str(item["next_action"]),
+            "url": str(item["url"]),
+            "measurement_event": str(item["measurement_event"]),
+        }
+        for item in channel_measurement_urls
+    ]
+    if paid_ad_execution_packet["required"]:
+        measurement_urls.append(
+            {
+                "source": "paid",
+                "channel": str(paid_ad_execution_packet["platform"]),
+                "owner": str(paid_ad_execution_packet["owner"]),
+                "next_action": "preflight_guarded_ads_or_measure_gate",
+                "url": str(paid_ad_execution_packet["url"]),
+                "measurement_event": "sku1_paid_visits_and_sales_delta",
+            }
+        )
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
@@ -1239,6 +1262,7 @@ def _distribution_measurement_packet(
         "ad_remaining_usd": paid_traffic_plan["ad_remaining_usd"],
         "paid_click_capacity": paid_traffic_plan["cap_click_capacity"],
         "paid_boost_blocked_reason": blocked_reason,
+        "measurement_urls": measurement_urls,
         "next_measurement_command": (
             "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
             ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
@@ -1630,6 +1654,7 @@ def _distribution_gate_payload(
         traffic_pressure=traffic_pressure,
         paid_traffic_plan=paid_traffic_plan,
         paid_ad_execution_packet=paid_ad_execution_packet,
+        channel_measurement_urls=channel_measurement_urls,
         as_of=as_of,
         gate_date=gate_date,
     )
