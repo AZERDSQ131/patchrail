@@ -18,7 +18,7 @@ from http.server import ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
 from patchrail import __version__
@@ -890,11 +890,32 @@ def _distribution_ad_account_eligibility(
     logged_in = raw.get("logged_in") is True
     preexisting_account = raw.get("preexisting_account") is True
     card_on_file = raw.get("card_on_file") is True
-    evidence_ref = str(
-        raw.get("proof_url") or raw.get("evidence_path") or raw.get("local_screenshot_path") or ""
-    ).strip()
+    evidence_field = ""
+    evidence_ref = ""
+    for field in ("proof_url", "evidence_path", "local_screenshot_path"):
+        value = str(raw.get(field) or "").strip()
+        if value:
+            evidence_field = field
+            evidence_ref = value
+            break
     evidence_placeholder = bool(evidence_ref and ("<" in evidence_ref or ">" in evidence_ref))
-    evidence_present = bool(evidence_ref and not evidence_placeholder)
+    if evidence_field == "proof_url":
+        parsed_evidence_url = urlparse(evidence_ref)
+        evidence_valid = (
+            parsed_evidence_url.scheme in {"http", "https"}
+            and bool(parsed_evidence_url.netloc)
+            and not evidence_placeholder
+        )
+        evidence_failure = "invalid_proof_url"
+    elif evidence_ref:
+        evidence_path = Path(evidence_ref).expanduser()
+        if not evidence_path.is_absolute():
+            evidence_path = path.parent / evidence_path
+        evidence_valid = evidence_path.exists() and not evidence_placeholder
+        evidence_failure = "missing_local_evidence_file"
+    else:
+        evidence_valid = False
+        evidence_failure = "missing"
     stop_condition_fields = (
         "login_required",
         "captcha_or_2fa_required",
@@ -909,7 +930,7 @@ def _distribution_ad_account_eligibility(
         and logged_in
         and preexisting_account
         and card_on_file
-        and evidence_present
+        and evidence_valid
         and not stop_conditions_triggered
     )
     missing = [
@@ -919,7 +940,7 @@ def _distribution_ad_account_eligibility(
             ("logged_in", logged_in),
             ("preexisting_account", preexisting_account),
             ("card_on_file", card_on_file),
-            ("proof_url_or_evidence_path", evidence_present),
+            ("proof_url_or_evidence_path", evidence_valid),
             ("no_gated_stop_conditions", not stop_conditions_triggered),
         )
         if not ok
@@ -934,9 +955,12 @@ def _distribution_ad_account_eligibility(
         else (
             "gated_stop_condition_present" if stop_conditions_triggered else "eligibility_failed"
         ),
-        "evidence_status": "placeholder"
-        if evidence_placeholder
-        else ("present" if evidence_ref else "missing"),
+        "evidence_status": (
+            "placeholder"
+            if evidence_placeholder
+            else ("present" if evidence_valid else evidence_failure)
+        ),
+        "evidence_field": evidence_field,
         "evidence_ref": evidence_ref,
         "missing_or_failed": missing,
         "stop_conditions_triggered": stop_conditions_triggered,
