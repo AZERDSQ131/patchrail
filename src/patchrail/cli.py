@@ -880,7 +880,7 @@ def _distribution_ad_account_eligibility(
     if not isinstance(raw, dict):
         raise ValueError("ad account eligibility proof must be a JSON object")
 
-    proof_platform = str(raw.get("platform") or platform)
+    proof_platform = str(raw.get("platform") or "")
     logged_in = bool(raw.get("logged_in"))
     preexisting_account = bool(raw.get("preexisting_account"))
     card_on_file = bool(raw.get("card_on_file"))
