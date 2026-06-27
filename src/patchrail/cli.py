@@ -908,6 +908,10 @@ def _is_allowed_ad_manager_proof_url(parsed_url: Any) -> bool:
     )
 
 
+def _proof_url_contains_userinfo(parsed_url: Any) -> bool:
+    return bool(parsed_url.username or parsed_url.password)
+
+
 def _distribution_ad_account_eligibility(
     path: Path | None,
     platform: str,
@@ -990,17 +994,23 @@ def _distribution_ad_account_eligibility(
         evidence_url_is_allowed_ad_manager = (
             evidence_url_is_http and _is_allowed_ad_manager_proof_url(parsed_evidence_url)
         )
+        evidence_url_contains_userinfo = evidence_url_is_http and _proof_url_contains_userinfo(
+            parsed_evidence_url
+        )
         evidence_valid = (
             evidence_url_is_http
             and not evidence_placeholder
             and not evidence_url_is_placeholder
             and evidence_url_is_allowed_ad_manager
+            and not evidence_url_contains_userinfo
             and evidence_url_matches_campaign
         )
         if not evidence_url_is_http or evidence_placeholder:
             evidence_failure = "invalid_proof_url"
         elif evidence_url_is_placeholder:
             evidence_failure = "placeholder_or_local_proof_url"
+        elif evidence_url_contains_userinfo:
+            evidence_failure = "credentialed_proof_url"
         elif not evidence_url_is_allowed_ad_manager:
             evidence_failure = "untrusted_ad_manager_url"
         elif not evidence_url_matches_campaign:
