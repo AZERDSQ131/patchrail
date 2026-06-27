@@ -2104,9 +2104,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertTrue(packet["required"])
         self.assertFalse(packet["spend_executable"])
         self.assertEqual(payload["next_action"], "measure_gate_until_eligible_ad_account")
-        self.assertEqual(
-            packet["ad_account_eligibility"]["reason"], "gated_stop_condition_present"
-        )
+        self.assertEqual(packet["ad_account_eligibility"]["reason"], "gated_stop_condition_present")
         self.assertEqual(
             packet["ad_account_eligibility"]["stop_conditions_triggered"],
             ["billing_or_identity_form_required"],

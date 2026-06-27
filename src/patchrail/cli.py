@@ -891,9 +891,7 @@ def _distribution_ad_account_eligibility(
         "card_setup_required",
         "billing_or_identity_form_required",
     )
-    stop_conditions_triggered = [
-        field for field in stop_condition_fields if bool(raw.get(field))
-    ]
+    stop_conditions_triggered = [field for field in stop_condition_fields if bool(raw.get(field))]
     platform_matches = proof_platform == platform
     eligible = bool(
         platform_matches
@@ -921,9 +919,7 @@ def _distribution_ad_account_eligibility(
         "reason": "eligible_preexisting_logged_in_account"
         if eligible
         else (
-            "gated_stop_condition_present"
-            if stop_conditions_triggered
-            else "eligibility_failed"
+            "gated_stop_condition_present" if stop_conditions_triggered else "eligibility_failed"
         ),
         "missing_or_failed": missing,
         "stop_conditions_triggered": stop_conditions_triggered,
