@@ -1393,6 +1393,39 @@ class PatchRailCITests(unittest.TestCase):
                 "ad_spend_committed_usd": "argument",
             },
         )
+        self.assertEqual(
+            payload["metric_warnings"],
+            [
+                {
+                    "metric": "traffic_delivered",
+                    "reason": "manual_metric_overrides_supervisor_snapshot",
+                    "argument_value": 11,
+                    "supervisor_snapshot_value": 9,
+                    "snapshot_key": "traffic_delivered_total",
+                },
+                {
+                    "metric": "sales_total",
+                    "reason": "manual_metric_overrides_supervisor_snapshot",
+                    "argument_value": 1,
+                    "supervisor_snapshot_value": 0,
+                    "snapshot_key": "gumroad_sales_total",
+                },
+                {
+                    "metric": "gross_usd",
+                    "reason": "manual_metric_overrides_supervisor_snapshot",
+                    "argument_value": 19.0,
+                    "supervisor_snapshot_value": 0.0,
+                    "snapshot_key": "gumroad_gross_usd",
+                },
+                {
+                    "metric": "ad_spend_committed_usd",
+                    "reason": "manual_metric_overrides_supervisor_snapshot",
+                    "argument_value": 7.5,
+                    "supervisor_snapshot_value": 5.0,
+                    "snapshot_key": "ad_spend_committed_usd",
+                },
+            ],
+        )
         self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 7.5)
 
     def test_distribution_sku1_gate_exposes_ad_spend_over_cap_from_ledger(self) -> None:

@@ -941,6 +941,30 @@ def _distribution_metric_value(
     return None, "missing"
 
 
+def _distribution_metric_override_warning(
+    *,
+    metric_name: str,
+    argument_value: Any,
+    snapshot: dict[str, Any],
+    snapshot_key: str,
+    cast: Any,
+) -> dict[str, Any] | None:
+    metrics = snapshot.get("metrics") or {}
+    if argument_value is None or snapshot_key not in metrics:
+        return None
+    argument_metric = cast(argument_value)
+    snapshot_metric = cast(metrics[snapshot_key])
+    if argument_metric == snapshot_metric:
+        return None
+    return {
+        "metric": metric_name,
+        "reason": "manual_metric_overrides_supervisor_snapshot",
+        "argument_value": argument_metric,
+        "supervisor_snapshot_value": snapshot_metric,
+        "snapshot_key": snapshot_key,
+    }
+
+
 def _distribution_supervisor_ad_spend_source(
     snapshot: dict[str, Any],
     committed_usd: float,
@@ -2826,6 +2850,42 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         "gross_usd": gross_source,
         "ad_spend_committed_usd": ad_spend_metric_source,
     }
+    metric_warnings = [
+        warning
+        for warning in (
+            _distribution_metric_override_warning(
+                metric_name="traffic_delivered",
+                argument_value=args.traffic_delivered,
+                snapshot=supervisor_snapshot,
+                snapshot_key="traffic_delivered_total",
+                cast=int,
+            ),
+            _distribution_metric_override_warning(
+                metric_name="sales_total",
+                argument_value=args.sales_total,
+                snapshot=supervisor_snapshot,
+                snapshot_key="gumroad_sales_total",
+                cast=int,
+            ),
+            _distribution_metric_override_warning(
+                metric_name="gross_usd",
+                argument_value=args.gross_usd,
+                snapshot=supervisor_snapshot,
+                snapshot_key="gumroad_gross_usd",
+                cast=float,
+            ),
+            _distribution_metric_override_warning(
+                metric_name="ad_spend_committed_usd",
+                argument_value=args.ad_spend_committed_usd,
+                snapshot=supervisor_snapshot,
+                snapshot_key="ad_spend_committed_usd",
+                cast=float,
+            ),
+        )
+        if warning is not None
+    ]
+    if metric_warnings:
+        payload["metric_warnings"] = metric_warnings
     if args.write_copy_brief is not None:
         channel_execution_packet = payload["channel_execution_packet"]
         copy_brief_request = channel_execution_packet.get("copy_brief_request")
