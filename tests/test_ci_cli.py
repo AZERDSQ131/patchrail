@@ -244,6 +244,15 @@ class PatchRailCITests(unittest.TestCase):
             "measure_traffic_delta_again_before_next_distribution_action",
         )
         self.assertEqual(
+            payload["measurement_packet"]["next_measurement_target"],
+            {
+                "traffic_delta_target": 55,
+                "next_traffic_checkpoint": 80,
+                "sales_delta_target": 1,
+                "pivot_gate_condition": "traffic_delivered>=300 and sales_total==0",
+            },
+        )
+        self.assertEqual(
             payload["execution_checklist"],
             [
                 {
@@ -2270,6 +2279,12 @@ class PatchRailCITests(unittest.TestCase):
                     }
                 ],
                 "next_check": "measure_traffic_delta_again_before_next_distribution_action",
+                "next_measurement_target": {
+                    "traffic_delta_target": 55,
+                    "next_traffic_checkpoint": 83,
+                    "sales_delta_target": 1,
+                    "pivot_gate_condition": "traffic_delivered>=300 and sales_total==0",
+                },
                 "next_measurement_command": (
                     "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
                     ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"

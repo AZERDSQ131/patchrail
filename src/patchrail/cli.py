@@ -5,6 +5,7 @@ import csv
 import importlib.util
 import io
 import json
+import math
 import re
 import shlex
 import subprocess
@@ -1748,6 +1749,13 @@ def _distribution_measurement_packet(
         next_check = "measure_traffic_delta_again_before_next_distribution_action"
     else:
         next_check = "measure_sales_delta_until_gate_date"
+    traffic_delta_target = 0
+    if sales_total == 0 and traffic_delivered < traffic_target:
+        traffic_delta_target = min(
+            traffic_gap,
+            max(1, math.ceil(float(traffic_pressure["required_daily_traffic"]))),
+        )
+    next_traffic_checkpoint = min(traffic_target, traffic_delivered + traffic_delta_target)
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
@@ -1766,6 +1774,12 @@ def _distribution_measurement_packet(
         "measurement_urls": measurement_urls,
         "url_check_commands": url_check_commands,
         "next_check": next_check,
+        "next_measurement_target": {
+            "traffic_delta_target": traffic_delta_target,
+            "next_traffic_checkpoint": next_traffic_checkpoint,
+            "sales_delta_target": 1 if sales_total == 0 else 0,
+            "pivot_gate_condition": "traffic_delivered>=300 and sales_total==0",
+        },
         "next_measurement_command": (
             "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
             ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
@@ -2438,7 +2452,9 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"gap={payload['measurement_packet']['traffic_gap']}, "
             f"sales={payload['measurement_packet']['sales_total']}, "
             f"blocked={payload['measurement_packet']['paid_boost_blocked_reason'] or 'none'}, "
-            f"next_check={payload['measurement_packet']['next_check']}"
+            f"next_check={payload['measurement_packet']['next_check']}, "
+            f"checkpoint="
+            f"{payload['measurement_packet']['next_measurement_target']['next_traffic_checkpoint']}"
         ),
         "Execution checklist: "
         + (
