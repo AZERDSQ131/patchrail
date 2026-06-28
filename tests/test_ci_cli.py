@@ -253,6 +253,16 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
         self.assertEqual(
+            payload["measurement_packet"]["pivot_gate_snapshot"],
+            {
+                "armed": False,
+                "traffic_target_met": False,
+                "traffic_remaining_to_decision": 275,
+                "sales_required_to_clear_gate": 1,
+                "outcome": "traffic_sample_incomplete",
+            },
+        )
+        self.assertEqual(
             payload["execution_checklist"],
             [
                 {
@@ -2285,6 +2295,13 @@ class PatchRailCITests(unittest.TestCase):
                     "sales_delta_target": 1,
                     "pivot_gate_condition": "traffic_delivered>=300 and sales_total==0",
                 },
+                "pivot_gate_snapshot": {
+                    "armed": False,
+                    "traffic_target_met": False,
+                    "traffic_remaining_to_decision": 272,
+                    "sales_required_to_clear_gate": 1,
+                    "outcome": "traffic_sample_incomplete",
+                },
                 "next_measurement_command": (
                     "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
                     ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
@@ -4276,6 +4293,16 @@ class PatchRailCITests(unittest.TestCase):
             payload["measurement_packet"]["next_check"],
             "snapshot_pivot_gate_with_sales_count",
         )
+        self.assertEqual(
+            payload["measurement_packet"]["pivot_gate_snapshot"],
+            {
+                "armed": True,
+                "traffic_target_met": True,
+                "traffic_remaining_to_decision": 0,
+                "sales_required_to_clear_gate": 1,
+                "outcome": "pivot_required_no_sales",
+            },
+        )
 
     def test_distribution_sku1_gate_measurement_packet_records_sale_next_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -4309,6 +4336,16 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(
             payload["measurement_packet"]["next_check"],
             "record_paid_sale_and_prepare_fulfillment_snapshot",
+        )
+        self.assertEqual(
+            payload["measurement_packet"]["pivot_gate_snapshot"],
+            {
+                "armed": False,
+                "traffic_target_met": False,
+                "traffic_remaining_to_decision": 258,
+                "sales_required_to_clear_gate": 0,
+                "outcome": "validated_by_sale",
+            },
         )
 
     def test_distribution_sku1_gate_writes_social_copy_brief(self) -> None:

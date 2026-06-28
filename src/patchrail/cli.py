@@ -1749,6 +1749,16 @@ def _distribution_measurement_packet(
         next_check = "measure_traffic_delta_again_before_next_distribution_action"
     else:
         next_check = "measure_sales_delta_until_gate_date"
+    pivot_gate_armed = as_of >= gate_date
+    traffic_target_met = traffic_delivered >= traffic_target
+    if sales_total > 0:
+        pivot_gate_outcome = "validated_by_sale"
+    elif pivot_gate_armed and traffic_target_met:
+        pivot_gate_outcome = "pivot_required_no_sales"
+    elif traffic_target_met:
+        pivot_gate_outcome = "await_sales_until_gate_date"
+    else:
+        pivot_gate_outcome = "traffic_sample_incomplete"
     traffic_delta_target = 0
     if sales_total == 0 and traffic_delivered < traffic_target:
         traffic_delta_target = min(
@@ -1779,6 +1789,13 @@ def _distribution_measurement_packet(
             "next_traffic_checkpoint": next_traffic_checkpoint,
             "sales_delta_target": 1 if sales_total == 0 else 0,
             "pivot_gate_condition": "traffic_delivered>=300 and sales_total==0",
+        },
+        "pivot_gate_snapshot": {
+            "armed": pivot_gate_armed,
+            "traffic_target_met": traffic_target_met,
+            "traffic_remaining_to_decision": max(0, traffic_target - traffic_delivered),
+            "sales_required_to_clear_gate": 1 if sales_total == 0 else 0,
+            "outcome": pivot_gate_outcome,
         },
         "next_measurement_command": (
             "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
@@ -2454,7 +2471,8 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"blocked={payload['measurement_packet']['paid_boost_blocked_reason'] or 'none'}, "
             f"next_check={payload['measurement_packet']['next_check']}, "
             f"checkpoint="
-            f"{payload['measurement_packet']['next_measurement_target']['next_traffic_checkpoint']}"
+            f"{payload['measurement_packet']['next_measurement_target']['next_traffic_checkpoint']}, "
+            f"gate_outcome={payload['measurement_packet']['pivot_gate_snapshot']['outcome']}"
         ),
         "Execution checklist: "
         + (
