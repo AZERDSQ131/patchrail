@@ -240,6 +240,10 @@ class PatchRailCITests(unittest.TestCase):
             ],
         )
         self.assertEqual(
+            payload["measurement_packet"]["next_check"],
+            "measure_traffic_delta_again_before_next_distribution_action",
+        )
+        self.assertEqual(
             payload["execution_checklist"],
             [
                 {
@@ -2265,6 +2269,7 @@ class PatchRailCITests(unittest.TestCase):
                         "success_criteria": "curl_exit_0",
                     }
                 ],
+                "next_check": "measure_traffic_delta_again_before_next_distribution_action",
                 "next_measurement_command": (
                     "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
                     ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
@@ -4252,6 +4257,44 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["next_action"], "pivot_offer")
         self.assertEqual(payload["traffic_execution_plan"]["paid_click_target"], 0)
         self.assertEqual(payload["traffic_execution_plan"]["organic_click_target"], 0)
+        self.assertEqual(
+            payload["measurement_packet"]["next_check"],
+            "snapshot_pivot_gate_with_sales_count",
+        )
+
+    def test_distribution_sku1_gate_measurement_packet_records_sale_next_check(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "42",
+                        "--sales-total",
+                        "1",
+                        "--gross-usd",
+                        "19",
+                        "--as-of",
+                        "2026-06-29",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["next_action"], "fulfill_sale")
+        self.assertEqual(
+            payload["measurement_packet"]["next_check"],
+            "record_paid_sale_and_prepare_fulfillment_snapshot",
+        )
 
     def test_distribution_sku1_gate_writes_social_copy_brief(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

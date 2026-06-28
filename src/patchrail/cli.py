@@ -1740,6 +1740,14 @@ def _distribution_measurement_packet(
         }
         for item in measurement_urls
     ]
+    if sales_total > 0:
+        next_check = "record_paid_sale_and_prepare_fulfillment_snapshot"
+    elif traffic_delivered >= traffic_target:
+        next_check = "snapshot_pivot_gate_with_sales_count"
+    elif traffic_pressure["required_daily_traffic"] > 0:
+        next_check = "measure_traffic_delta_again_before_next_distribution_action"
+    else:
+        next_check = "measure_sales_delta_until_gate_date"
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
@@ -1757,6 +1765,7 @@ def _distribution_measurement_packet(
         "paid_boost_blocked_reason": blocked_reason,
         "measurement_urls": measurement_urls,
         "url_check_commands": url_check_commands,
+        "next_check": next_check,
         "next_measurement_command": (
             "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
             ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
@@ -2428,7 +2437,8 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"{payload['measurement_packet']['traffic_target']}, "
             f"gap={payload['measurement_packet']['traffic_gap']}, "
             f"sales={payload['measurement_packet']['sales_total']}, "
-            f"blocked={payload['measurement_packet']['paid_boost_blocked_reason'] or 'none'}"
+            f"blocked={payload['measurement_packet']['paid_boost_blocked_reason'] or 'none'}, "
+            f"next_check={payload['measurement_packet']['next_check']}"
         ),
         "Execution checklist: "
         + (
