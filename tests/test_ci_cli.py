@@ -1271,6 +1271,130 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 62.5)
         self.assertEqual(payload["measurement_packet"]["ad_remaining_usd"], 62.5)
 
+    def test_distribution_sku1_gate_reads_metrics_from_supervisor_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            supervisor = Path(tmpdir) / "patchrail_supervisor_last.json"
+            supervisor.write_text(
+                json.dumps(
+                    {
+                        "traffic_delivered_total": 9,
+                        "gumroad_sales_total": 0,
+                        "gumroad_gross_usd": 0.0,
+                        "ad_spend_committed_usd": 12.5,
+                        "ad_cap_usd": 75.0,
+                        "pivot_gate_armed": False,
+                        "pivot_gate_fires": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--supervisor-snapshot",
+                        str(supervisor),
+                        "--as-of",
+                        "2026-06-28",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["traffic_delivered"], 9)
+        self.assertEqual(payload["sales_total"], 0)
+        self.assertEqual(payload["gross_usd"], 0.0)
+        self.assertEqual(
+            payload["metric_source"],
+            {
+                "traffic_delivered": "supervisor_snapshot",
+                "sales_total": "supervisor_snapshot",
+                "gross_usd": "supervisor_snapshot",
+                "ad_spend_committed_usd": "supervisor_snapshot",
+            },
+        )
+        self.assertEqual(
+            payload["ad_spend_source"],
+            {
+                "source": "supervisor_snapshot",
+                "ledger_path": str(supervisor),
+                "committed_usd": 12.5,
+                "line_count": 1,
+                "committed_lines": 1,
+                "ignored_lines": 0,
+                "snapshot_format": "patchrail_supervisor_last",
+            },
+        )
+        self.assertEqual(payload["supervisor_snapshot"]["metrics"]["traffic_delivered_total"], 9)
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 12.5)
+
+    def test_distribution_sku1_gate_manual_metrics_override_supervisor_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            supervisor = Path(tmpdir) / "patchrail_supervisor_last.json"
+            supervisor.write_text(
+                json.dumps(
+                    {
+                        "traffic_delivered_total": 9,
+                        "gumroad_sales_total": 0,
+                        "gumroad_gross_usd": 0.0,
+                        "ad_spend_committed_usd": 5.0,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--supervisor-snapshot",
+                        str(supervisor),
+                        "--traffic-delivered",
+                        "11",
+                        "--sales-total",
+                        "1",
+                        "--gross-usd",
+                        "19.0",
+                        "--ad-spend-committed-usd",
+                        "7.5",
+                        "--as-of",
+                        "2026-06-28",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["traffic_delivered"], 11)
+        self.assertEqual(payload["sales_total"], 1)
+        self.assertEqual(payload["gross_usd"], 19.0)
+        self.assertEqual(
+            payload["metric_source"],
+            {
+                "traffic_delivered": "argument",
+                "sales_total": "argument",
+                "gross_usd": "argument",
+                "ad_spend_committed_usd": "argument",
+            },
+        )
+        self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 7.5)
+
     def test_distribution_sku1_gate_exposes_ad_spend_over_cap_from_ledger(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

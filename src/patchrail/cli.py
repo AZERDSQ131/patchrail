@@ -890,6 +890,72 @@ def _distribution_ad_spend_source(
     }
 
 
+def _distribution_supervisor_snapshot(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {
+            "source": "arguments",
+            "path": "",
+            "present": False,
+            "metrics": {},
+        }
+    if not path.exists():
+        raise FileNotFoundError(f"supervisor snapshot not found: {path}")
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid supervisor snapshot JSON: {path}") from exc
+    if not isinstance(raw, dict):
+        raise ValueError(f"supervisor snapshot must be a JSON object: {path}")
+    metric_keys = (
+        "traffic_delivered_total",
+        "gumroad_sales_total",
+        "gumroad_gross_usd",
+        "ad_spend_committed_usd",
+        "ad_cap_usd",
+        "pivot_gate_armed",
+        "pivot_gate_fires",
+    )
+    return {
+        "source": "supervisor_snapshot",
+        "path": str(path),
+        "present": True,
+        "metrics": {key: raw[key] for key in metric_keys if key in raw},
+    }
+
+
+def _distribution_metric_value(
+    *,
+    argument_value: Any,
+    snapshot: dict[str, Any],
+    snapshot_key: str,
+    argument_name: str,
+    cast: Any,
+    missing: list[str],
+) -> tuple[Any | None, str]:
+    if argument_value is not None:
+        return cast(argument_value), "argument"
+    metrics = snapshot.get("metrics") or {}
+    if snapshot_key in metrics:
+        return cast(metrics[snapshot_key]), "supervisor_snapshot"
+    missing.append(f"{argument_name} or --supervisor-snapshot field {snapshot_key}")
+    return None, "missing"
+
+
+def _distribution_supervisor_ad_spend_source(
+    snapshot: dict[str, Any],
+    committed_usd: float,
+) -> dict[str, Any]:
+    return {
+        "source": "supervisor_snapshot",
+        "ledger_path": str(snapshot.get("path") or ""),
+        "committed_usd": round(max(committed_usd, 0.0), 2),
+        "line_count": 1,
+        "committed_lines": 1,
+        "ignored_lines": 0,
+        "snapshot_format": "patchrail_supervisor_last",
+    }
+
+
 def _is_placeholder_or_local_proof_url(parsed_url: Any) -> bool:
     host = (parsed_url.hostname or "").lower().strip("[]")
     if not host:
@@ -2674,10 +2740,63 @@ def _doctor(args: argparse.Namespace) -> int:
 
 
 def _distribution_gate(args: argparse.Namespace) -> int:
-    ad_spend_source = _distribution_ad_spend_source(
-        args.ad_spend_ledger,
-        args.ad_spend_committed_usd,
+    supervisor_snapshot = _distribution_supervisor_snapshot(args.supervisor_snapshot)
+    missing_metrics: list[str] = []
+    traffic_delivered, traffic_source = _distribution_metric_value(
+        argument_value=args.traffic_delivered,
+        snapshot=supervisor_snapshot,
+        snapshot_key="traffic_delivered_total",
+        argument_name="--traffic-delivered",
+        cast=int,
+        missing=missing_metrics,
     )
+    sales_total, sales_source = _distribution_metric_value(
+        argument_value=args.sales_total,
+        snapshot=supervisor_snapshot,
+        snapshot_key="gumroad_sales_total",
+        argument_name="--sales-total",
+        cast=int,
+        missing=missing_metrics,
+    )
+    gross_usd, gross_source = _distribution_metric_value(
+        argument_value=args.gross_usd,
+        snapshot=supervisor_snapshot,
+        snapshot_key="gumroad_gross_usd",
+        argument_name="--gross-usd",
+        cast=float,
+        missing=missing_metrics,
+    )
+    if missing_metrics:
+        sys.stderr.write("missing distribution metrics: " + ", ".join(missing_metrics) + "\n")
+        return 2
+
+    ad_spend_committed_usd = args.ad_spend_committed_usd
+    ad_spend_source = None
+    if args.ad_spend_ledger is None and ad_spend_committed_usd is None:
+        ad_spend_from_snapshot, ad_spend_metric_source = _distribution_metric_value(
+            argument_value=None,
+            snapshot=supervisor_snapshot,
+            snapshot_key="ad_spend_committed_usd",
+            argument_name="--ad-spend-committed-usd",
+            cast=float,
+            missing=[],
+        )
+        if ad_spend_from_snapshot is not None:
+            ad_spend_committed_usd = ad_spend_from_snapshot
+            ad_spend_source = _distribution_supervisor_ad_spend_source(
+                supervisor_snapshot,
+                ad_spend_committed_usd,
+            )
+    if ad_spend_committed_usd is None:
+        ad_spend_committed_usd = 0.0
+        ad_spend_metric_source = "ledger" if args.ad_spend_ledger is not None else "default"
+    elif ad_spend_source is None:
+        ad_spend_metric_source = "ledger" if args.ad_spend_ledger is not None else "argument"
+    if ad_spend_source is None:
+        ad_spend_source = _distribution_ad_spend_source(
+            args.ad_spend_ledger,
+            ad_spend_committed_usd,
+        )
     ad_account_eligibility = _distribution_ad_account_eligibility(
         args.ad_account_eligibility_file,
         _SKU1_PAID_TRAFFIC_PLATFORM,
@@ -2687,9 +2806,9 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         posted_dir=args.posted_dir,
         publish_health_file=args.publish_health_file,
         approved_copy_dir=args.approved_copy_dir,
-        traffic_delivered=args.traffic_delivered,
-        sales_total=args.sales_total,
-        gross_usd=args.gross_usd,
+        traffic_delivered=traffic_delivered,
+        sales_total=sales_total,
+        gross_usd=gross_usd,
         as_of=args.as_of,
         traffic_target=args.traffic_target,
         gate_date=args.gate_date,
@@ -2700,6 +2819,13 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         ad_spend_source=ad_spend_source,
         ad_account_eligibility=ad_account_eligibility,
     )
+    payload["supervisor_snapshot"] = supervisor_snapshot
+    payload["metric_source"] = {
+        "traffic_delivered": traffic_source,
+        "sales_total": sales_source,
+        "gross_usd": gross_source,
+        "ad_spend_committed_usd": ad_spend_metric_source,
+    }
     if args.write_copy_brief is not None:
         channel_execution_packet = payload["channel_execution_packet"]
         copy_brief_request = channel_execution_packet.get("copy_brief_request")
@@ -10999,21 +11125,27 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional directory of copywriter-approved social_post JSON handoffs.",
     )
     distribution_sku1.add_argument(
+        "--supervisor-snapshot",
+        type=Path,
+        help=(
+            "Optional patchrail_supervisor_last.json snapshot. Supplies traffic_delivered_total, "
+            "gumroad_sales_total, gumroad_gross_usd and ad_spend_committed_usd when the matching "
+            "manual metric flags are omitted."
+        ),
+    )
+    distribution_sku1.add_argument(
         "--traffic-delivered",
         type=int,
-        required=True,
         help="Verified delivered traffic for SKU #1 distribution.",
     )
     distribution_sku1.add_argument(
         "--sales-total",
         type=int,
-        required=True,
         help="Verified Gumroad sales count for SKU #1.",
     )
     distribution_sku1.add_argument(
         "--gross-usd",
         type=float,
-        required=True,
         help="Verified gross USD for SKU #1.",
     )
     distribution_sku1.add_argument(
@@ -11053,7 +11185,6 @@ def _build_parser() -> argparse.ArgumentParser:
     distribution_sku1.add_argument(
         "--ad-spend-committed-usd",
         type=float,
-        default=0.0,
         help="Already committed autonomous ad spend, subtracted from the SKU #1 cap.",
     )
     distribution_sku1.add_argument(
