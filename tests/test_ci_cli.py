@@ -879,6 +879,77 @@ class PatchRailCITests(unittest.TestCase):
                 self.assertEqual(decision["inputs"]["traffic_delivered"], int(case["traffic"]))
                 self.assertEqual(decision["inputs"]["sales_total"], int(case["sales"]))
 
+    def test_distribution_sku1_gate_reports_organic_runway_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            for channel in ("x", "reddit-sideproject"):
+                posted.joinpath(f"{channel}-posted.json").write_text(
+                    json.dumps(
+                        {
+                            "channel": channel,
+                            "status": "posted",
+                            "url": f"https://example.com/{channel}",
+                            "ts_posted": "2026-06-25T10:00:00+00:00",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            for channel in ("show-hn", "linkedin", "devto", "hashnode"):
+                posted.joinpath(f"{channel}-blocked.json").write_text(
+                    json.dumps(
+                        {
+                            "channel": channel,
+                            "status": "blocked",
+                            "reason": "Codex Chrome Extension missing installed=false",
+                            "ts_blocked": "2026-06-25T10:00:00+00:00",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "9",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-29",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        runway = payload["organic_runway"]
+        self.assertEqual(runway["schema_version"], "patchrail.sku1_organic_runway.v1")
+        self.assertEqual(runway["status"], "pending_channels_not_enough")
+        self.assertEqual(runway["traffic_gap"], 291)
+        self.assertEqual(runway["pending_channel_total"], 4)
+        self.assertEqual(runway["published_channel_total"], 2)
+        self.assertEqual(runway["pending_channel_estimated_visits"], 205)
+        self.assertEqual(runway["published_channel_estimated_visits"], 40)
+        self.assertEqual(runway["traffic_gap_after_pending_channels"], 86)
+        self.assertEqual(
+            runway["next_action"],
+            "unblock_channels_then_add_new_distribution_or_guarded_paid_boost",
+        )
+        self.assertEqual(
+            [item["channel"] for item in runway["pending_channels"]],
+            ["devto", "hashnode", "linkedin", "show-hn"],
+        )
+        self.assertEqual(payload["next_action"], "unblock_distribution_channels")
+
     def test_distribution_receipt_cleanup_dry_run_reports_archives_without_moving(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

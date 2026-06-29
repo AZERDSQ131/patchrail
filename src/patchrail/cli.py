@@ -135,6 +135,14 @@ _SKU1_BASE_DISTRIBUTION_CHANNELS = frozenset(
     {"devto", "hashnode", "reddit-sideproject", "show-hn", "x"}
 )
 _SKU1_EXPANSION_DISTRIBUTION_CHANNELS = ("linkedin",)
+_SKU1_CHANNEL_TRAFFIC_ESTIMATE = {
+    "show-hn": 120,
+    "linkedin": 45,
+    "reddit-sideproject": 35,
+    "devto": 25,
+    "hashnode": 15,
+    "x": 5,
+}
 
 # Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
 # Unknown or unlisted classes link to the guide index instead. Keep in sync with the
@@ -1957,6 +1965,91 @@ def _distribution_pivot_decision(
     }
 
 
+def _distribution_organic_runway(
+    *,
+    traffic_gap: int,
+    sales_total: int,
+    covered_channel_plan: dict[str, Any],
+) -> dict[str, Any]:
+    pending_statuses = {
+        "approved_copy_pending",
+        "blocked",
+        "claimed",
+        "recommended",
+        "uncovered",
+    }
+    published_statuses = {"covered", "posted"}
+    channels = list(covered_channel_plan["channels"])
+    pending_channels = [row for row in channels if str(row.get("status") or "") in pending_statuses]
+    published_channels = [
+        row for row in channels if str(row.get("status") or "") in published_statuses
+    ]
+    pending_estimate = sum(
+        _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(str(row.get("channel") or ""), 0)
+        for row in pending_channels
+    )
+    published_estimate = sum(
+        _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(str(row.get("channel") or ""), 0)
+        for row in published_channels
+    )
+    gap_after_pending = max(traffic_gap - pending_estimate, 0)
+    if sales_total > 0:
+        status = "sale_clears_runway"
+        next_action = "record_sale_before_more_distribution"
+    elif traffic_gap <= 0:
+        status = "traffic_target_met"
+        next_action = "measure_sales_until_gate"
+    elif pending_estimate >= traffic_gap:
+        status = "pending_channels_can_close_gap"
+        next_action = "unblock_or_publish_pending_channels"
+    elif pending_channels:
+        status = "pending_channels_not_enough"
+        next_action = "unblock_channels_then_add_new_distribution_or_guarded_paid_boost"
+    else:
+        status = "no_organic_runway"
+        next_action = "add_new_distribution_or_guarded_paid_boost"
+
+    return {
+        "schema_version": "patchrail.sku1_organic_runway.v1",
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "traffic_gap": traffic_gap,
+        "status": status,
+        "next_action": next_action,
+        "pending_channel_total": len(pending_channels),
+        "published_channel_total": len(published_channels),
+        "pending_channel_estimated_visits": pending_estimate,
+        "published_channel_estimated_visits": published_estimate,
+        "traffic_gap_after_pending_channels": gap_after_pending,
+        "pending_channels": [
+            {
+                "channel": str(row.get("channel") or ""),
+                "status": str(row.get("status") or ""),
+                "owner": str(row.get("owner") or ""),
+                "next_action": str(row.get("next_action") or ""),
+                "estimated_visits": _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(
+                    str(row.get("channel") or ""), 0
+                ),
+            }
+            for row in pending_channels
+        ],
+        "published_channels": [
+            {
+                "channel": str(row.get("channel") or ""),
+                "status": str(row.get("status") or ""),
+                "estimated_visits": _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(
+                    str(row.get("channel") or ""), 0
+                ),
+            }
+            for row in published_channels
+        ],
+        "assumption": (
+            "Conservative per-channel visit estimates for deciding whether already planned "
+            "organic distribution can reach the SKU #1 pivot sample before adding paid boost."
+        ),
+    }
+
+
 def _distribution_channel_closeout_plan(
     *,
     covered_channel_plan: dict[str, Any],
@@ -2353,6 +2446,11 @@ def _distribution_gate_payload(
         blocker_owner_counts=dict(blocker_owner_counts),
         as_of=as_of,
     )
+    organic_runway = _distribution_organic_runway(
+        traffic_gap=traffic_gap,
+        sales_total=sales_total,
+        covered_channel_plan=covered_channel_plan,
+    )
     pivot_decision = _distribution_pivot_decision(
         traffic_delivered=traffic_delivered,
         traffic_target=traffic_target,
@@ -2415,6 +2513,7 @@ def _distribution_gate_payload(
         "paid_ad_execution_packet": paid_ad_execution_packet,
         "measurement_packet": measurement_packet,
         "adoption_evidence_packet": adoption_evidence_packet,
+        "organic_runway": organic_runway,
         "pivot_decision": pivot_decision,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
@@ -2552,6 +2651,15 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"checkpoint="
             f"{payload['measurement_packet']['next_measurement_target']['next_traffic_checkpoint']}, "
             f"gate_outcome={payload['measurement_packet']['pivot_gate_snapshot']['outcome']}"
+        ),
+        (
+            "Organic runway: "
+            f"{payload['organic_runway']['status']}, "
+            f"pending={payload['organic_runway']['pending_channel_total']}, "
+            f"pending_estimate={payload['organic_runway']['pending_channel_estimated_visits']}, "
+            f"gap_after_pending="
+            f"{payload['organic_runway']['traffic_gap_after_pending_channels']}, "
+            f"next_action={payload['organic_runway']['next_action']}"
         ),
         "Execution checklist: "
         + (
