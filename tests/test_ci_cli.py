@@ -263,6 +263,30 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
         self.assertEqual(
+            payload["pivot_decision"],
+            {
+                "schema_version": "patchrail.sku1_pivot_decision.v1",
+                "consumer": "SKU #1 CI Triage $19",
+                "kpi": "visits_and_sales_before_2026-06-30",
+                "as_of": "2026-06-25",
+                "gate_date": "2026-06-30",
+                "status": "continue_distribution",
+                "decision": "keep_driving_measured_traffic",
+                "next_action": "ship_measurable_distribution_or_guarded_paid_boost",
+                "reason": "traffic_sample_incomplete",
+                "inputs": {
+                    "traffic_delivered": 25,
+                    "traffic_target": 300,
+                    "traffic_gap": 275,
+                    "traffic_target_met": False,
+                    "sales_total": 0,
+                    "gross_usd": 0.0,
+                    "gate_armed": False,
+                    "days_to_gate": 5,
+                },
+            },
+        )
+        self.assertEqual(
             payload["execution_checklist"],
             [
                 {
@@ -780,6 +804,80 @@ class PatchRailCITests(unittest.TestCase):
                 ),
             },
         )
+
+    def test_distribution_sku1_gate_reports_pivot_decision_cases(self) -> None:
+        cases = [
+            {
+                "traffic": "42",
+                "sales": "1",
+                "gross": "19.00",
+                "as_of": "2026-06-29",
+                "status": "validated_by_sale",
+                "decision": "keep_offer",
+                "next_action": "record_paid_sale_and_prepare_fulfillment_snapshot",
+                "reason": "sales_total_positive",
+                "gate_armed": False,
+            },
+            {
+                "traffic": "300",
+                "sales": "0",
+                "gross": "0",
+                "as_of": "2026-06-30",
+                "status": "pivot_required_no_sales",
+                "decision": "pivot_offer",
+                "next_action": "director_pivot_review",
+                "reason": "gate_date_reached_with_target_traffic_and_zero_sales",
+                "gate_armed": True,
+            },
+            {
+                "traffic": "9",
+                "sales": "0",
+                "gross": "0",
+                "as_of": "2026-06-30",
+                "status": "inconclusive_insufficient_traffic",
+                "decision": "do_not_pivot_on_underpowered_sample",
+                "next_action": "ship_or_measure_more_distribution_before_pivot",
+                "reason": "gate_date_reached_without_traffic_target",
+                "gate_armed": True,
+            },
+        ]
+
+        for case in cases:
+            with self.subTest(case=case["status"]):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    posted = Path(tmpdir) / "posted"
+                    posted.mkdir()
+
+                    stdout = StringIO()
+                    with redirect_stdout(stdout):
+                        exit_code = main(
+                            [
+                                "distribution",
+                                "sku1-gate",
+                                "--posted-dir",
+                                str(posted),
+                                "--traffic-delivered",
+                                case["traffic"],
+                                "--sales-total",
+                                case["sales"],
+                                "--gross-usd",
+                                case["gross"],
+                                "--as-of",
+                                case["as_of"],
+                                "--format",
+                                "json",
+                            ]
+                        )
+
+                self.assertEqual(exit_code, 0)
+                decision = json.loads(stdout.getvalue())["pivot_decision"]
+                self.assertEqual(decision["status"], case["status"])
+                self.assertEqual(decision["decision"], case["decision"])
+                self.assertEqual(decision["next_action"], case["next_action"])
+                self.assertEqual(decision["reason"], case["reason"])
+                self.assertEqual(decision["inputs"]["gate_armed"], case["gate_armed"])
+                self.assertEqual(decision["inputs"]["traffic_delivered"], int(case["traffic"]))
+                self.assertEqual(decision["inputs"]["sales_total"], int(case["sales"]))
 
     def test_distribution_receipt_cleanup_dry_run_reports_archives_without_moving(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

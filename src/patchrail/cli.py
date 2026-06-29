@@ -1894,6 +1894,69 @@ def _distribution_adoption_evidence_packet(
     }
 
 
+def _distribution_pivot_decision(
+    *,
+    traffic_delivered: int,
+    traffic_target: int,
+    sales_total: int,
+    gross_usd: float,
+    as_of: str,
+    gate_date: str,
+    traffic_pressure: dict[str, Any],
+) -> dict[str, Any]:
+    traffic_target_met = traffic_delivered >= traffic_target
+    pivot_gate_armed = as_of >= gate_date
+    traffic_gap = max(traffic_target - traffic_delivered, 0)
+
+    if sales_total > 0:
+        status = "validated_by_sale"
+        decision = "keep_offer"
+        next_action = "record_paid_sale_and_prepare_fulfillment_snapshot"
+        reason = "sales_total_positive"
+    elif pivot_gate_armed and traffic_target_met:
+        status = "pivot_required_no_sales"
+        decision = "pivot_offer"
+        next_action = "director_pivot_review"
+        reason = "gate_date_reached_with_target_traffic_and_zero_sales"
+    elif pivot_gate_armed:
+        status = "inconclusive_insufficient_traffic"
+        decision = "do_not_pivot_on_underpowered_sample"
+        next_action = "ship_or_measure_more_distribution_before_pivot"
+        reason = "gate_date_reached_without_traffic_target"
+    elif traffic_target_met:
+        status = "await_gate_date"
+        decision = "wait_for_sales_until_gate_date"
+        next_action = "measure_sales_delta_until_gate_date"
+        reason = "traffic_target_met_before_gate_date"
+    else:
+        status = "continue_distribution"
+        decision = "keep_driving_measured_traffic"
+        next_action = "ship_measurable_distribution_or_guarded_paid_boost"
+        reason = "traffic_sample_incomplete"
+
+    return {
+        "schema_version": "patchrail.sku1_pivot_decision.v1",
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "as_of": as_of,
+        "gate_date": gate_date,
+        "status": status,
+        "decision": decision,
+        "next_action": next_action,
+        "reason": reason,
+        "inputs": {
+            "traffic_delivered": traffic_delivered,
+            "traffic_target": traffic_target,
+            "traffic_gap": traffic_gap,
+            "traffic_target_met": traffic_target_met,
+            "sales_total": sales_total,
+            "gross_usd": round(gross_usd, 2),
+            "gate_armed": pivot_gate_armed,
+            "days_to_gate": traffic_pressure.get("days_to_gate"),
+        },
+    }
+
+
 def _distribution_channel_closeout_plan(
     *,
     covered_channel_plan: dict[str, Any],
@@ -2290,6 +2353,15 @@ def _distribution_gate_payload(
         blocker_owner_counts=dict(blocker_owner_counts),
         as_of=as_of,
     )
+    pivot_decision = _distribution_pivot_decision(
+        traffic_delivered=traffic_delivered,
+        traffic_target=traffic_target,
+        sales_total=sales_total,
+        gross_usd=gross_usd,
+        as_of=as_of,
+        gate_date=gate_date,
+        traffic_pressure=traffic_pressure,
+    )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     browser_extension_handoff = _distribution_browser_extension_handoff(blocker_queue)
     pivot_gate_armed = as_of >= gate_date
@@ -2343,6 +2415,7 @@ def _distribution_gate_payload(
         "paid_ad_execution_packet": paid_ad_execution_packet,
         "measurement_packet": measurement_packet,
         "adoption_evidence_packet": adoption_evidence_packet,
+        "pivot_decision": pivot_decision,
         "execution_checklist": execution_checklist,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
@@ -2393,6 +2466,12 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"{payload['traffic_pressure']['status']}, "
             f"days_to_gate={payload['traffic_pressure']['days_to_gate']}, "
             f"required_daily_traffic={payload['traffic_pressure']['required_daily_traffic']}"
+        ),
+        (
+            "Pivot decision: "
+            f"{payload['pivot_decision']['status']}, "
+            f"decision={payload['pivot_decision']['decision']}, "
+            f"next_action={payload['pivot_decision']['next_action']}"
         ),
         (
             "Paid traffic plan: "
