@@ -756,6 +756,15 @@ def _distribution_traffic_pressure(
     }
 
 
+def _distribution_pivot_gate_armed(as_of: str, gate_date: str) -> bool:
+    try:
+        as_of_date = datetime.fromisoformat(as_of).date()
+        gate = datetime.fromisoformat(gate_date).date()
+    except ValueError:
+        return False
+    return as_of_date >= gate
+
+
 def _distribution_paid_traffic_plan(
     *,
     traffic_gap: int,
@@ -1770,15 +1779,19 @@ def _distribution_measurement_packet(
         }
         for item in measurement_urls
     ]
+    required_daily_traffic = traffic_pressure["required_daily_traffic"]
+    should_measure_traffic_delta = (
+        isinstance(required_daily_traffic, int | float) and required_daily_traffic > 0
+    )
     if sales_total > 0:
         next_check = "record_paid_sale_and_prepare_fulfillment_snapshot"
     elif traffic_delivered >= traffic_target:
         next_check = "snapshot_pivot_gate_with_sales_count"
-    elif traffic_pressure["required_daily_traffic"] > 0:
+    elif should_measure_traffic_delta:
         next_check = "measure_traffic_delta_again_before_next_distribution_action"
     else:
         next_check = "measure_sales_delta_until_gate_date"
-    pivot_gate_armed = as_of >= gate_date
+    pivot_gate_armed = _distribution_pivot_gate_armed(as_of, gate_date)
     traffic_target_met = traffic_delivered >= traffic_target
     if sales_total > 0:
         pivot_gate_outcome = "validated_by_sale"
@@ -1790,9 +1803,12 @@ def _distribution_measurement_packet(
         pivot_gate_outcome = "traffic_sample_incomplete"
     traffic_delta_target = 0
     if sales_total == 0 and traffic_delivered < traffic_target:
+        daily_target = 1
+        if isinstance(required_daily_traffic, int | float):
+            daily_target = max(1, math.ceil(float(required_daily_traffic)))
         traffic_delta_target = min(
             traffic_gap,
-            max(1, math.ceil(float(traffic_pressure["required_daily_traffic"]))),
+            daily_target,
         )
     next_traffic_checkpoint = min(traffic_target, traffic_delivered + traffic_delta_target)
     return {
@@ -1934,7 +1950,7 @@ def _distribution_pivot_decision(
     traffic_pressure: dict[str, Any],
 ) -> dict[str, Any]:
     traffic_target_met = traffic_delivered >= traffic_target
-    pivot_gate_armed = as_of >= gate_date
+    pivot_gate_armed = _distribution_pivot_gate_armed(as_of, gate_date)
     traffic_gap = max(traffic_target - traffic_delivered, 0)
 
     if sales_total > 0:
@@ -2482,7 +2498,7 @@ def _distribution_gate_payload(
     )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     browser_extension_handoff = _distribution_browser_extension_handoff(blocker_queue)
-    pivot_gate_armed = as_of >= gate_date
+    pivot_gate_armed = _distribution_pivot_gate_armed(as_of, gate_date)
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
     if sales_total > 0:
         next_action = "fulfill_sale"

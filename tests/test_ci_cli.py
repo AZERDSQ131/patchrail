@@ -4684,6 +4684,43 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
 
+    def test_distribution_sku1_gate_does_not_pivot_on_unparseable_as_of(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "300",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "not-a-date",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertFalse(payload["pivot_gate_armed"])
+        self.assertFalse(payload["pivot_gate_fires"])
+        self.assertEqual(payload["traffic_pressure"]["status"], "unknown_date")
+        self.assertEqual(payload["pivot_decision"]["status"], "await_gate_date")
+        self.assertEqual(
+            payload["measurement_packet"]["pivot_gate_snapshot"]["outcome"],
+            "await_sales_until_gate_date",
+        )
+
     def test_distribution_sku1_gate_measurement_packet_records_sale_next_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"
