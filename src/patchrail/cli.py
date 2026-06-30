@@ -2499,6 +2499,7 @@ def _distribution_gate_payload(
         "gate_date": gate_date,
         "traffic_target": traffic_target,
         "traffic_delivered": traffic_delivered,
+        "traffic_delivered_total": traffic_delivered,
         "traffic_gap": traffic_gap,
         "traffic_pressure": traffic_pressure,
         "ad_spend_source": ad_spend_source

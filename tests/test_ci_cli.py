@@ -1570,6 +1570,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         payload = json.loads(stdout.getvalue())
         self.assertEqual(payload["traffic_delivered"], 9)
+        self.assertEqual(payload["traffic_delivered_total"], 9)
         self.assertEqual(payload["sales_total"], 0)
         self.assertEqual(payload["gross_usd"], 0.0)
         self.assertEqual(
