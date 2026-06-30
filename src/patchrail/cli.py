@@ -107,6 +107,7 @@ _SKU1_DISTRIBUTION_KPI = "visits_and_sales_before_2026-06-30"
 _SKU1_PIVOT_GATE_DATE = "2026-06-30"
 _SKU1_PIVOT_TRAFFIC_TARGET = 300
 _SKU1_AD_SPEND_CAP_USD = 75.0
+_SKU1_AD_BOOST_MAX_USD = 25.0
 _SKU1_PAID_CLICK_CPC_USD = 0.75
 _SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
 _SKU1_PAID_TRAFFIC_PLATFORM = "sku1-traffic-boost"
@@ -1249,15 +1250,19 @@ def _distribution_traffic_execution_plan(
     paid_traffic_plan: dict[str, Any],
     recommended_channel: dict[str, Any] | None,
     gate_date: str,
+    ad_boost_max_usd: float,
 ) -> dict[str, Any]:
     paid_click_target = 0
     if paid_traffic_plan["preflight_required"]:
+        boost_budget = max(ad_boost_max_usd, 0.0)
+        boost_click_capacity = int(boost_budget / paid_traffic_plan["paid_click_cpc_usd"])
         paid_click_target = min(
             paid_traffic_plan["cap_click_capacity"],
             paid_traffic_plan["traffic_gap"],
+            boost_click_capacity,
         )
     paid_budget_usd = round(paid_click_target * paid_traffic_plan["paid_click_cpc_usd"], 2)
-    organic_click_target = paid_traffic_plan["remaining_organic_gap_after_cap"]
+    organic_click_target = max(paid_traffic_plan["traffic_gap"] - paid_click_target, 0)
     days_to_gate = traffic_pressure.get("days_to_gate")
     if isinstance(days_to_gate, int) and days_to_gate >= 0:
         days_remaining = max(days_to_gate, 1)
@@ -2367,6 +2372,7 @@ def _distribution_gate_payload(
     stalled_after_days: int = 1,
     paid_click_cpc_usd: float = _SKU1_PAID_CLICK_CPC_USD,
     ad_cap_usd: float = _SKU1_AD_SPEND_CAP_USD,
+    ad_boost_max_usd: float = _SKU1_AD_BOOST_MAX_USD,
     ad_spend_committed_usd: float = 0.0,
     ad_spend_source: dict[str, Any] | None = None,
     ad_account_eligibility: dict[str, Any] | None = None,
@@ -2419,6 +2425,7 @@ def _distribution_gate_payload(
         paid_traffic_plan=paid_traffic_plan,
         recommended_channel=recommended_channel,
         gate_date=gate_date,
+        ad_boost_max_usd=ad_boost_max_usd,
     )
     execution_checklist = _distribution_execution_checklist(
         traffic_execution_plan=traffic_execution_plan,
@@ -3107,6 +3114,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         stalled_after_days=args.stalled_after_days,
         paid_click_cpc_usd=args.paid_click_cpc_usd,
         ad_cap_usd=args.ad_cap_usd,
+        ad_boost_max_usd=args.ad_boost_max_usd,
         ad_spend_committed_usd=ad_spend_source["committed_usd"],
         ad_spend_source=ad_spend_source,
         ad_account_eligibility=ad_account_eligibility,
@@ -11527,6 +11535,12 @@ def _build_parser() -> argparse.ArgumentParser:
         type=float,
         default=_SKU1_AD_SPEND_CAP_USD,
         help="Maximum autonomous ad-spend cap used for traffic sizing only.",
+    )
+    distribution_sku1.add_argument(
+        "--ad-boost-max-usd",
+        type=float,
+        default=_SKU1_AD_BOOST_MAX_USD,
+        help="Maximum single paid boost amount used for preflight sizing only.",
     )
     distribution_sku1.add_argument(
         "--ad-spend-committed-usd",

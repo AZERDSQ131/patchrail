@@ -161,10 +161,10 @@ class PatchRailCITests(unittest.TestCase):
                 "consumer": "SKU #1 CI Triage $19",
                 "kpi": "visits_and_sales_before_2026-06-30",
                 "deadline": "2026-06-30",
-                "paid_click_target": 150,
-                "paid_budget_usd": 75.0,
-                "organic_click_target": 125,
-                "daily_organic_click_target": 25.0,
+                "paid_click_target": 50,
+                "paid_budget_usd": 25.0,
+                "organic_click_target": 225,
+                "daily_organic_click_target": 45.0,
                 "recommended_channel": "devto",
                 "measurement_event": "sku1_visits_and_sales_delta",
             },
@@ -293,11 +293,11 @@ class PatchRailCITests(unittest.TestCase):
                     "name": "paid_ads_preflight",
                     "required": True,
                     "owner": "worker",
-                    "amount_usd": 75.0,
+                    "amount_usd": 25.0,
                     "platform": "sku1-traffic-boost",
                     "command": (
                         "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
-                        "--amount 75.00 --platform sku1-traffic-boost "
+                        "--amount 25.00 --platform sku1-traffic-boost "
                         "--campaign ci-triage-sku1-gate"
                     ),
                     "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
@@ -307,8 +307,8 @@ class PatchRailCITests(unittest.TestCase):
                     "required": True,
                     "owner": "copywriter",
                     "channel": "devto",
-                    "target_clicks": 125,
-                    "daily_target_clicks": 25.0,
+                    "target_clicks": 225,
+                    "daily_target_clicks": 45.0,
                     "next_action": "copywriter_required",
                 },
                 {
@@ -364,8 +364,8 @@ class PatchRailCITests(unittest.TestCase):
                 "ready_to_publish": False,
                 "copywriter_required": True,
                 "copy_file": "",
-                "organic_click_target": 125,
-                "daily_organic_click_target": 25.0,
+                "organic_click_target": 225,
+                "daily_organic_click_target": 45.0,
                 "measurement_event": "sku1_visits_and_sales_delta",
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
@@ -405,8 +405,8 @@ class PatchRailCITests(unittest.TestCase):
                                 "https://patchrail.gumroad.com/l/ci-failure-triage"
                                 "?utm_source=devto&utm_campaign=sku1-organic-distribution."
                             ),
-                            "Organic click target: 125.",
-                            "Daily organic target: 25.0.",
+                            "Organic click target: 225.",
+                            "Daily organic target: 45.0.",
                             "Source: blocked.",
                             "Reason: copywriter unavailable; no approved local copy file.",
                         ],
@@ -1320,8 +1320,8 @@ class PatchRailCITests(unittest.TestCase):
             text,
         )
         self.assertIn(
-            "Traffic execution: paid_clicks=100, paid_budget=$75.00, "
-            "organic_clicks=175, daily_organic=35.0, channel=devto",
+            "Traffic execution: paid_clicks=33, paid_budget=$24.75, "
+            "organic_clicks=242, daily_organic=48.4, channel=devto",
             text,
         )
         self.assertIn(
@@ -1514,9 +1514,9 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["paid_traffic_plan"]["ad_spend_reported_usd"], 15.34)
         self.assertEqual(payload["paid_traffic_plan"]["ad_spend_over_cap_usd"], 0.0)
         self.assertEqual(payload["paid_traffic_plan"]["ad_remaining_usd"], 59.66)
-        self.assertEqual(payload["traffic_execution_plan"]["paid_click_target"], 79)
-        self.assertEqual(payload["traffic_execution_plan"]["paid_budget_usd"], 59.25)
-        self.assertIn("--amount 59.25", payload["execution_checklist"][0]["command"])
+        self.assertEqual(payload["traffic_execution_plan"]["paid_click_target"], 33)
+        self.assertEqual(payload["traffic_execution_plan"]["paid_budget_usd"], 24.75)
+        self.assertIn("--amount 24.75", payload["execution_checklist"][0]["command"])
 
     def test_distribution_sku1_gate_reads_committed_ad_spend_from_guard_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2094,8 +2094,8 @@ class PatchRailCITests(unittest.TestCase):
                 "ready_to_publish": False,
                 "copywriter_required": True,
                 "copy_file": "",
-                "organic_click_target": 172,
-                "daily_organic_click_target": 34.4,
+                "organic_click_target": 239,
+                "daily_organic_click_target": 47.8,
                 "measurement_event": "sku1_visits_and_sales_delta",
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
@@ -2136,8 +2136,8 @@ class PatchRailCITests(unittest.TestCase):
                                 "https://patchrail.gumroad.com/l/ci-failure-triage"
                                 "?utm_source=linkedin&utm_campaign=sku1-organic-distribution."
                             ),
-                            "Organic click target: 172.",
-                            "Daily organic target: 34.4.",
+                            "Organic click target: 239.",
+                            "Daily organic target: 47.8.",
                             "Source: expansion.",
                             "Reason: traffic_gap_remaining_after_base_channels_covered.",
                         ],
@@ -2444,7 +2444,7 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 "paid_preflight_command": (
                     "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
-                    "--amount 75.00 --platform sku1-traffic-boost "
+                    "--amount 24.75 --platform sku1-traffic-boost "
                     "--campaign ci-triage-sku1-gate"
                 ),
                 "measurement_command": (
@@ -2462,15 +2462,15 @@ class PatchRailCITests(unittest.TestCase):
                 "owner": "worker",
                 "platform": "sku1-traffic-boost",
                 "campaign": "ci-triage-sku1-gate",
-                "amount_usd": 75.0,
-                "paid_click_target": 100,
+                "amount_usd": 24.75,
+                "paid_click_target": 33,
                 "url": (
                     "https://patchrail.gumroad.com/l/ci-failure-triage"
                     "?utm_source=guarded_paid_boost&utm_campaign=ci-triage-sku1-gate"
                 ),
                 "preflight_command": (
                     "python3 opportunity-desk/scripts/ad_spend_guard.py preflight "
-                    "--amount 75.00 --platform sku1-traffic-boost "
+                    "--amount 24.75 --platform sku1-traffic-boost "
                     "--campaign ci-triage-sku1-gate"
                 ),
                 "eligibility_required": True,
@@ -2715,7 +2715,7 @@ class PatchRailCITests(unittest.TestCase):
             "https://ads.google.com/campaigns/ci-triage-sku1-gate",
         )
         self.assertFalse(packet["eligibility_handoff"]["required"])
-        self.assertIn("--amount 75.00", packet["commit_command_template"])
+        self.assertIn("--amount 24.75", packet["commit_command_template"])
 
     def test_distribution_sku1_gate_allows_paid_boost_when_cap_covers_remaining_gap(
         self,
