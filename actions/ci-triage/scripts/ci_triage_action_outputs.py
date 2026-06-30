@@ -58,6 +58,24 @@ def adoption_key(result: dict[str, Any], slug: str) -> str:
     return f"ci-triage:{source}:{campaign}:{slug}"
 
 
+def adoption_event_id(
+    result: dict[str, Any],
+    slug: str,
+    workflow_context: dict[str, str] | None = None,
+) -> str:
+    context = workflow_context or {}
+    repository = str(context.get("workflow_repository") or "").strip()
+    run_id = str(context.get("workflow_run_id") or "").strip()
+    if repository and run_id:
+        parts = ["ci-triage-run", repository, run_id]
+        job = str(context.get("workflow_job") or "").strip()
+        if job:
+            parts.append(job)
+        parts.append(slug)
+        return ":".join(parts)
+    return adoption_key(result, slug)
+
+
 def adoption_event(
     result: dict[str, Any],
     slug: str,
@@ -75,6 +93,7 @@ def adoption_event(
         "action_ref": action_ref or "local",
         "action_repository": action_repository or "patchrail/ci-triage-action",
         "adoption_key": f"ci-triage:{source}:{campaign}:{slug}",
+        "adoption_event_id": adoption_event_id(result, slug, workflow_context),
         "failure_class": str(result.get("failure_class") or "unknown"),
         "failure_slug": slug,
         "utm_source": source,
@@ -142,6 +161,7 @@ def action_outputs(
     outputs["summary-line"] = summary_line(result)
     outputs["redacted-categories"] = str(redacted_category_count(result))
     outputs["adoption-key"] = adoption_key(result, slug)
+    outputs["adoption-event-id"] = adoption_event_id(result, slug, workflow_context)
     outputs["adoption-event-json"] = adoption_event(
         result,
         slug,
@@ -171,6 +191,7 @@ def append_step_summary(result: dict[str, Any], report_path: Path, path: Path) -
         f"- Summary: {summary_line(result)}",
         f"- Next step: {result.get('minimal_repair_strategy') or 'Open the report for repair details.'}",
         f"- Adoption key: `{adoption_key(result, failure_slug(result))}`",
+        f"- Adoption event ID: `{adoption_event_id(result, failure_slug(result))}`",
         f"- Redacted categories: `{redacted_category_count(result)}`",
         f"- Report: `{report_path}`",
         "",

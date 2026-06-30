@@ -57,6 +57,9 @@ outputs:
   adoption-key:
     description: Stable PatchRail adoption evidence key for downstream dashboards.
     value: ${{ steps.outputs.outputs.adoption-key }}
+  adoption-event-id:
+    description: Stable event id for deduplicating PatchRail workflow evidence.
+    value: ${{ steps.outputs.outputs.adoption-event-id }}
   adoption-event-json:
     description: Single-line PatchRail adoption event JSON for workflow evidence ledgers.
     value: ${{ steps.outputs.outputs.adoption-event-json }}

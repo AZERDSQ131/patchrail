@@ -14,7 +14,8 @@ markdown-report=examples/ci-triage-action/sample/ci-report.md
 summary-line=PatchRail CI triage: python_dependency_resolution (0.95) -> https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution
 redacted-categories=0
 adoption-key=ci-triage:cli:python-dependency-resolution:python-dependency-resolution
-adoption-event-json={"action_ref":"local","action_repository":"patchrail/ci-triage-action","adoption_key":"ci-triage:cli:python-dependency-resolution:python-dependency-resolution","artifact_name":"patchrail-ci-triage-python-dependency-resolution","confidence":"0.95","failure_class":"python_dependency_resolution","failure_slug":"python-dependency-resolution","json_result":"examples/ci-triage-action/sample/ci-result.json","markdown_report":"examples/ci-triage-action/sample/ci-report.md","product":"ci-triage-action","redacted_categories":0,"schema_version":"patchrail.ci_triage_adoption_event.v1","utm_campaign":"python-dependency-resolution","utm_source":"cli"}
+adoption-event-id=ci-triage:cli:python-dependency-resolution:python-dependency-resolution
+adoption-event-json={"action_ref":"local","action_repository":"patchrail/ci-triage-action","adoption_event_id":"ci-triage:cli:python-dependency-resolution:python-dependency-resolution","adoption_key":"ci-triage:cli:python-dependency-resolution:python-dependency-resolution","artifact_name":"patchrail-ci-triage-python-dependency-resolution","confidence":"0.95","failure_class":"python_dependency_resolution","failure_slug":"python-dependency-resolution","json_result":"examples/ci-triage-action/sample/ci-result.json","markdown_report":"examples/ci-triage-action/sample/ci-report.md","product":"ci-triage-action","redacted_categories":0,"schema_version":"patchrail.ci_triage_adoption_event.v1","utm_campaign":"python-dependency-resolution","utm_source":"cli"}
 workflow-repository=
 workflow-run-url=
 workflow-run-host=

@@ -19,11 +19,12 @@ and writes:
 - `patchrail-ci-triage/ci-result.json`
 
 Reusable outputs include `failure-class`, `failure-slug`, `utm-source`,
-`utm-campaign`, `adoption-key`, `adoption-event-json`, `guide-url`, `pack-url`,
+`utm-campaign`, `adoption-key`, `adoption-event-id`, `adoption-event-json`, `guide-url`, `pack-url`,
 `artifact-name`, `workflow-run-url`, `workflow-run-host`, `next-step`, and `reproduction-command`, so a
 downstream workflow can route the failure to a maintainer or attach the local
 report to an internal ticket. `adoption-key` is stable across runs of the same
-failure class and attribution campaign, which makes real workflow usage countable
+failure class and attribution campaign; `adoption-event-id` is stable per
+GitHub Actions run and job when workflow context is available. That makes real workflow usage countable
 without parsing URLs. `adoption-event-json` is a single-line event that can be
 appended directly to an evidence ledger artifact, including the consumer workflow
 run URL and host when the action runs inside GitHub Actions.
