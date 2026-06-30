@@ -2090,8 +2090,7 @@ def _distribution_channel_closeout_plan(
         and not publish_health.get("stale_claims_total")
     )
     remaining_distribution_target = (
-        traffic_execution_plan["organic_click_target"]
-        + traffic_execution_plan["paid_click_target"]
+        traffic_execution_plan["organic_click_target"] + traffic_execution_plan["paid_click_target"]
     )
     required = no_channel_work_open and all_channels_covered and remaining_distribution_target > 0
     next_action = "none"
