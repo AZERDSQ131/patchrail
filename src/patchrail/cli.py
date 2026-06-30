@@ -1261,6 +1261,9 @@ def _distribution_traffic_execution_plan(
             paid_traffic_plan["traffic_gap"],
             boost_click_capacity,
         )
+    else:
+        boost_budget = max(ad_boost_max_usd, 0.0)
+        boost_click_capacity = 0
     paid_budget_usd = round(paid_click_target * paid_traffic_plan["paid_click_cpc_usd"], 2)
     organic_click_target = max(paid_traffic_plan["traffic_gap"] - paid_click_target, 0)
     days_to_gate = traffic_pressure.get("days_to_gate")
@@ -1278,6 +1281,8 @@ def _distribution_traffic_execution_plan(
         "deadline": gate_date,
         "paid_click_target": paid_click_target,
         "paid_budget_usd": paid_budget_usd,
+        "ad_boost_max_usd": round(boost_budget, 2),
+        "ad_boost_click_capacity": boost_click_capacity,
         "organic_click_target": organic_click_target,
         "daily_organic_click_target": daily_organic_click_target,
         "recommended_channel": recommended_channel["channel"] if recommended_channel else None,
@@ -1672,6 +1677,10 @@ def _distribution_paid_ad_execution_packet(
         "platform": _SKU1_PAID_TRAFFIC_PLATFORM,
         "campaign": _SKU1_PAID_TRAFFIC_CAMPAIGN,
         "amount_usd": amount_usd if required else 0.0,
+        "ad_boost_max_usd": traffic_execution_plan["ad_boost_max_usd"] if required else 0.0,
+        "ad_boost_click_capacity": traffic_execution_plan["ad_boost_click_capacity"]
+        if required
+        else 0,
         "paid_click_target": traffic_execution_plan["paid_click_target"] if required else 0,
         "url": _distribution_paid_traffic_url() if required else "",
         "preflight_command": preflight_command if required else "",

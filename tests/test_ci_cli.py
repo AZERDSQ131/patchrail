@@ -163,6 +163,8 @@ class PatchRailCITests(unittest.TestCase):
                 "deadline": "2026-06-30",
                 "paid_click_target": 50,
                 "paid_budget_usd": 25.0,
+                "ad_boost_max_usd": 25.0,
+                "ad_boost_click_capacity": 50,
                 "organic_click_target": 225,
                 "daily_organic_click_target": 45.0,
                 "recommended_channel": "devto",
@@ -2463,6 +2465,8 @@ class PatchRailCITests(unittest.TestCase):
                 "platform": "sku1-traffic-boost",
                 "campaign": "ci-triage-sku1-gate",
                 "amount_usd": 24.75,
+                "ad_boost_max_usd": 25.0,
+                "ad_boost_click_capacity": 33,
                 "paid_click_target": 33,
                 "url": (
                     "https://patchrail.gumroad.com/l/ci-failure-triage"
