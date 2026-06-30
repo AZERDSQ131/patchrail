@@ -318,11 +318,17 @@ def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> N
     assert adoption_event["action_ref"] == "v1"
 
     helper.write_github_outputs(outputs, output_path)
-    assert "adoption-event-id=ci-triage:cli:python-test-failure:python-test-failure\n" in output_path.read_text(encoding="utf-8")
+    assert (
+        "adoption-event-id=ci-triage:cli:python-test-failure:python-test-failure\n"
+        in output_path.read_text(encoding="utf-8")
+    )
     assert "redacted-categories=2\n" in output_path.read_text(encoding="utf-8")
 
     helper.append_step_summary(result, Path("ci-report.md"), summary_path)
-    assert "- Adoption event ID: `ci-triage:cli:python-test-failure:python-test-failure`" in summary_path.read_text(encoding="utf-8")
+    assert (
+        "- Adoption event ID: `ci-triage:cli:python-test-failure:python-test-failure`"
+        in summary_path.read_text(encoding="utf-8")
+    )
     assert "- Redacted categories: `2`" in summary_path.read_text(encoding="utf-8")
 
 
