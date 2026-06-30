@@ -2717,6 +2717,88 @@ class PatchRailCITests(unittest.TestCase):
         self.assertFalse(packet["eligibility_handoff"]["required"])
         self.assertIn("--amount 75.00", packet["commit_command_template"])
 
+    def test_distribution_sku1_gate_allows_paid_boost_when_cap_covers_remaining_gap(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": True,
+                        "covered_channels": [
+                            "devto",
+                            "hashnode",
+                            "linkedin",
+                            "reddit-sideproject",
+                            "show-hn",
+                            "x",
+                        ],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            eligibility_file = Path(tmpdir) / "ad-account-eligibility.json"
+            eligibility_file.write_text(
+                json.dumps(
+                    {
+                        "platform": "sku1-traffic-boost",
+                        "logged_in": True,
+                        "preexisting_account": True,
+                        "card_on_file": True,
+                        "login_required": False,
+                        "captured_at": "2026-06-29",
+                        "proof_url": "https://ads.google.com/campaigns/ci-triage-sku1-gate",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--ad-account-eligibility-file",
+                        str(eligibility_file),
+                        "--traffic-delivered",
+                        "275",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-29",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(
+            payload["paid_traffic_plan"]["recommendation"],
+            "paid_boost_can_cover_gap_if_preflight_passes",
+        )
+        self.assertEqual(payload["traffic_execution_plan"]["paid_click_target"], 25)
+        self.assertEqual(payload["traffic_execution_plan"]["organic_click_target"], 0)
+        self.assertEqual(payload["next_action"], "preflight_guarded_ads_or_measure_gate")
+        packet = payload["paid_ad_execution_packet"]
+        self.assertTrue(packet["required"])
+        self.assertTrue(packet["spend_executable"])
+        self.assertIn("--amount 18.75", packet["preflight_command"])
+        self.assertIn("--amount 18.75", packet["commit_command_template"])
+
     def test_distribution_sku1_gate_requires_local_proof_path_linked_to_campaign(
         self,
     ) -> None:

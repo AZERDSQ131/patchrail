@@ -2089,11 +2089,11 @@ def _distribution_channel_closeout_plan(
         and not publish_health.get("uncovered_total")
         and not publish_health.get("stale_claims_total")
     )
-    required = (
-        no_channel_work_open
-        and all_channels_covered
-        and traffic_execution_plan["organic_click_target"] > 0
+    remaining_distribution_target = (
+        traffic_execution_plan["organic_click_target"]
+        + traffic_execution_plan["paid_click_target"]
     )
+    required = no_channel_work_open and all_channels_covered and remaining_distribution_target > 0
     next_action = "none"
     safe_next_step = "No organic channel work remains; keep measuring the gate."
     if recommended_channel is not None:
