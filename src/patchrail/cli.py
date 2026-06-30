@@ -3172,8 +3172,28 @@ def _distribution_receipt_cleanup(args: argparse.Namespace) -> int:
         archive_dir=args.archive_dir,
         apply=args.apply,
     )
-    _write_or_print(_json_dump(payload), args.out)
+    if args.format == "json":
+        text = _json_dump(payload)
+    else:
+        text = _render_distribution_receipt_cleanup_text(payload)
+    _write_or_print(text, args.out)
     return 0 if payload["status"] == "ok" else 1
+
+
+def _render_distribution_receipt_cleanup_text(payload: dict[str, Any]) -> str:
+    lines = [
+        f"Status: {payload['status']}",
+        f"Mode: {payload['mode']}",
+        f"Duplicate channels: {payload['duplicate_channel_total']}",
+        f"Archive actions: {payload['action_total']}",
+        f"Errors: {payload['error_total']}",
+    ]
+    for action in payload["actions"]:
+        archived = ", ".join(item["source"] for item in action["archived_paths"]) or "none"
+        lines.append(
+            f"- {action['channel']}: keep {action['keep_path']}; archive {archived}"
+        )
+    return "\n".join(lines)
 
 
 def _read_optional_text(path: Path) -> str:
@@ -11527,6 +11547,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--apply",
         action="store_true",
         help="Move duplicate receipts into the archive directory. Without this flag, dry-run only.",
+    )
+    distribution_receipt_cleanup.add_argument(
+        "--format",
+        choices=("json", "text"),
+        default="json",
+        help="Output format. Defaults to json for automation.",
     )
     distribution_receipt_cleanup.add_argument("--out", type=Path, help="Optional output path.")
     distribution_receipt_cleanup.set_defaults(func=_distribution_receipt_cleanup)

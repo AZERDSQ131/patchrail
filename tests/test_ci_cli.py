@@ -805,6 +805,73 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
 
+    def test_distribution_receipt_cleanup_accepts_json_and_text_format(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "show-hn-claimed.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "claimed",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn-approved.md",
+                        "ts_claimed": "2026-06-29T07:19:07Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (posted / "show-hn-blocked.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "browser route unavailable",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn-approved.md",
+                        "ts_blocked": "2026-06-29T07:20:16Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            json_stdout = StringIO()
+            with redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "distribution",
+                        "receipt-cleanup",
+                        "--posted-dir",
+                        str(posted),
+                        "--format",
+                        "json",
+                    ]
+                )
+
+            text_stdout = StringIO()
+            with redirect_stdout(text_stdout):
+                text_exit_code = main(
+                    [
+                        "distribution",
+                        "receipt-cleanup",
+                        "--posted-dir",
+                        str(posted),
+                        "--format",
+                        "text",
+                    ]
+                )
+
+        self.assertEqual(json_exit_code, 0)
+        payload = json.loads(json_stdout.getvalue())
+        self.assertEqual(payload["schema_version"], "patchrail.distribution_receipt_cleanup.v1")
+        self.assertEqual(payload["mode"], "dry_run")
+        self.assertEqual(payload["duplicate_channel_total"], 1)
+        self.assertEqual(payload["action_total"], 1)
+        self.assertEqual(payload["actions"][0]["channel"], "show-hn")
+        self.assertEqual(text_exit_code, 0)
+        self.assertIn("Status: ok", text_stdout.getvalue())
+        self.assertIn("Mode: dry_run", text_stdout.getvalue())
+        self.assertIn("Duplicate channels: 1", text_stdout.getvalue())
+        self.assertIn("- show-hn:", text_stdout.getvalue())
+
     def test_distribution_sku1_gate_reports_pivot_decision_cases(self) -> None:
         cases = [
             {
