@@ -1017,6 +1017,61 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(payload["next_action"], "unblock_distribution_channels")
 
+    def test_distribution_sku1_gate_does_not_request_ad_proof_before_paid_boost_required(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            posted.joinpath("show-hn-blocked.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "browser route unavailable",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn-approved.md",
+                        "ts_blocked": "2026-06-29T07:20:16Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "5",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-30",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        packet = payload["paid_ad_execution_packet"]
+        self.assertEqual(payload["next_action"], "unblock_distribution_channels")
+        self.assertEqual(payload["channel_closeout_plan"]["next_action"], "browser_route_required")
+        self.assertFalse(packet["required"])
+        self.assertFalse(packet["eligibility_required"])
+        self.assertFalse(packet["eligibility_handoff"]["required"])
+        self.assertEqual(packet["amount_usd"], 0.0)
+        self.assertEqual(packet["preflight_command"], "")
+        self.assertEqual(packet["commit_command_template"], "")
+        self.assertEqual(
+            packet["safe_next_step"], payload["channel_closeout_plan"]["safe_next_step"]
+        )
+
     def test_distribution_receipt_cleanup_dry_run_reports_archives_without_moving(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

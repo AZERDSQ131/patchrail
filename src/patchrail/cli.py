@@ -1626,11 +1626,7 @@ def _distribution_paid_ad_execution_packet(
             "Measure the gate until a logged-in preexisting ad account with card-on-file is proven; "
             "do not create accounts, add cards, bypass login, or spend from unproven eligibility."
         )
-    eligibility_handoff_required = bool(
-        paid_traffic_plan["preflight_required"]
-        and amount_usd > 0
-        and not ad_account_eligibility.get("eligible")
-    )
+    eligibility_handoff_required = bool(required and not ad_account_eligibility.get("eligible"))
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
