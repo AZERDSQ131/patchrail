@@ -2476,6 +2476,8 @@ class PatchRailCITests(unittest.TestCase):
                 "eligibility_required": True,
                 "spend_executable": False,
                 "preflight_blocked_reason": "",
+                "blocker_code": "missing_logged_in_preexisting_ad_account_proof",
+                "blocker_owner": "human",
                 "ad_account_eligibility": {
                     "source": "not_provided",
                     "proof_path": "",
@@ -2702,6 +2704,8 @@ class PatchRailCITests(unittest.TestCase):
         packet = payload["paid_ad_execution_packet"]
         self.assertTrue(packet["required"])
         self.assertTrue(packet["spend_executable"])
+        self.assertEqual(packet["blocker_code"], "")
+        self.assertEqual(packet["blocker_owner"], "")
         self.assertEqual(packet["fallback_action"], "")
         self.assertEqual(
             packet["ad_account_eligibility"]["reason"], "eligible_preexisting_logged_in_account"
@@ -2797,6 +2801,8 @@ class PatchRailCITests(unittest.TestCase):
             generic_payload = run_gate(str(generic_evidence))
             generic_packet = generic_payload["paid_ad_execution_packet"]
             self.assertFalse(generic_packet["spend_executable"])
+            self.assertEqual(generic_packet["blocker_code"], "eligibility_failed")
+            self.assertEqual(generic_packet["blocker_owner"], "worker")
             self.assertEqual(
                 generic_payload["next_action"], "measure_gate_until_eligible_ad_account"
             )

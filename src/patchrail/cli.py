@@ -1627,6 +1627,29 @@ def _distribution_paid_ad_execution_packet(
             "do not create accounts, add cards, bypass login, or spend from unproven eligibility."
         )
     eligibility_handoff_required = bool(required and not ad_account_eligibility.get("eligible"))
+    eligibility_reason = str(ad_account_eligibility.get("reason") or "")
+    blocker_code = ""
+    blocker_owner = ""
+    if required and not spend_executable:
+        blocker_code = preflight_blocked_reason or eligibility_reason or "paid_ad_not_executable"
+        missing_or_failed = set(ad_account_eligibility.get("missing_or_failed") or [])
+        stop_conditions = ad_account_eligibility.get("stop_conditions_triggered") or []
+        human_owned_fields = {
+            "platform",
+            "logged_in",
+            "preexisting_account",
+            "card_on_file",
+            "no_gated_stop_conditions",
+        }
+        blocker_owner = (
+            "human"
+            if (
+                eligibility_reason == "missing_logged_in_preexisting_ad_account_proof"
+                or bool(stop_conditions)
+                or bool(missing_or_failed & human_owned_fields)
+            )
+            else "worker"
+        )
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
@@ -1641,6 +1664,8 @@ def _distribution_paid_ad_execution_packet(
         "eligibility_required": required,
         "spend_executable": spend_executable,
         "preflight_blocked_reason": preflight_blocked_reason,
+        "blocker_code": blocker_code,
+        "blocker_owner": blocker_owner,
         "ad_account_eligibility": ad_account_eligibility,
         "eligibility_handoff": {
             "required": eligibility_handoff_required,
