@@ -3190,9 +3190,7 @@ def _render_distribution_receipt_cleanup_text(payload: dict[str, Any]) -> str:
     ]
     for action in payload["actions"]:
         archived = ", ".join(item["source"] for item in action["archived_paths"]) or "none"
-        lines.append(
-            f"- {action['channel']}: keep {action['keep_path']}; archive {archived}"
-        )
+        lines.append(f"- {action['channel']}: keep {action['keep_path']}; archive {archived}")
     return "\n".join(lines)
 
 
