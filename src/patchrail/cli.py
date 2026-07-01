@@ -7628,6 +7628,120 @@ def _ci_pilot_metrics(args: argparse.Namespace) -> int:
     return 0
 
 
+def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str, Any]:
+    source_schema = str(event.get("schema_version") or "")
+    product = str(event.get("product") or "")
+    adoption_event_id = str(event.get("adoption_event_id") or "")
+    adoption_key = str(event.get("adoption_key") or "")
+    failure_slug = str(event.get("failure_slug") or "")
+    if source_schema != "patchrail.ci_triage_adoption_event.v1":
+        raise ValueError(f"unsupported adoption event schema: {source_schema or 'missing'}")
+    if product != "ci-triage-action":
+        raise ValueError(f"unsupported adoption event product: {product or 'missing'}")
+    if not adoption_event_id or not adoption_key or not failure_slug:
+        raise ValueError("adoption event requires adoption_event_id, adoption_key and failure_slug")
+
+    workflow_repository = str(event.get("workflow_repository") or "")
+    workflow_run_id = str(event.get("workflow_run_id") or "")
+    signal_kind = (
+        "workflow_run" if workflow_repository and workflow_run_id else "local_or_sample_signal"
+    )
+    return {
+        "schema_version": "patchrail.ci_triage_adoption_event_review.v1",
+        "source_schema_version": source_schema,
+        "source_file": str(source),
+        "github_issue": "patchrail/patchrail#69",
+        "product": product,
+        "action_repository": str(event.get("action_repository") or "patchrail/ci-triage-action"),
+        "action_ref": str(event.get("action_ref") or ""),
+        "adoption_key": adoption_key,
+        "adoption_event_id": adoption_event_id,
+        "failure_class": str(event.get("failure_class") or "unknown"),
+        "failure_slug": failure_slug,
+        "confidence": str(event.get("confidence") or "0"),
+        "redacted_categories": int(event.get("redacted_categories") or 0),
+        "artifact_name": str(event.get("artifact_name") or f"patchrail-ci-triage-{failure_slug}"),
+        "json_result": str(event.get("json_result") or ""),
+        "markdown_report": str(event.get("markdown_report") or ""),
+        "workflow_repository": workflow_repository,
+        "workflow_run_id": workflow_run_id,
+        "workflow_run_url": str(event.get("workflow_run_url") or ""),
+        "workflow_run_host": str(event.get("workflow_run_host") or ""),
+        "workflow_name": str(event.get("workflow_name") or ""),
+        "workflow_job": str(event.get("workflow_job") or ""),
+        "signal_kind": signal_kind,
+        "counts_as_external_adoption": False,
+        "safe_next_step": (
+            "Ask the maintainer for explicit permission before listing this as public adoption."
+            if signal_kind == "workflow_run"
+            else "Use this as local action smoke evidence only; do not claim external adoption."
+        ),
+        "blocked_actions": [
+            "public_adoption_claim_without_maintainer_permission",
+            "automatic_adopters_md_update",
+            "repository_contact_or_comment",
+        ],
+    }
+
+
+def _render_ci_adoption_event_text(payload: dict[str, Any]) -> str:
+    lines = [
+        "PatchRail CI triage adoption event review",
+        f"Event: {payload['adoption_event_id']}",
+        f"Signal: {payload['signal_kind']}",
+        f"Repository: {payload['workflow_repository'] or 'n/a'}",
+        f"Workflow run: {payload['workflow_run_url'] or payload['workflow_run_id'] or 'n/a'}",
+        f"Failure: {payload['failure_slug']} ({payload['confidence']})",
+        f"Counts as external adoption: {payload['counts_as_external_adoption']}",
+        f"Next safe step: {payload['safe_next_step']}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _render_ci_adoption_event_markdown(payload: dict[str, Any]) -> str:
+    lines = [
+        "# PatchRail CI Triage Adoption Event Review",
+        "",
+        f"- Event: `{payload['adoption_event_id']}`",
+        f"- Signal: `{payload['signal_kind']}`",
+        f"- Repository: `{payload['workflow_repository'] or 'n/a'}`",
+        f"- Workflow run: `{payload['workflow_run_url'] or payload['workflow_run_id'] or 'n/a'}`",
+        f"- Failure: `{payload['failure_slug']}`",
+        f"- Confidence: `{payload['confidence']}`",
+        f"- Redacted categories: `{payload['redacted_categories']}`",
+        f"- Counts as external adoption: `{payload['counts_as_external_adoption']}`",
+        f"- Tracking issue: `{payload['github_issue']}`",
+        "",
+        "## Next Safe Step",
+        "",
+        payload["safe_next_step"],
+        "",
+        "## Blocked Actions",
+        "",
+    ]
+    lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    return "\n".join(lines) + "\n"
+
+
+def _ci_adoption_event(args: argparse.Namespace) -> int:
+    try:
+        event = json.loads(args.event.read_text(encoding="utf-8"))
+        if not isinstance(event, dict):
+            raise ValueError("adoption event must be a JSON object")
+        payload = _ci_adoption_event_payload(event, args.event)
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
+        print(f"Invalid adoption event input: {exc}", file=sys.stderr)
+        return 1
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_ci_adoption_event_markdown(payload)
+    else:
+        text = _render_ci_adoption_event_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _redact(args: argparse.Namespace) -> int:
     redaction = redact_ci_log(_read_log(args.log))
     if args.format == "json":
@@ -12045,6 +12159,25 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     pilot_metrics.add_argument("--out", type=Path, help="Optional output path.")
     pilot_metrics.set_defaults(func=_ci_pilot_metrics)
+
+    adoption_event = ci_subparsers.add_parser(
+        "adoption-event",
+        help="Review one ci-triage-action adoption-event-json without claiming adoption.",
+    )
+    adoption_event.add_argument(
+        "--event",
+        type=Path,
+        required=True,
+        help="JSON file emitted by the ci-triage-action adoption-event-json output.",
+    )
+    adoption_event.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="text",
+        help="Output format.",
+    )
+    adoption_event.add_argument("--out", type=Path, help="Optional output path.")
+    adoption_event.set_defaults(func=_ci_adoption_event)
 
     redact = subparsers.add_parser("redact", help="Redact secrets, emails and home paths locally.")
     redact.add_argument("--log", type=Path, help="CI log file. Reads stdin when omitted.")
