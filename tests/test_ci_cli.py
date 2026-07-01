@@ -1436,6 +1436,77 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertNotIn("Measurement packet:", compact)
 
+    def test_distribution_sku1_gate_compact_reports_next_channel_commands(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "covered_channels": ["x"],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 2,
+                        "social_post_stale_claims_total": 0,
+                        "uncovered": [{"channel": "linkedin"}, "devto"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "compact",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        compact = stdout.getvalue()
+        self.assertIn("owner_next_actions: worker=devto/claim_uncovered_distribution_channel (1)", compact)
+        self.assertIn("next_action: claim_uncovered_distribution_channel", compact)
+        self.assertIn("channel: devto", compact)
+        self.assertIn(
+            "url: https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=devto&utm_campaign=sku1-organic-distribution",
+            compact,
+        )
+        self.assertIn("ready_to_publish: True", compact)
+        self.assertIn("copywriter_required: False", compact)
+        self.assertIn(
+            "claim_command: python3 opportunity-desk/scripts/publish_post.py claim "
+            "--channel devto --copy-file <copywriter-approved-copy-file>",
+            compact,
+        )
+        self.assertIn(
+            "record_command: python3 opportunity-desk/scripts/publish_post.py record "
+            "--channel devto --url <submission_url>",
+            compact,
+        )
+        self.assertIn(
+            "block_command: python3 opportunity-desk/scripts/publish_post.py block "
+            "--channel devto --reason <concrete_blocker>",
+            compact,
+        )
+        self.assertNotIn("Measurement packet:", compact)
+
     def test_distribution_sku1_gate_subtracts_committed_ad_spend_from_preflight(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

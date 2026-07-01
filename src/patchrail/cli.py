@@ -2856,6 +2856,19 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
         f"pivot_gate_fires: {payload['pivot_gate_fires']}",
         f"next_action: {payload['next_action']}",
     ]
+    channel_packet = payload["channel_execution_packet"]
+    if channel_packet.get("required") and payload["next_action"] != "unblock_distribution_channels":
+        lines.extend(
+            [
+                f"channel: {channel_packet['channel']}",
+                f"url: {channel_packet['url']}",
+                f"ready_to_publish: {channel_packet['ready_to_publish']}",
+                f"copywriter_required: {channel_packet['copywriter_required']}",
+                "claim_command: " + (channel_packet["claim_command"] or "none"),
+                "record_command: " + (channel_packet["record_command"] or "none"),
+                "block_command: " + (channel_packet["block_command"] or "none"),
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
