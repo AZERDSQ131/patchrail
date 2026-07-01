@@ -756,7 +756,7 @@ def _distribution_owner_action_queue(
         if owner in {"copywriter", "pablo", "worker", "worker_browser", "worker_any"}:
             command = (
                 "python3 opportunity-desk/scripts/publish_post.py blockers "
-                f"--owner {shlex.quote(owner)} --json"
+                f"--owner {shlex.quote(owner)} --json --exit-zero"
             )
         queue.append(
             {
@@ -2321,7 +2321,8 @@ def _distribution_browser_extension_handoff(
                 "copy_file": copy_file,
                 "safe_next_step": item["safe_next_step"],
                 "verify_command": (
-                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                    "python3 opportunity-desk/scripts/publish_post.py blockers "
+                    "--owner pablo --json --exit-zero"
                 ),
                 "claim_after_setup_command": (
                     "python3 opportunity-desk/scripts/publish_post.py claim "
@@ -2330,7 +2331,8 @@ def _distribution_browser_extension_handoff(
                 if copy_file
                 else "",
                 "verify_after_claim_command": (
-                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                    "python3 opportunity-desk/scripts/publish_post.py blockers "
+                    "--owner pablo --json --exit-zero"
                 )
                 if copy_file
                 else "",

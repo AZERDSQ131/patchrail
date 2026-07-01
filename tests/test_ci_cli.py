@@ -476,14 +476,14 @@ class PatchRailCITests(unittest.TestCase):
                 "claimable_after_setup_count": 1,
                 "next_channel": "show-hn",
                 "next_verify_command": (
-                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
                 ),
                 "next_claim_after_setup_command": (
                     "python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "
                     "--copy-file products/gumroad/distribution/posts/show-hn.md"
                 ),
                 "next_verify_after_claim_command": (
-                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
                 ),
                 "claim_after_setup_commands": [
                     (
@@ -492,7 +492,7 @@ class PatchRailCITests(unittest.TestCase):
                     )
                 ],
                 "verify_after_claim_commands": [
-                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                    "python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
                 ],
                 "checklist": [
                     "Open chrome://extensions in the selected logged-in Chrome profile.",
@@ -517,7 +517,7 @@ class PatchRailCITests(unittest.TestCase):
                         ),
                         "verify_command": (
                             "python3 opportunity-desk/scripts/publish_post.py blockers "
-                            "--owner pablo --json"
+                            "--owner pablo --json --exit-zero"
                         ),
                         "claim_after_setup_command": (
                             "python3 opportunity-desk/scripts/publish_post.py claim "
@@ -526,7 +526,7 @@ class PatchRailCITests(unittest.TestCase):
                         ),
                         "verify_after_claim_command": (
                             "python3 opportunity-desk/scripts/publish_post.py blockers "
-                            "--owner pablo --json"
+                            "--owner pablo --json --exit-zero"
                         ),
                     }
                 ],
@@ -1454,7 +1454,7 @@ class PatchRailCITests(unittest.TestCase):
                         "owner_action_queue: "
                         "pablo=show-hn/browser_extension_setup_required "
                         "(1; command=python3 opportunity-desk/scripts/publish_post.py "
-                        "blockers --owner pablo --json)"
+                        "blockers --owner pablo --json --exit-zero)"
                     ),
                     ("traffic_priority: show-hn=120 visits/pablo/browser_extension_setup_required"),
                     "blocked_channels: show-hn",
@@ -1474,13 +1474,13 @@ class PatchRailCITests(unittest.TestCase):
                     ("execution_handoff: pablo/show-hn/browser_extension_setup_required"),
                     (
                         "execution_command: python3 "
-                        "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                        "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
                     ),
                     "next_action: unblock_distribution_channels",
                     "browser_extension_handoff: show-hn (1 pending)",
                     (
                         "browser_verify_command: python3 "
-                        "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                        "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
                     ),
                     (
                         "browser_claim_after_setup_command: python3 "
@@ -1489,7 +1489,7 @@ class PatchRailCITests(unittest.TestCase):
                     ),
                     (
                         "browser_verify_after_claim_command: python3 "
-                        "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                        "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
                     ),
                     "",
                 ]
@@ -1569,7 +1569,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("execution_handoff: pablo/show-hn/browser_extension_setup_required", blockers)
         self.assertIn(
             "execution_command: python3 opportunity-desk/scripts/publish_post.py "
-            "blockers --owner pablo --json",
+            "blockers --owner pablo --json --exit-zero",
             blockers,
         )
         self.assertIn("- channel: show-hn", blockers)
@@ -1657,7 +1657,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("channel: show-hn", handoff)
         self.assertIn("traffic: 5/300", handoff)
         self.assertIn(
-            "command: python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json",
+            "command: python3 opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero",
             handoff,
         )
         self.assertIn("owner_action_queue:", handoff)
@@ -1772,11 +1772,11 @@ class PatchRailCITests(unittest.TestCase):
                     "channel: show-hn",
                     (
                         "command: python3 opportunity-desk/scripts/publish_post.py blockers "
-                        "--owner pablo --json"
+                        "--owner pablo --json --exit-zero"
                     ),
                     (
                         "verify_command: python3 opportunity-desk/scripts/publish_post.py "
-                        "blockers --owner pablo --json"
+                        "blockers --owner pablo --json --exit-zero"
                     ),
                     (
                         "safe_next_step: Enable/install the browser extension in the logged-in "
@@ -2784,7 +2784,7 @@ class PatchRailCITests(unittest.TestCase):
                     "estimated_visits": 45,
                     "command": (
                         "python3 opportunity-desk/scripts/publish_post.py "
-                        "blockers --owner worker --json"
+                        "blockers --owner worker --json --exit-zero"
                     ),
                     "safe_next_step": (
                         "create facts-only social_post brief for linkedin; "
@@ -5549,11 +5549,11 @@ class PatchRailCITests(unittest.TestCase):
                     "next_action": "browser_extension_setup_required",
                     "command": (
                         "python3 opportunity-desk/scripts/publish_post.py blockers "
-                        "--owner pablo --json"
+                        "--owner pablo --json --exit-zero"
                     ),
                     "verify_command": (
                         "python3 opportunity-desk/scripts/publish_post.py blockers "
-                        "--owner pablo --json"
+                        "--owner pablo --json --exit-zero"
                     ),
                     "safe_next_step": (
                         "Enable/install the browser extension in the logged-in profile, then "
