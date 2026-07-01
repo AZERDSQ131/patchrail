@@ -1795,6 +1795,13 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("owner_action_queue:", handoff)
         self.assertIn("  channel: show-hn", handoff)
         self.assertIn("  action: browser_extension_setup_required", handoff)
+        self.assertIn("stalled_handoff: pablo/show-hn/1d (1 pending)", handoff)
+        self.assertIn(
+            "stalled_unblock_command: python3 "
+            "opportunity-desk/scripts/publish_post.py claim --channel show-hn "
+            "--copy-file products/gumroad/distribution/posts/show-hn.md",
+            handoff,
+        )
         self.assertIn("browser_extension_handoff: show-hn (1 pending)", handoff)
         self.assertIn(
             "browser_claim_after_setup_command: python3 "

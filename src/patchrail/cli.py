@@ -3259,6 +3259,23 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
             )
     else:
         lines.append("owner_action_queue: none")
+    stalled_handoff = payload["stalled_handoff"]
+    if stalled_handoff["required"]:
+        lines.extend(
+            [
+                (
+                    "stalled_handoff: "
+                    f"{stalled_handoff['next_owner']}/"
+                    f"{stalled_handoff['next_channel']}/"
+                    f"{stalled_handoff['next_blocked_days']}d "
+                    f"({stalled_handoff['pending_count']} pending)"
+                ),
+                "stalled_unblock_command: "
+                + (stalled_handoff["next_unblock_command"] or "none"),
+            ]
+        )
+    else:
+        lines.append("stalled_handoff: none")
     browser_handoff = payload["browser_extension_handoff"]
     if browser_handoff["required"]:
         lines.extend(
