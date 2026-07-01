@@ -2841,8 +2841,7 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
 
 def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
     owner_actions = "; ".join(
-        f"{item['owner']}={item['channel']}/{item['next_action']}"
-        f" ({item['pending_count']})"
+        f"{item['owner']}={item['channel']}/{item['next_action']} ({item['pending_count']})"
         for item in payload["owner_next_actions"]
     )
     paid_traffic_plan = payload["paid_traffic_plan"]

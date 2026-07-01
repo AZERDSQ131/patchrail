@@ -1488,7 +1488,9 @@ class PatchRailCITests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         compact = stdout.getvalue()
-        self.assertIn("owner_next_actions: worker=devto/claim_uncovered_distribution_channel (1)", compact)
+        self.assertIn(
+            "owner_next_actions: worker=devto/claim_uncovered_distribution_channel (1)", compact
+        )
         self.assertIn("next_action: claim_uncovered_distribution_channel", compact)
         self.assertIn("next_traffic_checkpoint: 80", compact)
         self.assertIn("traffic_delta_target: 55", compact)
