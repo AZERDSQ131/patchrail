@@ -3258,6 +3258,46 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_distribution_gate_receipt(payload: dict[str, Any]) -> str:
+    handoff = payload["execution_handoff"]
+    paid_traffic_plan = payload["paid_traffic_plan"]
+    owner_counts = ", ".join(
+        f"{owner}={count}" for owner, count in sorted(payload["blocker_owner_counts"].items())
+    )
+    owner_action_queue = "; ".join(
+        f"{item['owner']}={item['primary_channel']}/{item['next_action']} ({item['pending_count']})"
+        for item in payload["owner_action_queue"]
+    )
+    status = "worker_actionable" if payload["worker_actionable"] else "blocked_handoff"
+    if handoff.get("required") is False:
+        status = "no_execution_required"
+    lines = [
+        f"receipt_status: {status}",
+        f"consumer: {payload['conversion_consumer']}",
+        f"as_of: {payload['as_of']}",
+        f"traffic: {payload['traffic_delivered']}/{payload['traffic_target']}",
+        f"traffic_gap: {payload['traffic_gap']}",
+        f"sales_total: {payload['sales_total']}",
+        f"gross_usd: {payload['gross_usd']:.2f}",
+        f"ad_spend_committed_usd: {paid_traffic_plan['ad_spend_committed_usd']:.2f}",
+        f"ad_cap_usd: {paid_traffic_plan['ad_cap_usd']:.2f}",
+        f"pivot_gate_armed: {payload['pivot_gate_armed']}",
+        f"pivot_gate_fires: {payload['pivot_gate_fires']}",
+        f"next_action: {handoff['next_action']}",
+        f"owner: {handoff['owner']}",
+        f"channel: {handoff['channel'] or 'none'}",
+        f"worker_actionable: {payload['worker_actionable']}",
+        f"worker_actionable_reason: {payload['worker_actionable_reason']}",
+        "blocked_channels: " + (", ".join(payload["blocked_channels"]) or "none"),
+        "blocker_owners: " + (owner_counts or "none"),
+        "owner_action_queue: " + (owner_action_queue or "none"),
+        "command: " + (handoff["command"] or "none"),
+        "verify_command: " + (handoff["verify_command"] or "none"),
+        "safe_next_step: " + (handoff["safe_next_step"] or "none"),
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
     failure_class = result.get("failure_class")
     result["guide_url"] = _fix_guide_url(failure_class)
@@ -3641,6 +3681,8 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         text = _render_distribution_gate_handoff(payload)
     elif args.format == "next":
         text = _render_distribution_gate_next(payload)
+    elif args.format == "receipt":
+        text = _render_distribution_gate_receipt(payload)
     else:
         text = _render_distribution_gate_text(payload)
     _write_or_print(text, args.out)
@@ -12003,7 +12045,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     distribution_sku1.add_argument(
         "--format",
-        choices=["json", "text", "compact", "blockers", "handoff", "next"],
+        choices=["json", "text", "compact", "blockers", "handoff", "next", "receipt"],
         default="text",
         help="Output format.",
     )

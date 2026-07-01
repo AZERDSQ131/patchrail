@@ -1794,6 +1794,76 @@ class PatchRailCITests(unittest.TestCase):
             ),
         )
 
+    def test_distribution_sku1_gate_receipt_summarizes_blocked_worker_turn(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            copy_file = "products/gumroad/distribution/posts/show-hn.md"
+            (posted / "show-hn.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "copy_file": copy_file,
+                        "ts_blocked": "2026-06-30T09:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "5",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-01",
+                        "--ad-spend-committed-usd",
+                        "12.5",
+                        "--format",
+                        "receipt",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        receipt = stdout.getvalue()
+        self.assertIn("receipt_status: blocked_handoff", receipt)
+        self.assertIn("consumer: SKU #1 CI Triage $19", receipt)
+        self.assertIn("traffic: 5/300", receipt)
+        self.assertIn("sales_total: 0", receipt)
+        self.assertIn("gross_usd: 0.00", receipt)
+        self.assertIn("ad_spend_committed_usd: 12.50", receipt)
+        self.assertIn("next_action: browser_extension_setup_required", receipt)
+        self.assertIn("owner: pablo", receipt)
+        self.assertIn("channel: show-hn", receipt)
+        self.assertIn("worker_actionable: False", receipt)
+        self.assertIn("worker_actionable_reason: pablo_handoff_required", receipt)
+        self.assertIn("blocked_channels: show-hn", receipt)
+        self.assertIn("blocker_owners: pablo=1", receipt)
+        self.assertIn(
+            "owner_action_queue: pablo=show-hn/browser_extension_setup_required (1)", receipt
+        )
+        self.assertIn(
+            "command: python3 opportunity-desk/scripts/publish_post.py blockers "
+            "--owner pablo --json --exit-zero",
+            receipt,
+        )
+        self.assertIn(
+            "safe_next_step: Enable/install the browser extension in the logged-in profile",
+            receipt,
+        )
+        self.assertNotIn("Measurement packet:", receipt)
+
     def test_distribution_sku1_gate_next_reports_claimable_channel_command(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"
