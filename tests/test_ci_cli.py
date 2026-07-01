@@ -2622,6 +2622,56 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(payload["supervisor_snapshot"]["path"], str(supervisor))
 
+    def test_distribution_sku1_gate_discovers_workspace_posted_dir_when_omitted(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            workspace = Path(tmpdir) / "hermes-revenue"
+            product_cwd = workspace / "product" / "patchrail"
+            posted = workspace / "products" / "gumroad" / "distribution" / "posted"
+            posted.mkdir(parents=True)
+            product_cwd.mkdir(parents=True)
+            (posted / "show-hn.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn.md",
+                        "ts_blocked": "2026-07-01T07:11:52Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with (
+                patch.object(cli_module.Path, "cwd", return_value=product_cwd),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--traffic-delivered",
+                        "5",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-01",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["posted_dir"], str(posted))
+        self.assertEqual(payload["blocked_channels"], ["show-hn"])
+        self.assertEqual(payload["worker_actionable_reason"], "pablo_handoff_required")
+
     def test_distribution_sku1_gate_manual_metrics_override_supervisor_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

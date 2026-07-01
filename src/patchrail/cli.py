@@ -112,6 +112,7 @@ _SKU1_PAID_CLICK_CPC_USD = 0.75
 _DEFAULT_DISTRIBUTION_SUPERVISOR_SNAPSHOT = (
     Path.home() / ".openclaw/run/patchrail_supervisor_last.json"
 )
+_DEFAULT_DISTRIBUTION_POSTED_DIR = Path("products/gumroad/distribution/posted")
 _SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
 _SKU1_PAID_TRAFFIC_PLATFORM = "sku1-traffic-boost"
 _SKU1_PAID_TRAFFIC_CAMPAIGN = "ci-triage-sku1-gate"
@@ -1022,6 +1023,16 @@ def _distribution_default_supervisor_snapshot_path(args: argparse.Namespace) -> 
     if _DEFAULT_DISTRIBUTION_SUPERVISOR_SNAPSHOT.exists():
         return _DEFAULT_DISTRIBUTION_SUPERVISOR_SNAPSHOT
     return None
+
+
+def _distribution_default_posted_dir_path(path: Path | None) -> Path:
+    if path is not None:
+        return path
+    for root in (Path.cwd(), *Path.cwd().parents):
+        candidate = root / _DEFAULT_DISTRIBUTION_POSTED_DIR
+        if candidate.exists():
+            return candidate
+    return _DEFAULT_DISTRIBUTION_POSTED_DIR
 
 
 def _distribution_metric_value(
@@ -3712,7 +3723,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         as_of=as_of,
     )
     payload = _distribution_gate_payload(
-        posted_dir=args.posted_dir,
+        posted_dir=_distribution_default_posted_dir_path(args.posted_dir),
         publish_health_file=args.publish_health_file,
         approved_copy_dir=args.approved_copy_dir,
         traffic_delivered=traffic_delivered,
@@ -12091,7 +12102,7 @@ def _build_parser() -> argparse.ArgumentParser:
     distribution_sku1.add_argument(
         "--posted-dir",
         type=Path,
-        default=Path("products/gumroad/distribution/posted"),
+        default=None,
         help="Directory containing local publish_post.py receipt JSON files.",
     )
     distribution_sku1.add_argument(
