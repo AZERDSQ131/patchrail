@@ -1425,6 +1425,14 @@ class PatchRailCITests(unittest.TestCase):
                     "owner_next_actions: pablo=show-hn/browser_extension_setup_required (1)",
                     "blocked_channels: show-hn",
                     "traffic_gap: 295",
+                    "next_traffic_checkpoint: 300",
+                    "traffic_delta_target: 295",
+                    "sales_delta_target: 1",
+                    (
+                        "measurement_command: jq "
+                        "'.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
+                        "~/.openclaw/run/patchrail_supervisor_last.json"
+                    ),
                     "ad_spend_committed_usd: 12.50",
                     "ad_cap_usd: 75.00",
                     "pivot_gate_armed: True",
@@ -1482,6 +1490,15 @@ class PatchRailCITests(unittest.TestCase):
         compact = stdout.getvalue()
         self.assertIn("owner_next_actions: worker=devto/claim_uncovered_distribution_channel (1)", compact)
         self.assertIn("next_action: claim_uncovered_distribution_channel", compact)
+        self.assertIn("next_traffic_checkpoint: 80", compact)
+        self.assertIn("traffic_delta_target: 55", compact)
+        self.assertIn("sales_delta_target: 1", compact)
+        self.assertIn(
+            "measurement_command: jq "
+            "'.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
+            "~/.openclaw/run/patchrail_supervisor_last.json",
+            compact,
+        )
         self.assertIn("channel: devto", compact)
         self.assertIn(
             "url: https://patchrail.gumroad.com/l/ci-failure-triage"

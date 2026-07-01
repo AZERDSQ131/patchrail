@@ -2846,10 +2846,16 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
         for item in payload["owner_next_actions"]
     )
     paid_traffic_plan = payload["paid_traffic_plan"]
+    measurement_packet = payload["measurement_packet"]
+    next_measurement_target = measurement_packet["next_measurement_target"]
     lines = [
         "owner_next_actions: " + (owner_actions or "none"),
         "blocked_channels: " + (", ".join(payload["blocked_channels"]) or "none"),
         f"traffic_gap: {payload['traffic_gap']}",
+        f"next_traffic_checkpoint: {next_measurement_target['next_traffic_checkpoint']}",
+        f"traffic_delta_target: {next_measurement_target['traffic_delta_target']}",
+        f"sales_delta_target: {next_measurement_target['sales_delta_target']}",
+        f"measurement_command: {payload['channel_conversion_plan']['measurement_command']}",
         f"ad_spend_committed_usd: {paid_traffic_plan['ad_spend_committed_usd']:.2f}",
         f"ad_cap_usd: {paid_traffic_plan['ad_cap_usd']:.2f}",
         f"pivot_gate_armed: {payload['pivot_gate_armed']}",
