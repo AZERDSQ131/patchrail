@@ -3270,8 +3270,7 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
                     f"{stalled_handoff['next_blocked_days']}d "
                     f"({stalled_handoff['pending_count']} pending)"
                 ),
-                "stalled_unblock_command: "
-                + (stalled_handoff["next_unblock_command"] or "none"),
+                "stalled_unblock_command: " + (stalled_handoff["next_unblock_command"] or "none"),
             ]
         )
     else:
