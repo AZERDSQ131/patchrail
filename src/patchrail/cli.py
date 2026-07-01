@@ -109,6 +109,9 @@ _SKU1_PIVOT_TRAFFIC_TARGET = 300
 _SKU1_AD_SPEND_CAP_USD = 75.0
 _SKU1_AD_BOOST_MAX_USD = 25.0
 _SKU1_PAID_CLICK_CPC_USD = 0.75
+_DEFAULT_DISTRIBUTION_SUPERVISOR_SNAPSHOT = (
+    Path.home() / ".openclaw/run/patchrail_supervisor_last.json"
+)
 _SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
 _SKU1_PAID_TRAFFIC_PLATFORM = "sku1-traffic-boost"
 _SKU1_PAID_TRAFFIC_CAMPAIGN = "ci-triage-sku1-gate"
@@ -1005,6 +1008,20 @@ def _distribution_supervisor_snapshot(path: Path | None) -> dict[str, Any]:
         "present": True,
         "metrics": {key: raw[key] for key in metric_keys if key in raw},
     }
+
+
+def _distribution_default_supervisor_snapshot_path(args: argparse.Namespace) -> Path | None:
+    if args.supervisor_snapshot is not None:
+        return args.supervisor_snapshot
+    if (
+        args.traffic_delivered is not None
+        and args.sales_total is not None
+        and args.gross_usd is not None
+    ):
+        return None
+    if _DEFAULT_DISTRIBUTION_SUPERVISOR_SNAPSHOT.exists():
+        return _DEFAULT_DISTRIBUTION_SUPERVISOR_SNAPSHOT
+    return None
 
 
 def _distribution_metric_value(
@@ -3629,7 +3646,10 @@ def _doctor(args: argparse.Namespace) -> int:
 
 
 def _distribution_gate(args: argparse.Namespace) -> int:
-    supervisor_snapshot = _distribution_supervisor_snapshot(args.supervisor_snapshot)
+    as_of = args.as_of or date.today().isoformat()
+    supervisor_snapshot = _distribution_supervisor_snapshot(
+        _distribution_default_supervisor_snapshot_path(args)
+    )
     missing_metrics: list[str] = []
     traffic_delivered, traffic_source = _distribution_metric_value(
         argument_value=args.traffic_delivered,
@@ -3689,7 +3709,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
     ad_account_eligibility = _distribution_ad_account_eligibility(
         args.ad_account_eligibility_file,
         _SKU1_PAID_TRAFFIC_PLATFORM,
-        as_of=args.as_of,
+        as_of=as_of,
     )
     payload = _distribution_gate_payload(
         posted_dir=args.posted_dir,
@@ -3698,7 +3718,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         traffic_delivered=traffic_delivered,
         sales_total=sales_total,
         gross_usd=gross_usd,
-        as_of=args.as_of,
+        as_of=as_of,
         traffic_target=args.traffic_target,
         gate_date=args.gate_date,
         stalled_after_days=args.stalled_after_days,
@@ -12110,8 +12130,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     distribution_sku1.add_argument(
         "--as-of",
-        required=True,
-        help="Snapshot date in YYYY-MM-DD form.",
+        help="Snapshot date in YYYY-MM-DD form. Defaults to today's local date.",
     )
     distribution_sku1.add_argument(
         "--traffic-target",

@@ -6,9 +6,12 @@ import sys
 import tempfile
 import unittest
 from contextlib import redirect_stdout
+from datetime import date
 from io import StringIO
 from pathlib import Path
+from unittest.mock import patch
 
+import patchrail.cli as cli_module
 from patchrail.ci.classify import RULES
 from patchrail.cli import (
     _FIX_GUIDE_SLUGS,
@@ -2564,6 +2567,60 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(payload["supervisor_snapshot"]["metrics"]["traffic_delivered_total"], 9)
         self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 12.5)
+
+    def test_distribution_sku1_gate_uses_default_supervisor_snapshot_when_metrics_omitted(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            supervisor = Path(tmpdir) / "patchrail_supervisor_last.json"
+            supervisor.write_text(
+                json.dumps(
+                    {
+                        "traffic_delivered_total": 5,
+                        "gumroad_sales_total": 0,
+                        "gumroad_gross_usd": 0.0,
+                        "ad_spend_committed_usd": 0.0,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with (
+                patch.object(
+                    cli_module,
+                    "_DEFAULT_DISTRIBUTION_SUPERVISOR_SNAPSHOT",
+                    supervisor,
+                ),
+                redirect_stdout(stdout),
+            ):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["as_of"], date.today().isoformat())
+        self.assertEqual(payload["traffic_delivered_total"], 5)
+        self.assertEqual(
+            payload["metric_source"],
+            {
+                "traffic_delivered": "supervisor_snapshot",
+                "sales_total": "supervisor_snapshot",
+                "gross_usd": "supervisor_snapshot",
+                "ad_spend_committed_usd": "supervisor_snapshot",
+            },
+        )
+        self.assertEqual(payload["supervisor_snapshot"]["path"], str(supervisor))
 
     def test_distribution_sku1_gate_manual_metrics_override_supervisor_snapshot(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
