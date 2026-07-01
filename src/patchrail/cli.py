@@ -745,6 +745,33 @@ def _distribution_owner_next_actions(
     return actions
 
 
+def _distribution_owner_action_queue(
+    owner_next_actions: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    queue: list[dict[str, Any]] = []
+    for item in owner_next_actions:
+        owner = str(item["owner"])
+        command = ""
+        if owner in {"copywriter", "pablo", "worker", "worker_browser", "worker_any"}:
+            command = (
+                "python3 opportunity-desk/scripts/publish_post.py blockers "
+                f"--owner {shlex.quote(owner)} --json"
+            )
+        queue.append(
+            {
+                "owner": owner,
+                "primary_channel": item["channel"],
+                "pending_channels": item["pending_channels"],
+                "pending_count": item["pending_count"],
+                "next_action": item["next_action"],
+                "estimated_visits": item.get("estimated_visits", 0),
+                "command": command,
+                "safe_next_step": item["safe_next_step"],
+            }
+        )
+    return queue
+
+
 def _distribution_stalled_blockers(
     blocker_queue: list[dict[str, Any]],
     stalled_after_days: int,
@@ -2544,6 +2571,7 @@ def _distribution_gate_payload(
         blocker_queue, recommended_channel
     )
     owner_next_actions = _distribution_owner_next_actions(blocker_queue, recommended_channel)
+    owner_action_queue = _distribution_owner_action_queue(owner_next_actions)
     stalled_blockers = _distribution_stalled_blockers(blocker_queue, stalled_after_days)
     stalled_handoff = _distribution_stalled_handoff(stalled_blockers)
     stalled_owner_counts = Counter(item["owner"] for item in stalled_blockers)
@@ -2738,6 +2766,7 @@ def _distribution_gate_payload(
         "traffic_priority_queue": traffic_priority_queue,
         "recommended_channel": recommended_channel,
         "owner_next_actions": owner_next_actions,
+        "owner_action_queue": owner_action_queue,
         "receipt_status_counts": dict(sorted(by_status.items())),
         "receipt_audit": receipt_audit,
         "receipts": receipts,
@@ -2974,6 +3003,15 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             )
             or "none"
         ),
+        "Owner action queue: "
+        + (
+            ", ".join(
+                f"{item['owner']}={item['primary_channel']}/{item['next_action']}"
+                f" command={item['command'] or 'none'}"
+                for item in payload["owner_action_queue"]
+            )
+            or "none"
+        ),
         "Copywriter handoff: "
         + (
             (
@@ -3005,6 +3043,11 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
         f"({item['pending_count']}; {item['estimated_visits']} visits)"
         for item in payload["owner_next_actions"]
     )
+    owner_action_queue = "; ".join(
+        f"{item['owner']}={item['primary_channel']}/{item['next_action']} "
+        f"({item['pending_count']}; command={item['command'] or 'none'})"
+        for item in payload["owner_action_queue"]
+    )
     traffic_priority = "; ".join(
         f"{item['channel']}={item['estimated_visits']} visits/{item['owner']}/{item['next_action']}"
         for item in payload["traffic_priority_queue"][:3]
@@ -3014,6 +3057,7 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
     next_measurement_target = measurement_packet["next_measurement_target"]
     lines = [
         "owner_next_actions: " + (owner_actions or "none"),
+        "owner_action_queue: " + (owner_action_queue or "none"),
         "traffic_priority: " + (traffic_priority or "none"),
         "blocked_channels: " + (", ".join(payload["blocked_channels"]) or "none"),
         f"traffic_gap: {payload['traffic_gap']}",

@@ -1450,6 +1450,12 @@ class PatchRailCITests(unittest.TestCase):
                         "owner_next_actions: "
                         "pablo=show-hn/browser_extension_setup_required (1; 120 visits)"
                     ),
+                    (
+                        "owner_action_queue: "
+                        "pablo=show-hn/browser_extension_setup_required "
+                        "(1; command=python3 opportunity-desk/scripts/publish_post.py "
+                        "blockers --owner pablo --json)"
+                    ),
                     ("traffic_priority: show-hn=120 visits/pablo/browser_extension_setup_required"),
                     "blocked_channels: show-hn",
                     "traffic_gap: 295",
@@ -2414,6 +2420,27 @@ class PatchRailCITests(unittest.TestCase):
                     "source": "expansion",
                     "oldest_blocked_days": None,
                     "estimated_visits": 45,
+                }
+            ],
+        )
+        self.assertEqual(
+            payload["owner_action_queue"],
+            [
+                {
+                    "owner": "worker",
+                    "primary_channel": "linkedin",
+                    "pending_channels": ["linkedin"],
+                    "pending_count": 1,
+                    "next_action": "create_social_post_brief",
+                    "estimated_visits": 45,
+                    "command": (
+                        "python3 opportunity-desk/scripts/publish_post.py "
+                        "blockers --owner worker --json"
+                    ),
+                    "safe_next_step": (
+                        "create facts-only social_post brief for linkedin; "
+                        "copywriter authors external prose before claim/publish"
+                    ),
                 }
             ],
         )
