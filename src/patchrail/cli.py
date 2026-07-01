@@ -3149,6 +3149,47 @@ def _render_distribution_gate_blockers(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
+    handoff = payload["execution_handoff"]
+    measurement_packet = payload["measurement_packet"]
+    lines = [
+        f"consumer: {handoff['consumer']}",
+        f"kpi: {handoff['kpi']}",
+        f"next_action: {handoff['next_action']}",
+        f"owner: {handoff['owner']}",
+        f"channel: {handoff['channel'] or 'none'}",
+        f"traffic: {payload['traffic_delivered']}/{payload['traffic_target']}",
+        f"traffic_gap: {payload['traffic_gap']}",
+        f"sales_total: {payload['sales_total']}",
+        f"gross_usd: {payload['gross_usd']:.2f}",
+        "command: " + (handoff["command"] or "none"),
+        "verify_command: " + (handoff["verify_command"] or "none"),
+        "safe_next_step: " + (handoff["safe_next_step"] or "none"),
+        "stop_conditions: " + (", ".join(handoff["stop_conditions"]) or "none"),
+        (
+            "next_measurement: "
+            f"checkpoint={measurement_packet['next_measurement_target']['next_traffic_checkpoint']}, "
+            f"traffic_delta={measurement_packet['next_measurement_target']['traffic_delta_target']}, "
+            f"sales_delta={measurement_packet['next_measurement_target']['sales_delta_target']}"
+        ),
+    ]
+    if payload["owner_action_queue"]:
+        lines.append("owner_action_queue:")
+        for item in payload["owner_action_queue"]:
+            lines.extend(
+                [
+                    f"- owner: {item['owner']}",
+                    f"  channel: {item['primary_channel']}",
+                    f"  action: {item['next_action']}",
+                    f"  pending_count: {item['pending_count']}",
+                    "  command: " + (item["command"] or "none"),
+                ]
+            )
+    else:
+        lines.append("owner_action_queue: none")
+    return "\n".join(lines) + "\n"
+
+
 def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
     failure_class = result.get("failure_class")
     result["guide_url"] = _fix_guide_url(failure_class)
@@ -3528,6 +3569,8 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         text = _render_distribution_gate_blockers(payload)
     elif args.format == "compact":
         text = _render_distribution_gate_compact(payload)
+    elif args.format == "handoff":
+        text = _render_distribution_gate_handoff(payload)
     else:
         text = _render_distribution_gate_text(payload)
     _write_or_print(text, args.out)
@@ -11888,7 +11931,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     distribution_sku1.add_argument(
         "--format",
-        choices=["json", "text", "compact", "blockers"],
+        choices=["json", "text", "compact", "blockers", "handoff"],
         default="text",
         help="Output format.",
     )
