@@ -1466,6 +1466,20 @@ class PatchRailCITests(unittest.TestCase):
                     "pivot_gate_armed: True",
                     "pivot_gate_fires: False",
                     "next_action: unblock_distribution_channels",
+                    "browser_extension_handoff: show-hn (1 pending)",
+                    (
+                        "browser_verify_command: python3 "
+                        "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                    ),
+                    (
+                        "browser_claim_after_setup_command: python3 "
+                        "opportunity-desk/scripts/publish_post.py claim --channel show-hn "
+                        "--copy-file products/gumroad/distribution/posts/show-hn.md"
+                    ),
+                    (
+                        "browser_verify_after_claim_command: python3 "
+                        "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                    ),
                     "",
                 ]
             ),
