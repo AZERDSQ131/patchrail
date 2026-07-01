@@ -567,6 +567,7 @@ def _distribution_blocker_queue(blocker_plan: list[dict[str, Any]]) -> list[dict
             "safe_next_step": item["safe_next_step"],
             "blocked_at": item.get("blocked_at", ""),
             "blocked_days": item.get("blocked_days"),
+            "receipt": item.get("receipt", ""),
             "brief": item.get("brief", ""),
             "copy_file": item.get("copy_file", ""),
             "reason": item["reason"],
@@ -3114,6 +3115,40 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_distribution_gate_blockers(payload: dict[str, Any]) -> str:
+    owner_counts = ", ".join(
+        f"{owner}={count}" for owner, count in sorted(payload["blocker_owner_counts"].items())
+    )
+    lines = [
+        "blockers_total: " + str(len(payload["blocker_queue"])),
+        "owner_counts: " + (owner_counts or "none"),
+        "blocked_channels: " + (", ".join(payload["blocked_channels"]) or "none"),
+        f"traffic_gap: {payload['traffic_gap']}",
+        (
+            "execution_handoff: "
+            f"{payload['execution_handoff']['owner']}/"
+            f"{payload['execution_handoff']['channel'] or 'none'}/"
+            f"{payload['execution_handoff']['next_action']}"
+        ),
+        "execution_command: " + (payload["execution_handoff"]["command"] or "none"),
+    ]
+    for item in payload["blocker_queue"]:
+        blocked_days = item.get("blocked_days")
+        lines.extend(
+            [
+                f"- channel: {item['channel']}",
+                f"  owner: {item['owner']}",
+                f"  action: {item['next_action']}",
+                f"  blocked_days: {blocked_days if blocked_days is not None else 'unknown'}",
+                f"  receipt: {item.get('receipt') or 'none'}",
+                f"  copy_file: {item.get('copy_file') or 'none'}",
+                f"  reason: {item.get('reason') or 'none'}",
+                f"  safe_next_step: {item.get('safe_next_step') or 'none'}",
+            ]
+        )
+    return "\n".join(lines) + "\n"
+
+
 def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
     failure_class = result.get("failure_class")
     result["guide_url"] = _fix_guide_url(failure_class)
@@ -3489,6 +3524,8 @@ def _distribution_gate(args: argparse.Namespace) -> int:
                 }
     if args.format == "json":
         text = _json_dump(payload)
+    elif args.format == "blockers":
+        text = _render_distribution_gate_blockers(payload)
     elif args.format == "compact":
         text = _render_distribution_gate_compact(payload)
     else:
@@ -11851,7 +11888,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     distribution_sku1.add_argument(
         "--format",
-        choices=["json", "text", "compact"],
+        choices=["json", "text", "compact", "blockers"],
         default="text",
         help="Output format.",
     )

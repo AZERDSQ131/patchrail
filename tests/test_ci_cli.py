@@ -1497,6 +1497,94 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertNotIn("Measurement packet:", compact)
 
+    def test_distribution_sku1_gate_reports_blockers_format(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            copy_file = "products/gumroad/distribution/posts/show-hn.md"
+            receipt = posted / "show-hn.json"
+            receipt.write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "copy_file": copy_file,
+                        "ts_blocked": "2026-06-30T09:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "covered_channels": ["show-hn"],
+                        "social_post_blocked_total": 1,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "blocked": [
+                            {
+                                "channel": "show-hn",
+                                "reason": "Chrome route missing extension",
+                                "receipt": str(receipt),
+                                "copy_file": copy_file,
+                                "ts_blocked": "2026-06-30T09:00:00Z",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "5",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-01",
+                        "--format",
+                        "blockers",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        blockers = stdout.getvalue()
+        self.assertIn("blockers_total: 1", blockers)
+        self.assertIn("owner_counts: pablo=1", blockers)
+        self.assertIn("blocked_channels: show-hn", blockers)
+        self.assertIn("execution_handoff: pablo/show-hn/browser_extension_setup_required", blockers)
+        self.assertIn(
+            "execution_command: python3 opportunity-desk/scripts/publish_post.py "
+            "blockers --owner pablo --json",
+            blockers,
+        )
+        self.assertIn("- channel: show-hn", blockers)
+        self.assertIn("  owner: pablo", blockers)
+        self.assertIn("  action: browser_extension_setup_required", blockers)
+        self.assertIn(f"  receipt: {receipt}", blockers)
+        self.assertIn(f"  copy_file: {copy_file}", blockers)
+        self.assertIn("  reason: Chrome route missing extension", blockers)
+        self.assertIn(
+            "  safe_next_step: enable/install the Codex Chrome Extension in the selected "
+            "logged-in Chrome profile for show-hn; worker must not bypass profile/login controls",
+            blockers,
+        )
+        self.assertNotIn("Measurement packet:", blockers)
+
     def test_distribution_sku1_gate_compact_reports_next_channel_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"
