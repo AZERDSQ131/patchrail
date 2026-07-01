@@ -2896,8 +2896,7 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
         for item in payload["owner_next_actions"]
     )
     traffic_priority = "; ".join(
-        f"{item['channel']}={item['estimated_visits']} visits/"
-        f"{item['owner']}/{item['next_action']}"
+        f"{item['channel']}={item['estimated_visits']} visits/{item['owner']}/{item['next_action']}"
         for item in payload["traffic_priority_queue"][:3]
     )
     paid_traffic_plan = payload["paid_traffic_plan"]

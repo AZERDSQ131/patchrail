@@ -1450,10 +1450,7 @@ class PatchRailCITests(unittest.TestCase):
                         "owner_next_actions: "
                         "pablo=show-hn/browser_extension_setup_required (1; 120 visits)"
                     ),
-                    (
-                        "traffic_priority: "
-                        "show-hn=120 visits/pablo/browser_extension_setup_required"
-                    ),
+                    ("traffic_priority: show-hn=120 visits/pablo/browser_extension_setup_required"),
                     "blocked_channels: show-hn",
                     "traffic_gap: 295",
                     "next_traffic_checkpoint: 300",
