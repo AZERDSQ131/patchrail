@@ -1352,6 +1352,90 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("Stalled handoff: none", text)
         self.assertIn("Next action: claim_uncovered_distribution_channel", text)
 
+    def test_distribution_sku1_gate_reports_compact_blockers(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "show-hn.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn.md",
+                        "ts_blocked": "2026-06-30T09:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "covered_channels": ["show-hn"],
+                        "social_post_blocked_total": 1,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "blocked": [
+                            {
+                                "channel": "show-hn",
+                                "reason": "Chrome route missing extension",
+                                "receipt": str(posted / "show-hn.json"),
+                                "copy_file": "products/gumroad/distribution/posts/show-hn.md",
+                                "ts_blocked": "2026-06-30T09:00:00Z",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "5",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-01",
+                        "--ad-spend-committed-usd",
+                        "12.5",
+                        "--format",
+                        "compact",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        compact = stdout.getvalue()
+        self.assertEqual(
+            compact,
+            "\n".join(
+                [
+                    "owner_next_actions: pablo=show-hn/browser_extension_setup_required (1)",
+                    "blocked_channels: show-hn",
+                    "traffic_gap: 295",
+                    "ad_spend_committed_usd: 12.50",
+                    "ad_cap_usd: 75.00",
+                    "pivot_gate_armed: True",
+                    "pivot_gate_fires: False",
+                    "next_action: unblock_distribution_channels",
+                    "",
+                ]
+            ),
+        )
+        self.assertNotIn("Measurement packet:", compact)
+
     def test_distribution_sku1_gate_subtracts_committed_ad_spend_from_preflight(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

@@ -2839,6 +2839,26 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
+    owner_actions = "; ".join(
+        f"{item['owner']}={item['channel']}/{item['next_action']}"
+        f" ({item['pending_count']})"
+        for item in payload["owner_next_actions"]
+    )
+    paid_traffic_plan = payload["paid_traffic_plan"]
+    lines = [
+        "owner_next_actions: " + (owner_actions or "none"),
+        "blocked_channels: " + (", ".join(payload["blocked_channels"]) or "none"),
+        f"traffic_gap: {payload['traffic_gap']}",
+        f"ad_spend_committed_usd: {paid_traffic_plan['ad_spend_committed_usd']:.2f}",
+        f"ad_cap_usd: {paid_traffic_plan['ad_cap_usd']:.2f}",
+        f"pivot_gate_armed: {payload['pivot_gate_armed']}",
+        f"pivot_gate_fires: {payload['pivot_gate_fires']}",
+        f"next_action: {payload['next_action']}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
     failure_class = result.get("failure_class")
     result["guide_url"] = _fix_guide_url(failure_class)
@@ -3214,6 +3234,8 @@ def _distribution_gate(args: argparse.Namespace) -> int:
                 }
     if args.format == "json":
         text = _json_dump(payload)
+    elif args.format == "compact":
+        text = _render_distribution_gate_compact(payload)
     else:
         text = _render_distribution_gate_text(payload)
     _write_or_print(text, args.out)
@@ -11574,7 +11596,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     distribution_sku1.add_argument(
         "--format",
-        choices=["json", "text"],
+        choices=["json", "text", "compact"],
         default="text",
         help="Output format.",
     )
