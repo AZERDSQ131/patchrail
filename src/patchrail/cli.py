@@ -3348,6 +3348,58 @@ def _render_distribution_gate_measurement(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_distribution_gate_runway(payload: dict[str, Any]) -> str:
+    organic_runway = payload["organic_runway"]
+    paid_traffic_plan = payload["paid_traffic_plan"]
+    traffic_pressure = payload["traffic_pressure"]
+    pivot_decision = payload["pivot_decision"]
+    paid_ad_packet = payload["paid_ad_execution_packet"]
+    lines = [
+        f"consumer: {payload['conversion_consumer']}",
+        f"traffic: {payload['traffic_delivered']}/{payload['traffic_target']}",
+        f"traffic_gap: {payload['traffic_gap']}",
+        f"traffic_status: {traffic_pressure['status']}",
+        f"days_to_gate: {traffic_pressure['days_to_gate']}",
+        f"required_daily_traffic: {traffic_pressure['required_daily_traffic']}",
+        f"organic_status: {organic_runway['status']}",
+        f"organic_next_action: {organic_runway['next_action']}",
+        f"pending_channel_estimated_visits: {organic_runway['pending_channel_estimated_visits']}",
+        f"traffic_gap_after_pending_channels: {organic_runway['traffic_gap_after_pending_channels']}",
+        f"paid_click_capacity: {paid_traffic_plan['cap_click_capacity']}",
+        f"remaining_organic_gap_after_cap: {paid_traffic_plan['remaining_organic_gap_after_cap']}",
+        f"paid_recommendation: {paid_traffic_plan['recommendation']}",
+        f"paid_boost_required: {paid_ad_packet['required']}",
+        f"paid_boost_executable: {paid_ad_packet['spend_executable']}",
+        "paid_boost_blocked_reason: " + (paid_ad_packet["blocker_code"] or "none"),
+        f"pivot_status: {pivot_decision['status']}",
+        f"pivot_decision: {pivot_decision['decision']}",
+        f"next_action: {payload['next_action']}",
+        (
+            "execution_handoff: "
+            f"{payload['execution_handoff']['owner']}/"
+            f"{payload['execution_handoff']['channel'] or 'none'}/"
+            f"{payload['execution_handoff']['next_action']}"
+        ),
+        f"worker_actionable: {payload['worker_actionable']}",
+        "worker_actionable_reason: " + payload["worker_actionable_reason"],
+    ]
+    if organic_runway["pending_channels"]:
+        lines.append("pending_channels:")
+        for item in organic_runway["pending_channels"]:
+            lines.extend(
+                [
+                    f"- channel: {item['channel']}",
+                    f"  status: {item['status']}",
+                    f"  owner: {item['owner']}",
+                    f"  action: {item['next_action']}",
+                    f"  estimated_visits: {item['estimated_visits']}",
+                ]
+            )
+    else:
+        lines.append("pending_channels: none")
+    return "\n".join(lines) + "\n"
+
+
 def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
     failure_class = result.get("failure_class")
     result["guide_url"] = _fix_guide_url(failure_class)
@@ -3735,6 +3787,8 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         text = _render_distribution_gate_receipt(payload)
     elif args.format == "measurement":
         text = _render_distribution_gate_measurement(payload)
+    elif args.format == "runway":
+        text = _render_distribution_gate_runway(payload)
     else:
         text = _render_distribution_gate_text(payload)
     _write_or_print(text, args.out)
@@ -12106,6 +12160,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "next",
             "receipt",
             "measurement",
+            "runway",
         ],
         default="text",
         help="Output format.",

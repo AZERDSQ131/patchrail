@@ -802,6 +802,72 @@ class PatchRailCITests(unittest.TestCase):
             output,
         )
 
+    def test_distribution_sku1_gate_runway_format_reports_traffic_pressure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "show-hn.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn.md",
+                        "ts_blocked": "2026-07-01T07:11:52Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "5",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-01",
+                        "--format",
+                        "runway",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        output = stdout.getvalue()
+        self.assertIn("consumer: SKU #1 CI Triage $19\n", output)
+        self.assertIn("traffic: 5/300\n", output)
+        self.assertIn("traffic_gap: 295\n", output)
+        self.assertIn("traffic_status: traffic_gap_after_gate\n", output)
+        self.assertIn("required_daily_traffic: 295.0\n", output)
+        self.assertIn("organic_status: pending_channels_not_enough\n", output)
+        self.assertIn(
+            "organic_next_action: unblock_channels_then_add_new_distribution_or_guarded_paid_boost\n",
+            output,
+        )
+        self.assertIn("pending_channel_estimated_visits: 120\n", output)
+        self.assertIn("traffic_gap_after_pending_channels: 175\n", output)
+        self.assertIn("paid_click_capacity: 100\n", output)
+        self.assertIn("remaining_organic_gap_after_cap: 195\n", output)
+        self.assertIn(
+            "paid_recommendation: organic_distribution_required_before_or_alongside_ads\n",
+            output,
+        )
+        self.assertIn("paid_boost_required: False\n", output)
+        self.assertIn("paid_boost_executable: False\n", output)
+        self.assertIn("paid_boost_blocked_reason: none\n", output)
+        self.assertIn("pivot_status: inconclusive_insufficient_traffic\n", output)
+        self.assertIn("pivot_decision: do_not_pivot_on_underpowered_sample\n", output)
+        self.assertIn("pending_channels:\n", output)
+        self.assertIn("- channel: show-hn\n", output)
+
     def test_distribution_sku1_gate_reports_duplicate_channel_receipts(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"
