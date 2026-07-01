@@ -2397,7 +2397,10 @@ def _distribution_execution_handoff(
                     "command": paid_ad_execution_packet["preflight_command"],
                     "verify_command": paid_ad_execution_packet["measurement_command"],
                     "safe_next_step": paid_ad_execution_packet["safe_next_step"],
-                    "stop_conditions": ["preflight_exit_nonzero", paid_ad_execution_packet["halt_flag"]],
+                    "stop_conditions": [
+                        "preflight_exit_nonzero",
+                        paid_ad_execution_packet["halt_flag"],
+                    ],
                 }
             )
         else:

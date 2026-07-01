@@ -1465,10 +1465,7 @@ class PatchRailCITests(unittest.TestCase):
                     "ad_cap_usd: 75.00",
                     "pivot_gate_armed: True",
                     "pivot_gate_fires: False",
-                    (
-                        "execution_handoff: "
-                        "pablo/show-hn/browser_extension_setup_required"
-                    ),
+                    ("execution_handoff: pablo/show-hn/browser_extension_setup_required"),
                     (
                         "execution_command: python3 "
                         "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
