@@ -578,7 +578,29 @@ class PatchRailCITests(unittest.TestCase):
                 "reason": "copywriter unavailable; no approved local copy file",
                 "blocked_at": "2026-06-24T09:34:00Z",
                 "blocked_days": 1,
+                "estimated_visits": 25,
             },
+        )
+        self.assertEqual(
+            payload["traffic_priority_queue"],
+            [
+                {
+                    "channel": "show-hn",
+                    "owner": "pablo",
+                    "next_action": "browser_extension_setup_required",
+                    "estimated_visits": 120,
+                    "safe_next_step": "enable/install the Codex Chrome Extension in the selected logged-in Chrome profile for show-hn; worker must not bypass profile/login controls",
+                    "source": "blocked",
+                },
+                {
+                    "channel": "devto",
+                    "owner": "copywriter",
+                    "next_action": "copywriter_required",
+                    "estimated_visits": 25,
+                    "safe_next_step": "copywriter must create approved copy_file; worker must not draft external prose",
+                    "source": "blocked",
+                },
+            ],
         )
         self.assertEqual(
             payload["owner_next_actions"],
@@ -592,6 +614,7 @@ class PatchRailCITests(unittest.TestCase):
                     "safe_next_step": "copywriter must create approved copy_file; worker must not draft external prose",
                     "source": "blocked",
                     "oldest_blocked_days": 1,
+                    "estimated_visits": 25,
                 },
                 {
                     "owner": "pablo",
@@ -602,6 +625,7 @@ class PatchRailCITests(unittest.TestCase):
                     "safe_next_step": "enable/install the Codex Chrome Extension in the selected logged-in Chrome profile for show-hn; worker must not bypass profile/login controls",
                     "source": "blocked",
                     "oldest_blocked_days": 0,
+                    "estimated_visits": 120,
                 },
             ],
         )
@@ -1422,7 +1446,14 @@ class PatchRailCITests(unittest.TestCase):
             compact,
             "\n".join(
                 [
-                    "owner_next_actions: pablo=show-hn/browser_extension_setup_required (1)",
+                    (
+                        "owner_next_actions: "
+                        "pablo=show-hn/browser_extension_setup_required (1; 120 visits)"
+                    ),
+                    (
+                        "traffic_priority: "
+                        "show-hn=120 visits/pablo/browser_extension_setup_required"
+                    ),
                     "blocked_channels: show-hn",
                     "traffic_gap: 295",
                     "next_traffic_checkpoint: 300",
@@ -1489,7 +1520,15 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         compact = stdout.getvalue()
         self.assertIn(
-            "owner_next_actions: worker=devto/claim_uncovered_distribution_channel (1)", compact
+            (
+                "owner_next_actions: "
+                "worker=devto/claim_uncovered_distribution_channel (1; 25 visits)"
+            ),
+            compact,
+        )
+        self.assertIn(
+            "traffic_priority: devto=25 visits/worker/claim_uncovered_distribution_channel",
+            compact,
         )
         self.assertIn("next_action: claim_uncovered_distribution_channel", compact)
         self.assertIn("next_traffic_checkpoint: 80", compact)
@@ -2223,6 +2262,7 @@ class PatchRailCITests(unittest.TestCase):
                     "copywriter authors external prose before claim/publish"
                 ),
                 "reason": "traffic_gap_remaining_after_base_channels_covered",
+                "estimated_visits": 45,
             },
         )
         self.assertEqual(payload["traffic_execution_plan"]["recommended_channel"], "linkedin")
@@ -2357,6 +2397,7 @@ class PatchRailCITests(unittest.TestCase):
                     ),
                     "source": "expansion",
                     "oldest_blocked_days": None,
+                    "estimated_visits": 45,
                 }
             ],
         )
@@ -2448,6 +2489,7 @@ class PatchRailCITests(unittest.TestCase):
                 "reason": "copywriter_approved_copy_pending_publication",
                 "copy_file": str(copy_file),
                 "copy_source": str(approved_copy_dir / "sku1-linkedin-social-post.json"),
+                "estimated_visits": 45,
             },
         )
         self.assertTrue(payload["channel_conversion_plan"]["ready_to_publish"])

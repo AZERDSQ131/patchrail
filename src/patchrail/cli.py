@@ -551,6 +551,7 @@ def _distribution_blocker_plan(
                 "copy_file": copy_file,
                 "blocked_at": item.get("blocked_at", ""),
                 "blocked_days": blocked_days,
+                "estimated_visits": _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(item["channel"], 0),
             }
         )
     return plan
@@ -569,6 +570,7 @@ def _distribution_blocker_queue(blocker_plan: list[dict[str, Any]]) -> list[dict
             "brief": item.get("brief", ""),
             "copy_file": item.get("copy_file", ""),
             "reason": item["reason"],
+            "estimated_visits": item.get("estimated_visits", 0),
         }
         for item in sorted(
             blocker_plan,
@@ -600,6 +602,7 @@ def _distribution_recommended_channel(
             "reason": item["reason"],
             "blocked_at": item.get("blocked_at", ""),
             "blocked_days": item.get("blocked_days"),
+            "estimated_visits": item.get("estimated_visits", 0),
         }
         if item.get("copy_file"):
             row["copy_file"] = item["copy_file"]
@@ -622,6 +625,7 @@ def _distribution_recommended_channel(
                 "reason": "copywriter_approved_copy_pending_publication",
                 "copy_file": item["copy_file"],
                 "copy_source": item["path"],
+                "estimated_visits": _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(channel, 0),
             }
     uncovered_channels = publish_health.get("uncovered_channels")
     if isinstance(uncovered_channels, list) and uncovered_channels:
@@ -633,6 +637,7 @@ def _distribution_recommended_channel(
             "next_action": "claim_uncovered_distribution_channel",
             "safe_next_step": f"claim {channel}, publish once with approved copy, then record receipt",
             "reason": "channel_has_no_post_or_block_receipt",
+            "estimated_visits": _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(channel, 0),
         }
     if (
         traffic_gap > 0
@@ -652,8 +657,36 @@ def _distribution_recommended_channel(
                     "copywriter authors external prose before claim/publish"
                 ),
                 "reason": "traffic_gap_remaining_after_base_channels_covered",
+                "estimated_visits": _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(channel, 0),
             }
     return None
+
+
+def _distribution_traffic_priority_queue(
+    blocker_queue: list[dict[str, Any]],
+    recommended_channel: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    queue = list(blocker_queue)
+    if not queue and recommended_channel is not None:
+        queue = [recommended_channel]
+    return [
+        {
+            "channel": item["channel"],
+            "owner": item["owner"],
+            "next_action": item["next_action"],
+            "estimated_visits": int(item.get("estimated_visits") or 0),
+            "safe_next_step": item["safe_next_step"],
+            "source": item.get("source", "blocked"),
+        }
+        for item in sorted(
+            queue,
+            key=lambda row: (
+                -int(row.get("estimated_visits") or 0),
+                row.get("blocked_at") or "9999-99-99T99:99:99Z",
+                row["channel"],
+            ),
+        )
+    ]
 
 
 def _distribution_owner_next_actions(
@@ -673,13 +706,16 @@ def _distribution_owner_next_actions(
                 "safe_next_step": recommended_channel["safe_next_step"],
                 "source": recommended_channel["source"],
                 "oldest_blocked_days": recommended_channel.get("blocked_days"),
+                "estimated_visits": recommended_channel.get("estimated_visits", 0),
             }
         ]
 
     channels_by_owner: dict[str, list[str]] = defaultdict(list)
     blocked_days_by_owner: dict[str, list[int]] = defaultdict(list)
+    estimated_visits_by_owner: dict[str, int] = defaultdict(int)
     for item in blocker_queue:
         channels_by_owner[item["owner"]].append(item["channel"])
+        estimated_visits_by_owner[item["owner"]] += int(item.get("estimated_visits") or 0)
         if isinstance(item.get("blocked_days"), int):
             blocked_days_by_owner[item["owner"]].append(item["blocked_days"])
 
@@ -703,6 +739,7 @@ def _distribution_owner_next_actions(
                 "oldest_blocked_days": max(blocked_days_by_owner[owner])
                 if blocked_days_by_owner[owner]
                 else None,
+                "estimated_visits": estimated_visits_by_owner[owner],
             }
         )
     return actions
@@ -2408,6 +2445,9 @@ def _distribution_gate_payload(
     recommended_channel = _distribution_recommended_channel(
         blocker_plan, blocker_queue, publish_health, approved_copy, posted_channels, traffic_gap
     )
+    traffic_priority_queue = _distribution_traffic_priority_queue(
+        blocker_queue, recommended_channel
+    )
     owner_next_actions = _distribution_owner_next_actions(blocker_queue, recommended_channel)
     stalled_blockers = _distribution_stalled_blockers(blocker_queue, stalled_after_days)
     stalled_handoff = _distribution_stalled_handoff(stalled_blockers)
@@ -2592,6 +2632,7 @@ def _distribution_gate_payload(
         "oldest_blocker": oldest_blocker,
         "blocker_plan": blocker_plan,
         "blocker_queue": blocker_queue,
+        "traffic_priority_queue": traffic_priority_queue,
         "recommended_channel": recommended_channel,
         "owner_next_actions": owner_next_actions,
         "receipt_status_counts": dict(sorted(by_status.items())),
@@ -2756,6 +2797,15 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             )
             or "none"
         ),
+        "Traffic priority: "
+        + (
+            ", ".join(
+                f"{item['channel']}={item['estimated_visits']} visits/"
+                f"{item['owner']}/{item['next_action']}"
+                for item in payload["traffic_priority_queue"][:3]
+            )
+            or "none"
+        ),
         "Stalled blockers: "
         + (
             ", ".join(
@@ -2841,14 +2891,21 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
 
 def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
     owner_actions = "; ".join(
-        f"{item['owner']}={item['channel']}/{item['next_action']} ({item['pending_count']})"
+        f"{item['owner']}={item['channel']}/{item['next_action']} "
+        f"({item['pending_count']}; {item['estimated_visits']} visits)"
         for item in payload["owner_next_actions"]
+    )
+    traffic_priority = "; ".join(
+        f"{item['channel']}={item['estimated_visits']} visits/"
+        f"{item['owner']}/{item['next_action']}"
+        for item in payload["traffic_priority_queue"][:3]
     )
     paid_traffic_plan = payload["paid_traffic_plan"]
     measurement_packet = payload["measurement_packet"]
     next_measurement_target = measurement_packet["next_measurement_target"]
     lines = [
         "owner_next_actions: " + (owner_actions or "none"),
+        "traffic_priority: " + (traffic_priority or "none"),
         "blocked_channels: " + (", ".join(payload["blocked_channels"]) or "none"),
         f"traffic_gap: {payload['traffic_gap']}",
         f"next_traffic_checkpoint: {next_measurement_target['next_traffic_checkpoint']}",
