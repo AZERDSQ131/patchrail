@@ -1476,6 +1476,8 @@ class PatchRailCITests(unittest.TestCase):
                         "execution_command: python3 "
                         "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
                     ),
+                    "worker_actionable: False",
+                    "worker_actionable_reason: pablo_handoff_required",
                     "next_action: unblock_distribution_channels",
                     "browser_extension_handoff: show-hn (1 pending)",
                     (
@@ -1778,6 +1780,8 @@ class PatchRailCITests(unittest.TestCase):
                         "verify_command: python3 opportunity-desk/scripts/publish_post.py "
                         "blockers --owner pablo --json --exit-zero"
                     ),
+                    "worker_actionable: False",
+                    "worker_actionable_reason: pablo_handoff_required",
                     (
                         "safe_next_step: Enable/install the browser extension in the logged-in "
                         "profile, then claim the channel if copy is available."
@@ -1842,9 +1846,105 @@ class PatchRailCITests(unittest.TestCase):
             "--copy-file <copywriter-approved-copy-file>",
             next_step,
         )
+        self.assertIn("worker_actionable: True", next_step)
+        self.assertIn("worker_actionable_reason: worker_command_ready", next_step)
         self.assertIn("traffic_gap: 275", next_step)
         self.assertNotIn("owner_action_queue:", next_step)
         self.assertNotIn("Measurement packet:", next_step)
+
+    def test_distribution_sku1_gate_require_worker_actionable_blocks_pablo_handoff(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            receipt = posted / "show-hn.json"
+            receipt.write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "ts_blocked": "2026-06-30T09:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "5",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-01",
+                        "--format",
+                        "next",
+                        "--require-worker-actionable",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("worker_actionable: False", stdout.getvalue())
+        self.assertIn("worker_actionable_reason: pablo_handoff_required", stdout.getvalue())
+
+    def test_distribution_sku1_gate_require_worker_actionable_passes_worker_handoff(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "covered_channels": ["x"],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 1,
+                        "social_post_stale_claims_total": 0,
+                        "uncovered": [{"channel": "devto"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "next",
+                        "--require-worker-actionable",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn("worker_actionable: True", stdout.getvalue())
+        self.assertIn("worker_actionable_reason: worker_command_ready", stdout.getvalue())
 
     def test_distribution_sku1_gate_compact_reports_next_channel_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

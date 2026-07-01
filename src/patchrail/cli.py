@@ -2476,6 +2476,38 @@ def _distribution_execution_handoff(
     return handoff
 
 
+def _distribution_worker_actionability(handoff: dict[str, Any]) -> dict[str, Any]:
+    owner = str(handoff.get("owner") or "")
+    command = str(handoff.get("command") or "")
+    if not handoff.get("required"):
+        return {
+            "actionable": False,
+            "reason": "no_execution_required",
+            "owner": owner,
+            "command": command,
+        }
+    if owner in {"worker", "worker_browser", "worker_any"} and command:
+        return {
+            "actionable": True,
+            "reason": "worker_command_ready",
+            "owner": owner,
+            "command": command,
+        }
+    if owner in {"pablo", "copywriter", "director"}:
+        return {
+            "actionable": False,
+            "reason": f"{owner}_handoff_required",
+            "owner": owner,
+            "command": command,
+        }
+    return {
+        "actionable": False,
+        "reason": "worker_command_missing",
+        "owner": owner,
+        "command": command,
+    }
+
+
 def _distribution_stalled_handoff(
     stalled_blockers: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -2709,6 +2741,7 @@ def _distribution_gate_payload(
         browser_extension_handoff=browser_extension_handoff,
         measurement_packet=measurement_packet,
     )
+    worker_actionability = _distribution_worker_actionability(execution_handoff)
     blocker_days = [
         item["blocked_days"] for item in blocker_plan if isinstance(item.get("blocked_days"), int)
     ]
@@ -2743,6 +2776,9 @@ def _distribution_gate_payload(
         "pivot_decision": pivot_decision,
         "execution_checklist": execution_checklist,
         "execution_handoff": execution_handoff,
+        "worker_actionability": worker_actionability,
+        "worker_actionable": worker_actionability["actionable"],
+        "worker_actionable_reason": worker_actionability["reason"],
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
         "browser_extension_handoff": browser_extension_handoff,
@@ -3079,6 +3115,8 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
             f"{payload['execution_handoff']['next_action']}"
         ),
         "execution_command: " + (payload["execution_handoff"]["command"] or "none"),
+        f"worker_actionable: {payload['worker_actionable']}",
+        f"worker_actionable_reason: {payload['worker_actionable_reason']}",
         f"next_action: {payload['next_action']}",
     ]
     channel_packet = payload["channel_execution_packet"]
@@ -3133,6 +3171,8 @@ def _render_distribution_gate_blockers(payload: dict[str, Any]) -> str:
             f"{payload['execution_handoff']['next_action']}"
         ),
         "execution_command: " + (payload["execution_handoff"]["command"] or "none"),
+        f"worker_actionable: {payload['worker_actionable']}",
+        f"worker_actionable_reason: {payload['worker_actionable_reason']}",
     ]
     for item in payload["blocker_queue"]:
         blocked_days = item.get("blocked_days")
@@ -3166,6 +3206,8 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
         f"gross_usd: {payload['gross_usd']:.2f}",
         "command: " + (handoff["command"] or "none"),
         "verify_command: " + (handoff["verify_command"] or "none"),
+        f"worker_actionable: {payload['worker_actionable']}",
+        f"worker_actionable_reason: {payload['worker_actionable_reason']}",
         "safe_next_step: " + (handoff["safe_next_step"] or "none"),
         "stop_conditions: " + (", ".join(handoff["stop_conditions"]) or "none"),
         (
@@ -3201,6 +3243,8 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
         f"channel: {handoff['channel'] or 'none'}",
         "command: " + (handoff["command"] or "none"),
         "verify_command: " + (handoff["verify_command"] or "none"),
+        f"worker_actionable: {payload['worker_actionable']}",
+        f"worker_actionable_reason: {payload['worker_actionable_reason']}",
         "safe_next_step: " + (handoff["safe_next_step"] or "none"),
         "stop_conditions: " + (", ".join(handoff["stop_conditions"]) or "none"),
         f"traffic_gap: {payload['traffic_gap']}",
@@ -3600,6 +3644,8 @@ def _distribution_gate(args: argparse.Namespace) -> int:
     else:
         text = _render_distribution_gate_text(payload)
     _write_or_print(text, args.out)
+    if args.require_worker_actionable and not payload["worker_actionable"]:
+        return 2
     return 0
 
 
@@ -11966,6 +12012,13 @@ def _build_parser() -> argparse.ArgumentParser:
         "--write-copy-brief",
         type=Path,
         help="Optional requests/ path for the recommended channel facts-only copy brief.",
+    )
+    distribution_sku1.add_argument(
+        "--require-worker-actionable",
+        action="store_true",
+        help=(
+            "Exit 2 when the next distribution handoff is not directly executable by the worker."
+        ),
     )
     distribution_sku1.set_defaults(func=_distribution_gate)
 
