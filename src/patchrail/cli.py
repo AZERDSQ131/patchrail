@@ -3237,10 +3237,17 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
 def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
     handoff = payload["execution_handoff"]
     measurement_packet = payload["measurement_packet"]
+    measurement_url = ""
+    for item in payload["channel_measurement_urls"]:
+        if item["channel"] == handoff["channel"]:
+            measurement_url = item["url"]
+            break
     lines = [
         f"next_action: {handoff['next_action']}",
         f"owner: {handoff['owner']}",
         f"channel: {handoff['channel'] or 'none'}",
+        f"conversion_url: {payload['conversion_url']}",
+        "measurement_url: " + (measurement_url or "none"),
         "command: " + (handoff["command"] or "none"),
         "verify_command: " + (handoff["verify_command"] or "none"),
         f"worker_actionable: {payload['worker_actionable']}",

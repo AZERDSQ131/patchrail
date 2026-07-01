@@ -1773,6 +1773,14 @@ class PatchRailCITests(unittest.TestCase):
                     "owner: pablo",
                     "channel: show-hn",
                     (
+                        "conversion_url: https://patchrail.gumroad.com/l/ci-failure-triage?"
+                        "utm_source=github_marketplace&utm_campaign=ci-triage-action"
+                    ),
+                    (
+                        "measurement_url: https://patchrail.gumroad.com/l/ci-failure-triage?"
+                        "utm_source=show-hn&utm_campaign=sku1-organic-distribution"
+                    ),
+                    (
                         "command: python3 opportunity-desk/scripts/publish_post.py blockers "
                         "--owner pablo --json --exit-zero"
                     ),
@@ -1911,6 +1919,16 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("next_action: claim_uncovered_distribution_channel", next_step)
         self.assertIn("owner: worker", next_step)
         self.assertIn("channel: devto", next_step)
+        self.assertIn(
+            "conversion_url: https://patchrail.gumroad.com/l/ci-failure-triage?"
+            "utm_source=github_marketplace&utm_campaign=ci-triage-action",
+            next_step,
+        )
+        self.assertIn(
+            "measurement_url: https://patchrail.gumroad.com/l/ci-failure-triage?"
+            "utm_source=devto&utm_campaign=sku1-organic-distribution",
+            next_step,
+        )
         self.assertIn(
             "command: python3 opportunity-desk/scripts/publish_post.py claim --channel devto "
             "--copy-file <copywriter-approved-copy-file>",
