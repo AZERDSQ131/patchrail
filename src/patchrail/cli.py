@@ -3231,6 +3231,26 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
             )
     else:
         lines.append("owner_action_queue: none")
+    browser_handoff = payload["browser_extension_handoff"]
+    if browser_handoff["required"]:
+        lines.extend(
+            [
+                (
+                    "browser_extension_handoff: "
+                    f"{browser_handoff['next_channel']} "
+                    f"({browser_handoff['pending_count']} pending)"
+                ),
+                "browser_verify_command: " + browser_handoff["next_verify_command"],
+                (
+                    "browser_claim_after_setup_command: "
+                    + (browser_handoff["next_claim_after_setup_command"] or "none")
+                ),
+                (
+                    "browser_verify_after_claim_command: "
+                    + (browser_handoff["next_verify_after_claim_command"] or "none")
+                ),
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 

@@ -1792,6 +1792,18 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("owner_action_queue:", handoff)
         self.assertIn("  channel: show-hn", handoff)
         self.assertIn("  action: browser_extension_setup_required", handoff)
+        self.assertIn("browser_extension_handoff: show-hn (1 pending)", handoff)
+        self.assertIn(
+            "browser_claim_after_setup_command: python3 "
+            "opportunity-desk/scripts/publish_post.py claim --channel show-hn "
+            "--copy-file products/gumroad/distribution/posts/show-hn.md",
+            handoff,
+        )
+        self.assertIn(
+            "browser_verify_after_claim_command: python3 "
+            "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero",
+            handoff,
+        )
         self.assertNotIn("Measurement packet:", handoff)
 
     def test_distribution_sku1_gate_handoff_reports_claimable_channel(self) -> None:
