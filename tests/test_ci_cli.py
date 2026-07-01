@@ -1722,6 +1722,130 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("  channel: devto", handoff)
         self.assertNotIn("Measurement packet:", handoff)
 
+    def test_distribution_sku1_gate_next_reports_single_blocked_action(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            copy_file = "products/gumroad/distribution/posts/show-hn.md"
+            receipt = posted / "show-hn.json"
+            receipt.write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "copy_file": copy_file,
+                        "ts_blocked": "2026-06-30T09:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "5",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-01",
+                        "--format",
+                        "next",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            stdout.getvalue(),
+            "\n".join(
+                [
+                    "next_action: browser_extension_setup_required",
+                    "owner: pablo",
+                    "channel: show-hn",
+                    (
+                        "command: python3 opportunity-desk/scripts/publish_post.py blockers "
+                        "--owner pablo --json"
+                    ),
+                    (
+                        "verify_command: python3 opportunity-desk/scripts/publish_post.py "
+                        "blockers --owner pablo --json"
+                    ),
+                    (
+                        "safe_next_step: Enable/install the browser extension in the logged-in "
+                        "profile, then claim the channel if copy is available."
+                    ),
+                    "stop_conditions: login_required, captcha_or_2fa_required",
+                    "traffic_gap: 295",
+                    "next_measurement: checkpoint=300, traffic_delta=295, sales_delta=1",
+                    "",
+                ]
+            ),
+        )
+
+    def test_distribution_sku1_gate_next_reports_claimable_channel_command(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "covered_channels": ["x"],
+                        "social_post_blocked_total": 0,
+                        "social_post_uncovered_total": 1,
+                        "social_post_stale_claims_total": 0,
+                        "uncovered": [{"channel": "devto"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "next",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        next_step = stdout.getvalue()
+        self.assertIn("next_action: claim_uncovered_distribution_channel", next_step)
+        self.assertIn("owner: worker", next_step)
+        self.assertIn("channel: devto", next_step)
+        self.assertIn(
+            "command: python3 opportunity-desk/scripts/publish_post.py claim --channel devto "
+            "--copy-file <copywriter-approved-copy-file>",
+            next_step,
+        )
+        self.assertIn("traffic_gap: 275", next_step)
+        self.assertNotIn("owner_action_queue:", next_step)
+        self.assertNotIn("Measurement packet:", next_step)
+
     def test_distribution_sku1_gate_compact_reports_next_channel_commands(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"
