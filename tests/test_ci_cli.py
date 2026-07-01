@@ -741,6 +741,67 @@ class PatchRailCITests(unittest.TestCase):
             payload["adoption_evidence_packet"]["safe_next_step"],
         )
 
+    def test_distribution_sku1_gate_measurement_format_reports_pivot_and_urls(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "show-hn.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn.md",
+                        "ts_blocked": "2026-07-01T07:11:52Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "5",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-01",
+                        "--format",
+                        "measurement",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        output = stdout.getvalue()
+        self.assertIn("consumer: SKU #1 CI Triage $19\n", output)
+        self.assertIn("traffic: 5/300\n", output)
+        self.assertIn("traffic_gap: 295\n", output)
+        self.assertIn(
+            "next_check: measure_traffic_delta_again_before_next_distribution_action\n", output
+        )
+        self.assertIn("next_traffic_checkpoint: 300\n", output)
+        self.assertIn("pivot_status: inconclusive_insufficient_traffic\n", output)
+        self.assertIn("pivot_decision: do_not_pivot_on_underpowered_sample\n", output)
+        self.assertIn("pivot_gate_armed: True\n", output)
+        self.assertIn("pivot_gate_fires: False\n", output)
+        self.assertIn("paid_boost_executable: False\n", output)
+        self.assertIn("measurement_command: jq ", output)
+        self.assertIn("measurement_url_total: ", output)
+        self.assertIn(
+            "measurement_url: organic/show-hn/pablo/browser_extension_setup_required "
+            "https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=show-hn&utm_campaign=sku1-organic-distribution",
+            output,
+        )
+
     def test_distribution_sku1_gate_reports_duplicate_channel_receipts(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

@@ -3305,6 +3305,49 @@ def _render_distribution_gate_receipt(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _render_distribution_gate_measurement(payload: dict[str, Any]) -> str:
+    measurement_packet = payload["measurement_packet"]
+    next_target = measurement_packet["next_measurement_target"]
+    pivot_snapshot = measurement_packet["pivot_gate_snapshot"]
+    pivot_decision = payload["pivot_decision"]
+    paid_ad_packet = payload["paid_ad_execution_packet"]
+    paid_traffic_plan = payload["paid_traffic_plan"]
+    measurement_urls = measurement_packet["measurement_urls"]
+    lines = [
+        f"consumer: {measurement_packet['consumer']}",
+        f"kpi: {measurement_packet['kpi']}",
+        f"as_of: {measurement_packet['as_of']}",
+        f"traffic: {measurement_packet['traffic_delivered']}/{measurement_packet['traffic_target']}",
+        f"traffic_gap: {measurement_packet['traffic_gap']}",
+        f"sales_total: {measurement_packet['sales_total']}",
+        f"gross_usd: {measurement_packet['gross_usd']:.2f}",
+        f"next_check: {measurement_packet['next_check']}",
+        f"next_traffic_checkpoint: {next_target['next_traffic_checkpoint']}",
+        f"traffic_delta_target: {next_target['traffic_delta_target']}",
+        f"sales_delta_target: {next_target['sales_delta_target']}",
+        f"pivot_status: {pivot_decision['status']}",
+        f"pivot_decision: {pivot_decision['decision']}",
+        f"pivot_reason: {pivot_decision['reason']}",
+        f"pivot_gate_armed: {pivot_snapshot['armed']}",
+        f"pivot_gate_fires: {payload['pivot_gate_fires']}",
+        f"pivot_outcome: {pivot_snapshot['outcome']}",
+        f"ad_spend_committed_usd: {paid_traffic_plan['ad_spend_committed_usd']:.2f}",
+        f"ad_cap_usd: {paid_traffic_plan['ad_cap_usd']:.2f}",
+        f"paid_boost_required: {paid_ad_packet['required']}",
+        f"paid_boost_executable: {paid_ad_packet['spend_executable']}",
+        "paid_boost_blocked_reason: " + (measurement_packet["paid_boost_blocked_reason"] or "none"),
+        "measurement_command: " + measurement_packet["next_measurement_command"],
+        f"measurement_url_total: {len(measurement_urls)}",
+    ]
+    for item in measurement_urls[:5]:
+        lines.append(
+            "measurement_url: "
+            f"{item['source']}/{item['channel']}/{item['owner']}/"
+            f"{item['next_action']} {item['url']}"
+        )
+    return "\n".join(lines) + "\n"
+
+
 def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
     failure_class = result.get("failure_class")
     result["guide_url"] = _fix_guide_url(failure_class)
@@ -3690,6 +3733,8 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         text = _render_distribution_gate_next(payload)
     elif args.format == "receipt":
         text = _render_distribution_gate_receipt(payload)
+    elif args.format == "measurement":
+        text = _render_distribution_gate_measurement(payload)
     else:
         text = _render_distribution_gate_text(payload)
     _write_or_print(text, args.out)
@@ -12052,7 +12097,16 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     distribution_sku1.add_argument(
         "--format",
-        choices=["json", "text", "compact", "blockers", "handoff", "next", "receipt"],
+        choices=[
+            "json",
+            "text",
+            "compact",
+            "blockers",
+            "handoff",
+            "next",
+            "receipt",
+            "measurement",
+        ],
         default="text",
         help="Output format.",
     )
