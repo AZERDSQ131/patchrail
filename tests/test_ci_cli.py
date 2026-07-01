@@ -1465,6 +1465,14 @@ class PatchRailCITests(unittest.TestCase):
                     "ad_cap_usd: 75.00",
                     "pivot_gate_armed: True",
                     "pivot_gate_fires: False",
+                    (
+                        "execution_handoff: "
+                        "pablo/show-hn/browser_extension_setup_required"
+                    ),
+                    (
+                        "execution_command: python3 "
+                        "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json"
+                    ),
                     "next_action: unblock_distribution_channels",
                     "browser_extension_handoff: show-hn (1 pending)",
                     (
@@ -5156,6 +5164,30 @@ class PatchRailCITests(unittest.TestCase):
             payload = json.loads(stdout.getvalue())
             self.assertEqual(
                 payload["recommended_channel"]["next_action"], "browser_extension_setup_required"
+            )
+            self.assertEqual(
+                payload["execution_handoff"],
+                {
+                    "consumer": "SKU #1 CI Triage $19",
+                    "kpi": "visits_and_sales_before_2026-06-30",
+                    "required": True,
+                    "owner": "pablo",
+                    "channel": "devto",
+                    "next_action": "browser_extension_setup_required",
+                    "command": (
+                        "python3 opportunity-desk/scripts/publish_post.py blockers "
+                        "--owner pablo --json"
+                    ),
+                    "verify_command": (
+                        "python3 opportunity-desk/scripts/publish_post.py blockers "
+                        "--owner pablo --json"
+                    ),
+                    "safe_next_step": (
+                        "Enable/install the browser extension in the logged-in profile, then "
+                        "claim the channel if copy is available."
+                    ),
+                    "stop_conditions": ["login_required", "captcha_or_2fa_required"],
+                },
             )
             self.assertEqual(payload["channel_execution_packet"]["copy_file"], str(copy_file))
             covered_devto = next(

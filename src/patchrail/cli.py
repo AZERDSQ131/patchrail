@@ -2351,6 +2351,98 @@ def _distribution_browser_extension_handoff(
     }
 
 
+def _distribution_execution_handoff(
+    *,
+    next_action: str,
+    channel_execution_packet: dict[str, Any],
+    paid_ad_execution_packet: dict[str, Any],
+    browser_extension_handoff: dict[str, Any],
+    measurement_packet: dict[str, Any],
+) -> dict[str, Any]:
+    handoff = {
+        "consumer": _SKU1_CONVERSION_CONSUMER,
+        "kpi": _SKU1_DISTRIBUTION_KPI,
+        "required": next_action not in {"watch_until_gate"},
+        "owner": "worker",
+        "channel": channel_execution_packet.get("channel"),
+        "next_action": next_action,
+        "command": "",
+        "verify_command": measurement_packet["next_measurement_command"],
+        "safe_next_step": "Measure traffic and sales until the SKU #1 gate changes state.",
+        "stop_conditions": [],
+    }
+    if next_action == "fulfill_sale":
+        handoff.update(
+            {
+                "owner": "worker",
+                "command": measurement_packet["next_measurement_command"],
+                "safe_next_step": "Snapshot sale evidence, then prepare fulfillment from verified payment.",
+            }
+        )
+    elif next_action == "pivot_offer":
+        handoff.update(
+            {
+                "owner": "director",
+                "command": measurement_packet["next_measurement_command"],
+                "safe_next_step": "Snapshot the pivot gate with sales count before changing the offer.",
+            }
+        )
+    elif paid_ad_execution_packet["required"]:
+        if paid_ad_execution_packet["spend_executable"]:
+            handoff.update(
+                {
+                    "owner": "worker",
+                    "channel": paid_ad_execution_packet["platform"],
+                    "next_action": "preflight_paid_boost",
+                    "command": paid_ad_execution_packet["preflight_command"],
+                    "verify_command": paid_ad_execution_packet["measurement_command"],
+                    "safe_next_step": paid_ad_execution_packet["safe_next_step"],
+                    "stop_conditions": ["preflight_exit_nonzero", paid_ad_execution_packet["halt_flag"]],
+                }
+            )
+        else:
+            eligibility_handoff = paid_ad_execution_packet["eligibility_handoff"]
+            handoff.update(
+                {
+                    "owner": paid_ad_execution_packet["blocker_owner"] or "worker",
+                    "channel": paid_ad_execution_packet["platform"],
+                    "next_action": paid_ad_execution_packet["fallback_action"],
+                    "command": paid_ad_execution_packet["measurement_command"],
+                    "verify_command": paid_ad_execution_packet["measurement_command"],
+                    "safe_next_step": paid_ad_execution_packet["safe_next_step"],
+                    "stop_conditions": eligibility_handoff["stop_conditions"],
+                }
+            )
+    elif browser_extension_handoff["required"]:
+        handoff.update(
+            {
+                "owner": browser_extension_handoff["owner"],
+                "channel": browser_extension_handoff["next_channel"],
+                "next_action": "browser_extension_setup_required",
+                "command": browser_extension_handoff["next_verify_command"],
+                "verify_command": browser_extension_handoff["next_verify_after_claim_command"]
+                or browser_extension_handoff["next_verify_command"],
+                "safe_next_step": "Enable/install the browser extension in the logged-in profile, then claim the channel if copy is available.",
+                "stop_conditions": ["login_required", "captcha_or_2fa_required"],
+            }
+        )
+    elif channel_execution_packet.get("required"):
+        handoff.update(
+            {
+                "owner": channel_execution_packet["owner"],
+                "channel": channel_execution_packet["channel"],
+                "next_action": channel_execution_packet["next_action"],
+                "command": channel_execution_packet.get("claim_command")
+                or channel_execution_packet.get("block_command")
+                or "",
+                "verify_command": channel_execution_packet["measurement_command"],
+                "safe_next_step": channel_execution_packet["safe_next_step"],
+                "stop_conditions": ["login_required", "captcha_or_2fa_required"],
+            }
+        )
+    return handoff
+
+
 def _distribution_stalled_handoff(
     stalled_blockers: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -2576,6 +2668,13 @@ def _distribution_gate_payload(
         next_action = "ship_more_distribution"
     else:
         next_action = "watch_until_gate"
+    execution_handoff = _distribution_execution_handoff(
+        next_action=next_action,
+        channel_execution_packet=channel_execution_packet,
+        paid_ad_execution_packet=paid_ad_execution_packet,
+        browser_extension_handoff=browser_extension_handoff,
+        measurement_packet=measurement_packet,
+    )
     blocker_days = [
         item["blocked_days"] for item in blocker_plan if isinstance(item.get("blocked_days"), int)
     ]
@@ -2609,6 +2708,7 @@ def _distribution_gate_payload(
         "organic_runway": organic_runway,
         "pivot_decision": pivot_decision,
         "execution_checklist": execution_checklist,
+        "execution_handoff": execution_handoff,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
         "browser_extension_handoff": browser_extension_handoff,
@@ -2764,6 +2864,13 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             )
             or "none"
         ),
+        (
+            "Execution handoff: "
+            f"{payload['execution_handoff']['owner']}/"
+            f"{payload['execution_handoff']['channel'] or 'none'}/"
+            f"{payload['execution_handoff']['next_action']} "
+            f"command={payload['execution_handoff']['command'] or 'none'}"
+        ),
         f"Sales: {payload['sales_total']} (${payload['gross_usd']:.2f})",
         f"Posted channels: {', '.join(payload['posted_channels']) or 'none'}",
         "Approved copy: "
@@ -2915,6 +3022,13 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
         f"ad_cap_usd: {paid_traffic_plan['ad_cap_usd']:.2f}",
         f"pivot_gate_armed: {payload['pivot_gate_armed']}",
         f"pivot_gate_fires: {payload['pivot_gate_fires']}",
+        (
+            "execution_handoff: "
+            f"{payload['execution_handoff']['owner']}/"
+            f"{payload['execution_handoff']['channel'] or 'none'}/"
+            f"{payload['execution_handoff']['next_action']}"
+        ),
+        "execution_command: " + (payload["execution_handoff"]["command"] or "none"),
         f"next_action: {payload['next_action']}",
     ]
     channel_packet = payload["channel_execution_packet"]
