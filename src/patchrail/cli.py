@@ -7710,8 +7710,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         ),
         "workflow_repository_owner": workflow_repository_owner,
         "external_workflow_repository_match": bool(
-            workflow_repository_owner
-            and workflow_repository_owner.casefold() != "patchrail"
+            workflow_repository_owner and workflow_repository_owner.casefold() != "patchrail"
         ),
         "adoption_key": adoption_key,
         "adoption_event_id": adoption_event_id,
