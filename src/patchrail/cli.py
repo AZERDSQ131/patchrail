@@ -7749,6 +7749,13 @@ def _ci_adoption_event(args: argparse.Namespace) -> int:
         if not isinstance(event, dict):
             raise ValueError("adoption event must be a JSON object")
         payload = _ci_adoption_event_payload(event, args.event)
+        if args.require_workflow_context and (
+            payload["signal_kind"] != "workflow_run" or not payload["workflow_run_url"]
+        ):
+            raise ValueError(
+                "adoption event must include workflow_repository, workflow_run_id and "
+                "workflow_run_url when --require-workflow-context is set"
+            )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid adoption event input: {exc}", file=sys.stderr)
         return 1
@@ -12195,6 +12202,14 @@ def _build_parser() -> argparse.ArgumentParser:
         choices=["json", "markdown", "text"],
         default="text",
         help="Output format.",
+    )
+    adoption_event.add_argument(
+        "--require-workflow-context",
+        action="store_true",
+        help=(
+            "Fail unless the event includes repository, run id and run URL from a real "
+            "workflow run."
+        ),
     )
     adoption_event.add_argument("--out", type=Path, help="Optional output path.")
     adoption_event.set_defaults(func=_ci_adoption_event)
