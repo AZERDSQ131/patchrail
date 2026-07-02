@@ -7663,6 +7663,15 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
 
     workflow_repository = str(event.get("workflow_repository") or "")
     workflow_run_id = str(event.get("workflow_run_id") or "")
+    workflow_run_url = str(event.get("workflow_run_url") or "")
+    if workflow_repository and workflow_run_id and workflow_run_url:
+        expected_path = f"/{workflow_repository}/actions/runs/{workflow_run_id}"
+        parsed_run_url = urlparse(workflow_run_url)
+        if parsed_run_url.scheme not in {"http", "https"} or parsed_run_url.path != expected_path:
+            raise ValueError(
+                "workflow_run_url must match workflow_repository and workflow_run_id "
+                f"({expected_path})"
+            )
     signal_kind = (
         "workflow_run" if workflow_repository and workflow_run_id else "local_or_sample_signal"
     )
@@ -7685,7 +7694,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         "markdown_report": str(event.get("markdown_report") or ""),
         "workflow_repository": workflow_repository,
         "workflow_run_id": workflow_run_id,
-        "workflow_run_url": str(event.get("workflow_run_url") or ""),
+        "workflow_run_url": workflow_run_url,
         "workflow_run_host": str(event.get("workflow_run_host") or ""),
         "workflow_name": str(event.get("workflow_name") or ""),
         "workflow_job": str(event.get("workflow_job") or ""),
