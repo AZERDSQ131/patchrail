@@ -287,7 +287,9 @@ def test_ci_triage_action_helper_exports_workflow_context_when_available(tmp_pat
     summary = summary_path.read_text(encoding="utf-8")
 
     assert "- Adoption event ID: `ci-triage-run:buyer/repo:123456:test:python-lint`" in summary
-    assert "- Workflow run: https://github.enterprise.test/buyer/repo/actions/runs/123456" in summary
+    assert (
+        "- Workflow run: https://github.enterprise.test/buyer/repo/actions/runs/123456" in summary
+    )
 
 
 def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> None:
