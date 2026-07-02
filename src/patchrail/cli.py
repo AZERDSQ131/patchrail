@@ -1740,8 +1740,13 @@ def _distribution_paid_ad_execution_packet(
         )
     eligibility_handoff_required = bool(required and not ad_account_eligibility.get("eligible"))
     eligibility_reason = str(ad_account_eligibility.get("reason") or "")
+    eligibility_source = str(ad_account_eligibility.get("source") or "")
     blocker_code = ""
     blocker_owner = ""
+    proof_status = "not_provided" if eligibility_source == "not_provided" else "provided"
+    human_gate_required = False
+    worker_can_collect_proof = False
+    handoff_action = ""
     if required and not spend_executable:
         blocker_code = preflight_blocked_reason or eligibility_reason or "paid_ad_not_executable"
         missing_or_failed = set(ad_account_eligibility.get("missing_or_failed") or [])
@@ -1762,6 +1767,22 @@ def _distribution_paid_ad_execution_packet(
             )
             else "worker"
         )
+        human_gate_required = bool(
+            eligibility_source == "file"
+            and (
+                bool(stop_conditions)
+                or bool(missing_or_failed & human_owned_fields)
+            )
+        )
+        worker_can_collect_proof = bool(
+            eligibility_reason == "missing_logged_in_preexisting_ad_account_proof"
+        )
+        if human_gate_required:
+            handoff_action = "stop_for_human_ad_account_state"
+        elif worker_can_collect_proof:
+            handoff_action = "collect_preexisting_ad_account_proof"
+        else:
+            handoff_action = "repair_ad_account_eligibility_proof"
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
@@ -1786,6 +1807,10 @@ def _distribution_paid_ad_execution_packet(
         "eligibility_handoff": {
             "required": eligibility_handoff_required,
             "owner": "worker",
+            "proof_status": proof_status,
+            "worker_can_collect_proof": worker_can_collect_proof,
+            "human_gate_required": human_gate_required,
+            "handoff_action": handoff_action,
             "platform": _SKU1_PAID_TRAFFIC_PLATFORM,
             "write_path": "runs/<timestamp>-sku1-ad-account-eligibility/proof.json",
             "rerun_arg": "--ad-account-eligibility-file <proof.json>",

@@ -4168,6 +4168,10 @@ class PatchRailCITests(unittest.TestCase):
                 "eligibility_handoff": {
                     "required": True,
                     "owner": "worker",
+                    "proof_status": "not_provided",
+                    "worker_can_collect_proof": True,
+                    "human_gate_required": False,
+                    "handoff_action": "collect_preexisting_ad_account_proof",
                     "platform": "sku1-traffic-boost",
                     "write_path": "runs/<timestamp>-sku1-ad-account-eligibility/proof.json",
                     "rerun_arg": "--ad-account-eligibility-file <proof.json>",
@@ -5344,6 +5348,13 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(packet["commit_command_template"], "")
         self.assertTrue(packet["eligibility_handoff"]["required"])
+        self.assertEqual(packet["eligibility_handoff"]["proof_status"], "provided")
+        self.assertFalse(packet["eligibility_handoff"]["worker_can_collect_proof"])
+        self.assertTrue(packet["eligibility_handoff"]["human_gate_required"])
+        self.assertEqual(
+            packet["eligibility_handoff"]["handoff_action"],
+            "stop_for_human_ad_account_state",
+        )
 
     def test_distribution_sku1_gate_rejects_paid_boost_when_stop_condition_uses_string_true(
         self,
