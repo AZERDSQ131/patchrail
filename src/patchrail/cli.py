@@ -7712,6 +7712,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         "artifact_name": str(event.get("artifact_name") or f"patchrail-ci-triage-{failure_slug}"),
         "json_result": str(event.get("json_result") or ""),
         "markdown_report": str(event.get("markdown_report") or ""),
+        "triage_artifacts_present": bool(event.get("json_result") and event.get("markdown_report")),
         "workflow_repository": workflow_repository,
         "workflow_run_id": workflow_run_id,
         "workflow_run_url": workflow_run_url,
@@ -7801,6 +7802,11 @@ def _ci_adoption_event(args: argparse.Namespace) -> int:
             raise ValueError(
                 "adoption event workflow_run_url must be a public https://github.com Actions run "
                 "when --require-public-github-run is set"
+            )
+        if args.require_triage_artifacts and not payload["triage_artifacts_present"]:
+            raise ValueError(
+                "adoption event must include json_result and markdown_report "
+                "when --require-triage-artifacts is set"
             )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid adoption event input: {exc}", file=sys.stderr)
@@ -12271,6 +12277,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--require-public-github-run",
         action="store_true",
         help="Fail unless workflow_run_url is a public https://github.com Actions run.",
+    )
+    adoption_event.add_argument(
+        "--require-triage-artifacts",
+        action="store_true",
+        help="Fail unless json_result and markdown_report are present in the event.",
     )
     adoption_event.add_argument("--out", type=Path, help="Optional output path.")
     adoption_event.set_defaults(func=_ci_adoption_event)
