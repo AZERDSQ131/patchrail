@@ -7676,8 +7676,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
             )
         if workflow_run_host and parsed_run_url.netloc != workflow_run_host:
             raise ValueError(
-                "workflow_run_host must match workflow_run_url host "
-                f"({parsed_run_url.netloc})"
+                f"workflow_run_host must match workflow_run_url host ({parsed_run_url.netloc})"
             )
     signal_kind = (
         "workflow_run" if workflow_repository and workflow_run_id else "local_or_sample_signal"
