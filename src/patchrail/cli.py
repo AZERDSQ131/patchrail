@@ -2114,6 +2114,7 @@ def _distribution_organic_runway(
     traffic_gap: int,
     sales_total: int,
     covered_channel_plan: dict[str, Any],
+    paid_traffic_plan: dict[str, Any],
 ) -> dict[str, Any]:
     pending_statuses = {
         "approved_copy_pending",
@@ -2137,6 +2138,8 @@ def _distribution_organic_runway(
         for row in published_channels
     )
     gap_after_pending = max(traffic_gap - pending_estimate, 0)
+    paid_cap_click_capacity = int(paid_traffic_plan.get("cap_click_capacity") or 0)
+    gap_after_pending_and_paid_cap = max(gap_after_pending - paid_cap_click_capacity, 0)
     if sales_total > 0:
         status = "sale_clears_runway"
         next_action = "record_sale_before_more_distribution"
@@ -2165,6 +2168,8 @@ def _distribution_organic_runway(
         "pending_channel_estimated_visits": pending_estimate,
         "published_channel_estimated_visits": published_estimate,
         "traffic_gap_after_pending_channels": gap_after_pending,
+        "paid_cap_click_capacity": paid_cap_click_capacity,
+        "traffic_gap_after_pending_and_paid_cap": gap_after_pending_and_paid_cap,
         "pending_channels": [
             {
                 "channel": str(row.get("channel") or ""),
@@ -2741,6 +2746,7 @@ def _distribution_gate_payload(
         traffic_gap=traffic_gap,
         sales_total=sales_total,
         covered_channel_plan=covered_channel_plan,
+        paid_traffic_plan=paid_traffic_plan,
     )
     pivot_decision = _distribution_pivot_decision(
         traffic_delivered=traffic_delivered,
@@ -2971,6 +2977,8 @@ def _render_distribution_gate_text(payload: dict[str, Any]) -> str:
             f"pending_estimate={payload['organic_runway']['pending_channel_estimated_visits']}, "
             f"gap_after_pending="
             f"{payload['organic_runway']['traffic_gap_after_pending_channels']}, "
+            f"gap_after_pending_and_paid_cap="
+            f"{payload['organic_runway']['traffic_gap_after_pending_and_paid_cap']}, "
             f"next_action={payload['organic_runway']['next_action']}"
         ),
         "Execution checklist: "
@@ -3449,6 +3457,9 @@ def _render_distribution_gate_runway(payload: dict[str, Any]) -> str:
         f"organic_next_action: {organic_runway['next_action']}",
         f"pending_channel_estimated_visits: {organic_runway['pending_channel_estimated_visits']}",
         f"traffic_gap_after_pending_channels: {organic_runway['traffic_gap_after_pending_channels']}",
+        f"paid_cap_click_capacity: {organic_runway['paid_cap_click_capacity']}",
+        "traffic_gap_after_pending_and_paid_cap: "
+        f"{organic_runway['traffic_gap_after_pending_and_paid_cap']}",
         f"paid_click_capacity: {paid_traffic_plan['cap_click_capacity']}",
         f"remaining_organic_gap_after_cap: {paid_traffic_plan['remaining_organic_gap_after_cap']}",
         f"paid_recommendation: {paid_traffic_plan['recommendation']}",

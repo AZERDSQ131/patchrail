@@ -1472,6 +1472,8 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertIn("pending_channel_estimated_visits: 120\n", output)
         self.assertIn("traffic_gap_after_pending_channels: 175\n", output)
+        self.assertIn("paid_cap_click_capacity: 100\n", output)
+        self.assertIn("traffic_gap_after_pending_and_paid_cap: 75\n", output)
         self.assertIn("paid_click_capacity: 100\n", output)
         self.assertIn("remaining_organic_gap_after_cap: 195\n", output)
         self.assertIn(
@@ -1778,6 +1780,8 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(runway["pending_channel_estimated_visits"], 205)
         self.assertEqual(runway["published_channel_estimated_visits"], 40)
         self.assertEqual(runway["traffic_gap_after_pending_channels"], 86)
+        self.assertEqual(runway["paid_cap_click_capacity"], 100)
+        self.assertEqual(runway["traffic_gap_after_pending_and_paid_cap"], 0)
         self.assertEqual(
             runway["next_action"],
             "unblock_channels_then_add_new_distribution_or_guarded_paid_boost",
