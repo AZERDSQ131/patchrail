@@ -1701,6 +1701,7 @@ class PatchRailCITests(unittest.TestCase):
                     ),
                     "worker_actionable: False",
                     "worker_actionable_reason: pablo_handoff_required",
+                    "turn_result_hint: waiting - pablo_handoff_required",
                     "next_action: unblock_distribution_channels",
                     "browser_extension_handoff: show-hn (1 pending)",
                     (

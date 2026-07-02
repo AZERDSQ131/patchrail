@@ -2536,6 +2536,19 @@ def _distribution_worker_actionability(handoff: dict[str, Any]) -> dict[str, Any
     }
 
 
+def _distribution_turn_result_hint(
+    *,
+    worker_actionability: dict[str, Any],
+    execution_handoff: dict[str, Any],
+    next_action: str,
+) -> str:
+    if worker_actionability["actionable"]:
+        return f"progress - execute {execution_handoff['owner']}/{next_action}"
+    if worker_actionability["reason"] == "no_execution_required":
+        return "waiting - measurement_only"
+    return f"waiting - {worker_actionability['reason']}"
+
+
 def _distribution_stalled_handoff(
     stalled_blockers: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -2770,6 +2783,11 @@ def _distribution_gate_payload(
         measurement_packet=measurement_packet,
     )
     worker_actionability = _distribution_worker_actionability(execution_handoff)
+    turn_result_hint = _distribution_turn_result_hint(
+        worker_actionability=worker_actionability,
+        execution_handoff=execution_handoff,
+        next_action=next_action,
+    )
     blocker_days = [
         item["blocked_days"] for item in blocker_plan if isinstance(item.get("blocked_days"), int)
     ]
@@ -2807,6 +2825,7 @@ def _distribution_gate_payload(
         "worker_actionability": worker_actionability,
         "worker_actionable": worker_actionability["actionable"],
         "worker_actionable_reason": worker_actionability["reason"],
+        "turn_result_hint": turn_result_hint,
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
         "browser_extension_handoff": browser_extension_handoff,
@@ -3145,6 +3164,7 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
         "execution_command: " + (payload["execution_handoff"]["command"] or "none"),
         f"worker_actionable: {payload['worker_actionable']}",
         f"worker_actionable_reason: {payload['worker_actionable_reason']}",
+        f"turn_result_hint: {payload['turn_result_hint']}",
         f"next_action: {payload['next_action']}",
     ]
     channel_packet = payload["channel_execution_packet"]
