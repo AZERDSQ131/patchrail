@@ -7668,8 +7668,13 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
     workflow_run_url = str(event.get("workflow_run_url") or "")
     workflow_run_host = str(event.get("workflow_run_host") or "")
     parsed_run_url = urlparse(workflow_run_url) if workflow_run_url else None
+    workflow_repository_owner = (
+        workflow_repository.split("/", 1)[0]
+        if re.fullmatch(r"[^/\s]+/[^/\s]+", workflow_repository)
+        else ""
+    )
     if workflow_repository and workflow_run_id and workflow_run_url:
-        if not re.fullmatch(r"[^/\s]+/[^/\s]+", workflow_repository):
+        if not workflow_repository_owner:
             raise ValueError("workflow_repository must be an owner/repo pair")
         if not workflow_run_id.isdecimal():
             raise ValueError("workflow_run_id must be numeric")
@@ -7702,6 +7707,11 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
             parsed_run_url
             and parsed_run_url.scheme == "https"
             and parsed_run_url.netloc == "github.com"
+        ),
+        "workflow_repository_owner": workflow_repository_owner,
+        "external_workflow_repository_match": bool(
+            workflow_repository_owner
+            and workflow_repository_owner.casefold() != "patchrail"
         ),
         "adoption_key": adoption_key,
         "adoption_event_id": adoption_event_id,
@@ -7802,6 +7812,14 @@ def _ci_adoption_event(args: argparse.Namespace) -> int:
             raise ValueError(
                 "adoption event workflow_run_url must be a public https://github.com Actions run "
                 "when --require-public-github-run is set"
+            )
+        if args.require_external_workflow_repository and (
+            payload["signal_kind"] != "workflow_run"
+            or not payload["external_workflow_repository_match"]
+        ):
+            raise ValueError(
+                "adoption event workflow_repository must be outside the patchrail GitHub owner "
+                "when --require-external-workflow-repository is set"
             )
         if args.require_triage_artifacts and not payload["triage_artifacts_present"]:
             raise ValueError(
@@ -12277,6 +12295,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--require-public-github-run",
         action="store_true",
         help="Fail unless workflow_run_url is a public https://github.com Actions run.",
+    )
+    adoption_event.add_argument(
+        "--require-external-workflow-repository",
+        action="store_true",
+        help="Fail unless workflow_repository is outside the patchrail GitHub owner.",
     )
     adoption_event.add_argument(
         "--require-triage-artifacts",

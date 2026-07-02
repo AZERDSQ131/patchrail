@@ -382,6 +382,7 @@ class PatchRailCITests(unittest.TestCase):
                         "--require-workflow-context",
                         "--require-canonical-action",
                         "--require-published-action-ref",
+                        "--require-external-workflow-repository",
                         "--format",
                         "json",
                     ]
@@ -392,6 +393,8 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["action_ref"], "v1")
         self.assertTrue(payload["published_action_ref_match"])
         self.assertTrue(payload["public_github_run_match"])
+        self.assertEqual(payload["workflow_repository_owner"], "buyer")
+        self.assertTrue(payload["external_workflow_repository_match"])
 
     def test_ci_adoption_event_require_public_github_run_rejects_enterprise_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -434,6 +437,54 @@ class PatchRailCITests(unittest.TestCase):
 
         self.assertEqual(exit_code, 1)
         self.assertIn("--require-public-github-run", stderr.getvalue())
+
+    def test_ci_adoption_event_require_external_repository_rejects_patchrail_run(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            event_path = Path(tmpdir) / "adoption-event.json"
+            event_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.ci_triage_adoption_event.v1",
+                        "product": "ci-triage-action",
+                        "action_ref": "v1",
+                        "action_repository": "patchrail/ci-triage-action",
+                        "adoption_key": "ci-triage:action:ci-triage-action:python-lint",
+                        "adoption_event_id": (
+                            "ci-triage-run:patchrail/patchrail:123:test:python-lint"
+                        ),
+                        "failure_class": "python_lint",
+                        "failure_slug": "python-lint",
+                        "json_result": "ci-result.json",
+                        "markdown_report": "ci-report.md",
+                        "workflow_repository": "patchrail/patchrail",
+                        "workflow_run_id": "123",
+                        "workflow_run_url": (
+                            "https://github.com/patchrail/patchrail/actions/runs/123"
+                        ),
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stderr = StringIO()
+            with redirect_stderr(stderr):
+                exit_code = main(
+                    [
+                        "ci",
+                        "adoption-event",
+                        "--event",
+                        str(event_path),
+                        "--require-workflow-context",
+                        "--require-canonical-action",
+                        "--require-published-action-ref",
+                        "--require-public-github-run",
+                        "--require-external-workflow-repository",
+                        "--require-triage-artifacts",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("--require-external-workflow-repository", stderr.getvalue())
 
     def test_ci_adoption_event_require_triage_artifacts_rejects_missing_reports(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
