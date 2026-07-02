@@ -1769,10 +1769,7 @@ def _distribution_paid_ad_execution_packet(
         )
         human_gate_required = bool(
             eligibility_source == "file"
-            and (
-                bool(stop_conditions)
-                or bool(missing_or_failed & human_owned_fields)
-            )
+            and (bool(stop_conditions) or bool(missing_or_failed & human_owned_fields))
         )
         worker_can_collect_proof = bool(
             eligibility_reason == "missing_logged_in_preexisting_ad_account_proof"
