@@ -74,6 +74,9 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["workflow_repository"], "buyer/repo")
         self.assertEqual(payload["github_issue"], "patchrail/patchrail#69")
         self.assertTrue(payload["triage_artifacts_present"])
+        self.assertTrue(payload["strict_evidence_ready_for_permission_request"])
+        self.assertEqual(payload["missing_strict_evidence"], [])
+        self.assertIn("explicit permission", payload["safe_next_step"])
         self.assertFalse(payload["counts_as_external_adoption"])
         self.assertIn(
             "public_adoption_claim_without_maintainer_permission",
@@ -395,6 +398,8 @@ class PatchRailCITests(unittest.TestCase):
         self.assertTrue(payload["public_github_run_match"])
         self.assertEqual(payload["workflow_repository_owner"], "buyer")
         self.assertTrue(payload["external_workflow_repository_match"])
+        self.assertFalse(payload["strict_evidence_ready_for_permission_request"])
+        self.assertEqual(payload["missing_strict_evidence"], ["triage_artifacts"])
 
     def test_ci_adoption_event_require_public_github_run_rejects_enterprise_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -602,6 +607,8 @@ class PatchRailCITests(unittest.TestCase):
         markdown = stdout.getvalue()
         self.assertIn("- Signal: `local_or_sample_signal`", markdown)
         self.assertIn("- Counts as external adoption: `False`", markdown)
+        self.assertIn("- Strict evidence ready for permission request: `False`", markdown)
+        self.assertIn("- `workflow_context`", markdown)
         self.assertIn("Use this as local action smoke evidence only", markdown)
 
     def test_ci_adoption_event_require_workflow_context_rejects_local_signal(self) -> None:

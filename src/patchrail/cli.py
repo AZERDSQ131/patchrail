@@ -7725,6 +7725,36 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
     signal_kind = (
         "workflow_run" if workflow_repository and workflow_run_id else "local_or_sample_signal"
     )
+    canonical_action_repository_match = action_repository == "patchrail/ci-triage-action"
+    published_action_ref_match = bool(re.fullmatch(r"v[1-9]\d*(?:\.\d+){0,2}", action_ref))
+    public_github_run_match = bool(
+        parsed_run_url and parsed_run_url.scheme == "https" and parsed_run_url.netloc == "github.com"
+    )
+    external_workflow_repository_match = bool(
+        workflow_repository_owner and workflow_repository_owner.casefold() != "patchrail"
+    )
+    triage_artifacts_present = bool(event.get("json_result") and event.get("markdown_report"))
+    strict_evidence_requirements = {
+        "workflow_context": signal_kind == "workflow_run" and bool(workflow_run_url),
+        "canonical_action_repository": canonical_action_repository_match,
+        "published_action_ref": published_action_ref_match,
+        "public_github_run": public_github_run_match,
+        "external_workflow_repository": external_workflow_repository_match,
+        "triage_artifacts": triage_artifacts_present,
+    }
+    missing_strict_evidence = [
+        requirement
+        for requirement, present in strict_evidence_requirements.items()
+        if not present
+    ]
+    strict_evidence_ready_for_permission_request = not missing_strict_evidence
+    safe_next_step = (
+        "Ask the external maintainer for explicit permission before listing this as adoption."
+        if strict_evidence_ready_for_permission_request
+        else "Collect missing strict evidence before asking for public adoption permission."
+    )
+    if signal_kind != "workflow_run":
+        safe_next_step = "Use this as local action smoke evidence only; do not claim external adoption."
     return {
         "schema_version": "patchrail.ci_triage_adoption_event_review.v1",
         "source_schema_version": source_schema,
@@ -7733,18 +7763,12 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         "product": product,
         "action_repository": action_repository,
         "canonical_action_repository": "patchrail/ci-triage-action",
-        "canonical_action_repository_match": action_repository == "patchrail/ci-triage-action",
+        "canonical_action_repository_match": canonical_action_repository_match,
         "action_ref": action_ref,
-        "published_action_ref_match": bool(re.fullmatch(r"v[1-9]\d*(?:\.\d+){0,2}", action_ref)),
-        "public_github_run_match": bool(
-            parsed_run_url
-            and parsed_run_url.scheme == "https"
-            and parsed_run_url.netloc == "github.com"
-        ),
+        "published_action_ref_match": published_action_ref_match,
+        "public_github_run_match": public_github_run_match,
         "workflow_repository_owner": workflow_repository_owner,
-        "external_workflow_repository_match": bool(
-            workflow_repository_owner and workflow_repository_owner.casefold() != "patchrail"
-        ),
+        "external_workflow_repository_match": external_workflow_repository_match,
         "adoption_key": adoption_key,
         "adoption_event_id": adoption_event_id,
         "failure_class": str(event.get("failure_class") or "unknown"),
@@ -7754,7 +7778,12 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         "artifact_name": str(event.get("artifact_name") or f"patchrail-ci-triage-{failure_slug}"),
         "json_result": str(event.get("json_result") or ""),
         "markdown_report": str(event.get("markdown_report") or ""),
-        "triage_artifacts_present": bool(event.get("json_result") and event.get("markdown_report")),
+        "triage_artifacts_present": triage_artifacts_present,
+        "strict_evidence_requirements": strict_evidence_requirements,
+        "missing_strict_evidence": missing_strict_evidence,
+        "strict_evidence_ready_for_permission_request": (
+            strict_evidence_ready_for_permission_request
+        ),
         "workflow_repository": workflow_repository,
         "workflow_run_id": workflow_run_id,
         "workflow_run_url": workflow_run_url,
@@ -7763,11 +7792,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         "workflow_job": str(event.get("workflow_job") or ""),
         "signal_kind": signal_kind,
         "counts_as_external_adoption": False,
-        "safe_next_step": (
-            "Ask the maintainer for explicit permission before listing this as public adoption."
-            if signal_kind == "workflow_run"
-            else "Use this as local action smoke evidence only; do not claim external adoption."
-        ),
+        "safe_next_step": safe_next_step,
         "blocked_actions": [
             "public_adoption_claim_without_maintainer_permission",
             "automatic_adopters_md_update",
@@ -7802,6 +7827,10 @@ def _render_ci_adoption_event_markdown(payload: dict[str, Any]) -> str:
         f"- Confidence: `{payload['confidence']}`",
         f"- Redacted categories: `{payload['redacted_categories']}`",
         f"- Counts as external adoption: `{payload['counts_as_external_adoption']}`",
+        (
+            "- Strict evidence ready for permission request: "
+            f"`{payload['strict_evidence_ready_for_permission_request']}`"
+        ),
         f"- Tracking issue: `{payload['github_issue']}`",
         "",
         "## Next Safe Step",
@@ -7812,6 +7841,12 @@ def _render_ci_adoption_event_markdown(payload: dict[str, Any]) -> str:
         "",
     ]
     lines.extend(f"- `{action}`" for action in payload["blocked_actions"])
+    lines.extend(["", "## Missing Strict Evidence", ""])
+    missing = payload["missing_strict_evidence"]
+    if missing:
+        lines.extend(f"- `{requirement}`" for requirement in missing)
+    else:
+        lines.append("- None; permission is still required before public adoption listing.")
     return "\n".join(lines) + "\n"
 
 
