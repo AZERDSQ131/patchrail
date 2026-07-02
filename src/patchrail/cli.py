@@ -7652,6 +7652,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
     source_schema = str(event.get("schema_version") or "")
     product = str(event.get("product") or "")
     action_repository = str(event.get("action_repository") or "patchrail/ci-triage-action")
+    action_ref = str(event.get("action_ref") or "")
     adoption_event_id = str(event.get("adoption_event_id") or "")
     adoption_key = str(event.get("adoption_key") or "")
     failure_slug = str(event.get("failure_slug") or "")
@@ -7694,7 +7695,8 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         "action_repository": action_repository,
         "canonical_action_repository": "patchrail/ci-triage-action",
         "canonical_action_repository_match": action_repository == "patchrail/ci-triage-action",
-        "action_ref": str(event.get("action_ref") or ""),
+        "action_ref": action_ref,
+        "published_action_ref_match": bool(re.fullmatch(r"v[1-9]\d*(?:\.\d+){0,2}", action_ref)),
         "adoption_key": adoption_key,
         "adoption_event_id": adoption_event_id,
         "failure_class": str(event.get("failure_class") or "unknown"),
@@ -7781,6 +7783,11 @@ def _ci_adoption_event(args: argparse.Namespace) -> int:
             raise ValueError(
                 "adoption event action_repository must be patchrail/ci-triage-action "
                 "when --require-canonical-action is set"
+            )
+        if args.require_published_action_ref and not payload["published_action_ref_match"]:
+            raise ValueError(
+                "adoption event action_ref must be a published major or semver tag "
+                "like v1 when --require-published-action-ref is set"
             )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid adoption event input: {exc}", file=sys.stderr)
@@ -12241,6 +12248,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--require-canonical-action",
         action="store_true",
         help="Fail unless action_repository is patchrail/ci-triage-action.",
+    )
+    adoption_event.add_argument(
+        "--require-published-action-ref",
+        action="store_true",
+        help="Fail unless action_ref is a published major or semver tag such as v1.",
     )
     adoption_event.add_argument("--out", type=Path, help="Optional output path.")
     adoption_event.set_defaults(func=_ci_adoption_event)
