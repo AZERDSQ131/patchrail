@@ -229,7 +229,7 @@ def test_ci_triage_action_helper_exports_index_attribution_for_unlisted_classes(
     assert adoption_event["markdown_report"] == "ci-report.md"
 
 
-def test_ci_triage_action_helper_exports_workflow_context_when_available() -> None:
+def test_ci_triage_action_helper_exports_workflow_context_when_available(tmp_path: Path) -> None:
     helper = _load_helper()
     result = {
         "failure_class": "python_lint",
@@ -281,6 +281,13 @@ def test_ci_triage_action_helper_exports_workflow_context_when_available() -> No
     assert adoption_event["workflow_sha"] == "abc123"
     assert adoption_event["workflow_name"] == "CI"
     assert adoption_event["workflow_job"] == "test"
+
+    summary_path = tmp_path / "step-summary.md"
+    helper.append_step_summary(result, Path("ci-report.md"), summary_path, workflow_context=context)
+    summary = summary_path.read_text(encoding="utf-8")
+
+    assert "- Adoption event ID: `ci-triage-run:buyer/repo:123456:test:python-lint`" in summary
+    assert "- Workflow run: https://github.enterprise.test/buyer/repo/actions/runs/123456" in summary
 
 
 def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> None:

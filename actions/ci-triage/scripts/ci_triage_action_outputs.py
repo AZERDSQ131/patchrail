@@ -184,18 +184,28 @@ def write_github_outputs(outputs: dict[str, str], path: Path) -> None:
             handle.write(f"{name}={clean_value}\n")
 
 
-def append_step_summary(result: dict[str, Any], report_path: Path, path: Path) -> None:
+def append_step_summary(
+    result: dict[str, Any],
+    report_path: Path,
+    path: Path,
+    workflow_context: dict[str, str] | None = None,
+) -> None:
+    slug = failure_slug(result)
+    event_id = adoption_event_id(result, slug, workflow_context)
     lines = [
         "## PatchRail CI triage",
         "",
         f"- Summary: {summary_line(result)}",
         f"- Next step: {result.get('minimal_repair_strategy') or 'Open the report for repair details.'}",
-        f"- Adoption key: `{adoption_key(result, failure_slug(result))}`",
-        f"- Adoption event ID: `{adoption_event_id(result, failure_slug(result))}`",
+        f"- Adoption key: `{adoption_key(result, slug)}`",
+        f"- Adoption event ID: `{event_id}`",
         f"- Redacted categories: `{redacted_category_count(result)}`",
         f"- Report: `{report_path}`",
-        "",
     ]
+    workflow_run_url = (workflow_context or {}).get("workflow_run_url", "")
+    if workflow_run_url:
+        lines.append(f"- Workflow run: {workflow_run_url}")
+    lines.append("")
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as handle:
         handle.write("\n".join(lines))
@@ -210,6 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     result = json.loads(args.result.read_text(encoding="utf-8"))
+    workflow_context = workflow_context_from_env()
     write_github_outputs(
         action_outputs(
             result,
@@ -220,12 +231,12 @@ def main(argv: list[str] | None = None) -> int:
                 "GITHUB_ACTION_REPOSITORY",
                 "patchrail/ci-triage-action",
             ),
-            workflow_context=workflow_context_from_env(),
+            workflow_context=workflow_context,
         ),
         args.output,
     )
     if args.summary is not None:
-        append_step_summary(result, args.report, args.summary)
+        append_step_summary(result, args.report, args.summary, workflow_context=workflow_context)
     return 0
 
 
