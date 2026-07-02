@@ -7757,7 +7757,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         safe_next_step = (
             "Use this as local action smoke evidence only; do not claim external adoption."
         )
-    return {
+    payload = {
         "schema_version": "patchrail.ci_triage_adoption_event_review.v1",
         "source_schema_version": source_schema,
         "source_file": str(source),
@@ -7801,6 +7801,58 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
             "repository_contact_or_comment",
         ],
     }
+    payload["permission_request_copy_brief"] = _ci_adoption_permission_copy_brief(payload)
+    return payload
+
+
+def _ci_adoption_permission_copy_brief(payload: dict[str, Any]) -> dict[str, Any] | None:
+    if not payload["strict_evidence_ready_for_permission_request"]:
+        return None
+    return {
+        "write_path": (
+            "opportunity-desk/outbox/requests/"
+            "<timestamp>-ci-triage-adoption-permission-request.json"
+        ),
+        "schema": "copy_brief.external_permission_request.v1",
+        "prohibited_fields": ["body", "draft", "email_body"],
+        "payload": {
+            "type": "external_permission_request",
+            "channel": "maintainer_permission",
+            "lead": payload["workflow_repository"],
+            "goal": (
+                "Ask the external maintainer for explicit written permission before PatchRail "
+                "lists this ci-triage-action workflow run as public adoption evidence."
+            ),
+            "key_facts": [
+                "Product: ci-triage-action.",
+                f"Repository: {payload['workflow_repository']}.",
+                f"Workflow run URL: {payload['workflow_run_url']}.",
+                f"Action repository: {payload['action_repository']}.",
+                f"Action ref: {payload['action_ref']}.",
+                f"Failure class: {payload['failure_class']}.",
+                f"Failure slug: {payload['failure_slug']}.",
+                f"JSON result artifact: {payload['json_result']}.",
+                f"Markdown report artifact: {payload['markdown_report']}.",
+                "Strict evidence checks passed; public adoption is still false until permission.",
+            ],
+            "tone": "Concise, respectful, maintainer-safe, no hype.",
+            "constraints": [
+                "Copywriter authors final external prose; worker does not draft publishable text.",
+                "Brand-only: PatchRail.",
+                "Ask only for explicit permission to list the public workflow run as adoption evidence.",
+                "Do not imply endorsement, payout, partnership, merge outcome, or commercial guarantee.",
+                "Do not request repository write access, secrets, billing, calls, or private data.",
+            ],
+            "urgency": "normal",
+            "thread_ref": (
+                f"ci adoption-event {payload['adoption_event_id']}; "
+                f"run={payload['workflow_run_url']}; issue={payload['github_issue']}"
+            ),
+            "external_body_allowed": False,
+            "payment_route_allowed_now": False,
+            "forbidden_fields": ["body", "draft", "email_body"],
+        },
+    }
 
 
 def _render_ci_adoption_event_text(payload: dict[str, Any]) -> str:
@@ -7832,6 +7884,10 @@ def _render_ci_adoption_event_markdown(payload: dict[str, Any]) -> str:
         (
             "- Strict evidence ready for permission request: "
             f"`{payload['strict_evidence_ready_for_permission_request']}`"
+        ),
+        (
+            "- Permission copy brief available: "
+            f"`{payload['permission_request_copy_brief'] is not None}`"
         ),
         f"- Tracking issue: `{payload['github_issue']}`",
         "",
@@ -7898,6 +7954,35 @@ def _ci_adoption_event(args: argparse.Namespace) -> int:
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid adoption event input: {exc}", file=sys.stderr)
         return 1
+    if args.write_copy_brief is not None:
+        copy_brief_request = payload["permission_request_copy_brief"]
+        if copy_brief_request is None:
+            payload["copy_brief_write"] = {
+                "status": "skipped",
+                "reason": "strict_evidence_not_ready_for_permission_request",
+                "path": str(args.write_copy_brief),
+            }
+        elif args.write_copy_brief.exists():
+            payload["copy_brief_write"] = {
+                "status": "skipped",
+                "reason": "copy_brief_already_exists",
+                "path": str(args.write_copy_brief),
+                "type": copy_brief_request["payload"]["type"],
+            }
+        else:
+            args.write_copy_brief.parent.mkdir(parents=True, exist_ok=True)
+            args.write_copy_brief.write_text(
+                _json_dump(copy_brief_request["payload"]), encoding="utf-8"
+            )
+            payload["copy_brief_write"] = {
+                "status": "written",
+                "path": str(args.write_copy_brief),
+                "type": copy_brief_request["payload"]["type"],
+                "prohibited_fields_present": any(
+                    field in copy_brief_request["payload"]
+                    for field in copy_brief_request["prohibited_fields"]
+                ),
+            }
     if args.format == "json":
         text = _json_dump(payload)
     elif args.format == "markdown":
@@ -12374,6 +12459,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--require-triage-artifacts",
         action="store_true",
         help="Fail unless json_result and markdown_report are present in the event.",
+    )
+    adoption_event.add_argument(
+        "--write-copy-brief",
+        type=Path,
+        help=(
+            "Optional outbox/requests path for the facts-only maintainer permission "
+            "copy brief when strict evidence is ready."
+        ),
     )
     adoption_event.add_argument("--out", type=Path, help="Optional output path.")
     adoption_event.set_defaults(func=_ci_adoption_event)

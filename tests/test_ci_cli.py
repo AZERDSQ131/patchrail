@@ -78,10 +78,80 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["missing_strict_evidence"], [])
         self.assertIn("explicit permission", payload["safe_next_step"])
         self.assertFalse(payload["counts_as_external_adoption"])
+        self.assertIsNotNone(payload["permission_request_copy_brief"])
+        copy_brief = payload["permission_request_copy_brief"]
+        assert copy_brief is not None
+        self.assertEqual(copy_brief["schema"], "copy_brief.external_permission_request.v1")
+        self.assertEqual(copy_brief["prohibited_fields"], ["body", "draft", "email_body"])
+        self.assertEqual(copy_brief["payload"]["type"], "external_permission_request")
+        self.assertEqual(copy_brief["payload"]["lead"], "buyer/repo")
+        self.assertFalse(copy_brief["payload"]["external_body_allowed"])
+        self.assertFalse(copy_brief["payload"]["payment_route_allowed_now"])
+        self.assertNotIn("body", copy_brief["payload"])
+        self.assertNotIn("draft", copy_brief["payload"])
+        self.assertNotIn("email_body", copy_brief["payload"])
         self.assertIn(
             "public_adoption_claim_without_maintainer_permission",
             payload["blocked_actions"],
         )
+
+    def test_ci_adoption_event_writes_permission_copy_brief_without_external_body(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            event_path = Path(tmpdir) / "adoption-event.json"
+            brief_path = Path(tmpdir) / "requests" / "permission.json"
+            event_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.ci_triage_adoption_event.v1",
+                        "product": "ci-triage-action",
+                        "action_ref": "v1",
+                        "action_repository": "patchrail/ci-triage-action",
+                        "adoption_key": "ci-triage:action:ci-triage-action:python-lint",
+                        "adoption_event_id": "ci-triage-run:buyer/repo:123:test:python-lint",
+                        "failure_class": "python_lint",
+                        "failure_slug": "python-lint",
+                        "confidence": "0.88",
+                        "json_result": "ci-result.json",
+                        "markdown_report": "ci-report.md",
+                        "workflow_repository": "buyer/repo",
+                        "workflow_run_id": "123",
+                        "workflow_run_url": "https://github.com/buyer/repo/actions/runs/123",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "ci",
+                        "adoption-event",
+                        "--event",
+                        str(event_path),
+                        "--write-copy-brief",
+                        str(brief_path),
+                        "--format",
+                        "json",
+                    ]
+                )
+            copy_brief_payload = json.loads(brief_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["copy_brief_write"]["status"], "written")
+        self.assertFalse(payload["copy_brief_write"]["prohibited_fields_present"])
+        self.assertEqual(copy_brief_payload["type"], "external_permission_request")
+        self.assertEqual(copy_brief_payload["channel"], "maintainer_permission")
+        self.assertEqual(copy_brief_payload["lead"], "buyer/repo")
+        self.assertIn(
+            "https://github.com/buyer/repo/actions/runs/123", copy_brief_payload["key_facts"][2]
+        )
+        self.assertFalse(copy_brief_payload["external_body_allowed"])
+        self.assertFalse(copy_brief_payload["payment_route_allowed_now"])
+        self.assertNotIn("body", copy_brief_payload)
+        self.assertNotIn("draft", copy_brief_payload)
+        self.assertNotIn("email_body", copy_brief_payload)
 
     def test_ci_adoption_event_require_workflow_context_accepts_real_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
