@@ -7667,13 +7667,14 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
     workflow_run_id = str(event.get("workflow_run_id") or "")
     workflow_run_url = str(event.get("workflow_run_url") or "")
     workflow_run_host = str(event.get("workflow_run_host") or "")
+    parsed_run_url = urlparse(workflow_run_url) if workflow_run_url else None
     if workflow_repository and workflow_run_id and workflow_run_url:
         if not re.fullmatch(r"[^/\s]+/[^/\s]+", workflow_repository):
             raise ValueError("workflow_repository must be an owner/repo pair")
         if not workflow_run_id.isdecimal():
             raise ValueError("workflow_run_id must be numeric")
         expected_path = f"/{workflow_repository}/actions/runs/{workflow_run_id}"
-        parsed_run_url = urlparse(workflow_run_url)
+        assert parsed_run_url is not None
         if parsed_run_url.scheme != "https" or parsed_run_url.path != expected_path:
             raise ValueError(
                 "workflow_run_url must match workflow_repository and workflow_run_id "
@@ -7697,6 +7698,11 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         "canonical_action_repository_match": action_repository == "patchrail/ci-triage-action",
         "action_ref": action_ref,
         "published_action_ref_match": bool(re.fullmatch(r"v[1-9]\d*(?:\.\d+){0,2}", action_ref)),
+        "public_github_run_match": bool(
+            parsed_run_url
+            and parsed_run_url.scheme == "https"
+            and parsed_run_url.netloc == "github.com"
+        ),
         "adoption_key": adoption_key,
         "adoption_event_id": adoption_event_id,
         "failure_class": str(event.get("failure_class") or "unknown"),
@@ -7788,6 +7794,13 @@ def _ci_adoption_event(args: argparse.Namespace) -> int:
             raise ValueError(
                 "adoption event action_ref must be a published major or semver tag "
                 "like v1 when --require-published-action-ref is set"
+            )
+        if args.require_public_github_run and (
+            payload["signal_kind"] != "workflow_run" or not payload["public_github_run_match"]
+        ):
+            raise ValueError(
+                "adoption event workflow_run_url must be a public https://github.com Actions run "
+                "when --require-public-github-run is set"
             )
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid adoption event input: {exc}", file=sys.stderr)
@@ -12253,6 +12266,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--require-published-action-ref",
         action="store_true",
         help="Fail unless action_ref is a published major or semver tag such as v1.",
+    )
+    adoption_event.add_argument(
+        "--require-public-github-run",
+        action="store_true",
+        help="Fail unless workflow_run_url is a public https://github.com Actions run.",
     )
     adoption_event.add_argument("--out", type=Path, help="Optional output path.")
     adoption_event.set_defaults(func=_ci_adoption_event)
