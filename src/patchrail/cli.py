@@ -7665,6 +7665,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
     workflow_repository = str(event.get("workflow_repository") or "")
     workflow_run_id = str(event.get("workflow_run_id") or "")
     workflow_run_url = str(event.get("workflow_run_url") or "")
+    workflow_run_host = str(event.get("workflow_run_host") or "")
     if workflow_repository and workflow_run_id and workflow_run_url:
         expected_path = f"/{workflow_repository}/actions/runs/{workflow_run_id}"
         parsed_run_url = urlparse(workflow_run_url)
@@ -7672,6 +7673,11 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
             raise ValueError(
                 "workflow_run_url must match workflow_repository and workflow_run_id "
                 f"({expected_path})"
+            )
+        if workflow_run_host and parsed_run_url.netloc != workflow_run_host:
+            raise ValueError(
+                "workflow_run_host must match workflow_run_url host "
+                f"({parsed_run_url.netloc})"
             )
     signal_kind = (
         "workflow_run" if workflow_repository and workflow_run_id else "local_or_sample_signal"
@@ -7698,7 +7704,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         "workflow_repository": workflow_repository,
         "workflow_run_id": workflow_run_id,
         "workflow_run_url": workflow_run_url,
-        "workflow_run_host": str(event.get("workflow_run_host") or ""),
+        "workflow_run_host": workflow_run_host,
         "workflow_name": str(event.get("workflow_name") or ""),
         "workflow_job": str(event.get("workflow_job") or ""),
         "signal_kind": signal_kind,
