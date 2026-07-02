@@ -7667,6 +7667,10 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
     workflow_run_url = str(event.get("workflow_run_url") or "")
     workflow_run_host = str(event.get("workflow_run_host") or "")
     if workflow_repository and workflow_run_id and workflow_run_url:
+        if not re.fullmatch(r"[^/\s]+/[^/\s]+", workflow_repository):
+            raise ValueError("workflow_repository must be an owner/repo pair")
+        if not workflow_run_id.isdecimal():
+            raise ValueError("workflow_run_id must be numeric")
         expected_path = f"/{workflow_repository}/actions/runs/{workflow_run_id}"
         parsed_run_url = urlparse(workflow_run_url)
         if parsed_run_url.scheme not in {"http", "https"} or parsed_run_url.path != expected_path:
