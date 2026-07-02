@@ -153,6 +153,107 @@ class PatchRailCITests(unittest.TestCase):
         self.assertNotIn("draft", copy_brief_payload)
         self.assertNotIn("email_body", copy_brief_payload)
 
+    def test_ci_adoption_event_writes_permission_copy_brief_to_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            event_path = Path(tmpdir) / "adoption-event.json"
+            requests_dir = Path(tmpdir) / "requests"
+            event_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.ci_triage_adoption_event.v1",
+                        "product": "ci-triage-action",
+                        "action_ref": "v1",
+                        "action_repository": "patchrail/ci-triage-action",
+                        "adoption_key": "ci-triage:action:ci-triage-action:python-lint",
+                        "adoption_event_id": "ci-triage-run:buyer/repo:123:test:python-lint",
+                        "failure_class": "python_lint",
+                        "failure_slug": "python-lint",
+                        "confidence": "0.88",
+                        "json_result": "ci-result.json",
+                        "markdown_report": "ci-report.md",
+                        "workflow_repository": "buyer/repo",
+                        "workflow_run_id": "123",
+                        "workflow_run_url": "https://github.com/buyer/repo/actions/runs/123",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "ci",
+                        "adoption-event",
+                        "--event",
+                        str(event_path),
+                        "--write-copy-brief-dir",
+                        str(requests_dir),
+                        "--format",
+                        "json",
+                    ]
+                )
+            written_files = list(requests_dir.glob("*.json"))
+            copy_brief_payload = json.loads(written_files[0].read_text(encoding="utf-8"))
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(len(written_files), 1)
+            self.assertRegex(
+                written_files[0].name,
+                r"^\d{8}T\d{6}Z-ci-triage-adoption-permission-buyer-repo-run-123\.json$",
+            )
+            payload = json.loads(stdout.getvalue())
+            self.assertEqual(payload["copy_brief_write"]["status"], "written")
+            self.assertTrue(payload["copy_brief_write"]["auto_named"])
+            self.assertEqual(payload["copy_brief_write"]["directory"], str(requests_dir))
+            self.assertEqual(payload["copy_brief_write"]["path"], str(written_files[0]))
+            self.assertEqual(copy_brief_payload["type"], "external_permission_request")
+            self.assertNotIn("body", copy_brief_payload)
+            self.assertNotIn("draft", copy_brief_payload)
+            self.assertNotIn("email_body", copy_brief_payload)
+
+    def test_ci_adoption_event_rejects_copy_brief_path_and_directory_together(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            event_path = Path(tmpdir) / "adoption-event.json"
+            event_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.ci_triage_adoption_event.v1",
+                        "product": "ci-triage-action",
+                        "action_ref": "v1",
+                        "action_repository": "patchrail/ci-triage-action",
+                        "adoption_key": "ci-triage:action:ci-triage-action:python-lint",
+                        "adoption_event_id": "ci-triage-run:buyer/repo:123:test:python-lint",
+                        "failure_class": "python_lint",
+                        "failure_slug": "python-lint",
+                        "json_result": "ci-result.json",
+                        "markdown_report": "ci-report.md",
+                        "workflow_repository": "buyer/repo",
+                        "workflow_run_id": "123",
+                        "workflow_run_url": "https://github.com/buyer/repo/actions/runs/123",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stderr = StringIO()
+            with redirect_stderr(stderr):
+                exit_code = main(
+                    [
+                        "ci",
+                        "adoption-event",
+                        "--event",
+                        str(event_path),
+                        "--write-copy-brief",
+                        str(Path(tmpdir) / "permission.json"),
+                        "--write-copy-brief-dir",
+                        str(Path(tmpdir) / "requests"),
+                    ]
+                )
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("not both", stderr.getvalue())
+
     def test_ci_adoption_event_require_workflow_context_accepts_real_run(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             event_path = Path(tmpdir) / "adoption-event.json"

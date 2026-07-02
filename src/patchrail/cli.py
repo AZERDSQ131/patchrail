@@ -7855,6 +7855,58 @@ def _ci_adoption_permission_copy_brief(payload: dict[str, Any]) -> dict[str, Any
     }
 
 
+def _ci_adoption_permission_copy_brief_dir_path(payload: dict[str, Any], directory: Path) -> Path:
+    slug_source = (
+        f"{payload['workflow_repository']}-run-{payload['workflow_run_id']}"
+        if payload["workflow_repository"] and payload["workflow_run_id"]
+        else payload["adoption_event_id"]
+    )
+    slug = re.sub(r"[^a-z0-9]+", "-", slug_source.lower()).strip("-")
+    slug = (slug or "external-workflow")[:80].strip("-")
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return directory / f"{timestamp}-ci-triage-adoption-permission-{slug}.json"
+
+
+def _write_ci_adoption_permission_copy_brief(
+    payload: dict[str, Any],
+    path: Path,
+    *,
+    auto_named: bool = False,
+    directory: Path | None = None,
+) -> dict[str, Any]:
+    copy_brief_request = payload["permission_request_copy_brief"]
+    if copy_brief_request is None:
+        result = {
+            "status": "skipped",
+            "reason": "strict_evidence_not_ready_for_permission_request",
+            "path": str(path),
+        }
+    elif path.exists():
+        result = {
+            "status": "skipped",
+            "reason": "copy_brief_already_exists",
+            "path": str(path),
+            "type": copy_brief_request["payload"]["type"],
+        }
+    else:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(_json_dump(copy_brief_request["payload"]), encoding="utf-8")
+        result = {
+            "status": "written",
+            "path": str(path),
+            "type": copy_brief_request["payload"]["type"],
+            "prohibited_fields_present": any(
+                field in copy_brief_request["payload"]
+                for field in copy_brief_request["prohibited_fields"]
+            ),
+        }
+    if auto_named:
+        result["auto_named"] = True
+    if directory is not None:
+        result["directory"] = str(directory)
+    return result
+
+
 def _render_ci_adoption_event_text(payload: dict[str, Any]) -> str:
     lines = [
         "PatchRail CI triage adoption event review",
@@ -7954,35 +8006,24 @@ def _ci_adoption_event(args: argparse.Namespace) -> int:
     except (FileNotFoundError, json.JSONDecodeError, ValueError) as exc:
         print(f"Invalid adoption event input: {exc}", file=sys.stderr)
         return 1
+    if args.write_copy_brief is not None and args.write_copy_brief_dir is not None:
+        print(
+            "Use either --write-copy-brief or --write-copy-brief-dir, not both",
+            file=sys.stderr,
+        )
+        return 2
     if args.write_copy_brief is not None:
-        copy_brief_request = payload["permission_request_copy_brief"]
-        if copy_brief_request is None:
-            payload["copy_brief_write"] = {
-                "status": "skipped",
-                "reason": "strict_evidence_not_ready_for_permission_request",
-                "path": str(args.write_copy_brief),
-            }
-        elif args.write_copy_brief.exists():
-            payload["copy_brief_write"] = {
-                "status": "skipped",
-                "reason": "copy_brief_already_exists",
-                "path": str(args.write_copy_brief),
-                "type": copy_brief_request["payload"]["type"],
-            }
-        else:
-            args.write_copy_brief.parent.mkdir(parents=True, exist_ok=True)
-            args.write_copy_brief.write_text(
-                _json_dump(copy_brief_request["payload"]), encoding="utf-8"
-            )
-            payload["copy_brief_write"] = {
-                "status": "written",
-                "path": str(args.write_copy_brief),
-                "type": copy_brief_request["payload"]["type"],
-                "prohibited_fields_present": any(
-                    field in copy_brief_request["payload"]
-                    for field in copy_brief_request["prohibited_fields"]
-                ),
-            }
+        payload["copy_brief_write"] = _write_ci_adoption_permission_copy_brief(
+            payload, args.write_copy_brief
+        )
+    if args.write_copy_brief_dir is not None:
+        brief_path = _ci_adoption_permission_copy_brief_dir_path(payload, args.write_copy_brief_dir)
+        payload["copy_brief_write"] = _write_ci_adoption_permission_copy_brief(
+            payload,
+            brief_path,
+            auto_named=True,
+            directory=args.write_copy_brief_dir,
+        )
     if args.format == "json":
         text = _json_dump(payload)
     elif args.format == "markdown":
@@ -12466,6 +12507,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help=(
             "Optional outbox/requests path for the facts-only maintainer permission "
             "copy brief when strict evidence is ready."
+        ),
+    )
+    adoption_event.add_argument(
+        "--write-copy-brief-dir",
+        type=Path,
+        help=(
+            "Optional outbox/requests directory; PatchRail derives a safe facts-only "
+            "maintainer permission copy brief filename from the workflow repository and run."
         ),
     )
     adoption_event.add_argument("--out", type=Path, help="Optional output path.")
