@@ -7673,7 +7673,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
             raise ValueError("workflow_run_id must be numeric")
         expected_path = f"/{workflow_repository}/actions/runs/{workflow_run_id}"
         parsed_run_url = urlparse(workflow_run_url)
-        if parsed_run_url.scheme not in {"http", "https"} or parsed_run_url.path != expected_path:
+        if parsed_run_url.scheme != "https" or parsed_run_url.path != expected_path:
             raise ValueError(
                 "workflow_run_url must match workflow_repository and workflow_run_id "
                 f"({expected_path})"

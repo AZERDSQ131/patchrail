@@ -159,6 +159,43 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(exit_code, 1)
         self.assertIn("workflow_run_url must match", stderr.getvalue())
 
+    def test_ci_adoption_event_rejects_insecure_workflow_run_url(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            event_path = Path(tmpdir) / "adoption-event.json"
+            event_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "patchrail.ci_triage_adoption_event.v1",
+                        "product": "ci-triage-action",
+                        "action_ref": "v1",
+                        "action_repository": "patchrail/ci-triage-action",
+                        "adoption_key": "ci-triage:action:ci-triage-action:python-lint",
+                        "adoption_event_id": "ci-triage-run:buyer/repo:123:test:python-lint",
+                        "failure_class": "python_lint",
+                        "failure_slug": "python-lint",
+                        "workflow_repository": "buyer/repo",
+                        "workflow_run_id": "123",
+                        "workflow_run_url": "http://github.com/buyer/repo/actions/runs/123",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stderr = StringIO()
+            with redirect_stderr(stderr):
+                exit_code = main(
+                    [
+                        "ci",
+                        "adoption-event",
+                        "--event",
+                        str(event_path),
+                        "--require-workflow-context",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 1)
+        self.assertIn("workflow_run_url must match", stderr.getvalue())
+
     def test_ci_adoption_event_rejects_malformed_workflow_repository(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             event_path = Path(tmpdir) / "adoption-event.json"
