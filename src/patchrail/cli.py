@@ -7728,7 +7728,9 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
     canonical_action_repository_match = action_repository == "patchrail/ci-triage-action"
     published_action_ref_match = bool(re.fullmatch(r"v[1-9]\d*(?:\.\d+){0,2}", action_ref))
     public_github_run_match = bool(
-        parsed_run_url and parsed_run_url.scheme == "https" and parsed_run_url.netloc == "github.com"
+        parsed_run_url
+        and parsed_run_url.scheme == "https"
+        and parsed_run_url.netloc == "github.com"
     )
     external_workflow_repository_match = bool(
         workflow_repository_owner and workflow_repository_owner.casefold() != "patchrail"
@@ -7743,9 +7745,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         "triage_artifacts": triage_artifacts_present,
     }
     missing_strict_evidence = [
-        requirement
-        for requirement, present in strict_evidence_requirements.items()
-        if not present
+        requirement for requirement, present in strict_evidence_requirements.items() if not present
     ]
     strict_evidence_ready_for_permission_request = not missing_strict_evidence
     safe_next_step = (
@@ -7754,7 +7754,9 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         else "Collect missing strict evidence before asking for public adoption permission."
     )
     if signal_kind != "workflow_run":
-        safe_next_step = "Use this as local action smoke evidence only; do not claim external adoption."
+        safe_next_step = (
+            "Use this as local action smoke evidence only; do not claim external adoption."
+        )
     return {
         "schema_version": "patchrail.ci_triage_adoption_event_review.v1",
         "source_schema_version": source_schema,
