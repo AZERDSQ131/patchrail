@@ -7757,6 +7757,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         safe_next_step = (
             "Use this as local action smoke evidence only; do not claim external adoption."
         )
+    strict_verification_command = _ci_adoption_event_strict_verification_command(source)
     payload = {
         "schema_version": "patchrail.ci_triage_adoption_event_review.v1",
         "source_schema_version": source_schema,
@@ -7795,6 +7796,7 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
         "signal_kind": signal_kind,
         "counts_as_external_adoption": False,
         "safe_next_step": safe_next_step,
+        "strict_verification_command": strict_verification_command,
         "blocked_actions": [
             "public_adoption_claim_without_maintainer_permission",
             "automatic_adopters_md_update",
@@ -7803,6 +7805,25 @@ def _ci_adoption_event_payload(event: dict[str, Any], source: Path) -> dict[str,
     }
     payload["permission_request_copy_brief"] = _ci_adoption_permission_copy_brief(payload)
     return payload
+
+
+def _ci_adoption_event_strict_verification_command(source: Path) -> str:
+    parts = [
+        "patchrail",
+        "ci",
+        "adoption-event",
+        "--event",
+        str(source),
+        "--require-workflow-context",
+        "--require-canonical-action",
+        "--require-published-action-ref",
+        "--require-public-github-run",
+        "--require-external-workflow-repository",
+        "--require-triage-artifacts",
+        "--format",
+        "json",
+    ]
+    return " ".join(shlex.quote(part) for part in parts)
 
 
 def _ci_adoption_permission_copy_brief(payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -7834,6 +7855,7 @@ def _ci_adoption_permission_copy_brief(payload: dict[str, Any]) -> dict[str, Any
                 f"JSON result artifact: {payload['json_result']}.",
                 f"Markdown report artifact: {payload['markdown_report']}.",
                 "Strict evidence checks passed; public adoption is still false until permission.",
+                f"Strict verification command: {payload['strict_verification_command']}",
             ],
             "tone": "Concise, respectful, maintainer-safe, no hype.",
             "constraints": [

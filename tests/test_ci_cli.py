@@ -78,6 +78,8 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["missing_strict_evidence"], [])
         self.assertIn("explicit permission", payload["safe_next_step"])
         self.assertFalse(payload["counts_as_external_adoption"])
+        self.assertIn("--require-workflow-context", payload["strict_verification_command"])
+        self.assertIn("--require-triage-artifacts", payload["strict_verification_command"])
         self.assertIsNotNone(payload["permission_request_copy_brief"])
         copy_brief = payload["permission_request_copy_brief"]
         assert copy_brief is not None
@@ -146,6 +148,12 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(copy_brief_payload["lead"], "buyer/repo")
         self.assertIn(
             "https://github.com/buyer/repo/actions/runs/123", copy_brief_payload["key_facts"][2]
+        )
+        self.assertTrue(
+            any(
+                fact.startswith("Strict verification command: patchrail ci adoption-event ")
+                for fact in copy_brief_payload["key_facts"]
+            )
         )
         self.assertFalse(copy_brief_payload["external_body_allowed"])
         self.assertFalse(copy_brief_payload["payment_route_allowed_now"])
