@@ -2757,6 +2757,59 @@ class PatchRailCITests(unittest.TestCase):
             ),
         )
 
+    def test_distribution_sku1_gate_next_prioritizes_highest_traffic_blocked_channel(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            for channel in ("linkedin", "devto", "hashnode", "show-hn"):
+                posted.joinpath(f"{channel}.json").write_text(
+                    json.dumps(
+                        {
+                            "channel": channel,
+                            "status": "blocked",
+                            "reason": "Chrome route missing extension",
+                            "copy_file": f"products/gumroad/distribution/posts/{channel}.md",
+                            "ts_blocked": "2026-06-25T09:00:00Z",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "2",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-04",
+                        "--format",
+                        "next",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        next_step = stdout.getvalue()
+        self.assertIn("channel: show-hn\n", next_step)
+        self.assertIn(
+            "measurement_url: https://patchrail.gumroad.com/l/ci-failure-triage?"
+            "utm_source=show-hn&utm_campaign=sku1-organic-distribution\n",
+            next_step,
+        )
+        self.assertIn(
+            "safe_next_step: Enable/install the browser extension in the logged-in profile, "
+            "then claim the channel if copy is available.\n",
+            next_step,
+        )
+
     def test_distribution_sku1_gate_receipt_summarizes_blocked_worker_turn(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"

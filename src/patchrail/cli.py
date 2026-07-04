@@ -2393,6 +2393,13 @@ def _distribution_browser_extension_handoff(
                 else "",
             }
         )
+    pending.sort(
+        key=lambda item: (
+            -_SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(str(item["channel"]), 0),
+            -int(item["blocked_days"]) if isinstance(item.get("blocked_days"), int) else 0,
+            str(item["channel"]),
+        )
+    )
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
