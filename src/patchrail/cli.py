@@ -3363,11 +3363,12 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
         if item["channel"] == handoff["channel"]:
             measurement_url = item["url"]
             break
+    conversion_url = measurement_url or payload["conversion_url"]
     lines = [
         f"next_action: {handoff['next_action']}",
         f"owner: {handoff['owner']}",
         f"channel: {handoff['channel'] or 'none'}",
-        f"conversion_url: {payload['conversion_url']}",
+        f"conversion_url: {conversion_url}",
         "measurement_url: " + (measurement_url or "none"),
         "command: " + (handoff["command"] or "none"),
         "verify_command: " + (handoff["verify_command"] or "none"),

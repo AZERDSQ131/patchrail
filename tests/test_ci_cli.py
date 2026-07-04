@@ -2729,7 +2729,7 @@ class PatchRailCITests(unittest.TestCase):
                     "channel: show-hn",
                     (
                         "conversion_url: https://patchrail.gumroad.com/l/ci-failure-triage?"
-                        "utm_source=github_marketplace&utm_campaign=ci-triage-action"
+                        "utm_source=show-hn&utm_campaign=sku1-organic-distribution"
                     ),
                     (
                         "measurement_url: https://patchrail.gumroad.com/l/ci-failure-triage?"
@@ -2929,7 +2929,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("channel: devto", next_step)
         self.assertIn(
             "conversion_url: https://patchrail.gumroad.com/l/ci-failure-triage?"
-            "utm_source=github_marketplace&utm_campaign=ci-triage-action",
+            "utm_source=devto&utm_campaign=sku1-organic-distribution",
             next_step,
         )
         self.assertIn(
