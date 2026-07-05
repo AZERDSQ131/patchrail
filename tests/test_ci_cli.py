@@ -2752,6 +2752,19 @@ class PatchRailCITests(unittest.TestCase):
                     "stop_conditions: login_required, captcha_or_2fa_required",
                     "traffic_gap: 295",
                     "next_measurement: checkpoint=300, traffic_delta=295, sales_delta=1",
+                    "browser_pending_count: 1",
+                    "browser_pending_channels: show-hn",
+                    (
+                        "browser_claim_after_setup_command: "
+                        "python3 opportunity-desk/scripts/publish_post.py claim "
+                        "--channel show-hn --copy-file "
+                        "products/gumroad/distribution/posts/show-hn.md"
+                    ),
+                    (
+                        "browser_verify_after_claim_command: "
+                        "python3 opportunity-desk/scripts/publish_post.py blockers "
+                        "--owner pablo --json --exit-zero"
+                    ),
                     "",
                 ]
             ),
@@ -2955,12 +2968,14 @@ class PatchRailCITests(unittest.TestCase):
             posted = Path(tmpdir) / "posted"
             posted.mkdir()
             receipt = posted / "show-hn.json"
+            copy_file = "products/gumroad/distribution/posts/show-hn-approved.md"
             receipt.write_text(
                 json.dumps(
                     {
                         "channel": "show-hn",
                         "status": "blocked",
                         "reason": "Chrome route missing extension",
+                        "copy_file": copy_file,
                         "ts_blocked": "2026-06-30T09:00:00Z",
                     }
                 ),
@@ -2990,8 +3005,23 @@ class PatchRailCITests(unittest.TestCase):
                 )
 
         self.assertEqual(exit_code, 2)
-        self.assertIn("worker_actionable: False", stdout.getvalue())
-        self.assertIn("worker_actionable_reason: pablo_handoff_required", stdout.getvalue())
+        next_step = stdout.getvalue()
+        self.assertIn("worker_actionable: False", next_step)
+        self.assertIn("worker_actionable_reason: pablo_handoff_required", next_step)
+        self.assertIn("browser_pending_count: 1", next_step)
+        self.assertIn("browser_pending_channels: show-hn", next_step)
+        self.assertIn(
+            "browser_claim_after_setup_command: "
+            "python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "
+            f"--copy-file {copy_file}",
+            next_step,
+        )
+        self.assertIn(
+            "browser_verify_after_claim_command: "
+            "python3 opportunity-desk/scripts/publish_post.py blockers "
+            "--owner pablo --json --exit-zero",
+            next_step,
+        )
 
     def test_distribution_sku1_gate_require_worker_actionable_passes_worker_handoff(
         self,

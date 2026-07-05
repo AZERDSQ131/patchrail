@@ -3384,6 +3384,22 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
             f"sales_delta={measurement_packet['next_measurement_target']['sales_delta_target']}"
         ),
     ]
+    browser_handoff = payload["browser_extension_handoff"]
+    if browser_handoff["required"] and handoff["next_action"] == "browser_extension_setup_required":
+        lines.extend(
+            [
+                f"browser_pending_count: {browser_handoff['pending_count']}",
+                "browser_pending_channels: " + ", ".join(browser_handoff["pending_channels"]),
+                (
+                    "browser_claim_after_setup_command: "
+                    + (browser_handoff["next_claim_after_setup_command"] or "none")
+                ),
+                (
+                    "browser_verify_after_claim_command: "
+                    + (browser_handoff["next_verify_after_claim_command"] or "none")
+                ),
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
