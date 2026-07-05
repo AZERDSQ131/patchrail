@@ -2443,6 +2443,42 @@ def _distribution_browser_extension_handoff(
     }
 
 
+def _distribution_pablo_handoff_packet(
+    browser_extension_handoff: dict[str, Any],
+) -> dict[str, Any]:
+    if not browser_extension_handoff["required"]:
+        return {
+            "required": False,
+            "owner": "pablo",
+            "type": "none",
+            "approval_required": False,
+            "reason": "",
+            "pending_count": 0,
+            "pending_channels": [],
+            "next_channel": None,
+            "commands": {},
+            "checklist": [],
+            "stop_conditions": [],
+        }
+    return {
+        "required": True,
+        "owner": "pablo",
+        "type": "browser_extension_setup",
+        "approval_required": False,
+        "reason": "browser_extension_setup_required",
+        "pending_count": browser_extension_handoff["pending_count"],
+        "pending_channels": browser_extension_handoff["pending_channels"],
+        "next_channel": browser_extension_handoff["next_channel"],
+        "commands": {
+            "verify_before_claim": browser_extension_handoff["next_verify_command"],
+            "claim_after_setup": browser_extension_handoff["next_claim_after_setup_command"],
+            "verify_after_claim": browser_extension_handoff["next_verify_after_claim_command"],
+        },
+        "checklist": browser_extension_handoff["checklist"],
+        "stop_conditions": ["login_required", "captcha_or_2fa_required"],
+    }
+
+
 def _distribution_execution_handoff(
     *,
     next_action: str,
@@ -2788,6 +2824,7 @@ def _distribution_gate_payload(
     )
     copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
     browser_extension_handoff = _distribution_browser_extension_handoff(blocker_queue)
+    pablo_handoff_packet = _distribution_pablo_handoff_packet(browser_extension_handoff)
     pivot_gate_armed = _distribution_pivot_gate_armed(as_of, gate_date)
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
     if sales_total > 0:
@@ -2864,6 +2901,7 @@ def _distribution_gate_payload(
         "publish_post_commands": publish_post_commands,
         "copywriter_handoff": copywriter_handoff,
         "browser_extension_handoff": browser_extension_handoff,
+        "pablo_handoff_packet": pablo_handoff_packet,
         "sales_total": sales_total,
         "gross_usd": gross_usd,
         "pivot_gate_armed": pivot_gate_armed,
@@ -3386,10 +3424,14 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
     ]
     browser_handoff = payload["browser_extension_handoff"]
     if browser_handoff["required"] and handoff["next_action"] == "browser_extension_setup_required":
+        pablo_packet = payload["pablo_handoff_packet"]
         lines.extend(
             [
                 f"browser_pending_count: {browser_handoff['pending_count']}",
                 "browser_pending_channels: " + ", ".join(browser_handoff["pending_channels"]),
+                f"pablo_handoff_type: {pablo_packet['type']}",
+                f"pablo_handoff_required: {pablo_packet['required']}",
+                f"pablo_handoff_next_channel: {pablo_packet['next_channel']}",
                 (
                     "browser_claim_after_setup_command: "
                     + (browser_handoff["next_claim_after_setup_command"] or "none")

@@ -2223,6 +2223,36 @@ class PatchRailCITests(unittest.TestCase):
             payload["stalled_handoff"]["pending"][0]["unblock_command"],
             payload["stalled_handoff"]["next_unblock_command"],
         )
+        self.assertEqual(
+            payload["pablo_handoff_packet"],
+            {
+                "required": True,
+                "owner": "pablo",
+                "type": "browser_extension_setup",
+                "approval_required": False,
+                "reason": "browser_extension_setup_required",
+                "pending_count": 1,
+                "pending_channels": ["show-hn"],
+                "next_channel": "show-hn",
+                "commands": {
+                    "verify_before_claim": (
+                        "python3 opportunity-desk/scripts/publish_post.py blockers "
+                        "--owner pablo --json --exit-zero"
+                    ),
+                    "claim_after_setup": (
+                        "python3 opportunity-desk/scripts/publish_post.py claim "
+                        "--channel show-hn --copy-file "
+                        "products/gumroad/distribution/posts/show-hn-approved.md"
+                    ),
+                    "verify_after_claim": (
+                        "python3 opportunity-desk/scripts/publish_post.py blockers "
+                        "--owner pablo --json --exit-zero"
+                    ),
+                },
+                "checklist": payload["browser_extension_handoff"]["checklist"],
+                "stop_conditions": ["login_required", "captcha_or_2fa_required"],
+            },
+        )
 
     def test_distribution_sku1_gate_recommends_uncovered_channel_when_no_blockers(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2754,6 +2784,9 @@ class PatchRailCITests(unittest.TestCase):
                     "next_measurement: checkpoint=300, traffic_delta=295, sales_delta=1",
                     "browser_pending_count: 1",
                     "browser_pending_channels: show-hn",
+                    "pablo_handoff_type: browser_extension_setup",
+                    "pablo_handoff_required: True",
+                    "pablo_handoff_next_channel: show-hn",
                     (
                         "browser_claim_after_setup_command: "
                         "python3 opportunity-desk/scripts/publish_post.py claim "
@@ -3010,6 +3043,9 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("worker_actionable_reason: pablo_handoff_required", next_step)
         self.assertIn("browser_pending_count: 1", next_step)
         self.assertIn("browser_pending_channels: show-hn", next_step)
+        self.assertIn("pablo_handoff_type: browser_extension_setup", next_step)
+        self.assertIn("pablo_handoff_required: True", next_step)
+        self.assertIn("pablo_handoff_next_channel: show-hn", next_step)
         self.assertIn(
             "browser_claim_after_setup_command: "
             "python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "
