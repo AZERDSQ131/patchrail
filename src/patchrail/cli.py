@@ -599,6 +599,20 @@ def _distribution_recommended_channel(
 ) -> dict[str, Any] | None:
     if blocker_plan and blocker_queue:
         item = blocker_queue[0]
+        same_action_blockers = [
+            row
+            for row in blocker_queue
+            if row["owner"] == item["owner"] and row["next_action"] == item["next_action"]
+        ]
+        if len(same_action_blockers) > 1:
+            item = sorted(
+                same_action_blockers,
+                key=lambda row: (
+                    -int(row.get("estimated_visits") or 0),
+                    row.get("blocked_at") or "9999-99-99T99:99:99Z",
+                    row["channel"],
+                ),
+            )[0]
         row = {
             "channel": item["channel"],
             "source": "blocked",

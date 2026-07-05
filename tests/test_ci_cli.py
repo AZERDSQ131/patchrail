@@ -2843,6 +2843,27 @@ class PatchRailCITests(unittest.TestCase):
                     ]
                 )
 
+            json_stdout = StringIO()
+            with redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "2",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-04",
+                        "--format",
+                        "json",
+                    ]
+                )
+
         self.assertEqual(exit_code, 0)
         next_step = stdout.getvalue()
         self.assertIn("channel: show-hn\n", next_step)
@@ -2855,6 +2876,16 @@ class PatchRailCITests(unittest.TestCase):
             "safe_next_step: Enable/install the browser extension in the logged-in profile, "
             "then claim the channel if copy is available.\n",
             next_step,
+        )
+
+        self.assertEqual(json_exit_code, 0)
+        payload = json.loads(json_stdout.getvalue())
+        self.assertEqual(payload["recommended_channel"]["channel"], "show-hn")
+        self.assertEqual(payload["channel_conversion_plan"]["channel"], "show-hn")
+        self.assertEqual(
+            payload["channel_conversion_plan"]["url"],
+            "https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=show-hn&utm_campaign=sku1-organic-distribution",
         )
 
     def test_distribution_sku1_gate_receipt_summarizes_blocked_worker_turn(self) -> None:
