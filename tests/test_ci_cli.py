@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -3056,6 +3057,73 @@ class PatchRailCITests(unittest.TestCase):
             "browser_verify_after_claim_command: "
             "python3 opportunity-desk/scripts/publish_post.py blockers "
             "--owner pablo --json --exit-zero",
+            next_step,
+        )
+
+    def test_distribution_sku1_gate_default_workspace_commands_work_from_product_cwd(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            product_cwd = root / "product/patchrail"
+            posted = root / "products/gumroad/distribution/posted"
+            script = root / "opportunity-desk/scripts/publish_post.py"
+            copy_file = root / "products/gumroad/distribution/posts/show-hn-approved.md"
+            product_cwd.mkdir(parents=True)
+            posted.mkdir(parents=True)
+            script.parent.mkdir(parents=True)
+            script.write_text("# placeholder\n", encoding="utf-8")
+            copy_file.parent.mkdir(parents=True)
+            copy_file.write_text("approved copy\n", encoding="utf-8")
+            (posted / "show-hn.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn-approved.md",
+                        "ts_blocked": "2026-06-30T09:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            old_cwd = Path.cwd()
+            stdout = StringIO()
+            try:
+                os.chdir(product_cwd)
+                with redirect_stdout(stdout):
+                    exit_code = main(
+                        [
+                            "distribution",
+                            "sku1-gate",
+                            "--traffic-delivered",
+                            "5",
+                            "--sales-total",
+                            "0",
+                            "--gross-usd",
+                            "0",
+                            "--as-of",
+                            "2026-07-01",
+                            "--format",
+                            "next",
+                            "--require-worker-actionable",
+                        ]
+                    )
+            finally:
+                os.chdir(old_cwd)
+
+        self.assertEqual(exit_code, 2)
+        next_step = stdout.getvalue()
+        self.assertIn(
+            "command: python3 ../../opportunity-desk/scripts/publish_post.py blockers "
+            "--owner pablo --json --exit-zero",
+            next_step,
+        )
+        self.assertIn(
+            "browser_claim_after_setup_command: "
+            "python3 ../../opportunity-desk/scripts/publish_post.py claim --channel show-hn "
+            "--copy-file ../../products/gumroad/distribution/posts/show-hn-approved.md",
             next_step,
         )
 

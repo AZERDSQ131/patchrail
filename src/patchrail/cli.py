@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 import math
+import os
 import re
 import shlex
 import subprocess
@@ -752,15 +753,17 @@ def _distribution_owner_next_actions(
 
 def _distribution_owner_action_queue(
     owner_next_actions: list[dict[str, Any]],
+    *,
+    workspace_root: Path | None = None,
 ) -> list[dict[str, Any]]:
     queue: list[dict[str, Any]] = []
     for item in owner_next_actions:
         owner = str(item["owner"])
         command = ""
         if owner in {"copywriter", "pablo", "worker", "worker_browser", "worker_any"}:
-            command = (
-                "python3 opportunity-desk/scripts/publish_post.py blockers "
-                f"--owner {shlex.quote(owner)} --json --exit-zero"
+            command = _distribution_publish_post_command(
+                f"blockers --owner {shlex.quote(owner)} --json --exit-zero",
+                workspace_root=workspace_root,
             )
         queue.append(
             {
@@ -1033,6 +1036,41 @@ def _distribution_default_posted_dir_path(path: Path | None) -> Path:
         if candidate.exists():
             return candidate
     return _DEFAULT_DISTRIBUTION_POSTED_DIR
+
+
+def _distribution_workspace_root_from_posted_dir(posted_dir: Path) -> Path | None:
+    resolved = posted_dir.resolve()
+    expected_tail = ("products", "gumroad", "distribution", "posted")
+    if tuple(resolved.parts[-len(expected_tail) :]) != expected_tail:
+        return None
+    root = resolved.parents[len(expected_tail) - 1]
+    if (root / "opportunity-desk/scripts/publish_post.py").exists():
+        return root
+    return None
+
+
+def _distribution_command_path(path: str, workspace_root: Path | None) -> str:
+    if workspace_root is None:
+        return path
+    return os.path.relpath(workspace_root / path, Path.cwd())
+
+
+def _distribution_publish_post_command(
+    args: str,
+    *,
+    workspace_root: Path | None = None,
+) -> str:
+    script = _distribution_command_path(
+        "opportunity-desk/scripts/publish_post.py",
+        workspace_root,
+    )
+    return f"python3 {script} {args}"
+
+
+def _distribution_copy_file_arg(copy_file: str, workspace_root: Path | None) -> str:
+    if workspace_root is not None and copy_file.startswith("products/"):
+        copy_file = _distribution_command_path(copy_file, workspace_root)
+    return shlex.quote(copy_file)
 
 
 def _distribution_metric_value(
@@ -1625,27 +1663,36 @@ def _distribution_execution_checklist(
 
 def _distribution_publish_post_commands(
     recommended_channel: dict[str, Any] | None,
+    *,
+    workspace_root: Path | None = None,
 ) -> dict[str, str]:
     if recommended_channel is None:
         return {}
     channel = str(recommended_channel["channel"])
     quoted_channel = shlex.quote(channel)
     copy_file = str(recommended_channel.get("copy_file") or "")
-    copy_file_arg = shlex.quote(copy_file) if copy_file else "<copywriter-approved-copy-file>"
+    copy_file_arg = (
+        _distribution_copy_file_arg(copy_file, workspace_root)
+        if copy_file
+        else "<copywriter-approved-copy-file>"
+    )
     return {
         "channel": channel,
-        "health_command": "python3 opportunity-desk/scripts/publish_post.py health --json",
-        "claim_command": (
-            "python3 opportunity-desk/scripts/publish_post.py claim "
-            f"--channel {quoted_channel} --copy-file {copy_file_arg}"
+        "health_command": _distribution_publish_post_command(
+            "health --json",
+            workspace_root=workspace_root,
         ),
-        "record_command": (
-            "python3 opportunity-desk/scripts/publish_post.py record "
-            f"--channel {quoted_channel} --url <submission_url>"
+        "claim_command": _distribution_publish_post_command(
+            f"claim --channel {quoted_channel} --copy-file {copy_file_arg}",
+            workspace_root=workspace_root,
         ),
-        "block_command": (
-            "python3 opportunity-desk/scripts/publish_post.py block "
-            f"--channel {quoted_channel} --reason <concrete_blocker>"
+        "record_command": _distribution_publish_post_command(
+            f"record --channel {quoted_channel} --url <submission_url>",
+            workspace_root=workspace_root,
+        ),
+        "block_command": _distribution_publish_post_command(
+            f"block --channel {quoted_channel} --reason <concrete_blocker>",
+            workspace_root=workspace_root,
         ),
     }
 
@@ -2327,6 +2374,8 @@ def _distribution_social_post_brief_request(
 
 def _distribution_copywriter_handoff(
     blocker_queue: list[dict[str, Any]],
+    *,
+    workspace_root: Path | None = None,
 ) -> dict[str, Any]:
     pending = []
     for item in blocker_queue:
@@ -2341,9 +2390,10 @@ def _distribution_copywriter_handoff(
                 "reason": item["reason"],
                 "next_action": item["next_action"],
                 "safe_next_step": item["safe_next_step"],
-                "claim_after_copy_command": (
-                    "python3 opportunity-desk/scripts/publish_post.py claim "
-                    f"--channel {shlex.quote(channel)} --copy-file <copywriter-approved-copy-file>"
+                "claim_after_copy_command": _distribution_publish_post_command(
+                    "claim "
+                    f"--channel {shlex.quote(channel)} --copy-file <copywriter-approved-copy-file>",
+                    workspace_root=workspace_root,
                 ),
             }
         )
@@ -2360,6 +2410,8 @@ def _distribution_copywriter_handoff(
 
 def _distribution_browser_extension_handoff(
     blocker_queue: list[dict[str, Any]],
+    *,
+    workspace_root: Path | None = None,
 ) -> dict[str, Any]:
     pending = []
     for item in blocker_queue:
@@ -2375,19 +2427,21 @@ def _distribution_browser_extension_handoff(
                 "reason": item["reason"],
                 "copy_file": copy_file,
                 "safe_next_step": item["safe_next_step"],
-                "verify_command": (
-                    "python3 opportunity-desk/scripts/publish_post.py blockers "
-                    "--owner pablo --json --exit-zero"
+                "verify_command": _distribution_publish_post_command(
+                    "blockers --owner pablo --json --exit-zero",
+                    workspace_root=workspace_root,
                 ),
-                "claim_after_setup_command": (
-                    "python3 opportunity-desk/scripts/publish_post.py claim "
-                    f"--channel {shlex.quote(channel)} --copy-file {shlex.quote(copy_file)}"
+                "claim_after_setup_command": _distribution_publish_post_command(
+                    "claim "
+                    f"--channel {shlex.quote(channel)} "
+                    f"--copy-file {_distribution_copy_file_arg(copy_file, workspace_root)}",
+                    workspace_root=workspace_root,
                 )
                 if copy_file
                 else "",
-                "verify_after_claim_command": (
-                    "python3 opportunity-desk/scripts/publish_post.py blockers "
-                    "--owner pablo --json --exit-zero"
+                "verify_after_claim_command": _distribution_publish_post_command(
+                    "blockers --owner pablo --json --exit-zero",
+                    workspace_root=workspace_root,
                 )
                 if copy_file
                 else "",
@@ -2621,31 +2675,35 @@ def _distribution_turn_result_hint(
 
 def _distribution_stalled_handoff(
     stalled_blockers: list[dict[str, Any]],
+    *,
+    workspace_root: Path | None = None,
 ) -> dict[str, Any]:
     pending = []
     for item in stalled_blockers:
         channel = str(item["channel"])
         owner = str(item["owner"])
-        command = "python3 opportunity-desk/scripts/publish_post.py health --json"
+        command = _distribution_publish_post_command("health --json", workspace_root=workspace_root)
         if owner == "copywriter":
-            command = (
-                "python3 opportunity-desk/scripts/publish_post.py claim "
-                f"--channel {shlex.quote(channel)} --copy-file <copywriter-approved-copy-file>"
+            command = _distribution_publish_post_command(
+                "claim "
+                f"--channel {shlex.quote(channel)} --copy-file <copywriter-approved-copy-file>",
+                workspace_root=workspace_root,
             )
         elif (
             owner == "pablo"
             and item.get("next_action") == "browser_extension_setup_required"
             and item.get("copy_file")
         ):
-            command = (
-                "python3 opportunity-desk/scripts/publish_post.py claim "
+            command = _distribution_publish_post_command(
+                "claim "
                 f"--channel {shlex.quote(channel)} "
-                f"--copy-file {shlex.quote(str(item['copy_file']))}"
+                f"--copy-file {_distribution_copy_file_arg(str(item['copy_file']), workspace_root)}",
+                workspace_root=workspace_root,
             )
         elif owner in {"worker", "worker_browser"}:
-            command = (
-                "python3 opportunity-desk/scripts/publish_post.py block "
-                f"--channel {shlex.quote(channel)} --reason <concrete_blocker>"
+            command = _distribution_publish_post_command(
+                f"block --channel {shlex.quote(channel)} --reason <concrete_blocker>",
+                workspace_root=workspace_root,
             )
         pending.append(
             {
@@ -2691,6 +2749,7 @@ def _distribution_gate_payload(
     ad_spend_source: dict[str, Any] | None = None,
     ad_account_eligibility: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    workspace_root = _distribution_workspace_root_from_posted_dir(posted_dir)
     receipts = _distribution_receipts(posted_dir)
     receipt_audit = _distribution_receipt_audit(receipts)
     publish_health = _distribution_publish_health(publish_health_file)
@@ -2717,9 +2776,15 @@ def _distribution_gate_payload(
         blocker_queue, recommended_channel
     )
     owner_next_actions = _distribution_owner_next_actions(blocker_queue, recommended_channel)
-    owner_action_queue = _distribution_owner_action_queue(owner_next_actions)
+    owner_action_queue = _distribution_owner_action_queue(
+        owner_next_actions,
+        workspace_root=workspace_root,
+    )
     stalled_blockers = _distribution_stalled_blockers(blocker_queue, stalled_after_days)
-    stalled_handoff = _distribution_stalled_handoff(stalled_blockers)
+    stalled_handoff = _distribution_stalled_handoff(
+        stalled_blockers,
+        workspace_root=workspace_root,
+    )
     stalled_owner_counts = Counter(item["owner"] for item in stalled_blockers)
     posted_channels_sorted = sorted(posted_channels)
     blocked_channels = sorted({item["channel"] for item in blocker_plan})
@@ -2753,7 +2818,10 @@ def _distribution_gate_payload(
     channel_measurement_urls = _distribution_channel_measurement_urls(
         blocker_queue, recommended_channel
     )
-    publish_post_commands = _distribution_publish_post_commands(recommended_channel)
+    publish_post_commands = _distribution_publish_post_commands(
+        recommended_channel,
+        workspace_root=workspace_root,
+    )
     channel_execution_packet = _distribution_channel_execution_packet(
         traffic_execution_plan=traffic_execution_plan,
         channel_conversion_plan=channel_conversion_plan,
@@ -2822,8 +2890,14 @@ def _distribution_gate_payload(
         gate_date=gate_date,
         traffic_pressure=traffic_pressure,
     )
-    copywriter_handoff = _distribution_copywriter_handoff(blocker_queue)
-    browser_extension_handoff = _distribution_browser_extension_handoff(blocker_queue)
+    copywriter_handoff = _distribution_copywriter_handoff(
+        blocker_queue,
+        workspace_root=workspace_root,
+    )
+    browser_extension_handoff = _distribution_browser_extension_handoff(
+        blocker_queue,
+        workspace_root=workspace_root,
+    )
     pablo_handoff_packet = _distribution_pablo_handoff_packet(browser_extension_handoff)
     pivot_gate_armed = _distribution_pivot_gate_armed(as_of, gate_date)
     pivot_gate_fires = pivot_gate_armed and traffic_delivered >= traffic_target and sales_total == 0
