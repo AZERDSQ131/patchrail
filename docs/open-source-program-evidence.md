@@ -114,12 +114,22 @@ Pablo Guillén is the primary maintainer of PatchRail.
   `patchrail evidence review-packet --format markdown` parses the workflow
   ledger into an owned-repo issue-to-PR and focused-maintainer-PR packet without
   network, GitHub write permission, external model calls, PyPI download claims,
-  external-adopter claims, or formal Codex review claims
+  external-adopter claims, or formal automated review claims
 - Upstream contribution accounting in
   `patchrail evidence application-dossier --format json` is deliberately split:
   total upstream contribution records = 2, merged upstream fixes = 1, and open
   upstream PRs awaiting external maintainer review = 1. Open PRs are tracked as
   work in progress, not merged work or adoption evidence.
+- Upstream maintainer contribution, merged:
+  <https://github.com/jamie8johnson/cqs/pull/1650> fixed a real JSON output
+  regression in a third-party project and was merged on 2026-05-20.
+- Upstream maintainer contribution, open and ready for review:
+  <https://github.com/pypa/twine/pull/1329> adds a focused no-coverage tox
+  environment for local test debugging. Local evidence: `tox -e nocov -- -k
+  'Metadata-Version'` passed with `1 passed, 231 deselected`; the baseline
+  `tox -e py -- -k 'Metadata-Version'` reproduced the coverage-threshold
+  failure that makes focused debugging noisy. External maintainer checks and
+  merge remain controlled by the upstream project.
 - Public issue queue: launch issues for fixtures, contribution docs,
   release-prep evidence, CI maintenance, GitHub Actions artifacts, the Agent
   Control Plane, and the read-only Funded Issue Scout
@@ -277,7 +287,7 @@ Last verified: 2026-06-12.
   success. These PRs are owned-repo workflow evidence, not external adoption.
 - Public review packet: `uv run --extra dev patchrail evidence review-packet --format json`
   reports owned-repo review evidence from the ledger while keeping external
-  adoption, formal Codex review, PyPI downloads, and third-party write-action
+  adoption, formal automated review, PyPI downloads, and third-party write-action
   claims set to false.
 - Application gate: `uv run --extra dev patchrail evidence application-gate --format json`
   currently returns `not_ready` and `do_not_apply_yet` because PyPI telemetry,

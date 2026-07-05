@@ -110,7 +110,7 @@
 - Added the experimental read-only `funded-issues` CLI over local metadata,
   with safe-only filtering and explicit anti-abuse blocked actions.
 - Added permission-only adopter reporting and a public metrics tracker for
-  pilot outcomes, adoption signals, and Codex for open-source evidence gaps.
+  pilot outcomes, adoption signals, and open-source program evidence gaps.
 - Added release-prep evidence docs, package smoke checks, and manual publish
   gates. Release tags, PyPI publishing, GitHub Releases, and public
   announcements remain maintainer actions.

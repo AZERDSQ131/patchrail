@@ -111,7 +111,7 @@ _SKU1_AD_SPEND_CAP_USD = 75.0
 _SKU1_AD_BOOST_MAX_USD = 25.0
 _SKU1_PAID_CLICK_CPC_USD = 0.75
 _DEFAULT_DISTRIBUTION_SUPERVISOR_SNAPSHOT = (
-    Path.home() / ".openclaw/run/patchrail_supervisor_last.json"
+    Path.home() / ".patchrail/run/patchrail_supervisor_last.json"
 )
 _DEFAULT_DISTRIBUTION_POSTED_DIR = Path("products/gumroad/distribution/posted")
 _SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
@@ -479,7 +479,7 @@ def _distribution_safe_next_step(channel: str, action: str, copy_file: str = "")
         return "copywriter must create approved copy_file; worker must not draft external prose"
     if action == "browser_extension_setup_required":
         return (
-            f"enable/install the Codex Chrome Extension in the selected logged-in Chrome profile "
+            f"enable/install the approved Chrome publishing extension in the selected logged-in Chrome profile "
             f"for {channel}; worker must not bypass profile/login controls"
         )
     if action == "human_auth_required":
@@ -1456,7 +1456,7 @@ def _distribution_channel_conversion_plan(
         "url": _distribution_channel_url(channel),
         "measurement_command": (
             "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-            "~/.openclaw/run/patchrail_supervisor_last.json"
+            "~/.patchrail/run/patchrail_supervisor_last.json"
         ),
         "ready_to_publish": (
             recommended_channel["next_action"] == "claim_approved_copy"
@@ -1651,7 +1651,7 @@ def _distribution_execution_checklist(
             )
             if paid_budget_usd > 0
             else "",
-            "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
+            "halt_flag": "~/.patchrail/run/AD_SPEND_HALT.flag",
         },
         {
             "name": "organic_distribution",
@@ -1669,7 +1669,7 @@ def _distribution_execution_checklist(
             "event": traffic_execution_plan["measurement_event"],
             "command": (
                 "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                "~/.openclaw/run/patchrail_supervisor_last.json"
+                "~/.patchrail/run/patchrail_supervisor_last.json"
             ),
         },
     ]
@@ -1909,10 +1909,10 @@ def _distribution_paid_ad_execution_packet(
         "fallback_action": "measure_gate_until_eligible_ad_account"
         if required and not spend_executable
         else "",
-        "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
+        "halt_flag": "~/.patchrail/run/AD_SPEND_HALT.flag",
         "measurement_command": (
             "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd,"
-            ".ad_spend_committed_usd,.ad_cap_usd' ~/.openclaw/run/patchrail_supervisor_last.json"
+            ".ad_spend_committed_usd,.ad_cap_usd' ~/.patchrail/run/patchrail_supervisor_last.json"
         ),
         "safe_next_step": safe_next_step,
     }
@@ -2036,7 +2036,7 @@ def _distribution_measurement_packet(
             "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
             ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
             ".ad_spend_committed_usd,.ad_cap_usd' "
-            "~/.openclaw/run/patchrail_supervisor_last.json"
+            "~/.patchrail/run/patchrail_supervisor_last.json"
         ),
         "safe_next_step": (
             "Measure visits and sales until SKU #1 reaches 300 visits before 2026-06-30, "
@@ -2337,7 +2337,7 @@ def _distribution_channel_closeout_plan(
         else "",
         "measurement_command": (
             "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-            "~/.openclaw/run/patchrail_supervisor_last.json"
+            "~/.patchrail/run/patchrail_supervisor_last.json"
         ),
     }
 
@@ -2498,7 +2498,7 @@ def _distribution_browser_extension_handoff(
         ],
         "checklist": [
             "Open chrome://extensions in the selected logged-in Chrome profile.",
-            "Enable or install the Codex Chrome Extension for that profile.",
+            "Enable or install the approved Chrome publishing extension for that profile.",
             "Do not bypass login, 2FA, CAPTCHA, profile, or account controls.",
             (
                 "After setup, run the claim-after-setup command for the channel if copy_file "
@@ -4242,7 +4242,7 @@ def _public_review_packet_payload(root: Path) -> dict[str, Any]:
             )
 
     gaps = [
-        "formal visible Codex review links",
+        "formal visible automated review links",
         "permissioned external maintainer triage examples",
     ]
     return {
@@ -4264,7 +4264,7 @@ def _public_review_packet_payload(root: Path) -> dict[str, Any]:
         "boundaries": {
             "owned_repository_only": True,
             "external_adoption_claimed": False,
-            "formal_codex_review_claimed": False,
+            "formal_automated_review_claimed": False,
             "pypi_download_claimed": True,
             "third_party_write_actions_claimed": False,
         },
@@ -4297,7 +4297,7 @@ def _render_review_packet_markdown(payload: dict[str, Any]) -> str:
         "",
         f"- Owned repository only: `{boundaries['owned_repository_only']}`",
         f"- External adoption claimed: `{boundaries['external_adoption_claimed']}`",
-        f"- Formal Codex review claimed: `{boundaries['formal_codex_review_claimed']}`",
+        f"- Formal automated review claimed: `{boundaries['formal_automated_review_claimed']}`",
         f"- PyPI download claimed: `{boundaries['pypi_download_claimed']}`",
         f"- Third-party write actions claimed: `{boundaries['third_party_write_actions_claimed']}`",
         "",
@@ -4335,7 +4335,7 @@ def _render_review_packet_text(payload: dict[str, Any]) -> str:
                 f"Focused maintainer PRs: {signals['focused_maintainer_prs']}",
                 f"Total owned review items: {signals['total_owned_review_items']}",
                 "External adoption claimed: False",
-                "Formal Codex review claimed: False",
+                "Formal automated review claimed: False",
             ]
         )
         + "\n"
@@ -4457,7 +4457,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
         "SECURITY.md",
         "AGENTS.md",
         "docs/threat-model.md",
-        "docs/codex-workflows.md",
+        "docs/agent-workflows.md",
         "docs/agent-control-plane.md",
         "docs/funded-issues-ethics.md",
         "docs/public-workflow-ledger.md",
@@ -4597,7 +4597,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
                 "owned_issue_pr_cycles": owned_issue_pr_cycles,
                 "focused_maintainer_prs": review_packet["signals"]["focused_maintainer_prs"],
                 "review_packet_command": "patchrail evidence review-packet",
-                "formal_codex_review_links": False,
+                "formal_automated_review_links": False,
             },
         },
         "safety": {
@@ -4612,7 +4612,7 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
         },
         "remaining_evidence_gaps": [
             "permissioned external maintainer pilots",
-            "formal visible Codex review links and external maintainer triage examples",
+            "formal visible automated review links and external maintainer triage examples",
         ],
     }
 
@@ -4865,8 +4865,8 @@ def _roadmap_audit_payload(root: Path) -> dict[str, Any]:
                 "status": "partial_owned_repo_evidence_only",
                 "focus": "reviewable agent workflows and public evidence pack",
                 "evidence": [
-                    "docs/codex-workflows.md",
-                    "docs/openai-open-source-evidence.md",
+                    "docs/agent-workflows.md",
+                    "docs/open-source-program-evidence.md",
                     "docs/public-workflow-ledger.md",
                 ],
                 "gaps": ["formal visible review links remain pending"],
@@ -4922,7 +4922,7 @@ def _roadmap_audit_payload(root: Path) -> dict[str, Any]:
             "week_11": {
                 "status": "pending_metrics",
                 "focus": "application evidence preparation",
-                "evidence": ["docs/openai-open-source-evidence.md", "docs/metrics.md"],
+                "evidence": ["docs/open-source-program-evidence.md", "docs/metrics.md"],
                 "gaps": ["stars/downloads/adopters/review links are insufficient"],
             },
             "week_12": {
@@ -5065,7 +5065,7 @@ def _application_gate_payload(root: Path) -> dict[str, Any]:
             signals["pypi_initial_download_telemetry_present"]
         ),
         "external_adopters_present": bool(signals["public_external_adopters"]),
-        "formal_visible_review_links_present": review_triage["formal_codex_review_links"],
+        "formal_visible_review_links_present": review_triage["formal_automated_review_links"],
         "no_placeholder_metrics_in_application_copy": True,
         "money_goal_retired": roadmap["safety"]["money_goal_retired"],
         "no_network_or_write_required": all(
@@ -5219,10 +5219,10 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
     roadmap = _roadmap_audit_payload(root)
     review_packet = _public_review_packet_payload(root)
     application_gate = _application_gate_payload(root)
-    codex_evidence = _read_optional_text(root / "docs" / "openai-open-source-evidence.md")
+    program_evidence = _read_optional_text(root / "docs" / "open-source-program-evidence.md")
 
     upstream_contributions: list[dict[str, str]] = []
-    if "https://github.com/jamie8johnson/cqs/pull/1650" in codex_evidence:
+    if "https://github.com/jamie8johnson/cqs/pull/1650" in program_evidence:
         upstream_contributions.append(
             {
                 "project": "jamie8johnson/cqs",
@@ -5231,7 +5231,7 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
                 "evidence": "real upstream bug fix merged 2026-05-20",
             }
         )
-    if "https://github.com/pypa/twine/pull/1329" in codex_evidence:
+    if "https://github.com/pypa/twine/pull/1329" in program_evidence:
         upstream_contributions.append(
             {
                 "project": "pypa/twine",
@@ -5328,7 +5328,6 @@ def _application_dossier_payload(root: Path) -> dict[str, Any]:
         ],
         "evidence_pages": [
             "README.md",
-            "docs/openai-open-source-evidence.md",
             "docs/open-source-program-evidence.md",
             "docs/public-workflow-ledger.md",
             "docs/release-v0.1.0-evidence.md",

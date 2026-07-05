@@ -64,7 +64,7 @@ Current evidence snapshot from 2026-06-03:
 - Read-only demo: [examples/funded-issues-readonly](../examples/funded-issues-readonly/README.md)
 - Public workflow ledger: [docs/public-workflow-ledger.md](public-workflow-ledger.md)
 - open-source evidence tracker: [docs/open-source-program-evidence.md](open-source-program-evidence.md)
-- Codex for open-source evidence: [docs/openai-open-source-evidence.md](openai-open-source-evidence.md)
+- Open-source program evidence: [docs/openai-open-source-evidence.md](openai-open-source-evidence.md)
 
 ## Manual Gates Before Publishing
 
@@ -84,7 +84,7 @@ These actions remain maintainer gates:
 - External adoption evidence is still pending consent-only pilots.
 - Owned-repo issue-to-PR evidence now exists in
   [docs/public-workflow-ledger.md](public-workflow-ledger.md); formal visible
-  Codex review links remain pending.
+  automated review links remain pending.
 
 These blockers do not prevent local v0.4.0 preparation, docs, tests, or read-only
 demo hardening.

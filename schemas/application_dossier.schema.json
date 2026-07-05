@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://patchrail.dev/schemas/application-dossier.v1.schema.json",
   "title": "PatchRail Application Dossier",
-  "description": "Local Codex for Open Source application dossier emitted by patchrail evidence application-dossier --format json. The dossier is a draft artifact and never submits an external form.",
+  "description": "Local open-source program application dossier emitted by patchrail evidence application-dossier --format json. The dossier is a draft artifact and never submits an external form.",
   "type": "object",
   "required": [
     "schema_version",

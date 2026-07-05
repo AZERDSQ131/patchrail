@@ -5,7 +5,7 @@ for open-source support programs. It is intentionally narrow:
 
 - it only lists work in repositories maintained by PatchRail;
 - it does not claim external adoption;
-- it does not claim formal Codex review unless a visible review link exists;
+- it does not claim formal automated review unless a visible review link exists;
 - it does not imply PyPI publish, public announcements, or external application
   submission.
 
@@ -21,7 +21,7 @@ As of 2026-06-06:
 - public issue-to-PR cycles and focused maintainer PRs: active and linkable in this ledger;
 - external adopters: pending consent-only pilots;
 - PyPI publication: pending maintainer credential gate;
-- formal Codex review examples: pending visible review links.
+- formal automated review examples: pending visible review links.
 - direct maintainer commits: tracked separately below when they carry public CI
   evidence but are not issue-to-PR cycles or formal review links.
 
@@ -33,7 +33,7 @@ PatchRail-owned infrastructure. They do not claim:
 
 - third-party adoption;
 - maintainer permission outside the PatchRail-owned repo;
-- formal Codex review unless a public review link is listed;
+- formal automated review unless a public review link is listed;
 - PyPI download telemetry.
 
 ## Issue-To-PR Cycles
@@ -94,7 +94,7 @@ count as issue-to-PR cycles because no public issue was linked by the PR.
 
 The rows below are public, owned-repository commits with green CI. They are
 useful reviewer-facing maintenance evidence, but they are intentionally not
-counted as issue-to-PR cycles, external adoption, or formal Codex review.
+counted as issue-to-PR cycles, external adoption, or formal automated review.
 
 | Area | Commit | Public CI evidence | Evidence type |
 | --- | --- | --- | --- |
@@ -132,4 +132,4 @@ patchrail evidence review-packet --format markdown
 
 The command parses this file only. It does not call GitHub, request write
 permissions, count external adopters, claim PyPI downloads, or claim formal
-Codex review links.
+automated review links.

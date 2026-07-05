@@ -997,7 +997,7 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
         payload["workstreams"]["public_review_triage"]["review_packet_command"]
         == "patchrail evidence review-packet"
     )
-    assert payload["workstreams"]["public_review_triage"]["formal_codex_review_links"] is False
+    assert payload["workstreams"]["public_review_triage"]["formal_automated_review_links"] is False
     assert payload["safety"]["read_only_ci_triage_workflow"] is True
     assert payload["safety"]["github_write_permission_required"] is False
     assert payload["safety"]["external_model_required"] is False
@@ -1006,7 +1006,7 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
     assert payload["safety"]["missing_required_docs"] == []
     assert "first PyPI publish and download telemetry" not in payload["remaining_evidence_gaps"]
     assert (
-        "formal visible Codex review links and external maintainer triage examples"
+        "formal visible automated review links and external maintainer triage examples"
         in (payload["remaining_evidence_gaps"])
     )
     assert "/Volumes/" not in proc.stdout
@@ -1567,7 +1567,7 @@ def test_review_packet_summarizes_owned_repo_workflows_without_external_claims()
     assert payload["signals"]["total_owned_review_items"] == 40
     assert payload["boundaries"]["owned_repository_only"] is True
     assert payload["boundaries"]["external_adoption_claimed"] is False
-    assert payload["boundaries"]["formal_codex_review_claimed"] is False
+    assert payload["boundaries"]["formal_automated_review_claimed"] is False
     assert payload["boundaries"]["pypi_download_claimed"] is True
     assert payload["boundaries"]["third_party_write_actions_claimed"] is False
     assert payload["requirements"]["billing_required"] is False
@@ -1580,7 +1580,7 @@ def test_review_packet_summarizes_owned_repo_workflows_without_external_claims()
     assert payload["focused_maintainer_prs"][-1]["public_ci_evidence"]["url"].endswith(
         "/actions/runs/26911478559"
     )
-    assert "formal visible Codex review links" in payload["remaining_evidence_gaps"]
+    assert "formal visible automated review links" in payload["remaining_evidence_gaps"]
     assert "/Volumes/" not in proc.stdout
     assert "/Users/" not in proc.stdout
     assert "/home/" not in proc.stdout
@@ -1712,8 +1712,9 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
         encoding="utf-8"
     )
 
-    assert "docs/codex-workflows.md" in readme
-    assert "docs/openai-open-source-evidence.md" in readme
+    assert "docs/codex-workflows.md" not in readme
+    assert "docs/openai-open-source-evidence.md" not in readme
+    assert "docs/agent-workflows.md" in readme
     assert "docs/public-workflow-ledger.md" in readme
     assert "docs/api-reference.md" in readme
     assert "docs/pilot-guide.md" in readme
@@ -1729,7 +1730,7 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "pipx install patchrail" in quickstart
     assert "patchrail ci explain --log failed-github-actions.log" in quickstart
     assert "patchrail ci pilot-pack --log failed-github-actions.log" in quickstart
-    assert "The v0.1 release does not require Codex or any external model" in codex_workflows
+    assert "The v0.1 release does not require any external model" in codex_workflows
     assert "no automatic pull requests" in codex_workflows
     assert "public-workflow-ledger.md" in codex_workflows
     assert "own-repo evidence, not third-party adoption" in codex_workflows
@@ -1781,7 +1782,7 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "merge remain controlled by the upstream project." in evidence
     assert "Public maintenance workflow ledger" in evidence
     assert "public-workflow-ledger.md" in evidence
-    assert "formal visible Codex" in evidence
+    assert "formal visible automated review" in evidence
     assert "blocked_dependencies" in evidence
     assert "safe_local_work_while_blocked" in evidence
     assert "external_maintainer_permission" in evidence
@@ -1816,7 +1817,7 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "https://github.com/patchrail/patchrail/issues/37" in evidence
     assert "https://github.com/patchrail/patchrail/issues/1>" not in evidence
     assert "Review And Triage Boundary" in workflow_ledger
-    assert "formal Codex review unless a public review link is listed" in workflow_ledger
+    assert "formal automated review unless a public review link is listed" in workflow_ledger
     assert "third-party adoption" in workflow_ledger
     assert "[#69](https://github.com/patchrail/patchrail/issues/69)" in workflow_ledger
     assert "[#79](https://github.com/patchrail/patchrail/pull/79)" in workflow_ledger
@@ -1898,7 +1899,7 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     )
     normalized_workflow_ledger = " ".join(workflow_ledger.split())
     assert (
-        "not counted as issue-to-PR cycles, external adoption, or formal Codex review"
+        "not counted as issue-to-PR cycles, external adoption, or formal automated review"
         in normalized_workflow_ledger
     )
     assert "Verified public CI evidence snapshot, 2026-06-06" in open_source_program_evidence
@@ -1942,7 +1943,7 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     )
     assert "This ledger tracks public PatchRail maintenance cycles" in workflow_ledger
     assert "it does not claim external adoption" in workflow_ledger
-    assert "it does not claim formal Codex review unless a visible review link exists" in (
+    assert "it does not claim formal automated review unless a visible review link exists" in (
         workflow_ledger
     )
     assert "Public workflow evidence ledger" in workflow_ledger
@@ -1956,7 +1957,7 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "[#37](https://github.com/patchrail/patchrail/issues/37)" in workflow_ledger
     assert "[#43](https://github.com/patchrail/patchrail/pull/43)" in workflow_ledger
     assert "external adopters: pending consent-only pilots" in workflow_ledger
-    assert "formal Codex review examples: pending visible review links" in workflow_ledger
+    assert "formal automated review examples: pending visible review links" in workflow_ledger
     assert "Direct maintainer commits are useful freshness evidence" in workflow_ledger
     assert "not a substitute for external adoption" in normalized_workflow_ledger
     for release_page in [
@@ -1967,9 +1968,9 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
         release_text = release_page.read_text(encoding="utf-8")
         assert "Public workflow ledger: [docs/public-workflow-ledger.md]" in release_text
         assert "Owned-repo issue-to-PR evidence now exists" in release_text
-        assert "formal visible\n  Codex review links remain pending" in release_text
+        assert "formal visible\n  automated review links remain pending" in release_text
         assert (
-            "Public Codex review/triage evidence is still pending real PR/issue examples"
+            "Public automated review/triage evidence is still pending real PR/issue examples"
             not in (release_text)
         )
     assert "patchrail.queue_api.v1" in api_reference
@@ -2123,7 +2124,7 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
     assert "Fixture hygiene gate | 153 / 153 passing" in metrics
     assert "Ruby, PHP, .NET, GitHub Actions, Docker/Compose, browser E2E" in metrics
     assert "Do not use placeholders as evidence" in metrics
-    assert "public PRs reviewed with Codex" in metrics
+    assert "public PRs reviewed with automated review" in metrics
     assert "only with explicit maintainer permission" in adopters
     assert "There are no public external adopters listed yet" in adopters
     assert "examples/pilot-outcome" in adopters
@@ -2227,7 +2228,7 @@ def test_release_evidence_pages_cover_v01_to_v04_without_publish_actions() -> No
     assert "Manual Gates Remaining" in v01
     assert "publish the package to PyPI when package index credentials are available" in v01
     assert "announce the release publicly" in v01
-    assert "submit the Codex for Open Source application" in v01
+    assert "submit the external open-source program application" in v01
 
     for version in ("v0.2.0", "v0.3.0", "v0.4.0"):
         doc = (ROOT / "docs" / f"release-{version}-evidence.md").read_text(encoding="utf-8")

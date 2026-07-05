@@ -1429,7 +1429,7 @@ def _fulfillment_evidence_manifest(
             source_fields=["cash_actions.items.copy_brief_facts"],
             references=copy_brief_actions,
             required_before_delivery=False,
-            next_safe_local_action="hand facts-only payload to OpenClaw/Opus only after a real reply branch exists",
+            next_safe_local_action="hand facts-only payload to the approved reply workflow only after a real reply branch exists",
         ),
         _evidence_manifest_artifact(
             artifact="payment_acceptance_record",
@@ -1585,7 +1585,7 @@ def _fulfillment_report_assembly_plan(
         "requires_written_acceptance_before_delivery": True,
         "boundary": (
             "Report assembly plan is internal structure only. It may organize evidence for "
-            "OpenClaw/Opus or a paid delivery workflow, but it does not write customer prose, "
+            "the approved reply workflow or a paid delivery workflow, but it does not write customer prose, "
             "create payment routes, claim rewards, contact maintainers, post comments, open "
             "pull requests, or guarantee merge/payout outcomes."
         ),
@@ -1788,7 +1788,7 @@ def _copy_brief_facts_for_action(
         "key_facts": key_facts,
         "tone": "concise, async-only, commercial, brand-safe",
         "constraints": [
-            "facts-only packet for OpenClaw/Opus",
+            "facts-only packet for the approved reply workflow",
             "do not include a customer-facing body in this payload",
             "no calls, demos, calendar links, claims, comments, pull requests, maintainer outreach",
             "no merge, payout, legal, financial, availability, or maintainer-response guarantees",

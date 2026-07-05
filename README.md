@@ -234,7 +234,6 @@ See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
 - [Agent Control Plane](docs/agent-control-plane.md)
 - [Agent Control Plane demo transcript](examples/control-plane-demo/README.md)
 - [API reference](docs/api-reference.md)
-- [Codex workflows](docs/codex-workflows.md)
 - [Reviewable automation workflows](docs/agent-workflows.md)
 - [Public maintenance workflow ledger](docs/public-workflow-ledger.md)
 - [Agent skills](.agents/skills)
@@ -246,7 +245,6 @@ See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
 - [v0.2.0 release evidence](docs/release-v0.2.0-evidence.md)
 - [v0.3.0 release evidence](docs/release-v0.3.0-evidence.md)
 - [v0.4.0 release evidence](docs/release-v0.4.0-evidence.md)
-- [Codex for Open Source evidence](docs/openai-open-source-evidence.md)
 - [Open source evidence tracker](docs/open-source-program-evidence.md)
 
 ## Contributing

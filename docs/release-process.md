@@ -172,7 +172,7 @@ announcement, or external application.
   fixture benchmark, and doctor outputs.
 - [ ] The pilot guide stays consent-only and does not require repository write
   access.
-- [ ] `docs/metrics.md` does not promote placeholder adoption, PyPI, or Codex
+- [ ] `docs/metrics.md` does not promote placeholder adoption, PyPI, or automated-review
   evidence.
 - [ ] `ADOPTERS.md` lists only permissioned adopters.
 - [ ] Manual gates are clear for version bump, tag, PyPI publish, announcements,

@@ -1,15 +1,15 @@
-# Codex Workflows
+# Reviewable Automation Workflows
 
 PatchRail's public workflow stance is evidence first, human approval second, and
 write actions only after review.
 
-The v0.1 release does not require Codex or any external model. The CI classifier
-runs locally and emits Markdown, JSON, or text reports that maintainers can
-inspect before asking an agent to propose code.
+The v0.1 release does not require any external model. The CI classifier runs
+locally and emits Markdown, JSON, or text reports that maintainers can inspect
+before asking a review assistant to propose code.
 
 ## PR Review
 
-Use Codex review for changes that touch classifier logic, redaction, GitHub
+Use automated review for changes that touch classifier logic, redaction, GitHub
 Actions, release automation, or safety policy.
 
 Maintainer checklist:
@@ -17,7 +17,7 @@ Maintainer checklist:
 1. Run `uv run --extra dev pytest -q`.
 2. Run `uv run --extra dev ruff check .`.
 3. Run `uv run --extra dev patchrail ci benchmark examples/ci-triage --format json`.
-4. Review Codex suggestions manually before merge.
+4. Review automated suggestions manually before merge.
 
 ## Public Maintenance Ledger
 
@@ -29,14 +29,14 @@ and CI-visible maintenance work.
 Boundary:
 
 - the ledger is own-repo evidence, not third-party adoption;
-- it does not claim formal Codex review unless a visible review link exists;
+- it does not claim formal automated review unless a visible review link exists;
 - it does not grant write permissions or automate pull requests;
 - it keeps PyPI publish, public announcements, and external applications behind
   explicit maintainer gates.
 
 ## Issue Triage
 
-Use Codex to summarize fixture requests or classifier bugs, not to close issues
+Use automated review to summarize fixture requests or classifier bugs, not to close issues
 automatically.
 
 Suggested triage output:
@@ -49,8 +49,8 @@ Suggested triage output:
 
 ## CI Failure Repair
 
-PatchRail should classify the failed log first. A maintainer can then ask Codex
-for a minimal patch using the report as context.
+PatchRail should classify the failed log first. A maintainer can then ask a
+review assistant for a minimal patch using the report as context.
 
 The local Agent Control Plane demo makes that handoff concrete without granting
 write permissions:
@@ -72,9 +72,9 @@ Safety boundary:
 
 ## Release Prep
 
-Codex can help check changelog, version metadata, README quickstart drift, docs
-links, and package build output. It must not publish to PyPI, create tags, push
-release commits, or announce releases without maintainer approval.
+Automated review can help check changelog, version metadata, README quickstart
+drift, docs links, and package build output. It must not publish to PyPI, create
+tags, push release commits, or announce releases without maintainer approval.
 
 See [Release process](release-process.md).
 

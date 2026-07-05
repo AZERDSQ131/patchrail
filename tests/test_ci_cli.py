@@ -988,7 +988,7 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                    "~/.patchrail/run/patchrail_supervisor_last.json"
                 ),
                 "ready_to_publish": False,
                 "next_action": "copywriter_required",
@@ -1107,7 +1107,7 @@ class PatchRailCITests(unittest.TestCase):
                         "--amount 25.00 --platform sku1-traffic-boost "
                         "--campaign ci-triage-sku1-gate"
                     ),
-                    "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
+                    "halt_flag": "~/.patchrail/run/AD_SPEND_HALT.flag",
                 },
                 {
                     "name": "organic_distribution",
@@ -1125,7 +1125,7 @@ class PatchRailCITests(unittest.TestCase):
                     "event": "sku1_visits_and_sales_delta",
                     "command": (
                         "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                        "~/.openclaw/run/patchrail_supervisor_last.json"
+                        "~/.patchrail/run/patchrail_supervisor_last.json"
                     ),
                 },
             ],
@@ -1176,7 +1176,7 @@ class PatchRailCITests(unittest.TestCase):
                 "measurement_event": "sku1_visits_and_sales_delta",
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                    "~/.patchrail/run/patchrail_supervisor_last.json"
                 ),
                 "claim_command": (
                     "python3 opportunity-desk/scripts/publish_post.py claim "
@@ -1301,7 +1301,7 @@ class PatchRailCITests(unittest.TestCase):
                 ],
                 "checklist": [
                     "Open chrome://extensions in the selected logged-in Chrome profile.",
-                    "Enable or install the Codex Chrome Extension for that profile.",
+                    "Enable or install the approved Chrome publishing extension for that profile.",
                     "Do not bypass login, 2FA, CAPTCHA, profile, or account controls.",
                     (
                         "After setup, run the claim-after-setup command for the channel if "
@@ -1316,7 +1316,7 @@ class PatchRailCITests(unittest.TestCase):
                         "reason": "Chrome route missing extension",
                         "copy_file": "products/gumroad/distribution/posts/show-hn.md",
                         "safe_next_step": (
-                            "enable/install the Codex Chrome Extension in the selected "
+                            "enable/install the approved Chrome publishing extension in the selected "
                             "logged-in Chrome profile for show-hn; worker must not bypass "
                             "profile/login controls"
                         ),
@@ -1394,7 +1394,7 @@ class PatchRailCITests(unittest.TestCase):
                     "owner": "pablo",
                     "next_action": "browser_extension_setup_required",
                     "estimated_visits": 120,
-                    "safe_next_step": "enable/install the Codex Chrome Extension in the selected logged-in Chrome profile for show-hn; worker must not bypass profile/login controls",
+                    "safe_next_step": "enable/install the approved Chrome publishing extension in the selected logged-in Chrome profile for show-hn; worker must not bypass profile/login controls",
                     "source": "blocked",
                 },
                 {
@@ -1427,7 +1427,7 @@ class PatchRailCITests(unittest.TestCase):
                     "pending_channels": ["show-hn"],
                     "pending_count": 1,
                     "next_action": "browser_extension_setup_required",
-                    "safe_next_step": "enable/install the Codex Chrome Extension in the selected logged-in Chrome profile for show-hn; worker must not bypass profile/login controls",
+                    "safe_next_step": "enable/install the approved Chrome publishing extension in the selected logged-in Chrome profile for show-hn; worker must not bypass profile/login controls",
                     "source": "blocked",
                     "oldest_blocked_days": 0,
                     "estimated_visits": 120,
@@ -1928,7 +1928,7 @@ class PatchRailCITests(unittest.TestCase):
                         {
                             "channel": channel,
                             "status": "blocked",
-                            "reason": "Codex Chrome Extension missing installed=false",
+                            "reason": "approved Chrome publishing extension missing installed=false",
                             "ts_blocked": "2026-06-25T10:00:00+00:00",
                         }
                     ),
@@ -2153,7 +2153,7 @@ class PatchRailCITests(unittest.TestCase):
                     {
                         "channel": "show-hn",
                         "status": "blocked",
-                        "reason": "Codex Chrome Extension missing in selected Chrome profile",
+                        "reason": "approved Chrome publishing extension missing in selected Chrome profile",
                         "copy_file": copy_file,
                         "ts_blocked": "2026-06-25T07:40:05Z",
                     }
@@ -2173,7 +2173,7 @@ class PatchRailCITests(unittest.TestCase):
                         "blocked": [
                             {
                                 "channel": "show-hn",
-                                "reason": "Codex Chrome Extension missing in selected Chrome profile",
+                                "reason": "approved Chrome publishing extension missing in selected Chrome profile",
                                 "receipt": str(receipt),
                                 "path": "opportunity-desk/outbox/sent/show-hn.json",
                                 "copy_file": copy_file,
@@ -2431,7 +2431,7 @@ class PatchRailCITests(unittest.TestCase):
                     (
                         "measurement_command: jq "
                         "'.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                        "~/.openclaw/run/patchrail_supervisor_last.json"
+                        "~/.patchrail/run/patchrail_supervisor_last.json"
                     ),
                     "ad_spend_committed_usd: 12.50",
                     "ad_cap_usd: 75.00",
@@ -2548,7 +2548,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn(f"  copy_file: {copy_file}", blockers)
         self.assertIn("  reason: Chrome route missing extension", blockers)
         self.assertIn(
-            "  safe_next_step: enable/install the Codex Chrome Extension in the selected "
+            "  safe_next_step: enable/install the approved Chrome publishing extension in the selected "
             "logged-in Chrome profile for show-hn; worker must not bypass profile/login controls",
             blockers,
         )
@@ -3269,7 +3269,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn(
             "measurement_command: jq "
             "'.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-            "~/.openclaw/run/patchrail_supervisor_last.json",
+            "~/.patchrail/run/patchrail_supervisor_last.json",
             compact,
         )
         self.assertIn("channel: devto", compact)
@@ -4151,7 +4151,7 @@ class PatchRailCITests(unittest.TestCase):
                 "measurement_event": "sku1_visits_and_sales_delta",
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                    "~/.patchrail/run/patchrail_supervisor_last.json"
                 ),
                 "claim_command": (
                     "python3 opportunity-desk/scripts/publish_post.py claim "
@@ -4524,7 +4524,7 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                    "~/.patchrail/run/patchrail_supervisor_last.json"
                 ),
             },
         )
@@ -4606,11 +4606,11 @@ class PatchRailCITests(unittest.TestCase):
                 },
                 "commit_command_template": "",
                 "fallback_action": "measure_gate_until_eligible_ad_account",
-                "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
+                "halt_flag": "~/.patchrail/run/AD_SPEND_HALT.flag",
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd,"
                     ".ad_spend_committed_usd,.ad_cap_usd' "
-                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                    "~/.patchrail/run/patchrail_supervisor_last.json"
                 ),
                 "safe_next_step": (
                     "Measure the gate until a logged-in preexisting ad account with card-on-file "
@@ -4681,7 +4681,7 @@ class PatchRailCITests(unittest.TestCase):
                     "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
                     ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
                     ".ad_spend_committed_usd,.ad_cap_usd' "
-                    "~/.openclaw/run/patchrail_supervisor_last.json"
+                    "~/.patchrail/run/patchrail_supervisor_last.json"
                 ),
                 "safe_next_step": (
                     "Measure visits and sales until SKU #1 reaches 300 visits before 2026-06-30, "
@@ -6978,7 +6978,7 @@ class PatchRailCITests(unittest.TestCase):
                         "channel": "devto",
                         "status": "blocked",
                         "copy_file": str(copy_file),
-                        "reason": "Codex Chrome Extension missing installed=false",
+                        "reason": "approved Chrome publishing extension missing installed=false",
                         "ts_blocked": "2026-06-25T21:10:00+00:00",
                     }
                 ),

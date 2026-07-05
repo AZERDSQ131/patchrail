@@ -45,12 +45,8 @@ packages = ["src/patchrail"]
 [tool.hatch.build.targets.sdist]
 include = [
   "/src/patchrail",
-  "/tests",
   "/examples",
   "/actions",
-  "/docs",
-  "/scripts",
-  "/schemas",
   "/.agents",
   "/README.md",
   "/ADOPTERS.md",
@@ -70,6 +66,7 @@ exclude = [
   "/.venv",
   "/.pytest_cache",
   "/.ruff_cache",
+  "/scripts",
   "/dist",
   "/build",
 ]

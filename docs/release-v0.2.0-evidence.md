@@ -87,7 +87,7 @@ These actions remain maintainer gates:
 - External adoption evidence is still pending consent-only pilots.
 - Owned-repo issue-to-PR evidence now exists in
   [docs/public-workflow-ledger.md](public-workflow-ledger.md); formal visible
-  Codex review links remain pending.
+  automated review links remain pending.
 
 These blockers do not prevent local v0.2.0 preparation, docs, tests, metrics, or
 pilot-readiness work.

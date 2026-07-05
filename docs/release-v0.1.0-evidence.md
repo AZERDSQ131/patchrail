@@ -159,7 +159,7 @@ These steps remain intentionally separate:
 
 - publish the package to PyPI when package index credentials are available;
 - announce the release publicly;
-- submit the Codex for Open Source application.
+- submit the external open-source program application.
 
 ## Next Evidence To Add
 

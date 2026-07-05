@@ -122,8 +122,8 @@ not be counted as public evidence.
 - Benchmark total / passed:
 - Issues opened / closed:
 - PRs opened / merged:
-- Codex-reviewed PRs:
-- Codex-triaged issues:
+- Automated-review PRs:
+- Automated-triaged issues:
 - Consent-only pilot summaries:
 - Public repository mentions approved:
 - Owned-repo public mentions:
@@ -143,8 +143,8 @@ current evidence gaps are:
 - consent checklist coverage from [docs/pilot-request-package.md](pilot-request-package.md);
 - safe external pilot summaries based on [examples/pilot-outcome](../examples/pilot-outcome/README.md);
 - permissioned pilot fixture submissions that pass `fixture-check`;
-- public PRs reviewed with Codex;
-- public issues triaged with Codex;
+- public PRs reviewed with automated review;
+- public issues triaged with automated review;
 - real adopter entries approved for [ADOPTERS.md](../ADOPTERS.md).
 
 Active follow-up issues:

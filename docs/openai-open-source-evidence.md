@@ -1,7 +1,7 @@
-# Codex for Open Source Evidence
+# Open-Source Program Evidence
 
-This page tracks the evidence PatchRail needs before applying to OpenAI's Codex
-for Open Source program. Do not submit an application from placeholder metrics.
+This page tracks the evidence PatchRail needs before applying to an external
+open-source support program. Do not submit an application from placeholder metrics.
 
 ## Repository Role
 
@@ -87,7 +87,7 @@ Pablo Guillén is the primary maintainer of PatchRail.
 - Public review packet:
   `patchrail evidence review-packet --format markdown` turns the workflow
   ledger into a local owned-repo review packet while explicitly leaving external
-  adoption, formal Codex review links, PyPI downloads, and third-party write
+  adoption, formal automated review links, PyPI downloads, and third-party write
   actions unclaimed
 - Upstream contribution accounting in
   `patchrail evidence application-dossier --format json` is deliberately split:
@@ -133,13 +133,13 @@ Pablo Guillén is the primary maintainer of PatchRail.
   failure that makes focused debugging noisy. External maintainer checks and
   merge remain controlled by the upstream project.
 
-## Codex Workflows In Use
+## Automated Review Workflows In Use
 
 Current public evidence is local, owned-repository, and preparatory:
 
 - PR review: public own-repo PR history is tracked in
-  [public-workflow-ledger.md](public-workflow-ledger.md); formal visible Codex
-  review links are still pending. Recent owned-repo PR evidence includes
+  [public-workflow-ledger.md](public-workflow-ledger.md); formal visible automated review
+  links are still pending. Recent owned-repo PR evidence includes
   [#83](https://github.com/patchrail/patchrail/pull/83),
   [#84](https://github.com/patchrail/patchrail/pull/84), and
   [#85](https://github.com/patchrail/patchrail/pull/85), with the current
@@ -165,7 +165,7 @@ Current public evidence is local, owned-repository, and preparatory:
   Agent Control Plane, security-boundary, and pilot-feedback work
 - Release automation: release-prep checklists and evidence PRs are documented
   in [release-process.md](release-process.md) and
-  [public-workflow-ledger.md](public-workflow-ledger.md); formal visible Codex
+  [public-workflow-ledger.md](public-workflow-ledger.md); formal visible automated
   release-prep links are still pending
 - Agent skills: `.agents/skills/patchrail-ci-triage`,
   `.agents/skills/patchrail-release-captain`, and
@@ -179,7 +179,7 @@ Current public evidence is local, owned-repository, and preparatory:
   local metadata with safe-only filtering, offline provider export import, and
   explicit anti-abuse blocked actions
 
-PatchRail's intended Codex usage is bounded to maintainer-approved work:
+PatchRail's intended automated-review usage is bounded to maintainer-approved work:
 
 - PR review for parser, redaction, workflow, and release changes
 - issue triage for CI classifier bugs and fixture requests
@@ -372,9 +372,9 @@ Last verified: 2026-06-12.
 
 ## Evidence To Add Before Applying
 
-- Formal public PR links reviewed with Codex
-- Formal public issues triaged with Codex
-- Formal release-prep PR prepared with Codex
+- Formal public PR links reviewed with automated review
+- Formal public issues triaged with automated review
+- Formal release-prep PR prepared with automated review
 - Full 30-day PyPI download stats after the first complete reporting window
 - External adopter feedback
 - Pilot outcomes from maintainers who opted into read-only local trials
