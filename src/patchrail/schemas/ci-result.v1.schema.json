@@ -15,6 +15,7 @@
     "requirements",
     "guide_url",
     "pack_url",
+    "sample_url",
     "action_url"
   ],
   "properties": {
@@ -119,6 +120,10 @@
     "pack_url": {
       "type": "string",
       "pattern": "^https://patchrail\\.gumroad\\.com/l/ci-failure-triage"
+    },
+    "sample_url": {
+      "type": "string",
+      "pattern": "^https://patchrail\\.gumroad\\.com/l/iwycg"
     },
     "action_url": {
       "type": "string",

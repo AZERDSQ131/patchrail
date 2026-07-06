@@ -7,6 +7,7 @@
 - Suggested action: Pin or relax the conflicting dependency range, then rerun the same install command and the affected tests.
 - Guide: https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution
 - Pack: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-dependency-resolution
+- Free sample: https://patchrail.gumroad.com/l/iwycg?utm_source=cli&utm_campaign=python-dependency-resolution
 - Action: https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-dependency-resolution
 
 ## Evidence signals

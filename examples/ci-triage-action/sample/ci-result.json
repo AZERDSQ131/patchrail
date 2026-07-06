@@ -14,6 +14,7 @@
     "pr_creation_required": "no; write actions remain separate human-approved gates",
     "webhook_required_for_local_classification": false
   },
+  "sample_url": "https://patchrail.gumroad.com/l/iwycg?utm_source=cli&utm_campaign=python-dependency-resolution",
   "schema_version": "patchrail.ci_result.v1",
   "signals": [
     "Could not find a version that satisfies the requirement",

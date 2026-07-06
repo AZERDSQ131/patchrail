@@ -19,6 +19,7 @@ from patchrail.cli import (
     _FIX_GUIDE_SLUGS,
     _ci_triage_action_url,
     _ci_triage_pack_url,
+    _ci_triage_sample_url,
     _fix_guide_url,
     main,
 )
@@ -7392,6 +7393,10 @@ class PatchRailCITests(unittest.TestCase):
             "?utm_source=cli&utm_campaign=python-lint",
         )
         self.assertEqual(
+            payload["sample_url"],
+            "https://patchrail.gumroad.com/l/iwycg?utm_source=cli&utm_campaign=python-lint",
+        )
+        self.assertEqual(
             payload["action_url"],
             "https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-lint",
         )
@@ -7442,6 +7447,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("cpp_build_failure", schema["properties"]["failure_class"]["enum"])
         self.assertIn("guide_url", schema["required"])
         self.assertIn("pack_url", schema["required"])
+        self.assertIn("sample_url", schema["required"])
         self.assertIn("action_url", schema["required"])
         self.assertEqual(
             schema["properties"]["guide_url"]["pattern"],
@@ -7450,6 +7456,10 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(
             schema["properties"]["pack_url"]["pattern"],
             "^https://patchrail\\.gumroad\\.com/l/ci-failure-triage",
+        )
+        self.assertEqual(
+            schema["properties"]["sample_url"]["pattern"],
+            "^https://patchrail\\.gumroad\\.com/l/iwycg",
         )
         self.assertEqual(
             schema["properties"]["action_url"]["pattern"],
@@ -8660,6 +8670,10 @@ class PatchRailCITests(unittest.TestCase):
             "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=index",
         )
         self.assertEqual(
+            result["sample_url"],
+            "https://patchrail.gumroad.com/l/iwycg?utm_source=cli&utm_campaign=index",
+        )
+        self.assertEqual(
             result["action_url"],
             "https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=index",
         )
@@ -8688,6 +8702,11 @@ class PatchRailCITests(unittest.TestCase):
                 stdout.getvalue(),
             )
             self.assertIn(
+                "Free sample: https://patchrail.gumroad.com/l/iwycg"
+                "?utm_source=cli&utm_campaign=python-test-failure",
+                stdout.getvalue(),
+            )
+            self.assertIn(
                 "Action: https://github.com/patchrail/ci-triage-action"
                 "?utm_source=cli&utm_campaign=python-test-failure",
                 stdout.getvalue(),
@@ -8704,6 +8723,11 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("Guide: https://getpatchrail.com/fix?utm_source=cli", result.stdout)
         self.assertIn(
             "Pack: https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=cli&utm_campaign=index",
+            result.stdout,
+        )
+        self.assertIn(
+            "Free sample: https://patchrail.gumroad.com/l/iwycg"
             "?utm_source=cli&utm_campaign=index",
             result.stdout,
         )
@@ -8773,6 +8797,21 @@ class FixGuideSlugConsistencyTests(unittest.TestCase):
         self.assertEqual(
             _ci_triage_pack_url("unknown"),
             "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=index",
+        )
+
+    def test_sample_url_uses_failure_class_campaign_for_known_guides(self) -> None:
+        for slug in sorted(_FIX_GUIDE_SLUGS):
+            failure_class = slug.replace("-", "_")
+            url = _ci_triage_sample_url(failure_class)
+            self.assertEqual(
+                url,
+                f"https://patchrail.gumroad.com/l/iwycg?utm_source=cli&utm_campaign={slug}",
+            )
+
+    def test_sample_url_uses_index_campaign_for_unknown_or_unlisted_classes(self) -> None:
+        self.assertEqual(
+            _ci_triage_sample_url("unknown"),
+            "https://patchrail.gumroad.com/l/iwycg?utm_source=cli&utm_campaign=index",
         )
 
     def test_action_url_uses_failure_class_campaign_for_known_guides(self) -> None:

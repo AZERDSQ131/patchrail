@@ -13,6 +13,7 @@ OUTPUT_KEYS = {
     "confidence": "confidence",
     "guide-url": "guide_url",
     "pack-url": "pack_url",
+    "sample-url": "sample_url",
     "action-url": "action_url",
     "next-step": "minimal_repair_strategy",
     "reproduction-command": "reproduction_command",
