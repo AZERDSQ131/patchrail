@@ -8775,8 +8775,7 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(
             payload["links"]["free_sample"],
-            "https://patchrail.gumroad.com/l/iwycg"
-            "?utm_source=cli&utm_campaign=python-test-failure",
+            "https://patchrail.gumroad.com/l/iwycg?utm_source=cli&utm_campaign=python-test-failure",
         )
         self.assertEqual(
             payload["links"]["field_guide_pack"],
@@ -8810,6 +8809,47 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertIn("counts_as_external_adoption: false\n", result.stdout)
         self.assertIn("network_required: false\n", result.stdout)
+
+    def test_ci_share_links_accepts_owned_surface_attribution(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "ci",
+                "share-links",
+                "--failure-class",
+                "python_test_failure",
+                "--utm-source",
+                "github release",
+                "--utm-campaign",
+                "ci sample v0.1.1",
+                "--format",
+                "json",
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["measurement"]["utm_source"], "github release")
+        self.assertEqual(payload["measurement"]["utm_campaign"], "ci sample v0.1.1")
+        self.assertEqual(
+            payload["links"]["fix_guide"],
+            "https://getpatchrail.com/fix/python-test-failure"
+            "?utm_source=github%20release&utm_campaign=ci%20sample%20v0.1.1",
+        )
+        self.assertEqual(
+            payload["links"]["field_guide_pack"],
+            "https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=github%20release&utm_campaign=ci%20sample%20v0.1.1",
+        )
+        self.assertIn(
+            "github%20release",
+            payload["share_packet"]["bullets"][0],
+        )
 
     def test_ci_share_links_unknown_class_uses_index_campaign_not_dead_fix_page(self) -> None:
         result = subprocess.run(

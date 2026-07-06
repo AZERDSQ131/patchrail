@@ -192,34 +192,64 @@ _FIX_GUIDE_SLUGS = frozenset(
 )
 
 
-def _fix_guide_url(failure_class: Any) -> str:
+def _default_failure_campaign(failure_class: Any) -> str:
+    slug = str(failure_class or "").replace("_", "-")
+    return slug if slug and slug in _FIX_GUIDE_SLUGS else "index"
+
+
+def _utm_query(utm_source: str, utm_campaign: str | None = None) -> str:
+    query = f"?utm_source={quote(str(utm_source or 'cli'), safe='')}"
+    if utm_campaign:
+        query += f"&utm_campaign={quote(str(utm_campaign), safe='')}"
+    return query
+
+
+def _fix_guide_url(
+    failure_class: Any,
+    *,
+    utm_source: str = "cli",
+    utm_campaign: str | None = None,
+) -> str:
     """Return the getpatchrail.com /fix guide URL for a failure class.
 
     Known classes link to their dedicated page; unknown/unlisted classes link to
-    the guide index. All links carry utm_source=cli for attribution.
+    the guide index. Links default to utm_source=cli for attribution.
     """
     slug = str(failure_class or "").replace("_", "-")
     if slug and slug in _FIX_GUIDE_SLUGS:
-        return f"{_FIX_GUIDE_BASE}/{slug}?utm_source=cli&utm_campaign={slug}"
-    return f"{_FIX_GUIDE_BASE}?utm_source=cli"
+        campaign = utm_campaign or slug
+        return f"{_FIX_GUIDE_BASE}/{slug}{_utm_query(utm_source, campaign)}"
+    return f"{_FIX_GUIDE_BASE}{_utm_query(utm_source, utm_campaign)}"
 
 
-def _ci_triage_pack_url(failure_class: Any) -> str:
-    slug = str(failure_class or "").replace("_", "-")
-    campaign = slug if slug and slug in _FIX_GUIDE_SLUGS else "index"
-    return f"{_CI_TRIAGE_PACK_BASE}?utm_source=cli&utm_campaign={campaign}"
+def _ci_triage_pack_url(
+    failure_class: Any,
+    *,
+    utm_source: str = "cli",
+    utm_campaign: str | None = None,
+) -> str:
+    campaign = utm_campaign or _default_failure_campaign(failure_class)
+    return f"{_CI_TRIAGE_PACK_BASE}{_utm_query(utm_source, campaign)}"
 
 
-def _ci_triage_sample_url(failure_class: Any) -> str:
-    slug = str(failure_class or "").replace("_", "-")
-    campaign = slug if slug and slug in _FIX_GUIDE_SLUGS else "index"
-    return f"{_CI_TRIAGE_SAMPLE_BASE}?utm_source=cli&utm_campaign={campaign}"
+def _ci_triage_sample_url(
+    failure_class: Any,
+    *,
+    utm_source: str = "cli",
+    utm_campaign: str | None = None,
+) -> str:
+    campaign = utm_campaign or _default_failure_campaign(failure_class)
+    return f"{_CI_TRIAGE_SAMPLE_BASE}{_utm_query(utm_source, campaign)}"
 
 
-def _ci_triage_action_url(failure_class: Any) -> str:
-    slug = str(failure_class or "").replace("_", "-")
-    campaign = slug if slug and slug in _FIX_GUIDE_SLUGS else "index"
-    return f"{_CI_TRIAGE_ACTION_BASE}?utm_source=cli&utm_campaign={campaign}"
+def _ci_triage_action_url(
+    failure_class: Any,
+    *,
+    utm_source: str = "cli",
+    utm_campaign: str | None = None,
+) -> str:
+    campaign = utm_campaign or _default_failure_campaign(failure_class)
+    return f"{_CI_TRIAGE_ACTION_BASE}{_utm_query(utm_source, campaign)}"
 
 
 def _ci_triage_marketplace_pack_url() -> str:
@@ -3708,15 +3738,37 @@ def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def _ci_share_links_payload(failure_class: str) -> dict[str, Any]:
+def _ci_share_links_payload(
+    failure_class: str,
+    *,
+    utm_source: str = "cli",
+    utm_campaign: str | None = None,
+) -> dict[str, Any]:
     failure_slug = str(failure_class or "unknown").replace("_", "-")
     if not failure_slug:
         failure_slug = "unknown"
     normalized_failure_class = failure_slug.replace("-", "_")
-    guide_url = _fix_guide_url(normalized_failure_class)
-    pack_url = _ci_triage_pack_url(normalized_failure_class)
-    sample_url = _ci_triage_sample_url(normalized_failure_class)
-    action_url = _ci_triage_action_url(normalized_failure_class)
+    campaign = utm_campaign or _default_failure_campaign(normalized_failure_class)
+    guide_url = _fix_guide_url(
+        normalized_failure_class,
+        utm_source=utm_source,
+        utm_campaign=campaign,
+    )
+    pack_url = _ci_triage_pack_url(
+        normalized_failure_class,
+        utm_source=utm_source,
+        utm_campaign=campaign,
+    )
+    sample_url = _ci_triage_sample_url(
+        normalized_failure_class,
+        utm_source=utm_source,
+        utm_campaign=campaign,
+    )
+    action_url = _ci_triage_action_url(
+        normalized_failure_class,
+        utm_source=utm_source,
+        utm_campaign=campaign,
+    )
     return {
         "schema_version": "patchrail.ci_share_links.v1",
         "failure_class": normalized_failure_class,
@@ -3737,8 +3789,8 @@ def _ci_share_links_payload(failure_class: str) -> dict[str, Any]:
             ],
         },
         "measurement": {
-            "utm_source": "cli",
-            "utm_campaign": failure_slug if failure_slug in _FIX_GUIDE_SLUGS else "index",
+            "utm_source": utm_source,
+            "utm_campaign": campaign,
             "revenue_surface": _SKU1_CONVERSION_CONSUMER,
             "kpi": _SKU1_DISTRIBUTION_KPI,
         },
@@ -3805,7 +3857,11 @@ def _ci_share_links(args: argparse.Namespace) -> int:
         failure_class = args.failure_class
     else:
         failure_class = classify_ci_log(_read_log(args.log))["failure_class"]
-    payload = _ci_share_links_payload(failure_class)
+    payload = _ci_share_links_payload(
+        failure_class,
+        utm_source=args.utm_source,
+        utm_campaign=args.utm_campaign,
+    )
     if args.format == "json":
         text = _json_dump(payload)
     elif args.format == "markdown":
@@ -12646,6 +12702,18 @@ def _build_parser() -> argparse.ArgumentParser:
     share_links.add_argument(
         "--failure-class",
         help="Known CI failure class. When omitted, PatchRail classifies --log/stdin locally.",
+    )
+    share_links.add_argument(
+        "--utm-source",
+        default="cli",
+        help="UTM source to stamp on emitted links for owned-surface measurement.",
+    )
+    share_links.add_argument(
+        "--utm-campaign",
+        help=(
+            "UTM campaign to stamp on emitted links. Defaults to the failure class campaign, "
+            "or index when no dedicated fix guide exists."
+        ),
     )
     share_links.add_argument(
         "--format",
