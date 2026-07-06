@@ -8742,6 +8742,99 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertNotIn("/fix/", result.stdout)
 
+    def test_ci_share_links_emits_measurable_owned_surface_packet(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "ci",
+                "share-links",
+                "--failure-class",
+                "python_test_failure",
+                "--format",
+                "json",
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["schema_version"], "patchrail.ci_share_links.v1")
+        self.assertEqual(payload["failure_class"], "python_test_failure")
+        self.assertEqual(payload["failure_slug"], "python-test-failure")
+        self.assertEqual(payload["measurement"]["utm_source"], "cli")
+        self.assertEqual(payload["measurement"]["utm_campaign"], "python-test-failure")
+        self.assertEqual(payload["measurement"]["revenue_surface"], "SKU #1 CI Triage $19")
+        self.assertEqual(
+            payload["links"]["fix_guide"],
+            "https://getpatchrail.com/fix/python-test-failure"
+            "?utm_source=cli&utm_campaign=python-test-failure",
+        )
+        self.assertEqual(
+            payload["links"]["free_sample"],
+            "https://patchrail.gumroad.com/l/iwycg"
+            "?utm_source=cli&utm_campaign=python-test-failure",
+        )
+        self.assertEqual(
+            payload["links"]["field_guide_pack"],
+            "https://patchrail.gumroad.com/l/ci-failure-triage"
+            "?utm_source=cli&utm_campaign=python-test-failure",
+        )
+        self.assertEqual(
+            payload["links"]["github_action"],
+            "https://github.com/patchrail/ci-triage-action"
+            "?utm_source=cli&utm_campaign=python-test-failure",
+        )
+        self.assertTrue(payload["safety"]["local_only"])
+        self.assertFalse(payload["safety"]["counts_as_external_adoption"])
+        self.assertFalse(payload["safety"]["network_required"])
+
+    def test_ci_share_links_classifies_stdin_when_failure_class_is_omitted(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "-m", "patchrail", "ci", "share-links", "--format", "text"],
+            input="python -m pytest -q\nFAILED tests/test_app.py::test_ok - AssertionError\n",
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("failure_class: python_test_failure\n", result.stdout)
+        self.assertIn(
+            "free_sample: https://patchrail.gumroad.com/l/iwycg"
+            "?utm_source=cli&utm_campaign=python-test-failure\n",
+            result.stdout,
+        )
+        self.assertIn("counts_as_external_adoption: false\n", result.stdout)
+        self.assertIn("network_required: false\n", result.stdout)
+
+    def test_ci_share_links_unknown_class_uses_index_campaign_not_dead_fix_page(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "ci",
+                "share-links",
+                "--failure-class",
+                "pre_commit_hook_failure",
+                "--format",
+                "markdown",
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("# PatchRail CI Links: pre-commit-hook-failure", result.stdout)
+        self.assertIn("- Fix guide: https://getpatchrail.com/fix?utm_source=cli", result.stdout)
+        self.assertNotIn("/fix/pre-commit-hook-failure", result.stdout)
+        self.assertIn("- UTM campaign: `index`", result.stdout)
+
 
 class FixGuideSlugConsistencyTests(unittest.TestCase):
     """Guard the CLI -> getpatchrail.com/fix cross-sell funnel.

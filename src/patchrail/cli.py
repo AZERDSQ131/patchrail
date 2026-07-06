@@ -3708,6 +3708,114 @@ def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _ci_share_links_payload(failure_class: str) -> dict[str, Any]:
+    failure_slug = str(failure_class or "unknown").replace("_", "-")
+    if not failure_slug:
+        failure_slug = "unknown"
+    normalized_failure_class = failure_slug.replace("-", "_")
+    guide_url = _fix_guide_url(normalized_failure_class)
+    pack_url = _ci_triage_pack_url(normalized_failure_class)
+    sample_url = _ci_triage_sample_url(normalized_failure_class)
+    action_url = _ci_triage_action_url(normalized_failure_class)
+    return {
+        "schema_version": "patchrail.ci_share_links.v1",
+        "failure_class": normalized_failure_class,
+        "failure_slug": failure_slug,
+        "links": {
+            "fix_guide": guide_url,
+            "field_guide_pack": pack_url,
+            "free_sample": sample_url,
+            "github_action": action_url,
+        },
+        "share_packet": {
+            "title": f"PatchRail CI triage links for {failure_slug}",
+            "bullets": [
+                f"Fix guide: {guide_url}",
+                f"Free sample: {sample_url}",
+                f"Field guide pack: {pack_url}",
+                f"GitHub Action: {action_url}",
+            ],
+        },
+        "measurement": {
+            "utm_source": "cli",
+            "utm_campaign": failure_slug if failure_slug in _FIX_GUIDE_SLUGS else "index",
+            "revenue_surface": _SKU1_CONVERSION_CONSUMER,
+            "kpi": _SKU1_DISTRIBUTION_KPI,
+        },
+        "safety": {
+            "local_only": True,
+            "network_required": False,
+            "github_write_permission_required": False,
+            "billing_required": False,
+            "counts_as_external_adoption": False,
+        },
+        "safe_next_step": (
+            "Use these links on owned or permissioned surfaces; do not post externally without an "
+            "approved distribution path."
+        ),
+    }
+
+
+def _render_ci_share_links_text(payload: dict[str, Any]) -> str:
+    links = payload["links"]
+    return (
+        "\n".join(
+            [
+                f"failure_class: {payload['failure_class']}",
+                f"fix_guide: {links['fix_guide']}",
+                f"free_sample: {links['free_sample']}",
+                f"field_guide_pack: {links['field_guide_pack']}",
+                f"github_action: {links['github_action']}",
+                f"utm_campaign: {payload['measurement']['utm_campaign']}",
+                "counts_as_external_adoption: false",
+                "network_required: false",
+            ]
+        )
+        + "\n"
+    )
+
+
+def _render_ci_share_links_markdown(payload: dict[str, Any]) -> str:
+    links = payload["links"]
+    lines = [
+        f"# PatchRail CI Links: {payload['failure_slug']}",
+        "",
+        f"- Fix guide: {links['fix_guide']}",
+        f"- Free sample: {links['free_sample']}",
+        f"- Field guide pack: {links['field_guide_pack']}",
+        f"- GitHub Action: {links['github_action']}",
+        "",
+        "## Measurement",
+        "",
+        f"- UTM source: `{payload['measurement']['utm_source']}`",
+        f"- UTM campaign: `{payload['measurement']['utm_campaign']}`",
+        f"- Revenue surface: `{payload['measurement']['revenue_surface']}`",
+        "",
+        "## Safety",
+        "",
+        "- Local only: `True`",
+        "- Network required: `False`",
+        "- Counts as external adoption: `False`",
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _ci_share_links(args: argparse.Namespace) -> int:
+    if args.failure_class:
+        failure_class = args.failure_class
+    else:
+        failure_class = classify_ci_log(_read_log(args.log))["failure_class"]
+    payload = _ci_share_links_payload(failure_class)
+    if args.format == "json":
+        text = _json_dump(payload)
+    elif args.format == "markdown":
+        text = _render_ci_share_links_markdown(payload)
+    else:
+        text = _render_ci_share_links_text(payload)
+    _write_or_print(text, args.out)
+    return 0
+
+
 def _render_text(result: dict[str, Any]) -> str:
     lines = [
         f"Root cause: {result['failure_class']}",
@@ -12529,6 +12637,24 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     classify.add_argument("--out", type=Path, help="Optional output path.")
     classify.set_defaults(func=_ci_explain)
+
+    share_links = ci_subparsers.add_parser(
+        "share-links",
+        help="Emit owned-surface links for one CI failure class.",
+    )
+    share_links.add_argument("--log", type=Path, help="CI log file. Reads stdin when omitted.")
+    share_links.add_argument(
+        "--failure-class",
+        help="Known CI failure class. When omitted, PatchRail classifies --log/stdin locally.",
+    )
+    share_links.add_argument(
+        "--format",
+        choices=["json", "markdown", "text"],
+        default="markdown",
+        help="Output format.",
+    )
+    share_links.add_argument("--out", type=Path, help="Optional output path.")
+    share_links.set_defaults(func=_ci_share_links)
 
     benchmark = ci_subparsers.add_parser(
         "benchmark",
