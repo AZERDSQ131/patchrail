@@ -120,9 +120,7 @@ _SKU1_PAID_TRAFFIC_PLATFORM = "sku1-traffic-boost"
 _SKU1_PAID_TRAFFIC_CAMPAIGN = "ci-triage-sku1-gate"
 _SKU1_PAID_TRAFFIC_SOURCE = "guarded_paid_boost"
 _SKU1_AD_ELIGIBILITY_PROOF_MAX_AGE_DAYS = 7
-_DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH = (
-    "~/.patchrail/run/patchrail_supervisor_last.json"
-)
+_DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH = "~/.patchrail/run/patchrail_supervisor_last.json"
 _SKU1_AD_MANAGER_PROOF_HOSTS = frozenset(
     {
         "ads.google.com",
