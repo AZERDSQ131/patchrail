@@ -3599,6 +3599,12 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(payload["supervisor_snapshot"]["metrics"]["traffic_delivered_total"], 9)
         self.assertEqual(payload["paid_traffic_plan"]["ad_spend_committed_usd"], 12.5)
+        self.assertIn(str(supervisor), payload["measurement_packet"]["next_measurement_command"])
+        self.assertIn(str(supervisor), payload["channel_closeout_plan"]["measurement_command"])
+        self.assertNotIn(
+            "~/.patchrail/run/patchrail_supervisor_last.json",
+            payload["measurement_packet"]["next_measurement_command"],
+        )
 
     def test_distribution_sku1_gate_uses_default_supervisor_snapshot_when_metrics_omitted(
         self,

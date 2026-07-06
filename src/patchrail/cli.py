@@ -120,6 +120,9 @@ _SKU1_PAID_TRAFFIC_PLATFORM = "sku1-traffic-boost"
 _SKU1_PAID_TRAFFIC_CAMPAIGN = "ci-triage-sku1-gate"
 _SKU1_PAID_TRAFFIC_SOURCE = "guarded_paid_boost"
 _SKU1_AD_ELIGIBILITY_PROOF_MAX_AGE_DAYS = 7
+_DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH = (
+    "~/.patchrail/run/patchrail_supervisor_last.json"
+)
 _SKU1_AD_MANAGER_PROOF_HOSTS = frozenset(
     {
         "ads.google.com",
@@ -227,6 +230,13 @@ def _ci_triage_marketplace_pack_url() -> str:
         f"?utm_source={_CI_TRIAGE_MARKETPLACE_CONVERSION_SOURCE}"
         f"&utm_campaign={_CI_TRIAGE_MARKETPLACE_CONVERSION_CAMPAIGN}"
     )
+
+
+def _distribution_measurement_command_path(supervisor_snapshot: dict[str, Any]) -> str:
+    snapshot_path = str(supervisor_snapshot.get("path") or "")
+    if snapshot_path:
+        return shlex.quote(snapshot_path)
+    return _DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH
 
 
 def _distribution_receipts(posted_dir: Path) -> list[dict[str, Any]]:
@@ -1444,6 +1454,8 @@ def _distribution_traffic_execution_plan(
 
 def _distribution_channel_conversion_plan(
     recommended_channel: dict[str, Any] | None,
+    *,
+    measurement_command_path: str = _DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH,
 ) -> dict[str, Any]:
     if recommended_channel is None:
         return {
@@ -1463,7 +1475,7 @@ def _distribution_channel_conversion_plan(
         "url": _distribution_channel_url(channel),
         "measurement_command": (
             "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-            "~/.patchrail/run/patchrail_supervisor_last.json"
+            f"{measurement_command_path}"
         ),
         "ready_to_publish": (
             recommended_channel["next_action"] == "claim_approved_copy"
@@ -1638,6 +1650,7 @@ def _distribution_execution_checklist(
     *,
     traffic_execution_plan: dict[str, Any],
     recommended_channel: dict[str, Any] | None,
+    measurement_command_path: str = _DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH,
 ) -> list[dict[str, Any]]:
     paid_budget_usd = traffic_execution_plan["paid_budget_usd"]
     organic_click_target = traffic_execution_plan["organic_click_target"]
@@ -1676,7 +1689,7 @@ def _distribution_execution_checklist(
             "event": traffic_execution_plan["measurement_event"],
             "command": (
                 "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                "~/.patchrail/run/patchrail_supervisor_last.json"
+                f"{measurement_command_path}"
             ),
         },
     ]
@@ -1784,6 +1797,7 @@ def _distribution_paid_ad_execution_packet(
     traffic_execution_plan: dict[str, Any],
     paid_traffic_plan: dict[str, Any],
     ad_account_eligibility: dict[str, Any],
+    measurement_command_path: str = _DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH,
 ) -> dict[str, Any]:
     amount_usd = round(float(traffic_execution_plan["paid_budget_usd"]), 2)
     required = bool(
@@ -1919,7 +1933,7 @@ def _distribution_paid_ad_execution_packet(
         "halt_flag": "~/.patchrail/run/AD_SPEND_HALT.flag",
         "measurement_command": (
             "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd,"
-            ".ad_spend_committed_usd,.ad_cap_usd' ~/.patchrail/run/patchrail_supervisor_last.json"
+            f".ad_spend_committed_usd,.ad_cap_usd' {measurement_command_path}"
         ),
         "safe_next_step": safe_next_step,
     }
@@ -1938,6 +1952,7 @@ def _distribution_measurement_packet(
     channel_measurement_urls: list[dict[str, Any]],
     as_of: str,
     gate_date: str,
+    measurement_command_path: str = _DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH,
 ) -> dict[str, Any]:
     blocked_reason = ""
     if paid_ad_execution_packet["required"] and not paid_ad_execution_packet["spend_executable"]:
@@ -2042,8 +2057,7 @@ def _distribution_measurement_packet(
         "next_measurement_command": (
             "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
             ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
-            ".ad_spend_committed_usd,.ad_cap_usd' "
-            "~/.patchrail/run/patchrail_supervisor_last.json"
+            f".ad_spend_committed_usd,.ad_cap_usd' {measurement_command_path}"
         ),
         "safe_next_step": (
             "Measure visits and sales until SKU #1 reaches 300 visits before 2026-06-30, "
@@ -2296,6 +2310,7 @@ def _distribution_channel_closeout_plan(
     paid_traffic_plan: dict[str, Any],
     publish_health: dict[str, Any],
     recommended_channel: dict[str, Any] | None,
+    measurement_command_path: str = _DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH,
 ) -> dict[str, Any]:
     status_counts = covered_channel_plan["status_counts"]
     total_channels = covered_channel_plan["total_channels"]
@@ -2344,7 +2359,7 @@ def _distribution_channel_closeout_plan(
         else "",
         "measurement_command": (
             "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-            "~/.patchrail/run/patchrail_supervisor_last.json"
+            f"{measurement_command_path}"
         ),
     }
 
@@ -2769,6 +2784,7 @@ def _distribution_gate_payload(
     ad_spend_committed_usd: float = 0.0,
     ad_spend_source: dict[str, Any] | None = None,
     ad_account_eligibility: dict[str, Any] | None = None,
+    measurement_command_path: str = _DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH,
 ) -> dict[str, Any]:
     workspace_root = _distribution_workspace_root_from_posted_dir(posted_dir)
     receipts = _distribution_receipts(posted_dir)
@@ -2834,8 +2850,12 @@ def _distribution_gate_payload(
     execution_checklist = _distribution_execution_checklist(
         traffic_execution_plan=traffic_execution_plan,
         recommended_channel=recommended_channel,
+        measurement_command_path=measurement_command_path,
     )
-    channel_conversion_plan = _distribution_channel_conversion_plan(recommended_channel)
+    channel_conversion_plan = _distribution_channel_conversion_plan(
+        recommended_channel,
+        measurement_command_path=measurement_command_path,
+    )
     channel_measurement_urls = _distribution_channel_measurement_urls(
         blocker_queue, recommended_channel
     )
@@ -2862,6 +2882,7 @@ def _distribution_gate_payload(
         paid_traffic_plan=paid_traffic_plan,
         publish_health=publish_health,
         recommended_channel=recommended_channel,
+        measurement_command_path=measurement_command_path,
     )
     paid_ad_execution_packet = _distribution_paid_ad_execution_packet(
         channel_closeout_plan=channel_closeout_plan,
@@ -2869,6 +2890,7 @@ def _distribution_gate_payload(
         paid_traffic_plan=paid_traffic_plan,
         ad_account_eligibility=ad_account_eligibility
         or _distribution_ad_account_eligibility(None, _SKU1_PAID_TRAFFIC_PLATFORM, as_of=as_of),
+        measurement_command_path=measurement_command_path,
     )
     measurement_packet = _distribution_measurement_packet(
         traffic_delivered=traffic_delivered,
@@ -2882,6 +2904,7 @@ def _distribution_gate_payload(
         channel_measurement_urls=channel_measurement_urls,
         as_of=as_of,
         gate_date=gate_date,
+        measurement_command_path=measurement_command_path,
     )
     adoption_evidence_packet = _distribution_adoption_evidence_packet(
         traffic_delivered=traffic_delivered,
@@ -3894,6 +3917,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
     supervisor_snapshot = _distribution_supervisor_snapshot(
         _distribution_default_supervisor_snapshot_path(args)
     )
+    measurement_command_path = _distribution_measurement_command_path(supervisor_snapshot)
     missing_metrics: list[str] = []
     traffic_delivered, traffic_source = _distribution_metric_value(
         argument_value=args.traffic_delivered,
@@ -3972,6 +3996,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
         ad_spend_committed_usd=ad_spend_source["committed_usd"],
         ad_spend_source=ad_spend_source,
         ad_account_eligibility=ad_account_eligibility,
+        measurement_command_path=measurement_command_path,
     )
     payload["supervisor_snapshot"] = supervisor_snapshot
     payload["metric_source"] = {
