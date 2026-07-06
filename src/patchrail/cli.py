@@ -3916,6 +3916,9 @@ def _ci_share_links(args: argparse.Namespace) -> int:
         channel=args.channel,
         traffic_delivered=args.traffic_delivered,
     )
+    if args.receipt_out is not None:
+        args.receipt_out.parent.mkdir(parents=True, exist_ok=True)
+        args.receipt_out.write_text(_json_dump(payload), encoding="utf-8")
     if args.format == "json":
         text = _json_dump(payload)
     elif args.format == "markdown":
@@ -12782,6 +12785,11 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Already-delivered SKU #1 visits to subtract from the 300-visit pivot gate.",
+    )
+    share_links.add_argument(
+        "--receipt-out",
+        type=Path,
+        help="Optional JSON receipt path for local distribution evidence.",
     )
     share_links.add_argument(
         "--format",

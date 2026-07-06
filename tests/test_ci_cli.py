@@ -8899,6 +8899,43 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertFalse(payload["safety"]["counts_as_external_adoption"])
 
+    def test_ci_share_links_writes_local_distribution_receipt(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            receipt = Path(tmpdir) / "receipts" / "show-hn-python-test.json"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "patchrail",
+                    "ci",
+                    "share-links",
+                    "--failure-class",
+                    "python_test_failure",
+                    "--channel",
+                    "show-hn",
+                    "--traffic-delivered",
+                    "2",
+                    "--receipt-out",
+                    str(receipt),
+                    "--format",
+                    "text",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            receipt_payload = json.loads(receipt.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("distribution_channel: show-hn\n", result.stdout)
+        self.assertEqual(receipt_payload["schema_version"], "patchrail.ci_share_links.v1")
+        self.assertEqual(receipt_payload["measurement"]["distribution_channel"], "show-hn")
+        self.assertEqual(receipt_payload["measurement"]["traffic_delivered"], 2)
+        self.assertEqual(receipt_payload["measurement"]["traffic_gap_after"], 178)
+        self.assertTrue(receipt_payload["safety"]["local_only"])
+        self.assertFalse(receipt_payload["safety"]["network_required"])
+
     def test_ci_share_links_reports_measurement_step_when_channel_completes_target(self) -> None:
         result = subprocess.run(
             [
