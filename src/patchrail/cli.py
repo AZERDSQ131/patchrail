@@ -3975,6 +3975,22 @@ def _write_ci_share_links_copy_brief(
     }
 
 
+def _ci_share_links_existing_channel_receipt(
+    posted_dir: Path | None,
+    channel: str | None,
+) -> dict[str, Any] | None:
+    if posted_dir is None or not channel:
+        return None
+    channel_receipts = [
+        receipt
+        for receipt in _distribution_receipts(posted_dir)
+        if str(receipt.get("channel") or "") == channel
+    ]
+    if not channel_receipts:
+        return None
+    return max(channel_receipts, key=_distribution_receipt_canonical_key)
+
+
 def _ci_share_links(args: argparse.Namespace) -> int:
     if args.failure_class:
         failure_class = args.failure_class
@@ -3991,12 +4007,23 @@ def _ci_share_links(args: argparse.Namespace) -> int:
         args.receipt_out.parent.mkdir(parents=True, exist_ok=True)
         args.receipt_out.write_text(_json_dump(payload), encoding="utf-8")
     if args.copy_brief_out is not None:
-        payload["copy_brief_write"] = _write_ci_share_links_copy_brief(
-            payload,
-            path=args.copy_brief_out,
-            copy_file=args.copy_file,
-            urgency=args.brief_urgency,
-        )
+        channel = payload["measurement"].get("distribution_channel")
+        existing_receipt = _ci_share_links_existing_channel_receipt(args.posted_dir, channel)
+        if existing_receipt is not None:
+            payload["copy_brief_write"] = {
+                "status": "skipped",
+                "reason": "channel_receipt_exists",
+                "channel": channel,
+                "receipt_path": str(existing_receipt["path"]),
+                "receipt_status": str(existing_receipt["status"]),
+            }
+        else:
+            payload["copy_brief_write"] = _write_ci_share_links_copy_brief(
+                payload,
+                path=args.copy_brief_out,
+                copy_file=args.copy_file,
+                urgency=args.brief_urgency,
+            )
     if args.format == "json":
         text = _json_dump(payload)
     elif args.format == "markdown":
@@ -12873,6 +12900,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--copy-brief-out",
         type=Path,
         help="Optional facts-only copywriter brief path for a measured distribution post.",
+    )
+    share_links.add_argument(
+        "--posted-dir",
+        type=Path,
+        help=(
+            "Optional publish_post receipt directory. When the selected channel already has a "
+            "receipt, skip writing another copy brief."
+        ),
     )
     share_links.add_argument(
         "--copy-file",
