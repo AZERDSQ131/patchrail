@@ -8851,6 +8851,48 @@ class PatchRailCITests(unittest.TestCase):
             payload["share_packet"]["bullets"][0],
         )
 
+    def test_ci_share_links_can_size_an_organic_channel_packet(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "ci",
+                "share-links",
+                "--failure-class",
+                "python_test_failure",
+                "--channel",
+                "show-hn",
+                "--traffic-delivered",
+                "2",
+                "--format",
+                "json",
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        payload = json.loads(result.stdout)
+        self.assertEqual(payload["measurement"]["utm_source"], "show-hn")
+        self.assertEqual(
+            payload["measurement"]["utm_campaign"],
+            "sku1-organic-distribution-show-hn",
+        )
+        self.assertEqual(payload["measurement"]["distribution_channel"], "show-hn")
+        self.assertEqual(payload["measurement"]["estimated_visits"], 120)
+        self.assertEqual(payload["measurement"]["traffic_target"], 300)
+        self.assertEqual(payload["measurement"]["traffic_delivered"], 2)
+        self.assertEqual(payload["measurement"]["traffic_gap_before"], 298)
+        self.assertEqual(payload["measurement"]["traffic_gap_after"], 178)
+        self.assertEqual(
+            payload["links"]["free_sample"],
+            "https://patchrail.gumroad.com/l/iwycg"
+            "?utm_source=show-hn&utm_campaign=sku1-organic-distribution-show-hn",
+        )
+        self.assertFalse(payload["safety"]["counts_as_external_adoption"])
+
     def test_ci_share_links_unknown_class_uses_index_campaign_not_dead_fix_page(self) -> None:
         result = subprocess.run(
             [

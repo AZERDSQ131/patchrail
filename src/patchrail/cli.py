@@ -3743,32 +3743,49 @@ def _ci_share_links_payload(
     *,
     utm_source: str = "cli",
     utm_campaign: str | None = None,
+    channel: str | None = None,
+    traffic_delivered: int = 0,
 ) -> dict[str, Any]:
     failure_slug = str(failure_class or "unknown").replace("_", "-")
     if not failure_slug:
         failure_slug = "unknown"
     normalized_failure_class = failure_slug.replace("-", "_")
-    campaign = utm_campaign or _default_failure_campaign(normalized_failure_class)
+    normalized_channel = str(channel or "").strip()
+    source = utm_source
+    if normalized_channel and source == "cli":
+        source = normalized_channel
+    campaign = (
+        utm_campaign
+        or (
+            f"{_SKU1_CHANNEL_UTM_CAMPAIGN}-{normalized_channel}"
+            if normalized_channel
+            else _default_failure_campaign(normalized_failure_class)
+        )
+    )
     guide_url = _fix_guide_url(
         normalized_failure_class,
-        utm_source=utm_source,
+        utm_source=source,
         utm_campaign=campaign,
     )
     pack_url = _ci_triage_pack_url(
         normalized_failure_class,
-        utm_source=utm_source,
+        utm_source=source,
         utm_campaign=campaign,
     )
     sample_url = _ci_triage_sample_url(
         normalized_failure_class,
-        utm_source=utm_source,
+        utm_source=source,
         utm_campaign=campaign,
     )
     action_url = _ci_triage_action_url(
         normalized_failure_class,
-        utm_source=utm_source,
+        utm_source=source,
         utm_campaign=campaign,
     )
+    estimated_visits = _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(normalized_channel, 0)
+    delivered = max(int(traffic_delivered), 0)
+    traffic_gap_before = max(_SKU1_PIVOT_TRAFFIC_TARGET - delivered, 0)
+    traffic_gap_after = max(_SKU1_PIVOT_TRAFFIC_TARGET - delivered - estimated_visits, 0)
     return {
         "schema_version": "patchrail.ci_share_links.v1",
         "failure_class": normalized_failure_class,
@@ -3789,10 +3806,16 @@ def _ci_share_links_payload(
             ],
         },
         "measurement": {
-            "utm_source": utm_source,
+            "utm_source": source,
             "utm_campaign": campaign,
             "revenue_surface": _SKU1_CONVERSION_CONSUMER,
             "kpi": _SKU1_DISTRIBUTION_KPI,
+            "distribution_channel": normalized_channel or None,
+            "estimated_visits": estimated_visits,
+            "traffic_target": _SKU1_PIVOT_TRAFFIC_TARGET,
+            "traffic_delivered": delivered,
+            "traffic_gap_before": traffic_gap_before,
+            "traffic_gap_after": traffic_gap_after,
         },
         "safety": {
             "local_only": True,
@@ -3810,21 +3833,25 @@ def _ci_share_links_payload(
 
 def _render_ci_share_links_text(payload: dict[str, Any]) -> str:
     links = payload["links"]
-    return (
-        "\n".join(
+    measurement = payload["measurement"]
+    lines = [
+        f"failure_class: {payload['failure_class']}",
+        f"fix_guide: {links['fix_guide']}",
+        f"free_sample: {links['free_sample']}",
+        f"field_guide_pack: {links['field_guide_pack']}",
+        f"github_action: {links['github_action']}",
+        f"utm_campaign: {measurement['utm_campaign']}",
+    ]
+    if measurement.get("distribution_channel"):
+        lines.extend(
             [
-                f"failure_class: {payload['failure_class']}",
-                f"fix_guide: {links['fix_guide']}",
-                f"free_sample: {links['free_sample']}",
-                f"field_guide_pack: {links['field_guide_pack']}",
-                f"github_action: {links['github_action']}",
-                f"utm_campaign: {payload['measurement']['utm_campaign']}",
-                "counts_as_external_adoption: false",
-                "network_required: false",
+                f"distribution_channel: {measurement['distribution_channel']}",
+                f"estimated_visits: {measurement['estimated_visits']}",
+                f"traffic_gap_after: {measurement['traffic_gap_after']}",
             ]
         )
-        + "\n"
-    )
+    lines.extend(["counts_as_external_adoption: false", "network_required: false"])
+    return "\n".join(lines) + "\n"
 
 
 def _render_ci_share_links_markdown(payload: dict[str, Any]) -> str:
@@ -3842,13 +3869,25 @@ def _render_ci_share_links_markdown(payload: dict[str, Any]) -> str:
         f"- UTM source: `{payload['measurement']['utm_source']}`",
         f"- UTM campaign: `{payload['measurement']['utm_campaign']}`",
         f"- Revenue surface: `{payload['measurement']['revenue_surface']}`",
-        "",
-        "## Safety",
-        "",
-        "- Local only: `True`",
-        "- Network required: `False`",
-        "- Counts as external adoption: `False`",
     ]
+    if payload["measurement"].get("distribution_channel"):
+        lines.extend(
+            [
+                f"- Distribution channel: `{payload['measurement']['distribution_channel']}`",
+                f"- Estimated visits: `{payload['measurement']['estimated_visits']}`",
+                f"- Traffic gap after channel: `{payload['measurement']['traffic_gap_after']}`",
+            ]
+        )
+    lines.extend(
+        [
+            "",
+            "## Safety",
+            "",
+            "- Local only: `True`",
+            "- Network required: `False`",
+            "- Counts as external adoption: `False`",
+        ]
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -3861,6 +3900,8 @@ def _ci_share_links(args: argparse.Namespace) -> int:
         failure_class,
         utm_source=args.utm_source,
         utm_campaign=args.utm_campaign,
+        channel=args.channel,
+        traffic_delivered=args.traffic_delivered,
     )
     if args.format == "json":
         text = _json_dump(payload)
@@ -12714,6 +12755,20 @@ def _build_parser() -> argparse.ArgumentParser:
             "UTM campaign to stamp on emitted links. Defaults to the failure class campaign, "
             "or index when no dedicated fix guide exists."
         ),
+    )
+    share_links.add_argument(
+        "--channel",
+        choices=sorted(_SKU1_CHANNEL_TRAFFIC_ESTIMATE),
+        help=(
+            "Organic SKU #1 distribution channel. When set without explicit UTM values, "
+            "the channel becomes the UTM source and the campaign becomes channel-specific."
+        ),
+    )
+    share_links.add_argument(
+        "--traffic-delivered",
+        type=int,
+        default=0,
+        help="Already-delivered SKU #1 visits to subtract from the 300-visit pivot gate.",
     )
     share_links.add_argument(
         "--format",
