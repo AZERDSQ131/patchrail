@@ -3904,6 +3904,77 @@ def _render_ci_share_links_markdown(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _ci_share_links_copy_brief(
+    payload: dict[str, Any],
+    *,
+    copy_file: str | None = None,
+    urgency: str = "normal",
+) -> dict[str, Any]:
+    measurement = payload["measurement"]
+    links = payload["links"]
+    channel = measurement.get("distribution_channel") or "owned-surface"
+    channel_url = links["field_guide_pack"]
+    brief = {
+        "type": "social_post",
+        "channel": channel,
+        "lead": measurement["revenue_surface"],
+        "goal": (
+            f"Create approved PatchRail copy for {channel} that drives measured visits to "
+            f"{measurement['revenue_surface']}."
+        ),
+        "key_facts": [
+            f"Product: {measurement['revenue_surface']}.",
+            f"Failure class angle: {payload['failure_class']}.",
+            f"KPI: {measurement['kpi']}.",
+            f"Channel URL with UTM: {channel_url}.",
+            f"Free sample URL: {links['free_sample']}.",
+            f"Fix guide URL: {links['fix_guide']}.",
+            f"GitHub Action URL: {links['github_action']}.",
+            f"Traffic target: {measurement['traffic_target']}.",
+            f"Current traffic delivered: {measurement['traffic_delivered']}.",
+            f"Estimated channel visits: {measurement['estimated_visits']}.",
+            f"Traffic gap after this channel estimate: {measurement['traffic_gap_after']}.",
+            f"Next measurement step: {measurement['next_measurement_step']}.",
+        ],
+        "tone": "Concise, practical, maintainer-safe, no hype.",
+        "constraints": [
+            "Copywriter authors final external prose; this brief contains facts only.",
+            "Brand-only: PatchRail.",
+            "No internal model/tool names.",
+            "No payout, merge, sales, accuracy, legal, compliance, or maintainer-response guarantees.",
+            "No calls, Zoom, Meet, Calendly, demos, phone CTA, or synchronous-sales CTA.",
+            "Use the provided UTM URLs exactly for measurement.",
+        ],
+        "urgency": urgency,
+        "thread_ref": (
+            f"ci share-links channel={channel}; failure_class={payload['failure_class']}; "
+            f"kpi={measurement['kpi']}; url={channel_url}"
+        ),
+    }
+    if copy_file:
+        brief["copy_file"] = copy_file
+    return brief
+
+
+def _write_ci_share_links_copy_brief(
+    payload: dict[str, Any],
+    *,
+    path: Path,
+    copy_file: str | None = None,
+    urgency: str = "normal",
+) -> dict[str, Any]:
+    brief = _ci_share_links_copy_brief(payload, copy_file=copy_file, urgency=urgency)
+    prohibited = {"body", "draft", "email_body"}
+    prohibited_present = sorted(prohibited.intersection(brief))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(_json_dump(brief), encoding="utf-8")
+    return {
+        "status": "written",
+        "path": str(path),
+        "prohibited_fields_present": prohibited_present,
+    }
+
+
 def _ci_share_links(args: argparse.Namespace) -> int:
     if args.failure_class:
         failure_class = args.failure_class
@@ -3919,6 +3990,13 @@ def _ci_share_links(args: argparse.Namespace) -> int:
     if args.receipt_out is not None:
         args.receipt_out.parent.mkdir(parents=True, exist_ok=True)
         args.receipt_out.write_text(_json_dump(payload), encoding="utf-8")
+    if args.copy_brief_out is not None:
+        payload["copy_brief_write"] = _write_ci_share_links_copy_brief(
+            payload,
+            path=args.copy_brief_out,
+            copy_file=args.copy_file,
+            urgency=args.brief_urgency,
+        )
     if args.format == "json":
         text = _json_dump(payload)
     elif args.format == "markdown":
@@ -12790,6 +12868,20 @@ def _build_parser() -> argparse.ArgumentParser:
         "--receipt-out",
         type=Path,
         help="Optional JSON receipt path for local distribution evidence.",
+    )
+    share_links.add_argument(
+        "--copy-brief-out",
+        type=Path,
+        help="Optional facts-only copywriter brief path for a measured distribution post.",
+    )
+    share_links.add_argument(
+        "--copy-file",
+        help="Optional destination copy file path to include in the copywriter brief.",
+    )
+    share_links.add_argument(
+        "--brief-urgency",
+        default="normal",
+        help="Urgency value to stamp on the optional copywriter brief.",
     )
     share_links.add_argument(
         "--format",

@@ -8936,6 +8936,63 @@ class PatchRailCITests(unittest.TestCase):
         self.assertTrue(receipt_payload["safety"]["local_only"])
         self.assertFalse(receipt_payload["safety"]["network_required"])
 
+    def test_ci_share_links_writes_facts_only_social_copy_brief(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            brief = Path(tmpdir) / "requests" / "show-hn-python-test.json"
+            copy_file = Path(tmpdir) / "posts" / "show-hn-approved.md"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "patchrail",
+                    "ci",
+                    "share-links",
+                    "--failure-class",
+                    "python_test_failure",
+                    "--channel",
+                    "show-hn",
+                    "--traffic-delivered",
+                    "2",
+                    "--copy-brief-out",
+                    str(brief),
+                    "--copy-file",
+                    str(copy_file),
+                    "--brief-urgency",
+                    "high",
+                    "--format",
+                    "json",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            payload = json.loads(result.stdout)
+            brief_payload = json.loads(brief.read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(payload["copy_brief_write"]["status"], "written")
+        self.assertEqual(payload["copy_brief_write"]["path"], str(brief))
+        self.assertEqual(payload["copy_brief_write"]["prohibited_fields_present"], [])
+        self.assertEqual(brief_payload["type"], "social_post")
+        self.assertEqual(brief_payload["channel"], "show-hn")
+        self.assertEqual(brief_payload["lead"], "SKU #1 CI Triage $19")
+        self.assertEqual(brief_payload["urgency"], "high")
+        self.assertEqual(brief_payload["copy_file"], str(copy_file))
+        self.assertTrue(
+            any(
+                fact
+                == (
+                    "Channel URL with UTM: https://patchrail.gumroad.com/l/ci-failure-triage"
+                    "?utm_source=show-hn&utm_campaign=sku1-organic-distribution-show-hn."
+                )
+                for fact in brief_payload["key_facts"]
+            )
+        )
+        self.assertNotIn("body", brief_payload)
+        self.assertNotIn("draft", brief_payload)
+        self.assertNotIn("email_body", brief_payload)
+
     def test_ci_share_links_reports_measurement_step_when_channel_completes_target(self) -> None:
         result = subprocess.run(
             [
