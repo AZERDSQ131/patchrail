@@ -3754,13 +3754,10 @@ def _ci_share_links_payload(
     source = utm_source
     if normalized_channel and source == "cli":
         source = normalized_channel
-    campaign = (
-        utm_campaign
-        or (
-            f"{_SKU1_CHANNEL_UTM_CAMPAIGN}-{normalized_channel}"
-            if normalized_channel
-            else _default_failure_campaign(normalized_failure_class)
-        )
+    campaign = utm_campaign or (
+        f"{_SKU1_CHANNEL_UTM_CAMPAIGN}-{normalized_channel}"
+        if normalized_channel
+        else _default_failure_campaign(normalized_failure_class)
     )
     guide_url = _fix_guide_url(
         normalized_failure_class,
