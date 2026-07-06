@@ -8886,12 +8886,45 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["measurement"]["traffic_delivered"], 2)
         self.assertEqual(payload["measurement"]["traffic_gap_before"], 298)
         self.assertEqual(payload["measurement"]["traffic_gap_after"], 178)
+        self.assertEqual(payload["measurement"]["estimated_gap_closed"], 120)
+        self.assertFalse(payload["measurement"]["traffic_target_reached"])
+        self.assertEqual(
+            payload["measurement"]["next_measurement_step"],
+            "ship_next_distribution_channel_or_guarded_paid_boost",
+        )
         self.assertEqual(
             payload["links"]["free_sample"],
             "https://patchrail.gumroad.com/l/iwycg"
             "?utm_source=show-hn&utm_campaign=sku1-organic-distribution-show-hn",
         )
         self.assertFalse(payload["safety"]["counts_as_external_adoption"])
+
+    def test_ci_share_links_reports_measurement_step_when_channel_completes_target(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "patchrail",
+                "ci",
+                "share-links",
+                "--failure-class",
+                "python_test_failure",
+                "--channel",
+                "show-hn",
+                "--traffic-delivered",
+                "250",
+                "--format",
+                "text",
+            ],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("estimated_gap_closed: 50\n", result.stdout)
+        self.assertIn("traffic_gap_after: 0\n", result.stdout)
+        self.assertIn("next_measurement_step: measure_sales_before_pivot_decision\n", result.stdout)
 
     def test_ci_share_links_unknown_class_uses_index_campaign_not_dead_fix_page(self) -> None:
         result = subprocess.run(

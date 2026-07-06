@@ -3783,6 +3783,15 @@ def _ci_share_links_payload(
     delivered = max(int(traffic_delivered), 0)
     traffic_gap_before = max(_SKU1_PIVOT_TRAFFIC_TARGET - delivered, 0)
     traffic_gap_after = max(_SKU1_PIVOT_TRAFFIC_TARGET - delivered - estimated_visits, 0)
+    estimated_gap_closed = traffic_gap_before - traffic_gap_after
+    if traffic_gap_before == 0:
+        next_measurement_step = "record_sales_or_pivot_outcome"
+    elif normalized_channel and traffic_gap_after == 0:
+        next_measurement_step = "measure_sales_before_pivot_decision"
+    elif normalized_channel:
+        next_measurement_step = "ship_next_distribution_channel_or_guarded_paid_boost"
+    else:
+        next_measurement_step = "choose_distribution_channel_or_guarded_paid_boost"
     return {
         "schema_version": "patchrail.ci_share_links.v1",
         "failure_class": normalized_failure_class,
@@ -3813,6 +3822,9 @@ def _ci_share_links_payload(
             "traffic_delivered": delivered,
             "traffic_gap_before": traffic_gap_before,
             "traffic_gap_after": traffic_gap_after,
+            "estimated_gap_closed": estimated_gap_closed,
+            "traffic_target_reached": traffic_gap_after == 0,
+            "next_measurement_step": next_measurement_step,
         },
         "safety": {
             "local_only": True,
@@ -3844,7 +3856,9 @@ def _render_ci_share_links_text(payload: dict[str, Any]) -> str:
             [
                 f"distribution_channel: {measurement['distribution_channel']}",
                 f"estimated_visits: {measurement['estimated_visits']}",
+                f"estimated_gap_closed: {measurement['estimated_gap_closed']}",
                 f"traffic_gap_after: {measurement['traffic_gap_after']}",
+                f"next_measurement_step: {measurement['next_measurement_step']}",
             ]
         )
     lines.extend(["counts_as_external_adoption: false", "network_required: false"])
@@ -3872,7 +3886,9 @@ def _render_ci_share_links_markdown(payload: dict[str, Any]) -> str:
             [
                 f"- Distribution channel: `{payload['measurement']['distribution_channel']}`",
                 f"- Estimated visits: `{payload['measurement']['estimated_visits']}`",
+                f"- Estimated gap closed: `{payload['measurement']['estimated_gap_closed']}`",
                 f"- Traffic gap after channel: `{payload['measurement']['traffic_gap_after']}`",
+                f"- Next measurement step: `{payload['measurement']['next_measurement_step']}`",
             ]
         )
     lines.extend(
