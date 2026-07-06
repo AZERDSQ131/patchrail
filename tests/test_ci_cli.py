@@ -8727,8 +8727,7 @@ class PatchRailCITests(unittest.TestCase):
             result.stdout,
         )
         self.assertIn(
-            "Free sample: https://patchrail.gumroad.com/l/iwycg"
-            "?utm_source=cli&utm_campaign=index",
+            "Free sample: https://patchrail.gumroad.com/l/iwycg?utm_source=cli&utm_campaign=index",
             result.stdout,
         )
         self.assertIn(
