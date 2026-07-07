@@ -2820,7 +2820,9 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["browser_extension_handoff"]["total_estimated_visits"], 165)
         self.assertEqual(payload["pablo_handoff_packet"]["total_estimated_visits"], 165)
         handoff = handoff_stdout.getvalue()
-        self.assertIn("browser_extension_handoff: show-hn (2 pending, 165 estimated visits)", handoff)
+        self.assertIn(
+            "browser_extension_handoff: show-hn (2 pending, 165 estimated visits)", handoff
+        )
         self.assertIn("browser_pending_channels: show-hn, linkedin", handoff)
         self.assertIn("browser_pending_claims:", handoff)
         self.assertIn("estimated_visits: 120", handoff)
