@@ -2468,7 +2468,7 @@ def test_ci_workflow_builds_and_smokes_installable_package() -> None:
     )
     assert "release-v0.2.0-evidence.md" in program_evidence
     assert "v0.2.0 release-candidate evidence page" in roadmap
-    assert "## 0.2.0 - draft" in changelog
+    assert "## 0.2.0 - 2026-07-07" in changelog
     assert "https://github.com/patchrail/patchrail/actions/runs/26869827161" in release_evidence
     assert "https://github.com/patchrail/patchrail/releases/tag/v0.1.0" in release_evidence
     assert "07b4934d91866c3ea2978c2aff265f923cd232bf" in release_evidence
