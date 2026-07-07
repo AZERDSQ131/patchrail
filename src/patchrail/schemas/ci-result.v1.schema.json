@@ -56,7 +56,8 @@
         "terraform_iac_failure",
         "shell_lint",
         "elixir_mix_failure",
-        "database_migration_failure"
+        "database_migration_failure",
+        "kubernetes_deploy_failure"
       ]
     },
     "likely_subsystem": {

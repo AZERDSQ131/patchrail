@@ -718,6 +718,39 @@ class DatabaseMigrationFailureClassification(unittest.TestCase):
         self.assertGreaterEqual(result["confidence"], 0.7)
 
 
+class KubernetesDeployFailureClassification(unittest.TestCase):
+    def test_immutable_field_classifies_as_kubernetes_deploy_failure(self) -> None:
+        log = (
+            "Run kubectl apply -f deployment.yaml\n"
+            'error: unable to recognize "deployment.yaml": no matches for kind '
+            '"Deployment" in version "apps/v1beta1"\n'
+            'The Deployment "web" is invalid: spec.selector: field is immutable\n'
+            "Error from server (Invalid): error when applying patch\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "kubernetes_deploy_failure")
+        self.assertGreaterEqual(result["confidence"], 0.7)
+
+    def test_admission_webhook_denial_classifies_as_kubernetes_deploy_failure(self) -> None:
+        log = (
+            "Run kustomize build overlays/prod | kubectl apply -f -\n"
+            'Error from server (Forbidden): error when creating "STDIN": admission webhook '
+            "\"validate.gatekeeper.sh\" denied the request: image tag ':latest' is not allowed\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "kubernetes_deploy_failure")
+        self.assertGreaterEqual(result["confidence"], 0.7)
+
+    def test_plain_connection_refused_stays_network_transient_failure(self) -> None:
+        log = (
+            "Run kubectl get nodes\n"
+            "The connection to the server 10.0.0.1:6443 was refused - did you specify "
+            "the right host or port?\n"
+            "Connection refused\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "network_transient_failure")
+
+
 class SchemaContractExpansion(unittest.TestCase):
     def test_schema_command_lists_new_failure_classes(self) -> None:
         proc = subprocess.run(

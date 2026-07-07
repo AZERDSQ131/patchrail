@@ -919,6 +919,30 @@ RULES: list[dict[str, Any]] = [
             "and rerun the same migration command against a disposable database copy."
         ),
     },
+    {
+        "failure_class": "kubernetes_deploy_failure",
+        "likely_subsystem": "Kubernetes deployment (kubectl apply/rollout, kustomize)",
+        "patterns": [
+            r"\bkubectl (?:apply|rollout|wait|create|diff)\b",
+            r"error: unable to recognize",
+            r"Error from server \(",
+            r"error validating (?:data|\".*\")",
+            r"error: deployment \".*\" exceeded its progress deadline",
+            r"Waiting for deployment .* rollout to finish",
+            r"field is immutable",
+            r"admission webhook .* denied the request",
+            r"\bkustomize build\b",
+        ],
+        "reproduction_command": (
+            "rerun the failing step locally against the same manifests "
+            "(e.g. kubectl apply --dry-run=server -f . or kustomize build .)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the failure is a Kubernetes manifest, admission-webhook, or rollout issue "
+            "rather than an upstream API-server outage, then fix the reported field/resource and "
+            "rerun the same kubectl or kustomize command."
+        ),
+    },
 ]
 
 
