@@ -873,6 +873,26 @@ RULES: list[dict[str, Any]] = [
             "reported fix only in the touched files and rerun the same linter."
         ),
     },
+    {
+        "failure_class": "elixir_mix_failure",
+        "likely_subsystem": "Elixir Mix build, Hex dependency resolution, or ExUnit tests",
+        "patterns": [
+            r"\bmix (?:deps\.get|deps\.compile|compile|test|format)\b",
+            r"\*\* \(Mix\) ",
+            r"\*\* \(CompileError\) ",
+            r"\*\* \(UndefinedFunctionError\) ",
+            r"Because .* depends on .* version solving failed",
+            r"\d+ tests?, \d+ failures?",
+            r"Assertion with == failed",
+            r"mix format --check-formatted|mix format failed",
+        ],
+        "reproduction_command": "mix deps.get && mix compile --warnings-as-errors && mix test",
+        "minimal_repair_strategy": (
+            "Confirm the failure is a Mix compile, Hex resolution, or ExUnit issue rather than a "
+            "downstream flake, then fix the reported module/dependency/assertion and rerun the "
+            "same mix task."
+        ),
+    },
 ]
 
 
