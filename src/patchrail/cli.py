@@ -2112,8 +2112,11 @@ def _distribution_adoption_evidence_packet(
     qualifies_as_adoption = sales_total > 0
     traffic_target_met = traffic_delivered >= traffic_target
     if qualifies_as_adoption:
-        evidence_status = "paid_adoption"
-        safe_next_step = "Record SKU #1 as paid adoption evidence with sale and traffic snapshot."
+        evidence_status = "paid_conversion_signal"
+        safe_next_step = (
+            "Prepare fulfillment snapshot and permission-safe evidence before making any public "
+            "adoption claim."
+        )
         required_next_evidence = "sale_receipt_and_fulfillment_snapshot"
         adoption_blocker = ""
     elif traffic_target_met:
@@ -2175,6 +2178,11 @@ def _distribution_adoption_evidence_packet(
             {
                 "name": "traffic_target",
                 "met": traffic_target_met,
+                "required_for_adoption": False,
+            },
+            {
+                "name": "gross_revenue_positive",
+                "met": gross_usd > 0,
                 "required_for_adoption": False,
             },
             {

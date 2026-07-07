@@ -1621,6 +1621,60 @@ class PatchRailCITests(unittest.TestCase):
             },
         )
 
+    def test_distribution_adoption_evidence_marks_paid_conversion_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "show-hn.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "posted",
+                        "url": "https://news.ycombinator.com/item?id=123",
+                        "item_id": "123",
+                        "ts_posted": "2026-07-01T14:00:00Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "adoption-evidence",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "74",
+                        "--sales-total",
+                        "1",
+                        "--gross-usd",
+                        "19",
+                        "--as-of",
+                        "2026-07-07",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["evidence_status"], "paid_conversion_signal")
+        self.assertTrue(payload["qualifies_as_adoption"])
+        self.assertEqual(payload["evidence_closeout"]["adoption_blocker"], "")
+        self.assertEqual(
+            payload["evidence_closeout"]["required_next_evidence"],
+            "sale_receipt_and_fulfillment_snapshot",
+        )
+        self.assertTrue(payload["evidence_closeout"]["can_update_issue_69_as_adoption"])
+        self.assertIn("permission-safe evidence", payload["safe_next_step"])
+        assertions = {item["name"]: item["met"] for item in payload["evidence_assertions"]}
+        self.assertTrue(assertions["paid_sale"])
+        self.assertTrue(assertions["gross_revenue_positive"])
+        self.assertFalse(assertions["traffic_target"])
+
     def test_distribution_adoption_evidence_subcommand_has_text_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"
