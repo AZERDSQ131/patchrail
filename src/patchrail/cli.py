@@ -3979,9 +3979,10 @@ def _ci_share_links_copy_brief_auto_path(directory: Path, payload: dict[str, Any
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     channel = str(payload["measurement"].get("distribution_channel") or "owned-surface")
     channel_slug = re.sub(r"[^a-z0-9]+", "-", channel.lower()).strip("-") or "owned-surface"
-    failure_slug = re.sub(
-        r"[^a-z0-9]+", "-", str(payload.get("failure_slug") or "unknown").lower()
-    ).strip("-") or "unknown"
+    failure_slug = (
+        re.sub(r"[^a-z0-9]+", "-", str(payload.get("failure_slug") or "unknown").lower()).strip("-")
+        or "unknown"
+    )
     return directory / f"{timestamp}-ci-share-links-{channel_slug}-{failure_slug}.json"
 
 
