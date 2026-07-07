@@ -1281,6 +1281,7 @@ class PatchRailCITests(unittest.TestCase):
                 "pending_channels": ["show-hn"],
                 "total_estimated_visits": 120,
                 "traffic_gap_after_all_claims": 155,
+                "post_claim_next_action": "add_new_distribution_or_guarded_paid_boost",
                 "pending_claims": [
                     {
                         "channel": "show-hn",
@@ -2721,6 +2722,7 @@ class PatchRailCITests(unittest.TestCase):
                 "claimable_after_setup_count": 1,
                 "total_estimated_visits": 120,
                 "traffic_gap_after_all_claims": 155,
+                "post_claim_next_action": "add_new_distribution_or_guarded_paid_boost",
                 "next_traffic_gap_after_claim": 155,
                 "checklist": payload["browser_extension_handoff"]["checklist"],
                 "stop_conditions": ["login_required", "captcha_or_2fa_required"],
@@ -3532,10 +3534,12 @@ class PatchRailCITests(unittest.TestCase):
                     "browser_pending_channels: show-hn",
                     "browser_total_estimated_visits: 120",
                     "browser_traffic_gap_after_all_claims: 175",
+                    "browser_post_claim_next_action: add_new_distribution_or_guarded_paid_boost",
                     "pablo_handoff_type: browser_extension_setup",
                     "pablo_handoff_required: True",
                     "pablo_handoff_next_channel: show-hn",
                     "pablo_traffic_gap_after_all_claims: 175",
+                    "pablo_post_claim_next_action: add_new_distribution_or_guarded_paid_boost",
                     "pablo_next_traffic_gap_after_claim: 175",
                     "browser_claims_needed_to_close_gap: not_enough_claimable_traffic",
                     (
@@ -3841,9 +3845,19 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("worker_actionable_reason: pablo_handoff_required", next_step)
         self.assertIn("browser_pending_count: 1", next_step)
         self.assertIn("browser_pending_channels: show-hn", next_step)
+        self.assertIn("browser_traffic_gap_after_all_claims: 175", next_step)
+        self.assertIn(
+            "browser_post_claim_next_action: add_new_distribution_or_guarded_paid_boost",
+            next_step,
+        )
         self.assertIn("pablo_handoff_type: browser_extension_setup", next_step)
         self.assertIn("pablo_handoff_required: True", next_step)
         self.assertIn("pablo_handoff_next_channel: show-hn", next_step)
+        self.assertIn("pablo_traffic_gap_after_all_claims: 175", next_step)
+        self.assertIn(
+            "pablo_post_claim_next_action: add_new_distribution_or_guarded_paid_boost",
+            next_step,
+        )
         self.assertIn(
             "browser_claim_after_setup_command: "
             "python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "

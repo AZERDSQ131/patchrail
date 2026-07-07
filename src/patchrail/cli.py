@@ -2664,6 +2664,12 @@ def _distribution_browser_extension_handoff(
         )
     )
     total_estimated_visits = sum(int(item["estimated_visits"]) for item in pending)
+    traffic_gap_after_all_claims = max(traffic_gap - total_estimated_visits, 0)
+    post_claim_next_action = "none"
+    if pending and traffic_gap_after_all_claims > 0:
+        post_claim_next_action = "add_new_distribution_or_guarded_paid_boost"
+    elif pending:
+        post_claim_next_action = "measure_pivot_gate_after_claims"
     cumulative_estimated_visits = 0
     claim_sequence_to_target = []
     for item in pending:
@@ -2689,7 +2695,8 @@ def _distribution_browser_extension_handoff(
         "pending_count": len(pending),
         "pending_channels": [item["channel"] for item in pending],
         "total_estimated_visits": total_estimated_visits,
-        "traffic_gap_after_all_claims": max(traffic_gap - total_estimated_visits, 0),
+        "traffic_gap_after_all_claims": traffic_gap_after_all_claims,
+        "post_claim_next_action": post_claim_next_action,
         "pending_claims": [
             {
                 "channel": item["channel"],
@@ -2768,6 +2775,7 @@ def _distribution_pablo_handoff_packet(
             "claimable_after_setup_count": 0,
             "total_estimated_visits": 0,
             "traffic_gap_after_all_claims": None,
+            "post_claim_next_action": "none",
             "next_traffic_gap_after_claim": None,
             "checklist": [],
             "stop_conditions": [],
@@ -2792,6 +2800,7 @@ def _distribution_pablo_handoff_packet(
         "claimable_after_setup_count": browser_extension_handoff["claimable_after_setup_count"],
         "total_estimated_visits": browser_extension_handoff["total_estimated_visits"],
         "traffic_gap_after_all_claims": browser_extension_handoff["traffic_gap_after_all_claims"],
+        "post_claim_next_action": browser_extension_handoff["post_claim_next_action"],
         "next_traffic_gap_after_claim": (
             browser_extension_handoff["pending_claims"][0]["traffic_gap_after_claim"]
             if browser_extension_handoff["pending_claims"]
@@ -3863,6 +3872,7 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
                     "browser_traffic_gap_after_all_claims: "
                     f"{browser_handoff['traffic_gap_after_all_claims']}"
                 ),
+                f"browser_post_claim_next_action: {browser_handoff['post_claim_next_action']}",
                 f"pablo_handoff_type: {pablo_packet['type']}",
                 f"pablo_handoff_required: {pablo_packet['required']}",
                 f"pablo_handoff_next_channel: {pablo_packet['next_channel']}",
@@ -3870,6 +3880,7 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
                     "pablo_traffic_gap_after_all_claims: "
                     f"{pablo_packet['traffic_gap_after_all_claims']}"
                 ),
+                f"pablo_post_claim_next_action: {pablo_packet['post_claim_next_action']}",
                 f"pablo_next_traffic_gap_after_claim: {pablo_packet['next_traffic_gap_after_claim']}",
                 (
                     "browser_claims_needed_to_close_gap: "
