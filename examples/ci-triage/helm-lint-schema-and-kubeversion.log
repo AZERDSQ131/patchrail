@@ -1,0 +1,6 @@
+Run helm lint . -f values.yaml
+==> Linting .
+[ERROR] values.yaml: Error: values don't meet the specifications of the schema
+[ERROR] Chart.yaml: Error: chart requires kubeVersion: >= 1.25.0 which is incompatible with Kubernetes v1.23.4
+
+Error: 1 chart(s) linted, 1 chart(s) failed

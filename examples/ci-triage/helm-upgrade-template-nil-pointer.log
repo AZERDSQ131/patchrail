@@ -1,0 +1,2 @@
+Run helm upgrade web ./chart -f values-prod.yaml
+Error: UPGRADE FAILED: template: web/templates/deployment.yaml:14:8: executing "web/templates/deployment.yaml" at <.Values.image.tag>: nil pointer evaluating interface {}.Tag

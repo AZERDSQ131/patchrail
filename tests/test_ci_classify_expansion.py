@@ -751,6 +751,34 @@ class KubernetesDeployFailureClassification(unittest.TestCase):
         self.assertEqual(classify_ci_log(log)["failure_class"], "network_transient_failure")
 
 
+class HelmChartFailureClassification(unittest.TestCase):
+    def test_helm_lint_schema_and_kubeversion_classifies_as_helm_chart_failure(self) -> None:
+        log = (
+            "Run helm lint . -f values.yaml\n"
+            "==> Linting .\n"
+            "[ERROR] values.yaml: Error: values don't meet the specifications of the schema\n"
+            "[ERROR] Chart.yaml: Error: chart requires kubeVersion: >= 1.25.0 which is "
+            "incompatible with Kubernetes v1.23.4\n"
+            "\n"
+            "Error: 1 chart(s) linted, 1 chart(s) failed\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "helm_chart_failure")
+        self.assertGreaterEqual(result["confidence"], 0.7)
+        self.assertIn("helm", result["reproduction_command"])
+
+    def test_helm_upgrade_template_nil_pointer_classifies_as_helm_chart_failure(self) -> None:
+        log = (
+            "Run helm upgrade web ./chart -f values-prod.yaml\n"
+            "Error: UPGRADE FAILED: template: web/templates/deployment.yaml:14:8: "
+            'executing "web/templates/deployment.yaml" at <.Values.image.tag>: '
+            "nil pointer evaluating interface {}.Tag\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "helm_chart_failure")
+        self.assertGreaterEqual(result["confidence"], 0.7)
+
+
 class SchemaContractExpansion(unittest.TestCase):
     def test_schema_command_lists_new_failure_classes(self) -> None:
         proc = subprocess.run(

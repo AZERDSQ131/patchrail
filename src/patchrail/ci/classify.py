@@ -943,6 +943,29 @@ RULES: list[dict[str, Any]] = [
             "rerun the same kubectl or kustomize command."
         ),
     },
+    {
+        "failure_class": "helm_chart_failure",
+        "likely_subsystem": "Helm chart lint, template rendering, or release install/upgrade",
+        "patterns": [
+            r"\bhelm (?:lint|template|install|upgrade|dependency)\b",
+            r"Error: chart requires kubeVersion",
+            r"Error: found in Chart\.yaml, but missing in charts/ directory",
+            r"Error: YAML parse error on",
+            r"Error: values don't meet the specifications of the schema",
+            r"Error: template: .* executing .* at <.*>:",
+            r"Error: INSTALLATION FAILED",
+            r"Error: UPGRADE FAILED",
+        ],
+        "reproduction_command": (
+            "run the failing stage locally against the same chart/values "
+            "(e.g. helm lint . && helm template . -f values.yaml)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the failure is a Helm chart, values-schema, or template rendering issue "
+            "rather than a downstream cluster outage, then fix the reported chart/values error "
+            "and rerun the same helm command."
+        ),
+    },
 ]
 
 
