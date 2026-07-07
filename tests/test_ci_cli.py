@@ -3743,6 +3743,16 @@ class PatchRailCITests(unittest.TestCase):
             "safe_next_step: Enable/install the browser extension in the logged-in profile",
             receipt,
         )
+        self.assertIn("browser_pending_count: 1", receipt)
+        self.assertIn("browser_pending_channels: show-hn", receipt)
+        self.assertIn("browser_total_estimated_visits: 120", receipt)
+        self.assertIn("browser_traffic_gap_after_all_claims: 175", receipt)
+        self.assertIn("browser_additional_distribution_needed_after_claims: 175", receipt)
+        self.assertIn(
+            "browser_post_claim_next_action: add_new_distribution_or_guarded_paid_boost",
+            receipt,
+        )
+        self.assertIn("browser_claims_needed_to_close_gap: not_enough_claimable_traffic", receipt)
         self.assertNotIn("Measurement packet:", receipt)
 
     def test_distribution_sku1_gate_next_reports_claimable_channel_command(self) -> None:

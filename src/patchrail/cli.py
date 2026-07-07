@@ -3923,6 +3923,7 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
 def _render_distribution_gate_receipt(payload: dict[str, Any]) -> str:
     handoff = payload["execution_handoff"]
     paid_traffic_plan = payload["paid_traffic_plan"]
+    browser_handoff = payload["browser_extension_handoff"]
     owner_counts = ", ".join(
         f"{owner}={count}" for owner, count in sorted(payload["blocker_owner_counts"].items())
     )
@@ -3957,6 +3958,31 @@ def _render_distribution_gate_receipt(payload: dict[str, Any]) -> str:
         "verify_command: " + (handoff["verify_command"] or "none"),
         "safe_next_step: " + (handoff["safe_next_step"] or "none"),
     ]
+    if browser_handoff["required"]:
+        claims_needed = browser_handoff["claims_needed_to_close_gap"]
+        lines.extend(
+            [
+                f"browser_pending_count: {browser_handoff['pending_count']}",
+                "browser_pending_channels: "
+                + (", ".join(browser_handoff["pending_channels"]) or "none"),
+                f"browser_total_estimated_visits: {browser_handoff['total_estimated_visits']}",
+                (
+                    "browser_traffic_gap_after_all_claims: "
+                    f"{browser_handoff['traffic_gap_after_all_claims']}"
+                ),
+                (
+                    "browser_additional_distribution_needed_after_claims: "
+                    f"{browser_handoff['traffic_gap_after_all_claims']}"
+                ),
+                f"browser_post_claim_next_action: {browser_handoff['post_claim_next_action']}",
+                "browser_claims_needed_to_close_gap: "
+                + (
+                    str(claims_needed)
+                    if claims_needed is not None
+                    else "not_enough_claimable_traffic"
+                ),
+            ]
+        )
     return "\n".join(lines) + "\n"
 
 
