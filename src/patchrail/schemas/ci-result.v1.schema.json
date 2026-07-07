@@ -55,7 +55,8 @@
         "secrets_or_permissions_failure",
         "terraform_iac_failure",
         "shell_lint",
-        "elixir_mix_failure"
+        "elixir_mix_failure",
+        "database_migration_failure"
       ]
     },
     "likely_subsystem": {

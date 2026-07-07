@@ -1,0 +1,8 @@
+Run prisma migrate deploy
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "app", schema "public"
+
+Error: P3009
+
+migrate found failed migrations in the target database, new migrations will not be applied.
+Drift detected: Your database schema is not in sync with your migration history.

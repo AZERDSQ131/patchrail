@@ -893,6 +893,32 @@ RULES: list[dict[str, Any]] = [
             "same mix task."
         ),
     },
+    {
+        "failure_class": "database_migration_failure",
+        "likely_subsystem": "Database schema migration (Alembic, Django, Rails, Flyway, Prisma)",
+        "patterns": [
+            r"alembic\.util\.exc\.CommandError",
+            r"Target database is not up to date",
+            r"Can't locate revision identified by",
+            r"django\.db\.migrations\.exceptions\.(?:InconsistentMigrationHistory|NodeNotFoundError)",
+            r"Conflicting migrations detected",
+            r"\brails db:migrate\b|\brake db:migrate\b",
+            r"ActiveRecord::(?:PendingMigrationError|IrreversibleMigration|StatementInvalid)",
+            r"FlywayException|Migration checksum mismatch|Detected failed migration",
+            r"\bprisma migrate (?:deploy|dev)\b",
+            r"\bP3005\b|\bP3006\b|\bP3009\b",
+            r"Drift detected",
+        ],
+        "reproduction_command": (
+            "run the failing migration command locally against a disposable copy of the "
+            "database (e.g. alembic upgrade head, rails db:migrate, or prisma migrate deploy)"
+        ),
+        "minimal_repair_strategy": (
+            "Confirm the failure is a schema migration issue rather than an application code "
+            "defect, then resolve the reported revision/history conflict or checksum mismatch "
+            "and rerun the same migration command against a disposable database copy."
+        ),
+    },
 ]
 
 
