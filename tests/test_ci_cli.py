@@ -1648,6 +1648,15 @@ class PatchRailCITests(unittest.TestCase):
                 "missing_evidence": ["paid_sale_receipt"],
                 "missing_evidence_count": 1,
                 "next_action": "drive_or_measure_sku1_conversion_until_paid_sale",
+                "next_executable_step": {
+                    "action": "browser_extension_setup_required",
+                    "owner": "pablo",
+                    "channel": "show-hn",
+                    "required": True,
+                    "command": "",
+                    "blocked_reason": "",
+                    "measurement_event": "sku1_visits_and_sales_delta",
+                },
                 "traffic_gap_to_pivot_sample": 275,
                 "can_record_distribution_evidence": True,
             },
@@ -1720,6 +1729,15 @@ class PatchRailCITests(unittest.TestCase):
                 ],
                 "missing_evidence_count": 2,
                 "next_action": "prepare_fulfillment_snapshot_and_request_public_permission",
+                "next_executable_step": {
+                    "action": "prepare_fulfillment_snapshot",
+                    "owner": "worker",
+                    "channel": "",
+                    "required": True,
+                    "command": "",
+                    "blocked_reason": "",
+                    "measurement_event": "sku1_paid_sale_fulfillment_evidence",
+                },
                 "traffic_gap_to_pivot_sample": 226,
                 "can_record_distribution_evidence": True,
             },
@@ -1777,6 +1795,8 @@ class PatchRailCITests(unittest.TestCase):
             "issue_69_next_action: drive_or_measure_sku1_conversion_until_paid_sale\n",
             output,
         )
+        self.assertIn("issue_69_next_executable_action: measure_existing_distribution\n", output)
+        self.assertIn("issue_69_next_executable_owner: worker\n", output)
         self.assertIn("adoption_blocker: no_paid_sale\n", output)
         self.assertIn("required_next_evidence: pivot_decision_snapshot\n", output)
         self.assertIn("next_measurement_command: jq '.traffic_delivered_total", output)

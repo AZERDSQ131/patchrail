@@ -2106,6 +2106,9 @@ def _distribution_adoption_evidence_packet(
     receipt_status_counts: dict[str, int],
     receipt_audit: dict[str, Any],
     blocker_owner_counts: dict[str, int],
+    recommended_channel: str,
+    channel_execution_packet: dict[str, Any],
+    paid_ad_execution_packet: dict[str, Any],
     as_of: str,
     measurement_command_path: str = _DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH,
 ) -> dict[str, Any]:
@@ -2161,6 +2164,52 @@ def _distribution_adoption_evidence_packet(
         if qualifies_as_adoption
         else "drive_or_measure_sku1_conversion_until_paid_sale"
     )
+    if qualifies_as_adoption:
+        executable_next_step = {
+            "action": "prepare_fulfillment_snapshot",
+            "owner": "worker",
+            "channel": "",
+            "required": True,
+            "command": "",
+            "blocked_reason": "",
+            "measurement_event": "sku1_paid_sale_fulfillment_evidence",
+        }
+    elif paid_ad_execution_packet.get("required") and paid_ad_execution_packet.get(
+        "spend_executable"
+    ):
+        executable_next_step = {
+            "action": "guarded_paid_boost",
+            "owner": "worker",
+            "channel": "",
+            "required": True,
+            "command": paid_ad_execution_packet.get("preflight_command", ""),
+            "blocked_reason": "",
+            "measurement_event": paid_ad_execution_packet.get(
+                "measurement_event", "sku1_paid_visits_and_sales_delta"
+            ),
+        }
+    elif channel_execution_packet.get("required"):
+        executable_next_step = {
+            "action": channel_execution_packet.get("next_action", ""),
+            "owner": channel_execution_packet.get("owner", "worker"),
+            "channel": channel_execution_packet.get("channel", recommended_channel),
+            "required": True,
+            "command": channel_execution_packet.get("execute_command", ""),
+            "blocked_reason": channel_execution_packet.get("blocked_reason", ""),
+            "measurement_event": channel_execution_packet.get(
+                "measurement_event", "sku1_visits_and_sales_delta"
+            ),
+        }
+    else:
+        executable_next_step = {
+            "action": "measure_existing_distribution",
+            "owner": "worker",
+            "channel": recommended_channel,
+            "required": traffic_gap > 0,
+            "command": "",
+            "blocked_reason": "",
+            "measurement_event": "sku1_visits_and_sales_delta",
+        }
 
     return {
         "schema_version": "patchrail.adoption_evidence.v1",
@@ -2235,6 +2284,7 @@ def _distribution_adoption_evidence_packet(
             "missing_evidence": issue_69_missing_evidence,
             "missing_evidence_count": len(issue_69_missing_evidence),
             "next_action": issue_69_next_action,
+            "next_executable_step": executable_next_step,
             "traffic_gap_to_pivot_sample": traffic_gap,
             "can_record_distribution_evidence": bool(
                 qualifies_as_adoption
@@ -3031,6 +3081,9 @@ def _distribution_gate_payload(
         receipt_status_counts=dict(by_status),
         receipt_audit=receipt_audit,
         blocker_owner_counts=dict(blocker_owner_counts),
+        recommended_channel=recommended_channel,
+        channel_execution_packet=channel_execution_packet,
+        paid_ad_execution_packet=paid_ad_execution_packet,
         as_of=as_of,
         measurement_command_path=measurement_command_path,
     )
@@ -4649,6 +4702,7 @@ def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
     closeout = payload["evidence_closeout"]
     external_gate = payload["external_adoption_gate"]
     issue_69_readiness = payload["issue_69_close_readiness"]
+    next_step = issue_69_readiness["next_executable_step"]
     return (
         "\n".join(
             [
@@ -4674,6 +4728,10 @@ def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
                 f"external_adoption_blocker: {external_gate['blocker']}",
                 (f"issue_69_missing_evidence: {','.join(issue_69_readiness['missing_evidence'])}"),
                 f"issue_69_next_action: {issue_69_readiness['next_action']}",
+                f"issue_69_next_executable_action: {next_step['action']}",
+                f"issue_69_next_executable_owner: {next_step['owner']}",
+                f"issue_69_next_executable_channel: {next_step['channel']}",
+                f"issue_69_next_executable_command: {next_step['command']}",
                 f"adoption_blocker: {closeout['adoption_blocker']}",
                 f"required_next_evidence: {closeout['required_next_evidence']}",
                 f"next_measurement_command: {closeout['next_measurement_command']}",
