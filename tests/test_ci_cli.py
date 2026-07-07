@@ -3553,6 +3553,16 @@ class PatchRailCITests(unittest.TestCase):
                         "python3 opportunity-desk/scripts/publish_post.py blockers "
                         "--owner pablo --json --exit-zero"
                     ),
+                    "browser_claim_sequence_to_target:",
+                    "- channel: show-hn",
+                    "  cumulative_estimated_visits: 120",
+                    "  traffic_gap_after_sequence: 175",
+                    (
+                        "  claim_after_setup_command: "
+                        "python3 opportunity-desk/scripts/publish_post.py claim "
+                        "--channel show-hn --copy-file "
+                        "products/gumroad/distribution/posts/show-hn.md"
+                    ),
                     "",
                 ]
             ),
@@ -3646,6 +3656,13 @@ class PatchRailCITests(unittest.TestCase):
             "--copy-file products/gumroad/distribution/posts/linkedin.md\n",
             next_step,
         )
+        self.assertIn("browser_claim_sequence_to_target:\n", next_step)
+        self.assertIn("- channel: show-hn\n", next_step)
+        self.assertIn("  cumulative_estimated_visits: 120\n", next_step)
+        self.assertIn("  traffic_gap_after_sequence: 178\n", next_step)
+        self.assertIn("- channel: linkedin\n", next_step)
+        self.assertIn("  cumulative_estimated_visits: 165\n", next_step)
+        self.assertIn("  traffic_gap_after_sequence: 133\n", next_step)
         self.assertIn("browser_verify_after_claim_commands:\n", next_step)
 
         self.assertEqual(json_exit_code, 0)
