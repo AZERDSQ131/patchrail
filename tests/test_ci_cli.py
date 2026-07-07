@@ -1283,6 +1283,8 @@ class PatchRailCITests(unittest.TestCase):
                     {
                         "channel": "show-hn",
                         "copy_file": "products/gumroad/distribution/posts/show-hn.md",
+                        "estimated_visits": 120,
+                        "blocked_days": 0,
                         "claim_after_setup_command": (
                             "python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "
                             "--copy-file products/gumroad/distribution/posts/show-hn.md"
@@ -1328,6 +1330,7 @@ class PatchRailCITests(unittest.TestCase):
                         "channel": "show-hn",
                         "owner": "pablo",
                         "blocked_days": 0,
+                        "estimated_visits": 120,
                         "reason": "Chrome route missing extension",
                         "copy_file": "products/gumroad/distribution/posts/show-hn.md",
                         "safe_next_step": (
@@ -2660,6 +2663,8 @@ class PatchRailCITests(unittest.TestCase):
                     {
                         "channel": "show-hn",
                         "copy_file": copy_file,
+                        "estimated_visits": 120,
+                        "blocked_days": 1,
                         "claim_after_setup_command": (
                             "python3 opportunity-desk/scripts/publish_post.py claim "
                             "--channel show-hn --copy-file "
@@ -2785,13 +2790,33 @@ class PatchRailCITests(unittest.TestCase):
             ["show-hn", "linkedin"],
         )
         self.assertEqual(
+            [
+                item["estimated_visits"]
+                for item in payload["browser_extension_handoff"]["pending_claims"]
+            ],
+            [120, 45],
+        )
+        self.assertEqual(
+            [item["blocked_days"] for item in payload["browser_extension_handoff"]["pending_claims"]],
+            [12, 12],
+        )
+        self.assertEqual(
             [item["channel"] for item in payload["pablo_handoff_packet"]["pending_claims"]],
             ["show-hn", "linkedin"],
+        )
+        self.assertEqual(
+            [
+                item["estimated_visits"]
+                for item in payload["pablo_handoff_packet"]["pending_claims"]
+            ],
+            [120, 45],
         )
         self.assertEqual(payload["pablo_handoff_packet"]["claimable_after_setup_count"], 2)
         handoff = handoff_stdout.getvalue()
         self.assertIn("browser_pending_channels: show-hn, linkedin", handoff)
         self.assertIn("browser_pending_claims:", handoff)
+        self.assertIn("estimated_visits: 120", handoff)
+        self.assertIn("blocked_days: 12", handoff)
         self.assertIn("--channel show-hn", handoff)
         self.assertIn("--channel linkedin", handoff)
 

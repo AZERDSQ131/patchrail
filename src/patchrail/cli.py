@@ -2629,6 +2629,7 @@ def _distribution_browser_extension_handoff(
                 "channel": channel,
                 "owner": "pablo",
                 "blocked_days": item.get("blocked_days"),
+                "estimated_visits": _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(channel, 0),
                 "reason": item["reason"],
                 "copy_file": copy_file,
                 "safe_next_step": item["safe_next_step"],
@@ -2670,6 +2671,8 @@ def _distribution_browser_extension_handoff(
             {
                 "channel": item["channel"],
                 "copy_file": item["copy_file"],
+                "estimated_visits": item["estimated_visits"],
+                "blocked_days": item["blocked_days"],
                 "claim_after_setup_command": item["claim_after_setup_command"],
                 "verify_after_claim_command": item["verify_after_claim_command"],
             }
@@ -3706,6 +3709,15 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
                 lines.extend(
                     [
                         f"- channel: {item['channel']}",
+                        f"  estimated_visits: {item['estimated_visits']}",
+                        (
+                            "  blocked_days: "
+                            + (
+                                str(item["blocked_days"])
+                                if item["blocked_days"] is not None
+                                else "unknown"
+                            )
+                        ),
                         "  claim_after_setup_command: "
                         + (item["claim_after_setup_command"] or "none"),
                         "  verify_after_claim_command: "
