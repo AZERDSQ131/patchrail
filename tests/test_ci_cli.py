@@ -1280,6 +1280,7 @@ class PatchRailCITests(unittest.TestCase):
                 "pending_count": 1,
                 "pending_channels": ["show-hn"],
                 "total_estimated_visits": 120,
+                "traffic_gap_after_all_claims": 155,
                 "pending_claims": [
                     {
                         "channel": "show-hn",
@@ -2682,6 +2683,7 @@ class PatchRailCITests(unittest.TestCase):
                 ],
                 "claimable_after_setup_count": 1,
                 "total_estimated_visits": 120,
+                "traffic_gap_after_all_claims": 155,
                 "next_traffic_gap_after_claim": 155,
                 "checklist": payload["browser_extension_handoff"]["checklist"],
                 "stop_conditions": ["login_required", "captcha_or_2fa_required"],
@@ -2838,9 +2840,13 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["pablo_handoff_packet"]["claimable_after_setup_count"], 2)
         self.assertEqual(payload["browser_extension_handoff"]["total_estimated_visits"], 165)
         self.assertEqual(payload["pablo_handoff_packet"]["total_estimated_visits"], 165)
+        self.assertEqual(payload["browser_extension_handoff"]["traffic_gap_after_all_claims"], 133)
+        self.assertEqual(payload["pablo_handoff_packet"]["traffic_gap_after_all_claims"], 133)
         handoff = handoff_stdout.getvalue()
         self.assertIn(
-            "browser_extension_handoff: show-hn (2 pending, 165 estimated visits)", handoff
+            "browser_extension_handoff: show-hn "
+            "(2 pending, 165 estimated visits, gap_after_all=133)",
+            handoff,
         )
         self.assertIn("browser_pending_channels: show-hn, linkedin", handoff)
         self.assertIn("browser_pending_claims:", handoff)
@@ -3041,7 +3047,10 @@ class PatchRailCITests(unittest.TestCase):
                     "worker_actionable_reason: pablo_handoff_required",
                     "turn_result_hint: waiting - pablo_handoff_required",
                     "next_action: unblock_distribution_channels",
-                    "browser_extension_handoff: show-hn (1 pending, 120 estimated visits)",
+                    (
+                        "browser_extension_handoff: show-hn "
+                        "(1 pending, 120 estimated visits, gap_after_all=175)"
+                    ),
                     (
                         "browser_verify_command: python3 "
                         "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
@@ -3236,7 +3245,9 @@ class PatchRailCITests(unittest.TestCase):
             handoff,
         )
         self.assertIn(
-            "browser_extension_handoff: show-hn (1 pending, 120 estimated visits)", handoff
+            "browser_extension_handoff: show-hn "
+            "(1 pending, 120 estimated visits, gap_after_all=175)",
+            handoff,
         )
         self.assertIn(
             "browser_claim_after_setup_command: python3 "
@@ -3384,9 +3395,11 @@ class PatchRailCITests(unittest.TestCase):
                     "browser_pending_count: 1",
                     "browser_pending_channels: show-hn",
                     "browser_total_estimated_visits: 120",
+                    "browser_traffic_gap_after_all_claims: 175",
                     "pablo_handoff_type: browser_extension_setup",
                     "pablo_handoff_required: True",
                     "pablo_handoff_next_channel: show-hn",
+                    "pablo_traffic_gap_after_all_claims: 175",
                     "pablo_next_traffic_gap_after_claim: 175",
                     (
                         "browser_claim_after_setup_command: "

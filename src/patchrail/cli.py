@@ -2663,6 +2663,7 @@ def _distribution_browser_extension_handoff(
             str(item["channel"]),
         )
     )
+    total_estimated_visits = sum(int(item["estimated_visits"]) for item in pending)
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
@@ -2670,7 +2671,8 @@ def _distribution_browser_extension_handoff(
         "owner": "pablo",
         "pending_count": len(pending),
         "pending_channels": [item["channel"] for item in pending],
-        "total_estimated_visits": sum(int(item["estimated_visits"]) for item in pending),
+        "total_estimated_visits": total_estimated_visits,
+        "traffic_gap_after_all_claims": max(traffic_gap - total_estimated_visits, 0),
         "pending_claims": [
             {
                 "channel": item["channel"],
@@ -2737,6 +2739,7 @@ def _distribution_pablo_handoff_packet(
             "pending_claims": [],
             "claimable_after_setup_count": 0,
             "total_estimated_visits": 0,
+            "traffic_gap_after_all_claims": None,
             "next_traffic_gap_after_claim": None,
             "checklist": [],
             "stop_conditions": [],
@@ -2758,6 +2761,7 @@ def _distribution_pablo_handoff_packet(
         "pending_claims": browser_extension_handoff["pending_claims"],
         "claimable_after_setup_count": browser_extension_handoff["claimable_after_setup_count"],
         "total_estimated_visits": browser_extension_handoff["total_estimated_visits"],
+        "traffic_gap_after_all_claims": browser_extension_handoff["traffic_gap_after_all_claims"],
         "next_traffic_gap_after_claim": (
             browser_extension_handoff["pending_claims"][0]["traffic_gap_after_claim"]
             if browser_extension_handoff["pending_claims"]
@@ -3585,7 +3589,8 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
                     "browser_extension_handoff: "
                     f"{browser_handoff['next_channel']} "
                     f"({browser_handoff['pending_count']} pending, "
-                    f"{browser_handoff['total_estimated_visits']} estimated visits)"
+                    f"{browser_handoff['total_estimated_visits']} estimated visits, "
+                    f"gap_after_all={browser_handoff['traffic_gap_after_all_claims']})"
                 ),
                 "browser_verify_command: " + browser_handoff["next_verify_command"],
                 (
@@ -3717,7 +3722,8 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
                     "browser_extension_handoff: "
                     f"{browser_handoff['next_channel']} "
                     f"({browser_handoff['pending_count']} pending, "
-                    f"{browser_handoff['total_estimated_visits']} estimated visits)"
+                    f"{browser_handoff['total_estimated_visits']} estimated visits, "
+                    f"gap_after_all={browser_handoff['traffic_gap_after_all_claims']})"
                 ),
                 "browser_verify_command: " + browser_handoff["next_verify_command"],
                 (
@@ -3797,9 +3803,17 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
                 f"browser_pending_count: {browser_handoff['pending_count']}",
                 "browser_pending_channels: " + ", ".join(browser_handoff["pending_channels"]),
                 f"browser_total_estimated_visits: {browser_handoff['total_estimated_visits']}",
+                (
+                    "browser_traffic_gap_after_all_claims: "
+                    f"{browser_handoff['traffic_gap_after_all_claims']}"
+                ),
                 f"pablo_handoff_type: {pablo_packet['type']}",
                 f"pablo_handoff_required: {pablo_packet['required']}",
                 f"pablo_handoff_next_channel: {pablo_packet['next_channel']}",
+                (
+                    "pablo_traffic_gap_after_all_claims: "
+                    f"{pablo_packet['traffic_gap_after_all_claims']}"
+                ),
                 f"pablo_next_traffic_gap_after_claim: {pablo_packet['next_traffic_gap_after_claim']}",
                 (
                     "browser_claim_after_setup_command: "
