@@ -2145,6 +2145,22 @@ def _distribution_adoption_evidence_packet(
         if qualifies_as_adoption
         else adoption_blocker
     )
+    issue_69_missing_evidence: list[str] = []
+    if not qualifies_as_adoption:
+        issue_69_missing_evidence.append("paid_sale_receipt")
+    else:
+        issue_69_missing_evidence.extend(
+            [
+                "fulfilled_customer_outcome",
+                "explicit_public_permission",
+            ]
+        )
+    issue_69_close_ready = False
+    issue_69_next_action = (
+        "prepare_fulfillment_snapshot_and_request_public_permission"
+        if qualifies_as_adoption
+        else "drive_or_measure_sku1_conversion_until_paid_sale"
+    )
 
     return {
         "schema_version": "patchrail.adoption_evidence.v1",
@@ -2213,6 +2229,19 @@ def _distribution_adoption_evidence_packet(
                 "public_customer_or_repository_name",
                 "issue_69_closure",
             ],
+        },
+        "issue_69_close_readiness": {
+            "ready": issue_69_close_ready,
+            "missing_evidence": issue_69_missing_evidence,
+            "missing_evidence_count": len(issue_69_missing_evidence),
+            "next_action": issue_69_next_action,
+            "traffic_gap_to_pivot_sample": traffic_gap,
+            "can_record_distribution_evidence": bool(
+                qualifies_as_adoption
+                or traffic_target_met
+                or traffic_delivered > 0
+                or posted_channels
+            ),
         },
         "evidence_closeout": {
             "can_update_issue_69_as_adoption": external_adoption_ready,
@@ -4619,6 +4648,7 @@ def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
     signal = payload["distribution_signal_breakdown"]
     closeout = payload["evidence_closeout"]
     external_gate = payload["external_adoption_gate"]
+    issue_69_readiness = payload["issue_69_close_readiness"]
     return (
         "\n".join(
             [
@@ -4642,6 +4672,8 @@ def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
                 f"external_adoption_ready: {external_gate['ready']}",
                 f"issue_69_close_ready: {external_gate['issue_69_close_ready']}",
                 f"external_adoption_blocker: {external_gate['blocker']}",
+                (f"issue_69_missing_evidence: {','.join(issue_69_readiness['missing_evidence'])}"),
+                f"issue_69_next_action: {issue_69_readiness['next_action']}",
                 f"adoption_blocker: {closeout['adoption_blocker']}",
                 f"required_next_evidence: {closeout['required_next_evidence']}",
                 f"next_measurement_command: {closeout['next_measurement_command']}",

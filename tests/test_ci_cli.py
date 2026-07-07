@@ -1641,6 +1641,17 @@ class PatchRailCITests(unittest.TestCase):
                 ],
             },
         )
+        self.assertEqual(
+            payload["issue_69_close_readiness"],
+            {
+                "ready": False,
+                "missing_evidence": ["paid_sale_receipt"],
+                "missing_evidence_count": 1,
+                "next_action": "drive_or_measure_sku1_conversion_until_paid_sale",
+                "traffic_gap_to_pivot_sample": 275,
+                "can_record_distribution_evidence": True,
+            },
+        )
 
     def test_distribution_adoption_evidence_marks_paid_conversion_signal(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1699,6 +1710,20 @@ class PatchRailCITests(unittest.TestCase):
         self.assertFalse(payload["external_adoption_gate"]["counts_as_external_adoption"])
         self.assertFalse(payload["external_adoption_gate"]["issue_69_close_ready"])
         self.assertTrue(payload["external_adoption_gate"]["conversion_signal_recordable"])
+        self.assertEqual(
+            payload["issue_69_close_readiness"],
+            {
+                "ready": False,
+                "missing_evidence": [
+                    "fulfilled_customer_outcome",
+                    "explicit_public_permission",
+                ],
+                "missing_evidence_count": 2,
+                "next_action": "prepare_fulfillment_snapshot_and_request_public_permission",
+                "traffic_gap_to_pivot_sample": 226,
+                "can_record_distribution_evidence": True,
+            },
+        )
         self.assertIn(
             "explicit_public_permission",
             payload["external_adoption_gate"]["required_evidence"],
@@ -1747,6 +1772,11 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("external_adoption_ready: False\n", output)
         self.assertIn("issue_69_close_ready: False\n", output)
         self.assertIn("external_adoption_blocker: no_paid_sale\n", output)
+        self.assertIn("issue_69_missing_evidence: paid_sale_receipt\n", output)
+        self.assertIn(
+            "issue_69_next_action: drive_or_measure_sku1_conversion_until_paid_sale\n",
+            output,
+        )
         self.assertIn("adoption_blocker: no_paid_sale\n", output)
         self.assertIn("required_next_evidence: pivot_decision_snapshot\n", output)
         self.assertIn("next_measurement_command: jq '.traffic_delivered_total", output)
