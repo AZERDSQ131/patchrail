@@ -1,0 +1,4 @@
+{
+  "failure_class": "kubernetes_deploy_failure",
+  "minimum_confidence": 0.7
+}

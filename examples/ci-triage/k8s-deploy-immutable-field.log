@@ -1,0 +1,4 @@
+Run kubectl apply -f deployment.yaml
+error: unable to recognize "deployment.yaml": no matches for kind "Deployment" in version "apps/v1beta1"
+The Deployment "web" is invalid: spec.selector: field is immutable
+Error from server (Invalid): error when applying patch

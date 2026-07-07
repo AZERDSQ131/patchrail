@@ -1,0 +1,2 @@
+Run kustomize build overlays/prod | kubectl apply -f -
+Error from server (Forbidden): error when creating "STDIN": admission webhook "validate.gatekeeper.sh" denied the request: image tag ':latest' is not allowed
