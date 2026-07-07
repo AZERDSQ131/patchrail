@@ -3861,6 +3861,25 @@ def _render_ci_share_links_text(payload: dict[str, Any]) -> str:
                 f"next_measurement_step: {measurement['next_measurement_step']}",
             ]
         )
+        handoff = payload.get("publication_handoff") or {}
+        if handoff.get("required"):
+            commands = handoff.get("commands") or {}
+            lines.extend(
+                [
+                    f"copy_file_ready: {str(handoff.get('copy_file_ready')).lower()}",
+                    f"claim_command: {commands.get('claim_command', '')}",
+                    f"record_command: {commands.get('record_command', '')}",
+                ]
+            )
+        elif handoff.get("reason") == "channel_receipt_exists":
+            lines.extend(
+                [
+                    "publication_handoff: skipped",
+                    f"publication_skip_reason: {handoff['reason']}",
+                    f"receipt_status: {handoff['receipt_status']}",
+                    f"receipt_path: {handoff['receipt_path']}",
+                ]
+            )
     lines.extend(["counts_as_external_adoption: false", "network_required: false"])
     return "\n".join(lines) + "\n"
 
@@ -3891,6 +3910,31 @@ def _render_ci_share_links_markdown(payload: dict[str, Any]) -> str:
                 f"- Next measurement step: `{payload['measurement']['next_measurement_step']}`",
             ]
         )
+        handoff = payload.get("publication_handoff") or {}
+        if handoff.get("required"):
+            commands = handoff.get("commands") or {}
+            lines.extend(
+                [
+                    "",
+                    "## Publication Handoff",
+                    "",
+                    f"- Copy file ready: `{handoff.get('copy_file_ready')}`",
+                    f"- Claim command: `{commands.get('claim_command', '')}`",
+                    f"- Record command: `{commands.get('record_command', '')}`",
+                ]
+            )
+        elif handoff.get("reason") == "channel_receipt_exists":
+            lines.extend(
+                [
+                    "",
+                    "## Publication Handoff",
+                    "",
+                    "- Status: `skipped`",
+                    f"- Reason: `{handoff['reason']}`",
+                    f"- Receipt status: `{handoff['receipt_status']}`",
+                    f"- Receipt path: `{handoff['receipt_path']}`",
+                ]
+            )
     lines.extend(
         [
             "",
@@ -4002,6 +4046,56 @@ def _ci_share_links_existing_channel_receipt(
     return max(channel_receipts, key=_distribution_receipt_canonical_key)
 
 
+def _ci_share_links_publication_handoff(
+    payload: dict[str, Any],
+    *,
+    copy_file: str | None,
+    posted_dir: Path | None,
+    existing_receipt: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    channel = payload["measurement"].get("distribution_channel")
+    if not channel:
+        return {
+            "required": False,
+            "reason": "no_distribution_channel",
+            "safe_next_step": payload["measurement"]["next_measurement_step"],
+        }
+    if existing_receipt is not None:
+        return {
+            "required": False,
+            "reason": "channel_receipt_exists",
+            "channel": channel,
+            "receipt_path": str(existing_receipt["path"]),
+            "receipt_status": str(existing_receipt["status"]),
+            "safe_next_step": "Do not claim or repost this channel unless the receipt is cleared.",
+        }
+    workspace_root = (
+        _distribution_workspace_root_from_posted_dir(
+            _distribution_default_posted_dir_path(posted_dir)
+        )
+        if posted_dir is not None
+        else None
+    )
+    commands = _distribution_publish_post_commands(
+        {"channel": channel, "copy_file": copy_file or ""},
+        workspace_root=workspace_root,
+    )
+    copy_file_ready = bool(copy_file)
+    safe_next_step = (
+        "Run claim_command with the approved copy_file, publish via logged-in browser, then run record_command."
+        if copy_file_ready
+        else "Copywriter must create approved copy_file before claim_command is runnable."
+    )
+    return {
+        "required": True,
+        "channel": channel,
+        "copy_file": copy_file or "",
+        "copy_file_ready": copy_file_ready,
+        "commands": commands,
+        "safe_next_step": safe_next_step,
+    }
+
+
 def _ci_share_links(args: argparse.Namespace) -> int:
     if args.failure_class:
         failure_class = args.failure_class
@@ -4014,6 +4108,14 @@ def _ci_share_links(args: argparse.Namespace) -> int:
         channel=args.channel,
         traffic_delivered=args.traffic_delivered,
     )
+    channel = payload["measurement"].get("distribution_channel")
+    existing_receipt = _ci_share_links_existing_channel_receipt(args.posted_dir, channel)
+    payload["publication_handoff"] = _ci_share_links_publication_handoff(
+        payload,
+        copy_file=args.copy_file,
+        posted_dir=args.posted_dir,
+        existing_receipt=existing_receipt,
+    )
     if args.receipt_out is not None:
         args.receipt_out.parent.mkdir(parents=True, exist_ok=True)
         args.receipt_out.write_text(_json_dump(payload), encoding="utf-8")
@@ -4021,8 +4123,6 @@ def _ci_share_links(args: argparse.Namespace) -> int:
     if copy_brief_path is None and args.copy_brief_dir is not None:
         copy_brief_path = _ci_share_links_copy_brief_auto_path(args.copy_brief_dir, payload)
     if copy_brief_path is not None:
-        channel = payload["measurement"].get("distribution_channel")
-        existing_receipt = _ci_share_links_existing_channel_receipt(args.posted_dir, channel)
         if existing_receipt is not None:
             payload["copy_brief_write"] = {
                 "status": "skipped",

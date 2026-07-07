@@ -8892,6 +8892,12 @@ class PatchRailCITests(unittest.TestCase):
             payload["measurement"]["next_measurement_step"],
             "ship_next_distribution_channel_or_guarded_paid_boost",
         )
+        self.assertTrue(payload["publication_handoff"]["required"])
+        self.assertFalse(payload["publication_handoff"]["copy_file_ready"])
+        self.assertIn(
+            "--copy-file <copywriter-approved-copy-file>",
+            payload["publication_handoff"]["commands"]["claim_command"],
+        )
         self.assertEqual(
             payload["links"]["free_sample"],
             "https://patchrail.gumroad.com/l/iwycg"
@@ -8974,6 +8980,17 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["copy_brief_write"]["status"], "written")
         self.assertEqual(payload["copy_brief_write"]["path"], str(brief))
         self.assertEqual(payload["copy_brief_write"]["prohibited_fields_present"], [])
+        self.assertTrue(payload["publication_handoff"]["required"])
+        self.assertTrue(payload["publication_handoff"]["copy_file_ready"])
+        self.assertEqual(payload["publication_handoff"]["copy_file"], str(copy_file))
+        self.assertIn(
+            f"claim --channel show-hn --copy-file {copy_file}",
+            payload["publication_handoff"]["commands"]["claim_command"],
+        )
+        self.assertIn(
+            "record --channel show-hn --url <submission_url>",
+            payload["publication_handoff"]["commands"]["record_command"],
+        )
         self.assertEqual(brief_payload["type"], "social_post")
         self.assertEqual(brief_payload["channel"], "show-hn")
         self.assertEqual(brief_payload["lead"], "SKU #1 CI Triage $19")
@@ -9089,6 +9106,10 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["copy_brief_write"]["channel"], "show-hn")
         self.assertEqual(payload["copy_brief_write"]["receipt_path"], str(receipt))
         self.assertEqual(payload["copy_brief_write"]["receipt_status"], "blocked")
+        self.assertFalse(payload["publication_handoff"]["required"])
+        self.assertEqual(payload["publication_handoff"]["reason"], "channel_receipt_exists")
+        self.assertEqual(payload["publication_handoff"]["receipt_path"], str(receipt))
+        self.assertEqual(payload["publication_handoff"]["receipt_status"], "blocked")
 
     def test_ci_share_links_copy_brief_dir_skips_when_channel_receipt_exists(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
