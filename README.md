@@ -1,122 +1,60 @@
 # PatchRail
 
-PatchRail is a local-first maintainer automation toolkit for open-source projects.
-The first public release focuses on CI failure triage: it reads failed CI logs,
-classifies the likely root cause, extracts evidence signals, and emits Markdown,
-JSON, or plain text reports that maintainers can review.
+Local-first CI failure triage for open-source maintainers. Paste a failing CI
+log, get the failure class, the reproduction command, and a suggested fix
+strategy — in seconds, fully offline.
 
-PatchRail does not auto-submit pull requests, claim funded issues, or comment on
-third-party repositories. It produces evidence and reviewable suggestions so
-maintainers stay in control.
-
-## Fix guides
-
-Read the per-class fixes here: **[docs/fix/](docs/fix/README.md)** — each page lists
-the literal log signatures, what actually happened, and the step-by-step fix.
-
-## Quickstart
-
-### 10-second reviewer demo
+[![PyPI](https://img.shields.io/pypi/v/patchrail)](https://pypi.org/project/patchrail/)
+[![CI](https://github.com/patchrail/patchrail/actions/workflows/ci.yml/badge.svg)](https://github.com/patchrail/patchrail/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/pypi/pyversions/patchrail)](https://pypi.org/project/patchrail/)
 
 ![patchrail ci explain reading a failed CI log and emitting root cause, confidence, and a reproduce command](docs/assets/ci-explain-demo.gif)
 
-`patchrail ci explain` reads a failed CI log and prints the root cause, a
-confidence score, and a one-line reproduce command. The screenshot above is
-real output from the bundled
-`examples/ci-triage/typescript-import-type-drift.log` fixture.
+The recording above is real output from the bundled
+`examples/ci-triage/typescript-import-type-drift.log` fixture. No model calls,
+no network, no telemetry: the classifier is a curated rule engine that runs
+entirely on your machine.
 
-No install is required to inspect the current behavior. The versioned demo at
-[examples/ci-triage/demo-output.md](examples/ci-triage/demo-output.md) is real
-CLI output from the bundled `examples/ci-triage/dependency-failure.log` fixture,
-and tests compare that file against the command output to prevent drift.
-For a single local reviewer smoke test from a source checkout, run:
+## Why maintainers use it
 
-```bash
-uv run --extra dev python scripts/reviewer_quick_check.py
-uv run --extra dev patchrail evidence reviewer-packet --out-dir patchrail-reviewer-packet
-uv run --extra dev patchrail evidence verify-reviewer-packet patchrail-reviewer-packet --format markdown
-uv run --extra dev patchrail evidence control-plane-demo --out-dir .patchrail-demo --force --format markdown
-```
+- **33 failure classes** backed by real log signatures — dependency
+  resolution, flaky network, OOM-killed runners, Docker builds, lint,
+  type checks, and test failures across Python, Node, TypeScript, Go, Rust,
+  Java, .NET, Ruby, PHP, and C++.
+- **153 sanitized CI log fixtures** keep the classifier honest: every rule is
+  benchmarked against the public fixture zoo in `examples/ci-triage/` on every
+  test run.
+- **23 secret-redaction patterns** (GitHub/GitLab/npm/PyPI/AWS tokens, private
+  keys, JWTs, emails, home paths) so logs can be shared safely.
+- **Local-first by design**: no network access, no billing, no external model,
+  no telemetry. Nothing leaves the machine.
+- **Markdown for humans, JSON for automation** — pipe the same result into a
+  PR comment or a workflow step.
 
-The reviewer packet verifier recomputes every listed artifact's byte size and
-SHA-256 digest, rejects symlinked or non-file artifacts, rejects extra files,
-and exits non-zero if the packet has been tampered with or drifted from its
-manifest.
+## Quickstart
 
-The Control Plane demo command generates a local SQLite queue from the bundled
-CI fixture, records approval and rejection gates, writes the reviewer handoff
-artifacts, and reports `local_demo_ready` without network, billing, external
-models, or GitHub write permission.
-The versioned no-install transcript is available at
-[examples/control-plane-demo/demo-output.md](examples/control-plane-demo/demo-output.md),
-and tests regenerate it to prevent drift.
-
-PatchRail is published on PyPI, so the fastest install is:
+PatchRail is published on PyPI:
 
 ```bash
 pipx install patchrail
 ```
 
-You can also run the latest source directly without installing:
+Classify any failed CI log:
 
 ```bash
-uvx --from git+https://github.com/patchrail/patchrail patchrail --help
-printf 'python -m pytest -q\nFAILED tests/test_app.py::test_ok - AssertionError\n' \
-  | uvx --from git+https://github.com/patchrail/patchrail patchrail ci explain
+patchrail ci explain --log failed-ci.log
 ```
 
-That smoke test prints:
-
-```markdown
-# PatchRail CI Report
-
-- Root cause: `python_test_failure`
-- Confidence: `0.89`
-- Subsystem: Python tests
-- Reproduce: `python -m pytest -q`
-- Suggested action: Reproduce the failing test, patch the narrow behavior drift, and rerun the focused pytest node before broad test runs.
-
-## Evidence signals
-
-- `\bpytest\b`
-- `FAILED .*::`
-- `AssertionError`
-
-## Safety
-
-PatchRail classified this log locally. It did not create a pull request, post a comment, claim funding, or send data to an external service.
-```
-
-Or install the current PyPI package in an isolated virtual environment:
+Or try it on a bundled fixture from a clone of this repo:
 
 ```bash
-python3 -m venv .patchrail-wheel-smoke
-. .patchrail-wheel-smoke/bin/activate
-python -m pip install patchrail==0.1.1
-patchrail --help
+git clone https://github.com/patchrail/patchrail
+cd patchrail
+patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown
 ```
 
-After installation, run the local safety check and classify a failed CI log:
-
-```bash
-patchrail doctor
-patchrail ci explain --log failed-github-actions.log
-```
-
-From a source checkout, use the bundled fixture:
-
-```bash
-uv run --extra dev patchrail doctor
-uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log
-```
-
-The same versioned demo can be regenerated locally with:
-
-```bash
-uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-failure.log --format markdown
-```
-
-Example output:
+Real output:
 
 ```markdown
 # PatchRail CI Report
@@ -125,22 +63,32 @@ Example output:
 - Confidence: `0.95`
 - Subsystem: Python dependency installation
 - Reproduce: `python -m pip install -r requirements.txt`
-- Suggested action: Pin or relax the conflicting dependency range, then rerun
-  the same install command and the affected tests.
+- Suggested action: Pin or relax the conflicting dependency range, then rerun the same install command and the affected tests.
+
+## Evidence signals
+
+- `Could not find a version that satisfies the requirement`
+- `ResolutionImpossible`
+- `python -m pip install`
 ```
 
-Each failure class has a matching remediation write-up in
-[docs/fix/](docs/fix/README.md), so the same command that classifies a failure
-also points to the full step-by-step fix.
+It also reads from stdin, so you can pipe a log straight in:
+
+```bash
+tail -n 200 failed-ci.log | patchrail ci explain
+```
+
+Every failure class has a step-by-step remediation write-up in
+[docs/fix/](docs/fix/README.md).
 
 ## GitHub Action
 
-Drop the same triage into any workflow with
-[`patchrail/ci-triage-action`](https://github.com/patchrail/ci-triage-action).
-It is also listed on
-[GitHub Marketplace](https://github.com/marketplace/actions/patchrail-ci-triage).
-On a red run it classifies the log locally and points at the matching
-[fix guide](docs/fix/README.md) — no PR, no comment, nothing leaves the runner:
+Run the same triage on every red CI run with
+[`patchrail/ci-triage-action`](https://github.com/patchrail/ci-triage-action)
+(also on the
+[GitHub Marketplace](https://github.com/marketplace/actions/patchrail-ci-triage)).
+It classifies the log locally on the runner — no PR, no comment, nothing
+leaves the job:
 
 ```yaml
 - name: PatchRail CI triage
@@ -150,137 +98,85 @@ On a red run it classifies the log locally and points at the matching
     log-path: test.log
 ```
 
-The reusable snippet and report artifact shape live in
-[examples/ci-triage-action](examples/ci-triage-action/README.md).
+See [examples/ci-triage-action](examples/ci-triage-action/README.md) for the
+report artifact shape.
 
-## Why maintainers use PatchRail
+## Features
 
-- Turn long CI logs into concise root-cause reports.
-- Keep CI log processing local by default.
-- Emit Markdown for humans and JSON for automation.
-- Preserve a human approval boundary for write actions.
-- Use the classifier as a building block for reviewable agent workflows.
-
-## Current scope
-
-| Area | Status | Notes |
+| Feature | Status | Notes |
 | --- | --- | --- |
-| CI failure triage | Beta | GitHub Actions-style logs and common open-source toolchains |
-| Markdown/JSON reports | Beta | Suitable for local review or manually pasted reports |
-| Local queue/control plane | Experimental | SQLite-backed work items with human approval states |
-| Funded issue discovery | Experimental (read-only) | Human-gated and explicitly anti-abuse; see [docs/funded-issues-ethics.md](docs/funded-issues-ethics.md) |
+| CI failure triage (`ci explain`, `ci classify`) | Beta | 33 failure classes for GitHub Actions-style logs and common toolchains |
+| Secret redaction (`redact`, `ci explain --redact`) | Beta | 23 patterns for tokens, keys, emails, and home paths |
+| Reports | Beta | Markdown, JSON, and plain text |
+| Fixture benchmark (`ci benchmark`) | Beta | Scores the classifier against all 153 public fixtures |
+| GitHub Action | Beta | Read-only triage artifact on failed workflows |
+| Local queue / control plane (`queue`) | Experimental | SQLite-backed work items with human approval states |
+| Funded issue discovery (`funded-issues`) | Experimental (read-only) | Safe-only defaults, no claiming or commenting; see [docs/funded-issues-ethics.md](docs/funded-issues-ethics.md) |
 
-## Safety
+## Local-first & safety
 
-PatchRail is local-first. The CI classifier does not require billing, a GitHub
-App, repo write permissions, or an external model call. Write actions are outside
-the v0.1 scope and must remain human-approved.
+PatchRail never phones home. The classifier needs no API key, no GitHub App,
+no repo write permission, and no external model call. Write actions (PRs,
+comments, claims) are out of scope; anything that could become one sits behind
+an explicit human approval state.
 
-Redact logs before sharing fixtures or reports:
+Secret redaction is a first-class feature, not an afterthought. Redact a log
+before sharing it anywhere:
 
 ```bash
-uv run --extra dev patchrail doctor --format markdown
-uv run --extra dev patchrail redact --log failed.log > failed.redacted.log
-uv run --extra dev patchrail ci explain --redact --log failed.log
-uv run --extra dev patchrail ci pilot-pack --log failed.log --out-dir patchrail-pilot-pack
-uv run --extra dev patchrail ci pilot-summary --pack patchrail-pilot-pack --ci-provider "GitHub Actions" --toolchain Python
-uv run --extra dev patchrail schema ci-result > ci-result.schema.json
-uv run --extra dev patchrail ci benchmark examples/ci-triage --format markdown
+patchrail redact --log failed.log > failed.redacted.log
+patchrail ci explain --redact --log failed.log
 ```
 
-Run the public checks from a fresh checkout:
+The redaction pass covers GitHub, GitLab, npm, PyPI, AWS, Stripe, Slack,
+Google, Hugging Face, and SendGrid credentials, private key blocks, JWTs,
+bearer tokens, URL-embedded credentials, `*_TOKEN`/`*_SECRET` environment
+assignments, email addresses, and user home paths.
+
+See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
+[docs/threat-model.md](docs/threat-model.md).
+
+## Roadmap
+
+- **v0.3** — public demo of the local agent control plane: SQLite-backed work
+  queue, approval gates, and audit export.
+- **v0.4** — ethical funded-maintenance workflow: read-only discovery with
+  human-gated follow-up, no automated claiming.
+
+Details in [docs/roadmap.md](docs/roadmap.md).
+
+## Documentation
+
+- [Quickstart](docs/quickstart.md)
+- [Fix guides per failure class](docs/fix/README.md)
+- [CI Failure Zoo](docs/ci-failure-zoo.md)
+- [GitHub Actions CI triage](docs/github-action.md)
+- [Agent Control Plane](docs/agent-control-plane.md)
+- [API reference](docs/api-reference.md)
+- [Threat model](docs/threat-model.md)
+- [Funded issue ethics](docs/funded-issues-ethics.md)
+
+## Contributing
+
+The fastest way in is **adding a CI fixture — it takes about 10 minutes**:
+grab a failed log, redact it, trim it to the smallest excerpt that still shows
+the root cause, and add it with its expected classification under
+`examples/ci-triage/`. The full path is in
+[CONTRIBUTING.md](CONTRIBUTING.md), and the
+[CI failure fixture issue template](.github/ISSUE_TEMPLATE/ci_failure_fixture.md)
+works if you are not ready to open a pull request.
+
+Issues labeled
+[`good first issue`](https://github.com/patchrail/patchrail/labels/good%20first%20issue)
+are scoped for first-time contributors.
+
+Run the checks locally before opening a PR:
 
 ```bash
 uv run --extra dev pytest -q
 uv run --extra dev ruff check .
 uv run --extra dev patchrail ci benchmark examples/ci-triage --format json
-uv run --extra dev patchrail evidence snapshot --format markdown
-uv run --extra dev patchrail evidence application-gate --format markdown
-uv run --extra dev patchrail evidence application-dossier --format markdown
-uv run --extra dev patchrail evidence release-readiness --clean-dist --format markdown
-uv run --extra dev patchrail queue policy-scan --format markdown
-uv run --extra dev patchrail queue policy-resolve --format markdown
 ```
-
-See [ETHICS.md](ETHICS.md), [SECURITY.md](SECURITY.md), and
-[docs/threat-model.md](docs/threat-model.md).
-
-## Documentation
-
-- [Quickstart](docs/quickstart.md)
-- [CI Janitor](docs/ci-janitor.md)
-- [CI Failure Zoo](docs/ci-failure-zoo.md)
-- [Maintainer pilot guide](docs/pilot-guide.md)
-- [Consent-only pilot request package](docs/pilot-request-package.md)
-- [Consent-only pilot outcome example](examples/pilot-outcome/README.md)
-- [Adopters](ADOPTERS.md)
-- [Metrics](docs/metrics.md)
-- [GitHub Actions CI triage](docs/github-action.md)
-- [Agent Control Plane](docs/agent-control-plane.md)
-- [Agent Control Plane demo transcript](examples/control-plane-demo/README.md)
-- [API reference](docs/api-reference.md)
-- [Reviewable automation workflows](docs/agent-workflows.md)
-- [Public maintenance workflow ledger](docs/public-workflow-ledger.md)
-- [Agent skills](.agents/skills)
-- [Threat model](docs/threat-model.md)
-- [Funded issue ethics](docs/funded-issues-ethics.md)
-- [Roadmap](docs/roadmap.md)
-- [Release process](docs/release-process.md)
-- [v0.1.0 release evidence](docs/release-v0.1.0-evidence.md)
-- [v0.2.0 release evidence](docs/release-v0.2.0-evidence.md)
-- [v0.3.0 release evidence](docs/release-v0.3.0-evidence.md)
-- [v0.4.0 release evidence](docs/release-v0.4.0-evidence.md)
-- [Open source evidence tracker](docs/open-source-program-evidence.md)
-
-## Contributing
-
-The easiest contribution is a sanitized CI failure fixture. See
-[CONTRIBUTING.md](CONTRIBUTING.md) and the
-[maintainer pilot guide](docs/pilot-guide.md).
-If you are not opening a pull request yet, use the
-[CI failure fixture issue template](.github/ISSUE_TEMPLATE/ci_failure_fixture.md)
-with a redacted log excerpt and the `fixture-check` result.
-
-If you are testing PatchRail on a repository you maintain, use the adopter
-report issue template. `patchrail ci pilot-pack` creates a local redacted pack
-for that review path. `patchrail ci pilot-summary` creates a safe outcome
-snippet and keeps repository names private unless
-`--repository-mention-approved yes` is set. Public adopter listings require
-explicit permission. The
-[consent-only pilot request package](docs/pilot-request-package.md) has a
-copyable maintainer checklist and intake rules for pilots that should become
-public evidence.
-
-When you have multiple reviewed summaries, aggregate them without exposing
-private repository names:
-
-```bash
-uv run --extra dev patchrail ci pilot-metrics pilot-summary-*.json --format markdown
-```
-
-To refresh the local evidence view across CI Janitor, the read-only action,
-Agent Control Plane, Funded Issue Scout, release evidence, and adopter gaps:
-
-```bash
-uv run --extra dev patchrail evidence snapshot --format markdown
-```
-
-Before drafting an external program application, run the fail-closed gate:
-
-```bash
-uv run --extra dev patchrail evidence application-gate --format markdown
-uv run --extra dev patchrail evidence application-dossier --format markdown
-```
-
-The gate exits non-zero until PyPI telemetry, permissioned external evidence,
-and visible review links are real rather than placeholder-derived.
-The dossier command compiles local evidence, upstream contribution links,
-blocked dependencies, reviewer_quick_checks, and the submission policy, but it
-does not submit the application and keeps maintainer tap required. The quick
-checks include the 10-second no-install demo, the pre-PyPI source install
-smoke, the fail-closed application gate, and the local application dossier; all
-but the optional GitHub source install run without network access or write
-actions.
 
 ## License
 

@@ -189,11 +189,16 @@ def test_pipx_install_mentions_carry_published_or_historical_context() -> None:
 
 
 def test_pypi_install_docs_offer_working_source_and_package_paths() -> None:
+    # A doc recommending pipx must either spell out the source and pinned-package
+    # alternatives itself or link to the quickstart, which does.
     incomplete_mentions: list[str] = []
 
     for markdown_file in _markdown_files_with_reviewer_facing_links():
         text = markdown_file.read_text(encoding="utf-8")
         if PIPX_INSTALL_COMMAND not in text:
+            continue
+
+        if "quickstart.md" in text:
             continue
 
         if GITHUB_SOURCE_COMMAND not in text or PYPI_INSTALL_COMMAND not in text:
@@ -244,48 +249,81 @@ def test_readme_and_quickstart_document_published_pypi_install() -> None:
     assert proc.returncode == 0, proc.stderr
     real_stdin_demo = proc.stdout
 
-    surfaces = {
-        "README.md": (ROOT / "README.md").read_text(encoding="utf-8"),
-        "docs/quickstart.md": (ROOT / "docs" / "quickstart.md").read_text(encoding="utf-8"),
-    }
+    quickstart = (ROOT / "docs" / "quickstart.md").read_text(encoding="utf-8")
+    normalized_quickstart = " ".join(quickstart.split())
+    assert "published on PyPI" in quickstart
+    assert "PyPI publishing is pending" not in quickstart
+    assert "will not work yet" not in quickstart
+    assert GITHUB_SOURCE_COMMAND in quickstart
+    assert "patchrail ci explain" in quickstart
+    assert "FAILED tests/test_app.py::test_ok" in quickstart
+    assert PYPI_INSTALL_COMMAND in quickstart
+    assert WHEEL_VENV_COMMAND in quickstart
+    assert "pipx install patchrail" in quickstart
+    assert "That smoke test prints" in quickstart
+    assert "10-second reviewer demo" in quickstart
+    assert "No install is required to inspect the current behavior." in quickstart
+    assert "tests compare that file against the command output to prevent drift" in quickstart
+    assert "uv run --extra dev python scripts/reviewer_quick_check.py" in quickstart
+    assert (
+        "uv run --extra dev patchrail evidence verify-reviewer-packet "
+        "patchrail-reviewer-packet --format markdown" in quickstart
+    )
+    assert (
+        "recomputes every listed artifact's byte size and SHA-256 digest" in normalized_quickstart
+    )
+    assert "exits non-zero if the packet has been tampered with" in normalized_quickstart
 
-    for path, text in surfaces.items():
-        normalized_text = " ".join(text.split())
-        assert "published on PyPI" in text, path
-        assert "PyPI publishing is pending" not in text, path
-        assert "will not work yet" not in text, path
-        assert GITHUB_SOURCE_COMMAND in text, path
-        assert "patchrail ci explain" in text, path
-        assert "FAILED tests/test_app.py::test_ok" in text, path
-        assert PYPI_INSTALL_COMMAND in text, path
-        assert WHEEL_VENV_COMMAND in text, path
-        assert "pipx install patchrail" in text, path
-        assert "That smoke test prints" in text, path
-        assert "10-second reviewer demo" in text, path
-        assert "No install is required to inspect the current behavior." in text, path
-        assert "tests compare that file against the command output to prevent drift" in text, path
-        assert "uv run --extra dev python scripts/reviewer_quick_check.py" in text, path
-        assert (
-            "uv run --extra dev patchrail evidence verify-reviewer-packet "
-            "patchrail-reviewer-packet --format markdown" in text
-        ), path
-        assert (
-            "recomputes every listed artifact's byte size and SHA-256 digest" in normalized_text
-        ), path
-        assert "exits non-zero if the packet has been tampered with" in normalized_text, path
+    for expected_line in (
+        "- Root cause: `python_test_failure`",
+        "- Confidence: `0.89`",
+        "- Subsystem: Python tests",
+        "- Reproduce: `python -m pytest -q`",
+        "- `FAILED .*::`",
+        "PatchRail classified this log locally.",
+    ):
+        assert expected_line in real_stdin_demo
+        assert expected_line in quickstart, expected_line
 
-        for expected_line in (
-            "- Root cause: `python_test_failure`",
-            "- Confidence: `0.89`",
-            "- Subsystem: Python tests",
-            "- Reproduce: `python -m pytest -q`",
-            "- `FAILED .*::`",
-            "PatchRail classified this log locally.",
-        ):
-            assert expected_line in real_stdin_demo
-            assert expected_line in text, f"{path}: {expected_line}"
+    # The README is the landing surface: it must document the published PyPI
+    # install and show real (drift-checked) classifier output for the bundled
+    # dependency-failure fixture.
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    assert "published on PyPI" in readme
+    assert "PyPI publishing is pending" not in readme
+    assert "will not work yet" not in readme
+    assert "pipx install patchrail" in readme
+    assert "docs/quickstart.md" in readme
 
-    readme = surfaces["README.md"]
+    fixture_proc = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "patchrail",
+            "ci",
+            "explain",
+            "--log",
+            "examples/ci-triage/dependency-failure.log",
+            "--format",
+            "markdown",
+        ],
+        cwd=ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert fixture_proc.returncode == 0, fixture_proc.stderr
+    assert "patchrail ci explain --log examples/ci-triage/dependency-failure.log" in readme
+    for expected_line in (
+        "- Root cause: `python_dependency_resolution`",
+        "- Confidence: `0.95`",
+        "- Subsystem: Python dependency installation",
+        "- Reproduce: `python -m pip install -r requirements.txt`",
+        "- `ResolutionImpossible`",
+    ):
+        assert expected_line in fixture_proc.stdout
+        assert expected_line in readme, expected_line
+
     demo_gif = ROOT / "docs" / "assets" / "ci-explain-demo.gif"
     assert "docs/assets/ci-explain-demo.gif" in readme
     assert demo_gif.exists()
@@ -1694,18 +1732,12 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
 
     assert "docs/codex-workflows.md" not in readme
     assert "docs/openai-open-source-evidence.md" not in readme
-    assert "docs/agent-workflows.md" in readme
-    assert "docs/public-workflow-ledger.md" in readme
     assert "docs/api-reference.md" in readme
-    assert "docs/pilot-guide.md" in readme
-    assert "docs/pilot-request-package.md" in readme
-    assert "examples/pilot-outcome/README.md" in readme
-    assert "docs/metrics.md" in readme
-    assert "patchrail ci pilot-pack --log failed.log --out-dir patchrail-pilot-pack" in readme
-    assert "patchrail evidence snapshot --format markdown" in readme
-    assert "ADOPTERS.md" in readme
+    assert "docs/quickstart.md" in readme
+    assert "docs/threat-model.md" in readme
+    assert "docs/funded-issues-ethics.md" in readme
+    assert "CONTRIBUTING.md" in readme
     assert ".github/ISSUE_TEMPLATE/ci_failure_fixture.md" in readme
-    assert ".agents/skills" in readme
     assert "pipx install patchrail" in readme
     assert "pipx install patchrail" in quickstart
     assert "patchrail ci explain --log failed-github-actions.log" in quickstart
@@ -2186,7 +2218,6 @@ def test_open_source_plan_canonical_docs_exist_and_preserve_human_gates() -> Non
 
 
 def test_release_evidence_pages_cover_v01_to_v04_without_publish_actions() -> None:
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
     release_process = (ROOT / "docs" / "release-process.md").read_text(encoding="utf-8")
     roadmap = (ROOT / "docs" / "roadmap.md").read_text(encoding="utf-8")
     open_source_evidence = (ROOT / "docs" / "openai-open-source-evidence.md").read_text(
@@ -2197,7 +2228,6 @@ def test_release_evidence_pages_cover_v01_to_v04_without_publish_actions() -> No
         path = ROOT / "docs" / f"release-{version}-evidence.md"
         doc = path.read_text(encoding="utf-8")
 
-        assert f"docs/release-{version}-evidence.md" in readme
         assert f"release-{version}-evidence.md" in release_process
         assert f"release-{version}-evidence.md" in open_source_evidence
         assert "PyPI" in doc
@@ -2367,7 +2397,6 @@ def test_ci_workflow_builds_and_smokes_installable_package() -> None:
     release_v02_evidence = (ROOT / "docs" / "release-v0.2.0-evidence.md").read_text(
         encoding="utf-8"
     )
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
     open_source_evidence = (ROOT / "docs" / "openai-open-source-evidence.md").read_text(
         encoding="utf-8"
     )
@@ -2397,7 +2426,6 @@ def test_ci_workflow_builds_and_smokes_installable_package() -> None:
     assert "patchrail-open-source-evidence/evidence-snapshot.json" in workflow
     assert "patchrail-open-source-evidence/evidence-snapshot.md" in workflow
 
-    assert "patchrail evidence release-readiness --clean-dist" in readme
     assert "patchrail evidence release-readiness --clean-dist" in release_process
     assert "patchrail evidence release-readiness --clean-dist" in release_evidence
     assert "scripts/release_readiness.py" in release_evidence
@@ -2412,7 +2440,6 @@ def test_ci_workflow_builds_and_smokes_installable_package() -> None:
     assert "patchrail ci explain --log examples/ci-triage/dependency-failure.log" in release_process
     assert "release-v0.1.0-evidence.md" in release_process
     assert "release-v0.2.0-evidence.md" in release_process
-    assert "docs/release-v0.1.0-evidence.md" in readme
     assert "release-v0.1.0-evidence.md" in open_source_evidence
 
     assert "dist/patchrail-0.1.0.tar.gz" in release_evidence
@@ -2504,7 +2531,6 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
         capture_output=True,
         check=False,
     )
-    readme = (ROOT / "README.md").read_text(encoding="utf-8")
     open_source_evidence = (ROOT / "docs" / "open-source-program-evidence.md").read_text(
         encoding="utf-8"
     )
@@ -2591,8 +2617,7 @@ def test_application_dossier_compiles_evidence_without_submission_permission() -
     assert "Maintainer tap required: `True`" in markdown_proc.stdout
     assert "Agent may submit: `False`" in markdown_proc.stdout
 
-    combined_docs = "\n".join([readme, open_source_evidence, codex_evidence])
-    assert "patchrail evidence application-dossier --format markdown" in readme
+    combined_docs = "\n".join([open_source_evidence, codex_evidence])
     assert "patchrail evidence application-dossier --format json" in combined_docs
     assert "reviewer_quick_checks" in combined_docs
     assert "scripts/reviewer_quick_check.py" in combined_docs
