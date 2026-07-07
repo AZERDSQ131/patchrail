@@ -57,7 +57,8 @@
         "shell_lint",
         "elixir_mix_failure",
         "database_migration_failure",
-        "kubernetes_deploy_failure"
+        "kubernetes_deploy_failure",
+        "helm_chart_failure"
       ]
     },
     "likely_subsystem": {
