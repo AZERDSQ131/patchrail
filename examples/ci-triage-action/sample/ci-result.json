@@ -1,11 +1,8 @@
 {
-  "action_url": "https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-dependency-resolution",
   "confidence": 0.95,
   "failure_class": "python_dependency_resolution",
-  "guide_url": "https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution",
   "likely_subsystem": "Python dependency installation",
   "minimal_repair_strategy": "Pin or relax the conflicting dependency range, then rerun the same install command and the affected tests.",
-  "pack_url": "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-dependency-resolution",
   "reproduction_command": "python -m pip install -r requirements.txt",
   "requirements": {
     "billing_required": false,
@@ -14,7 +11,6 @@
     "pr_creation_required": "no; write actions remain separate human-approved gates",
     "webhook_required_for_local_classification": false
   },
-  "sample_url": "https://patchrail.gumroad.com/l/iwycg?utm_source=cli&utm_campaign=python-dependency-resolution",
   "schema_version": "patchrail.ci_result.v1",
   "signals": [
     "Could not find a version that satisfies the requirement",

@@ -18,12 +18,12 @@ and writes:
 - `patchrail-ci-triage/ci-report.md`
 - `patchrail-ci-triage/ci-result.json`
 
-Reusable outputs include `failure-class`, `failure-slug`, `utm-source`,
-`utm-campaign`, `adoption-key`, `adoption-event-id`, `adoption-event-json`, `guide-url`, `pack-url`,
-`artifact-name`, `workflow-run-url`, `workflow-run-host`, `next-step`, and `reproduction-command`, so a
+Reusable outputs include `failure-class`, `failure-slug`, `adoption-key`,
+`adoption-event-id`, `adoption-event-json`, `artifact-name`, `workflow-run-url`,
+`workflow-run-host`, `next-step`, and `reproduction-command`, so a
 downstream workflow can route the failure to a maintainer or attach the local
 report to an internal ticket. `adoption-key` is stable across runs of the same
-failure class and attribution campaign; `adoption-event-id` is stable per
+failure class; `adoption-event-id` is stable per
 GitHub Actions run and job when workflow context is available. That makes real workflow usage countable
 without parsing URLs. `adoption-event-json` is a single-line event that can be
 appended directly to an evidence ledger artifact, including the consumer workflow
@@ -64,14 +64,8 @@ uv run python actions/ci-triage/scripts/ci_triage_action_outputs.py \
   --summary examples/ci-triage-action/sample/step-summary.md
 ```
 
-The sample links the detected failure to the matching `/fix` guide, the CI
-Triage field guide SKU, and the public action distribution surface:
+The step-by-step remediation write-up for the detected failure class lives in
+the free fix guides:
 
-- Fix guide: https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution
-- CI Triage field guide: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-dependency-resolution
-- Action: https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-dependency-resolution
-
-Related PatchRail surfaces:
-
-- Fix guides: https://getpatchrail.com/fix?utm_source=github&utm_campaign=ci-triage-action
-- CI Triage field guide: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=github&utm_campaign=ci-triage-action
+- Fix guide: [docs/fix/python-dependency-resolution.md](../../docs/fix/python-dependency-resolution.md)
+- All fix guides: [docs/fix/](../../docs/fix/README.md)

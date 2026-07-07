@@ -12,11 +12,7 @@
     "minimal_repair_strategy",
     "confidence",
     "signals",
-    "requirements",
-    "guide_url",
-    "pack_url",
-    "sample_url",
-    "action_url"
+    "requirements"
   ],
   "properties": {
     "schema_version": {
@@ -112,22 +108,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "guide_url": {
-      "type": "string",
-      "pattern": "^https://getpatchrail\\.com/fix"
-    },
-    "pack_url": {
-      "type": "string",
-      "pattern": "^https://patchrail\\.gumroad\\.com/l/ci-failure-triage"
-    },
-    "sample_url": {
-      "type": "string",
-      "pattern": "^https://patchrail\\.gumroad\\.com/l/iwycg"
-    },
-    "action_url": {
-      "type": "string",
-      "pattern": "^https://github\\.com/patchrail/ci-triage-action"
     },
     "redaction": {
       "type": "object",

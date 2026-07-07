@@ -33,7 +33,7 @@ Clippy found lints and the build runs with -D warnings, promoting every warning 
 
 ---
 
-**Get all 31 failure classes + the offline classifier.** The complete *CI Failure Triage Patterns* pack ($19) covers every class with downloadable step-by-step playbooks, and pairs with the `patchrail` CLI that classifies a red build locally: [patchrail.gumroad.com/l/ci-failure-triage](https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=github&utm_campaign=rust-lint)
+Classify a red build locally with the `patchrail` CLI:
 
 ```bash
 pipx install patchrail

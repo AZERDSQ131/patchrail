@@ -34,7 +34,7 @@ All tests passed. The build failed because the coverage percentage fell under a 
 
 ---
 
-**Get all 31 failure classes + the offline classifier.** The complete *CI Failure Triage Patterns* pack ($19) covers every class with downloadable step-by-step playbooks, and pairs with the `patchrail` CLI that classifies a red build locally: [patchrail.gumroad.com/l/ci-failure-triage](https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=github&utm_campaign=code-coverage-threshold)
+Classify a red build locally with the `patchrail` CLI:
 
 ```bash
 pipx install patchrail

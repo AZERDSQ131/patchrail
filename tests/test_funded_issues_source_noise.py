@@ -21,7 +21,6 @@ from patchrail.funded_issues.store import (
     save_store,
     store_status,
 )
-from patchrail.web_metrics import build_payloads, default_funded_source
 
 NOW = "2026-06-10T12:00:00Z"
 
@@ -334,32 +333,6 @@ class TrackStatusCliBreakdownTests(unittest.TestCase):
             self.assertIn("Source-noise breakdown:", proc_text.stdout)
             self.assertIn("noise flagged: 11", proc_text.stdout)
             self.assertIn("clean active: 3", proc_text.stdout)
-
-
-class WebMetricsBreakdownTests(unittest.TestCase):
-    def test_tracker_store_block_carries_source_noise_breakdown(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            desk_dir = Path(tmp) / "desk"
-            store_path = desk_dir / "tracker" / "funded-issues-store.json"
-            save_store(store_path, _mixed_store())
-            web_dir = Path(tmp) / "web"
-
-            landing, _sources, product, _summary = build_payloads(
-                web_dir=web_dir,
-                product_repo=REPO_ROOT,
-                funded_source=default_funded_source(REPO_ROOT),
-                desk_dir=desk_dir,
-            )
-
-            for payload in (landing["evidence"]["tracker_store"], product["tracker_store"]):
-                self.assertTrue(payload["present"])
-                self.assertEqual(payload["tracked_total"], 14)
-                self.assertEqual(payload["noise_flagged"], 11)
-                self.assertEqual(payload["clean_active"], 3)
-                # Existing keys are preserved for backward compatibility.
-                self.assertEqual(payload["total_entries"], 14)
-                self.assertIn("states", payload)
-                self.assertIn("live_by_source", payload)
 
 
 def _api_form_entry(owner: str, repo: str, number: int) -> tuple[str, dict]:

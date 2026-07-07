@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "patchrail"
-version = "0.1.1"
+version = "0.2.0"
 description = "Local-first maintainer automation for open-source CI triage"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,9 +29,7 @@ Homepage = "https://github.com/patchrail/patchrail"
 Documentation = "https://github.com/patchrail/patchrail/tree/main/docs"
 Changelog = "https://github.com/patchrail/patchrail/blob/main/CHANGELOG.md"
 Issues = "https://github.com/patchrail/patchrail/issues"
-"CI Triage Pack" = "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=pypi&utm_campaign=ci_failure_triage"
-"Fix Guide" = "https://getpatchrail.com/fix?utm_source=pypi&utm_campaign=ci_failure_triage"
-"GitHub Action" = "https://github.com/patchrail/ci-triage-action?utm_source=pypi&utm_campaign=ci_failure_triage"
+"GitHub Action" = "https://github.com/patchrail/ci-triage-action"
 
 [project.scripts]
 patchrail = "patchrail.cli:main"
