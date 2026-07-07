@@ -4752,11 +4752,7 @@ def _render_distribution_adoption_evidence_next(payload: dict[str, Any]) -> str:
     metric_snapshot = payload["metric_snapshot"]
     issue_69_readiness = payload["issue_69_close_readiness"]
     next_step = issue_69_readiness["next_executable_step"]
-    measurement_url = ""
-    for item in payload["measurement_urls"]:
-        if item["channel"] == next_step["channel"]:
-            measurement_url = item["url"]
-            break
+    measurement_url = _distribution_adoption_evidence_next_step_url(payload, next_step)
     return (
         "\n".join(
             [
@@ -4783,6 +4779,60 @@ def _render_distribution_adoption_evidence_next(payload: dict[str, Any]) -> str:
     )
 
 
+def _distribution_adoption_evidence_next_step_url(
+    payload: dict[str, Any], next_step: dict[str, Any]
+) -> str:
+    measurement_url = ""
+    for item in payload["measurement_urls"]:
+        if item["channel"] == next_step["channel"]:
+            measurement_url = item["url"]
+            break
+    return measurement_url
+
+
+def _render_distribution_adoption_evidence_handoff(payload: dict[str, Any]) -> str:
+    metric_snapshot = payload["metric_snapshot"]
+    issue_69_readiness = payload["issue_69_close_readiness"]
+    next_step = issue_69_readiness["next_executable_step"]
+    measurement_url = _distribution_adoption_evidence_next_step_url(payload, next_step)
+    stop_conditions = [
+        "login/2FA/CAPTCHA=STOP",
+        "do_not_bypass_profile_controls",
+        "do_not_count_distribution_traffic_as_adoption",
+    ]
+    return (
+        "\n".join(
+            [
+                f"consumer: {payload['consumer']}",
+                f"github_issue: {payload['github_issue']}",
+                f"kpi: {payload['kpi']}",
+                f"evidence_status: {payload['evidence_status']}",
+                f"handoff_required: {next_step['required']}",
+                f"owner: {next_step['owner']}",
+                f"channel: {next_step['channel'] or 'none'}",
+                f"action: {next_step['action']}",
+                f"requires_human: {next_step['requires_human']}",
+                (
+                    "traffic: "
+                    f"{metric_snapshot['traffic_delivered']}/{metric_snapshot['traffic_target']}"
+                ),
+                f"traffic_gap: {metric_snapshot['traffic_gap']}",
+                f"sales_total: {metric_snapshot['sales_total']}",
+                f"gross_usd: {metric_snapshot['gross_usd']:.2f}",
+                f"measurement_event: {next_step['measurement_event']}",
+                "measurement_url: " + (measurement_url or "none"),
+                "command: " + (next_step["command"] or "none"),
+                "blocked_reason: " + (next_step["blocked_reason"] or "none"),
+                f"safe_next_step: {payload['safe_next_step']}",
+                "issue_69_missing_evidence: " + ",".join(issue_69_readiness["missing_evidence"]),
+                f"issue_69_close_ready: {issue_69_readiness['ready']}",
+                "stop_conditions: " + ", ".join(stop_conditions),
+            ]
+        )
+        + "\n"
+    )
+
+
 def _distribution_adoption_evidence(args: argparse.Namespace) -> int:
     payload, exit_code = _distribution_gate_payload_from_args(args)
     if payload is None:
@@ -4792,6 +4842,8 @@ def _distribution_adoption_evidence(args: argparse.Namespace) -> int:
         text = _json_dump(adoption_evidence)
     elif args.format == "next":
         text = _render_distribution_adoption_evidence_next(adoption_evidence)
+    elif args.format == "handoff":
+        text = _render_distribution_adoption_evidence_handoff(adoption_evidence)
     else:
         text = _render_distribution_adoption_evidence_text(adoption_evidence)
     _write_or_print(text, args.out)
@@ -13805,7 +13857,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     distribution_adoption_evidence.add_argument(
         "--format",
-        choices=["json", "text", "next"],
+        choices=["json", "text", "next", "handoff"],
         default="json",
         help="Output format. Defaults to json for automation.",
     )
