@@ -3636,6 +3636,14 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
                     )
                 ),
                 (
+                    "browser_claims_needed_to_close_gap: "
+                    + (
+                        str(browser_handoff["claims_needed_to_close_gap"])
+                        if browser_handoff["claims_needed_to_close_gap"] is not None
+                        else "not_enough_claimable_traffic"
+                    )
+                ),
+                (
                     "browser_verify_after_claim_command: "
                     + (browser_handoff["next_verify_after_claim_command"] or "none")
                 ),

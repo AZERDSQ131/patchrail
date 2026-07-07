@@ -3196,6 +3196,7 @@ class PatchRailCITests(unittest.TestCase):
                         "--copy-file products/gumroad/distribution/posts/show-hn.md"
                     ),
                     "browser_next_gap_after_claim: 175",
+                    "browser_claims_needed_to_close_gap: not_enough_claimable_traffic",
                     (
                         "browser_verify_after_claim_command: python3 "
                         "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
