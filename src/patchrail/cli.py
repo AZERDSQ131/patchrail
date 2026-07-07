@@ -2107,26 +2107,35 @@ def _distribution_adoption_evidence_packet(
     receipt_audit: dict[str, Any],
     blocker_owner_counts: dict[str, int],
     as_of: str,
+    measurement_command_path: str = _DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH,
 ) -> dict[str, Any]:
     qualifies_as_adoption = sales_total > 0
     traffic_target_met = traffic_delivered >= traffic_target
     if qualifies_as_adoption:
         evidence_status = "paid_adoption"
         safe_next_step = "Record SKU #1 as paid adoption evidence with sale and traffic snapshot."
+        required_next_evidence = "sale_receipt_and_fulfillment_snapshot"
+        adoption_blocker = ""
     elif traffic_target_met:
         evidence_status = "traffic_target_met_no_sales"
         safe_next_step = (
             "Do not record this as adoption; use it as pivot evidence because traffic target was met "
             "with zero sales."
         )
+        required_next_evidence = "pivot_decision_snapshot"
+        adoption_blocker = "no_paid_sale"
     elif traffic_delivered > 0 or posted_channels:
         evidence_status = "distribution_signal_only"
         safe_next_step = (
             "Keep measuring visits and sales; do not count distribution traffic as adoption."
         )
+        required_next_evidence = "measured_traffic_delta_or_sale"
+        adoption_blocker = "no_paid_sale"
     else:
         evidence_status = "no_signal"
         safe_next_step = "Ship measurable distribution before recording ecosystem evidence."
+        required_next_evidence = "distribution_receipt_or_sale"
+        adoption_blocker = "no_distribution_or_sale_signal"
 
     return {
         "schema_version": "patchrail.adoption_evidence.v1",
@@ -2174,6 +2183,22 @@ def _distribution_adoption_evidence_packet(
                 "required_for_adoption": False,
             },
         ],
+        "evidence_closeout": {
+            "can_update_issue_69_as_adoption": qualifies_as_adoption,
+            "can_update_issue_69_as_distribution_evidence": bool(
+                qualifies_as_adoption
+                or traffic_target_met
+                or traffic_delivered > 0
+                or posted_channels
+            ),
+            "adoption_blocker": adoption_blocker,
+            "required_next_evidence": required_next_evidence,
+            "next_measurement_command": (
+                "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
+                ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
+                f".ad_spend_committed_usd,.ad_cap_usd' {measurement_command_path}"
+            ),
+        },
         "safe_next_step": safe_next_step,
     }
 
@@ -2946,6 +2971,7 @@ def _distribution_gate_payload(
         receipt_audit=receipt_audit,
         blocker_owner_counts=dict(blocker_owner_counts),
         as_of=as_of,
+        measurement_command_path=measurement_command_path,
     )
     organic_runway = _distribution_organic_runway(
         traffic_gap=traffic_gap,
@@ -4559,6 +4585,7 @@ def _distribution_gate(args: argparse.Namespace) -> int:
 def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
     metric_snapshot = payload["metric_snapshot"]
     signal = payload["distribution_signal_breakdown"]
+    closeout = payload["evidence_closeout"]
     return (
         "\n".join(
             [
@@ -4579,6 +4606,9 @@ def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
                 f"posted_channel_total: {metric_snapshot['posted_channel_total']}",
                 f"measurement_url_total: {signal['measurement_url_total']}",
                 f"receipt_measurement_risk: {payload['receipt_measurement_risk']}",
+                f"adoption_blocker: {closeout['adoption_blocker']}",
+                f"required_next_evidence: {closeout['required_next_evidence']}",
+                f"next_measurement_command: {closeout['next_measurement_command']}",
                 f"safe_next_step: {payload['safe_next_step']}",
             ]
         )

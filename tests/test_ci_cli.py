@@ -1605,6 +1605,21 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["metric_snapshot"]["traffic_delivered"], 25)
         self.assertEqual(payload["metric_snapshot"]["posted_channel_total"], 1)
         self.assertEqual(payload["receipt_measurement_risk"], "none")
+        self.assertEqual(
+            payload["evidence_closeout"],
+            {
+                "can_update_issue_69_as_adoption": False,
+                "can_update_issue_69_as_distribution_evidence": True,
+                "adoption_blocker": "no_paid_sale",
+                "required_next_evidence": "measured_traffic_delta_or_sale",
+                "next_measurement_command": (
+                    "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
+                    ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
+                    ".ad_spend_committed_usd,.ad_cap_usd' "
+                    "~/.patchrail/run/patchrail_supervisor_last.json"
+                ),
+            },
+        )
 
     def test_distribution_adoption_evidence_subcommand_has_text_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1637,6 +1652,9 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("evidence_status: traffic_target_met_no_sales\n", output)
         self.assertIn("qualifies_as_adoption: False\n", output)
         self.assertIn("traffic: 300/300\n", output)
+        self.assertIn("adoption_blocker: no_paid_sale\n", output)
+        self.assertIn("required_next_evidence: pivot_decision_snapshot\n", output)
+        self.assertIn("next_measurement_command: jq '.traffic_delivered_total", output)
         self.assertIn("safe_next_step: Do not record this as adoption", output)
 
     def test_distribution_sku1_gate_measurement_format_reports_pivot_and_urls(self) -> None:
