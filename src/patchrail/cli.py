@@ -2616,6 +2616,7 @@ def _distribution_copywriter_handoff(
 def _distribution_browser_extension_handoff(
     blocker_queue: list[dict[str, Any]],
     *,
+    traffic_gap: int,
     workspace_root: Path | None = None,
 ) -> dict[str, Any]:
     pending = []
@@ -2624,12 +2625,14 @@ def _distribution_browser_extension_handoff(
             continue
         channel = str(item["channel"])
         copy_file = str(item.get("copy_file") or "")
+        estimated_visits = _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(channel, 0)
         pending.append(
             {
                 "channel": channel,
                 "owner": "pablo",
                 "blocked_days": item.get("blocked_days"),
-                "estimated_visits": _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(channel, 0),
+                "estimated_visits": estimated_visits,
+                "traffic_gap_after_claim": max(traffic_gap - estimated_visits, 0),
                 "reason": item["reason"],
                 "copy_file": copy_file,
                 "safe_next_step": item["safe_next_step"],
@@ -2673,6 +2676,7 @@ def _distribution_browser_extension_handoff(
                 "channel": item["channel"],
                 "copy_file": item["copy_file"],
                 "estimated_visits": item["estimated_visits"],
+                "traffic_gap_after_claim": item["traffic_gap_after_claim"],
                 "blocked_days": item["blocked_days"],
                 "claim_after_setup_command": item["claim_after_setup_command"],
                 "verify_after_claim_command": item["verify_after_claim_command"],
@@ -2733,6 +2737,7 @@ def _distribution_pablo_handoff_packet(
             "pending_claims": [],
             "claimable_after_setup_count": 0,
             "total_estimated_visits": 0,
+            "next_traffic_gap_after_claim": None,
             "checklist": [],
             "stop_conditions": [],
         }
@@ -2753,6 +2758,11 @@ def _distribution_pablo_handoff_packet(
         "pending_claims": browser_extension_handoff["pending_claims"],
         "claimable_after_setup_count": browser_extension_handoff["claimable_after_setup_count"],
         "total_estimated_visits": browser_extension_handoff["total_estimated_visits"],
+        "next_traffic_gap_after_claim": (
+            browser_extension_handoff["pending_claims"][0]["traffic_gap_after_claim"]
+            if browser_extension_handoff["pending_claims"]
+            else None
+        ),
         "checklist": browser_extension_handoff["checklist"],
         "stop_conditions": ["login_required", "captcha_or_2fa_required"],
     }
@@ -3133,6 +3143,7 @@ def _distribution_gate_payload(
     )
     browser_extension_handoff = _distribution_browser_extension_handoff(
         blocker_queue,
+        traffic_gap=traffic_gap,
         workspace_root=workspace_root,
     )
     pablo_handoff_packet = _distribution_pablo_handoff_packet(browser_extension_handoff)
@@ -3582,6 +3593,14 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
                     + (browser_handoff["next_claim_after_setup_command"] or "none")
                 ),
                 (
+                    "browser_next_gap_after_claim: "
+                    + (
+                        str(browser_handoff["pending_claims"][0]["traffic_gap_after_claim"])
+                        if browser_handoff["pending_claims"]
+                        else "unknown"
+                    )
+                ),
+                (
                     "browser_verify_after_claim_command: "
                     + (browser_handoff["next_verify_after_claim_command"] or "none")
                 ),
@@ -3723,6 +3742,7 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
                     [
                         f"- channel: {item['channel']}",
                         f"  estimated_visits: {item['estimated_visits']}",
+                        f"  traffic_gap_after_claim: {item['traffic_gap_after_claim']}",
                         (
                             "  blocked_days: "
                             + (
@@ -3780,6 +3800,7 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
                 f"pablo_handoff_type: {pablo_packet['type']}",
                 f"pablo_handoff_required: {pablo_packet['required']}",
                 f"pablo_handoff_next_channel: {pablo_packet['next_channel']}",
+                f"pablo_next_traffic_gap_after_claim: {pablo_packet['next_traffic_gap_after_claim']}",
                 (
                     "browser_claim_after_setup_command: "
                     + (browser_handoff["next_claim_after_setup_command"] or "none")

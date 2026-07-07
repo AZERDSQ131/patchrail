@@ -1285,6 +1285,7 @@ class PatchRailCITests(unittest.TestCase):
                         "channel": "show-hn",
                         "copy_file": "products/gumroad/distribution/posts/show-hn.md",
                         "estimated_visits": 120,
+                        "traffic_gap_after_claim": 155,
                         "blocked_days": 0,
                         "claim_after_setup_command": (
                             "python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "
@@ -1332,6 +1333,7 @@ class PatchRailCITests(unittest.TestCase):
                         "owner": "pablo",
                         "blocked_days": 0,
                         "estimated_visits": 120,
+                        "traffic_gap_after_claim": 155,
                         "reason": "Chrome route missing extension",
                         "copy_file": "products/gumroad/distribution/posts/show-hn.md",
                         "safe_next_step": (
@@ -2665,6 +2667,7 @@ class PatchRailCITests(unittest.TestCase):
                         "channel": "show-hn",
                         "copy_file": copy_file,
                         "estimated_visits": 120,
+                        "traffic_gap_after_claim": 155,
                         "blocked_days": 1,
                         "claim_after_setup_command": (
                             "python3 opportunity-desk/scripts/publish_post.py claim "
@@ -2679,6 +2682,7 @@ class PatchRailCITests(unittest.TestCase):
                 ],
                 "claimable_after_setup_count": 1,
                 "total_estimated_visits": 120,
+                "next_traffic_gap_after_claim": 155,
                 "checklist": payload["browser_extension_handoff"]["checklist"],
                 "stop_conditions": ["login_required", "captcha_or_2fa_required"],
             },
@@ -2800,6 +2804,13 @@ class PatchRailCITests(unittest.TestCase):
         )
         self.assertEqual(
             [
+                item["traffic_gap_after_claim"]
+                for item in payload["browser_extension_handoff"]["pending_claims"]
+            ],
+            [178, 253],
+        )
+        self.assertEqual(
+            [
                 item["blocked_days"]
                 for item in payload["browser_extension_handoff"]["pending_claims"]
             ],
@@ -2816,6 +2827,14 @@ class PatchRailCITests(unittest.TestCase):
             ],
             [120, 45],
         )
+        self.assertEqual(
+            [
+                item["traffic_gap_after_claim"]
+                for item in payload["pablo_handoff_packet"]["pending_claims"]
+            ],
+            [178, 253],
+        )
+        self.assertEqual(payload["pablo_handoff_packet"]["next_traffic_gap_after_claim"], 178)
         self.assertEqual(payload["pablo_handoff_packet"]["claimable_after_setup_count"], 2)
         self.assertEqual(payload["browser_extension_handoff"]["total_estimated_visits"], 165)
         self.assertEqual(payload["pablo_handoff_packet"]["total_estimated_visits"], 165)
@@ -2826,6 +2845,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("browser_pending_channels: show-hn, linkedin", handoff)
         self.assertIn("browser_pending_claims:", handoff)
         self.assertIn("estimated_visits: 120", handoff)
+        self.assertIn("traffic_gap_after_claim: 178", handoff)
         self.assertIn("blocked_days: 12", handoff)
         self.assertIn("--channel show-hn", handoff)
         self.assertIn("--channel linkedin", handoff)
@@ -3031,6 +3051,7 @@ class PatchRailCITests(unittest.TestCase):
                         "opportunity-desk/scripts/publish_post.py claim --channel show-hn "
                         "--copy-file products/gumroad/distribution/posts/show-hn.md"
                     ),
+                    "browser_next_gap_after_claim: 175",
                     (
                         "browser_verify_after_claim_command: python3 "
                         "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
@@ -3366,6 +3387,7 @@ class PatchRailCITests(unittest.TestCase):
                     "pablo_handoff_type: browser_extension_setup",
                     "pablo_handoff_required: True",
                     "pablo_handoff_next_channel: show-hn",
+                    "pablo_next_traffic_gap_after_claim: 175",
                     (
                         "browser_claim_after_setup_command: "
                         "python3 opportunity-desk/scripts/publish_post.py claim "
