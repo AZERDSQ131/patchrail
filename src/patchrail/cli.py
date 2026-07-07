@@ -2667,6 +2667,7 @@ def _distribution_browser_extension_handoff(
         "owner": "pablo",
         "pending_count": len(pending),
         "pending_channels": [item["channel"] for item in pending],
+        "total_estimated_visits": sum(int(item["estimated_visits"]) for item in pending),
         "pending_claims": [
             {
                 "channel": item["channel"],
@@ -2731,6 +2732,7 @@ def _distribution_pablo_handoff_packet(
             "commands": {},
             "pending_claims": [],
             "claimable_after_setup_count": 0,
+            "total_estimated_visits": 0,
             "checklist": [],
             "stop_conditions": [],
         }
@@ -2750,6 +2752,7 @@ def _distribution_pablo_handoff_packet(
         },
         "pending_claims": browser_extension_handoff["pending_claims"],
         "claimable_after_setup_count": browser_extension_handoff["claimable_after_setup_count"],
+        "total_estimated_visits": browser_extension_handoff["total_estimated_visits"],
         "checklist": browser_extension_handoff["checklist"],
         "stop_conditions": ["login_required", "captcha_or_2fa_required"],
     }
@@ -3570,7 +3573,8 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
                 (
                     "browser_extension_handoff: "
                     f"{browser_handoff['next_channel']} "
-                    f"({browser_handoff['pending_count']} pending)"
+                    f"({browser_handoff['pending_count']} pending, "
+                    f"{browser_handoff['total_estimated_visits']} estimated visits)"
                 ),
                 "browser_verify_command: " + browser_handoff["next_verify_command"],
                 (
@@ -3693,7 +3697,8 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
                 (
                     "browser_extension_handoff: "
                     f"{browser_handoff['next_channel']} "
-                    f"({browser_handoff['pending_count']} pending)"
+                    f"({browser_handoff['pending_count']} pending, "
+                    f"{browser_handoff['total_estimated_visits']} estimated visits)"
                 ),
                 "browser_verify_command: " + browser_handoff["next_verify_command"],
                 (
@@ -3771,6 +3776,7 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
             [
                 f"browser_pending_count: {browser_handoff['pending_count']}",
                 "browser_pending_channels: " + ", ".join(browser_handoff["pending_channels"]),
+                f"browser_total_estimated_visits: {browser_handoff['total_estimated_visits']}",
                 f"pablo_handoff_type: {pablo_packet['type']}",
                 f"pablo_handoff_required: {pablo_packet['required']}",
                 f"pablo_handoff_next_channel: {pablo_packet['next_channel']}",

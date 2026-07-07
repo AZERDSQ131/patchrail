@@ -1279,6 +1279,7 @@ class PatchRailCITests(unittest.TestCase):
                 "owner": "pablo",
                 "pending_count": 1,
                 "pending_channels": ["show-hn"],
+                "total_estimated_visits": 120,
                 "pending_claims": [
                     {
                         "channel": "show-hn",
@@ -2677,6 +2678,7 @@ class PatchRailCITests(unittest.TestCase):
                     }
                 ],
                 "claimable_after_setup_count": 1,
+                "total_estimated_visits": 120,
                 "checklist": payload["browser_extension_handoff"]["checklist"],
                 "stop_conditions": ["login_required", "captcha_or_2fa_required"],
             },
@@ -2815,7 +2817,10 @@ class PatchRailCITests(unittest.TestCase):
             [120, 45],
         )
         self.assertEqual(payload["pablo_handoff_packet"]["claimable_after_setup_count"], 2)
+        self.assertEqual(payload["browser_extension_handoff"]["total_estimated_visits"], 165)
+        self.assertEqual(payload["pablo_handoff_packet"]["total_estimated_visits"], 165)
         handoff = handoff_stdout.getvalue()
+        self.assertIn("browser_extension_handoff: show-hn (2 pending, 165 estimated visits)", handoff)
         self.assertIn("browser_pending_channels: show-hn, linkedin", handoff)
         self.assertIn("browser_pending_claims:", handoff)
         self.assertIn("estimated_visits: 120", handoff)
@@ -3014,7 +3019,7 @@ class PatchRailCITests(unittest.TestCase):
                     "worker_actionable_reason: pablo_handoff_required",
                     "turn_result_hint: waiting - pablo_handoff_required",
                     "next_action: unblock_distribution_channels",
-                    "browser_extension_handoff: show-hn (1 pending)",
+                    "browser_extension_handoff: show-hn (1 pending, 120 estimated visits)",
                     (
                         "browser_verify_command: python3 "
                         "opportunity-desk/scripts/publish_post.py blockers --owner pablo --json --exit-zero"
@@ -3207,7 +3212,9 @@ class PatchRailCITests(unittest.TestCase):
             "--copy-file products/gumroad/distribution/posts/show-hn.md",
             handoff,
         )
-        self.assertIn("browser_extension_handoff: show-hn (1 pending)", handoff)
+        self.assertIn(
+            "browser_extension_handoff: show-hn (1 pending, 120 estimated visits)", handoff
+        )
         self.assertIn(
             "browser_claim_after_setup_command: python3 "
             "opportunity-desk/scripts/publish_post.py claim --channel show-hn "
@@ -3353,6 +3360,7 @@ class PatchRailCITests(unittest.TestCase):
                     "next_measurement: checkpoint=300, traffic_delta=295, sales_delta=1",
                     "browser_pending_count: 1",
                     "browser_pending_channels: show-hn",
+                    "browser_total_estimated_visits: 120",
                     "pablo_handoff_type: browser_extension_setup",
                     "pablo_handoff_required: True",
                     "pablo_handoff_next_channel: show-hn",
