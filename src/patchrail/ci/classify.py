@@ -856,6 +856,23 @@ RULES: list[dict[str, Any]] = [
             "constraint (or release a stale state lock) and rerun plan before apply."
         ),
     },
+    {
+        "failure_class": "shell_lint",
+        "likely_subsystem": "Shell script linting/formatting (ShellCheck, shfmt)",
+        "patterns": [
+            r"\bshellcheck\b",
+            r"\bSC\d{4}\b",
+            r"\^-{2,}\^ SC\d{4}",
+            r"In .* line \d+:",
+            r"\bshfmt\b",
+            r"\bcheckbashisms\b",
+        ],
+        "reproduction_command": "shellcheck $(git ls-files '*.sh')",
+        "minimal_repair_strategy": (
+            "Confirm the failure is ShellCheck/shfmt rather than the tests, then apply the "
+            "reported fix only in the touched files and rerun the same linter."
+        ),
+    },
 ]
 
 

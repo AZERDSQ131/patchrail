@@ -585,6 +585,45 @@ class PreCommitHookClassification(unittest.TestCase):
         self.assertEqual(classify_ci_log(log)["failure_class"], "pre_commit_hook_failure")
 
 
+class ShellLintClassification(unittest.TestCase):
+    def test_shellcheck_findings_classify_as_shell_lint(self) -> None:
+        log = (
+            "Run make lint-shell\n"
+            "+ shellcheck scripts/*.sh\n"
+            "\n"
+            "In scripts/entrypoint.sh line 4:\n"
+            'source "$(dirname "$0")/../lib/common.sh"\n'
+            "^-- SC1091 (info): Not following: ../lib/common.sh was not specified as input.\n"
+            "\n"
+            "For more information:\n"
+            "  https://www.shellcheck.net/wiki/SC1091 -- Not following: ../lib/common.sh...\n"
+            "make: *** [lint-shell] Error 1\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "shell_lint")
+        self.assertGreaterEqual(result["confidence"], 0.7)
+        self.assertIn("shellcheck", result["reproduction_command"])
+
+    def test_shfmt_diff_classifies_as_shell_lint(self) -> None:
+        log = (
+            "Run shfmt -d .\n"
+            "diff scripts/build.sh.orig scripts/build.sh\n"
+            "--- scripts/build.sh.orig\n"
+            "+++ scripts/build.sh\n"
+            "@@ -1,4 +1,4 @@\n"
+            '-if [ "$1" == "prod" ]; then\n'
+            '+if [ "$1" == "prod" ]; then\n'
+            "shfmt: 1 file(s) not formatted, run 'shfmt -w .' to fix\n"
+            "shellcheck scripts/build.sh\n"
+            "In scripts/build.sh line 2:\n"
+            "cd $DIR\n"
+            "^-- SC2164 (warning): Use 'cd ... || exit' or 'cd ... || return' in case cd fails.\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "shell_lint")
+        self.assertGreaterEqual(result["confidence"], 0.7)
+
+
 class SchemaContractExpansion(unittest.TestCase):
     def test_schema_command_lists_new_failure_classes(self) -> None:
         proc = subprocess.run(

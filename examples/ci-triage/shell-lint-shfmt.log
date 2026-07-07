@@ -1,0 +1,12 @@
+Run shfmt -d .
+diff scripts/build.sh.orig scripts/build.sh
+--- scripts/build.sh.orig
++++ scripts/build.sh
+@@ -1,4 +1,4 @@
+-if [ "$1" == "prod" ]; then
++if [ "$1" == "prod" ]; then
+shfmt: 1 file(s) not formatted, run 'shfmt -w .' to fix
+shellcheck scripts/build.sh
+In scripts/build.sh line 2:
+cd $DIR
+^-- SC2164 (warning): Use 'cd ... || exit' or 'cd ... || return' in case cd fails.
