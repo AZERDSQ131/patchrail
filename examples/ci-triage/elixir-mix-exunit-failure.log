@@ -1,0 +1,15 @@
+Run mix test
+Compiling 14 files (.ex)
+.....
+
+  1) test totals items sums prices (DemoWeb.CartTest)
+     test/demo_web/cart_test.exs:8
+     Assertion with == failed
+     code:  assert Cart.total(items) == 30
+     left:  25
+     right: 30
+     stacktrace:
+       test/demo_web/cart_test.exs:10: (test)
+
+Finished in 0.4 seconds
+5 tests, 1 failures

@@ -1,0 +1,12 @@
+Run mix compile --warnings-as-errors
+==> demo
+Compiling 14 files (.ex)
+
+== Compilation error in file lib/demo/worker.ex ==
+** (CompileError) lib/demo/worker.ex:12: undefined function handle_job/1
+    (elixir 1.17.2) expanding macro: Kernel.def/2
+    lib/demo/worker.ex:12: Demo.Worker (module)
+
+could not compile dependency :demo, "mix compile" failed
+mix format --check-formatted
+** (Mix) mix format --check-formatted failed, 1 file is not formatted

@@ -624,6 +624,68 @@ class ShellLintClassification(unittest.TestCase):
         self.assertGreaterEqual(result["confidence"], 0.7)
 
 
+class ElixirMixFailureClassification(unittest.TestCase):
+    def test_mix_compile_error_classifies_as_elixir_mix_failure(self) -> None:
+        log = (
+            "Run mix compile --warnings-as-errors\n"
+            "==> demo\n"
+            "Compiling 14 files (.ex)\n"
+            "\n"
+            "== Compilation error in file lib/demo/worker.ex ==\n"
+            "** (CompileError) lib/demo/worker.ex:12: undefined function handle_job/1\n"
+            "    (elixir 1.17.2) expanding macro: Kernel.def/2\n"
+            "\n"
+            'could not compile dependency :demo, "mix compile" failed\n'
+            "mix format --check-formatted\n"
+            "** (Mix) mix format --check-formatted failed, 1 file is not formatted\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "elixir_mix_failure")
+        self.assertGreaterEqual(result["confidence"], 0.7)
+        self.assertIn("mix", result["reproduction_command"])
+
+    def test_exunit_failure_classifies_as_elixir_mix_failure(self) -> None:
+        log = (
+            "Run mix test\n"
+            "Compiling 14 files (.ex)\n"
+            ".....\n"
+            "\n"
+            "  1) test totals items sums prices (DemoWeb.CartTest)\n"
+            "     test/demo_web/cart_test.exs:8\n"
+            "     Assertion with == failed\n"
+            "     code:  assert Cart.total(items) == 30\n"
+            "     left:  25\n"
+            "     right: 30\n"
+            "\n"
+            "Finished in 0.4 seconds\n"
+            "5 tests, 1 failures\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "elixir_mix_failure")
+        self.assertGreaterEqual(result["confidence"], 0.7)
+
+    def test_hex_version_solving_failure_wins_over_python_dependency_resolution(self) -> None:
+        log = (
+            "Run mix deps.get\n"
+            "Resolving Hex dependencies...\n"
+            "Because myapp depends on ecto ~> 3.10 and myapp depends on ecto_sql ~> 3.9, "
+            "version solving failed.\n"
+            "** (Mix) Hex dependency resolution failed\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "elixir_mix_failure")
+
+    def test_python_poetry_conflict_still_classifies_as_python_dependency_resolution(self) -> None:
+        log = (
+            "Run poetry install --no-root\n"
+            "SolverProblemError\n"
+            "Because demo-service depends on api-client (^4.0) and worker-plugin depends on "
+            "api-client (<4.0), version solving failed.\n"
+            "So, because demo-project depends on both demo-service and worker-plugin, "
+            "version solving failed.\n"
+        )
+        self.assertEqual(classify_ci_log(log)["failure_class"], "python_dependency_resolution")
+
+
 class SchemaContractExpansion(unittest.TestCase):
     def test_schema_command_lists_new_failure_classes(self) -> None:
         proc = subprocess.run(

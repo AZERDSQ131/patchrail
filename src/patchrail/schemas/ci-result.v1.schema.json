@@ -54,7 +54,8 @@
         "git_merge_conflict",
         "secrets_or_permissions_failure",
         "terraform_iac_failure",
-        "shell_lint"
+        "shell_lint",
+        "elixir_mix_failure"
       ]
     },
     "likely_subsystem": {
