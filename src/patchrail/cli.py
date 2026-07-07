@@ -4559,28 +4559,31 @@ def _distribution_gate(args: argparse.Namespace) -> int:
 def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
     metric_snapshot = payload["metric_snapshot"]
     signal = payload["distribution_signal_breakdown"]
-    return "\n".join(
-        [
-            f"schema_version: {payload['schema_version']}",
-            f"github_issue: {payload['github_issue']}",
-            f"consumer: {payload['consumer']}",
-            f"kpi: {payload['kpi']}",
-            f"as_of: {payload['as_of']}",
-            f"evidence_status: {payload['evidence_status']}",
-            f"qualifies_as_adoption: {payload['qualifies_as_adoption']}",
-            (
-                "traffic: "
-                f"{metric_snapshot['traffic_delivered']}/{metric_snapshot['traffic_target']}"
-            ),
-            f"traffic_gap: {metric_snapshot['traffic_gap']}",
-            f"sales_total: {metric_snapshot['sales_total']}",
-            f"gross_usd: {metric_snapshot['gross_usd']:.2f}",
-            f"posted_channel_total: {metric_snapshot['posted_channel_total']}",
-            f"measurement_url_total: {signal['measurement_url_total']}",
-            f"receipt_measurement_risk: {payload['receipt_measurement_risk']}",
-            f"safe_next_step: {payload['safe_next_step']}",
-        ]
-    ) + "\n"
+    return (
+        "\n".join(
+            [
+                f"schema_version: {payload['schema_version']}",
+                f"github_issue: {payload['github_issue']}",
+                f"consumer: {payload['consumer']}",
+                f"kpi: {payload['kpi']}",
+                f"as_of: {payload['as_of']}",
+                f"evidence_status: {payload['evidence_status']}",
+                f"qualifies_as_adoption: {payload['qualifies_as_adoption']}",
+                (
+                    "traffic: "
+                    f"{metric_snapshot['traffic_delivered']}/{metric_snapshot['traffic_target']}"
+                ),
+                f"traffic_gap: {metric_snapshot['traffic_gap']}",
+                f"sales_total: {metric_snapshot['sales_total']}",
+                f"gross_usd: {metric_snapshot['gross_usd']:.2f}",
+                f"posted_channel_total: {metric_snapshot['posted_channel_total']}",
+                f"measurement_url_total: {signal['measurement_url_total']}",
+                f"receipt_measurement_risk: {payload['receipt_measurement_risk']}",
+                f"safe_next_step: {payload['safe_next_step']}",
+            ]
+        )
+        + "\n"
+    )
 
 
 def _distribution_adoption_evidence(args: argparse.Namespace) -> int:
