@@ -2797,7 +2797,10 @@ class PatchRailCITests(unittest.TestCase):
             [120, 45],
         )
         self.assertEqual(
-            [item["blocked_days"] for item in payload["browser_extension_handoff"]["pending_claims"]],
+            [
+                item["blocked_days"]
+                for item in payload["browser_extension_handoff"]["pending_claims"]
+            ],
             [12, 12],
         )
         self.assertEqual(
