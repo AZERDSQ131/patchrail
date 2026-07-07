@@ -4742,16 +4742,51 @@ def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
     )
 
 
+def _render_distribution_adoption_evidence_next(payload: dict[str, Any]) -> str:
+    metric_snapshot = payload["metric_snapshot"]
+    issue_69_readiness = payload["issue_69_close_readiness"]
+    next_step = issue_69_readiness["next_executable_step"]
+    measurement_url = ""
+    for item in payload["measurement_urls"]:
+        if item["channel"] == next_step["channel"]:
+            measurement_url = item["url"]
+            break
+    return (
+        "\n".join(
+            [
+                f"github_issue: {payload['github_issue']}",
+                f"evidence_status: {payload['evidence_status']}",
+                f"issue_69_close_ready: {issue_69_readiness['ready']}",
+                f"missing_evidence_count: {issue_69_readiness['missing_evidence_count']}",
+                f"next_action: {next_step['action']}",
+                f"owner: {next_step['owner']}",
+                f"channel: {next_step['channel'] or 'none'}",
+                f"required: {next_step['required']}",
+                "command: " + (next_step["command"] or "none"),
+                "blocked_reason: " + (next_step["blocked_reason"] or "none"),
+                f"measurement_event: {next_step['measurement_event']}",
+                "measurement_url: " + (measurement_url or "none"),
+                f"traffic_gap: {metric_snapshot['traffic_gap']}",
+                f"sales_total: {metric_snapshot['sales_total']}",
+                f"gross_usd: {metric_snapshot['gross_usd']:.2f}",
+                f"safe_next_step: {payload['safe_next_step']}",
+            ]
+        )
+        + "\n"
+    )
+
+
 def _distribution_adoption_evidence(args: argparse.Namespace) -> int:
     payload, exit_code = _distribution_gate_payload_from_args(args)
     if payload is None:
         return exit_code
     adoption_evidence = payload["adoption_evidence_packet"]
-    text = (
-        _json_dump(adoption_evidence)
-        if args.format == "json"
-        else _render_distribution_adoption_evidence_text(adoption_evidence)
-    )
+    if args.format == "json":
+        text = _json_dump(adoption_evidence)
+    elif args.format == "next":
+        text = _render_distribution_adoption_evidence_next(adoption_evidence)
+    else:
+        text = _render_distribution_adoption_evidence_text(adoption_evidence)
     _write_or_print(text, args.out)
     return 0
 
@@ -13763,7 +13798,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     distribution_adoption_evidence.add_argument(
         "--format",
-        choices=["json", "text"],
+        choices=["json", "text", "next"],
         default="json",
         help="Output format. Defaults to json for automation.",
     )

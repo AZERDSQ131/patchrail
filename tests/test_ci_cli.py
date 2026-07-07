@@ -1802,6 +1802,72 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("next_measurement_command: jq '.traffic_delivered_total", output)
         self.assertIn("safe_next_step: Do not record this as adoption", output)
 
+    def test_distribution_adoption_evidence_subcommand_has_next_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "x.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "x",
+                        "status": "posted",
+                        "url": "https://x.com/pablito3_3/status/1",
+                        "item_id": "1",
+                        "ts_posted": "2026-06-19T07:38:47Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (posted / "show-hn.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn.md",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "adoption-evidence",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "next",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        output = stdout.getvalue()
+        self.assertIn("github_issue: patchrail/patchrail#69\n", output)
+        self.assertIn("evidence_status: distribution_signal_only\n", output)
+        self.assertIn("issue_69_close_ready: False\n", output)
+        self.assertIn("missing_evidence_count: 1\n", output)
+        self.assertIn("next_action: browser_extension_setup_required\n", output)
+        self.assertIn("owner: pablo\n", output)
+        self.assertIn("channel: show-hn\n", output)
+        self.assertIn("required: True\n", output)
+        self.assertIn("command: none\n", output)
+        self.assertIn("measurement_event: sku1_visits_and_sales_delta\n", output)
+        self.assertIn("measurement_url: https://patchrail.gumroad.com/l/ci-failure-triage", output)
+        self.assertIn("traffic_gap: 275\n", output)
+        self.assertIn("sales_total: 0\n", output)
+        self.assertIn("gross_usd: 0.00\n", output)
+
     def test_distribution_sku1_gate_measurement_format_reports_pivot_and_urls(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"
