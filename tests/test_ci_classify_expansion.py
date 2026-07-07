@@ -686,6 +686,38 @@ class ElixirMixFailureClassification(unittest.TestCase):
         self.assertEqual(classify_ci_log(log)["failure_class"], "python_dependency_resolution")
 
 
+class DatabaseMigrationFailureClassification(unittest.TestCase):
+    def test_alembic_missing_revision_classifies_as_database_migration_failure(self) -> None:
+        log = (
+            "Run alembic upgrade head\n"
+            "INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.\n"
+            "INFO  [alembic.runtime.migration] Will assume transactional DDL.\n"
+            "Traceback (most recent call last):\n"
+            '  File "/usr/local/bin/alembic", line 8, in <module>\n'
+            "    sys.exit(main())\n"
+            "alembic.util.exc.CommandError: Can't locate revision identified by 'a1b2c3d4e5f6'\n"
+            "Target database is not up to date.\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "database_migration_failure")
+        self.assertGreaterEqual(result["confidence"], 0.7)
+
+    def test_prisma_drift_classifies_as_database_migration_failure(self) -> None:
+        log = (
+            "Run prisma migrate deploy\n"
+            "Prisma schema loaded from prisma/schema.prisma\n"
+            "\n"
+            "Error: P3009\n"
+            "\n"
+            "migrate found failed migrations in the target database, new migrations will not "
+            "be applied.\n"
+            "Drift detected: Your database schema is not in sync with your migration history.\n"
+        )
+        result = classify_ci_log(log)
+        self.assertEqual(result["failure_class"], "database_migration_failure")
+        self.assertGreaterEqual(result["confidence"], 0.7)
+
+
 class SchemaContractExpansion(unittest.TestCase):
     def test_schema_command_lists_new_failure_classes(self) -> None:
         proc = subprocess.run(
