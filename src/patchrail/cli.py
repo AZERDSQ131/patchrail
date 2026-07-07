@@ -111,8 +111,9 @@ _SKU1_PIVOT_TRAFFIC_TARGET = 300
 _SKU1_AD_SPEND_CAP_USD = 75.0
 _SKU1_AD_BOOST_MAX_USD = 25.0
 _SKU1_PAID_CLICK_CPC_USD = 0.75
+_PATCHRAIL_RUNTIME_RUN_DIR = Path.home() / ".openclaw/run"
 _DEFAULT_DISTRIBUTION_SUPERVISOR_SNAPSHOT = (
-    Path.home() / ".patchrail/run/patchrail_supervisor_last.json"
+    _PATCHRAIL_RUNTIME_RUN_DIR / "patchrail_supervisor_last.json"
 )
 _DEFAULT_DISTRIBUTION_POSTED_DIR = Path("products/gumroad/distribution/posted")
 _SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
@@ -120,7 +121,8 @@ _SKU1_PAID_TRAFFIC_PLATFORM = "sku1-traffic-boost"
 _SKU1_PAID_TRAFFIC_CAMPAIGN = "ci-triage-sku1-gate"
 _SKU1_PAID_TRAFFIC_SOURCE = "guarded_paid_boost"
 _SKU1_AD_ELIGIBILITY_PROOF_MAX_AGE_DAYS = 7
-_DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH = "~/.patchrail/run/patchrail_supervisor_last.json"
+_DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH = "~/.openclaw/run/patchrail_supervisor_last.json"
+_DISTRIBUTION_AD_SPEND_HALT_FLAG_COMMAND_PATH = "~/.openclaw/run/AD_SPEND_HALT.flag"
 _SKU1_AD_MANAGER_PROOF_HOSTS = frozenset(
     {
         "ads.google.com",
@@ -1699,7 +1701,7 @@ def _distribution_execution_checklist(
             )
             if paid_budget_usd > 0
             else "",
-            "halt_flag": "~/.patchrail/run/AD_SPEND_HALT.flag",
+            "halt_flag": _DISTRIBUTION_AD_SPEND_HALT_FLAG_COMMAND_PATH,
         },
         {
             "name": "organic_distribution",
@@ -1958,7 +1960,7 @@ def _distribution_paid_ad_execution_packet(
         "fallback_action": "measure_gate_until_eligible_ad_account"
         if required and not spend_executable
         else "",
-        "halt_flag": "~/.patchrail/run/AD_SPEND_HALT.flag",
+        "halt_flag": _DISTRIBUTION_AD_SPEND_HALT_FLAG_COMMAND_PATH,
         "measurement_command": (
             "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd,"
             f".ad_spend_committed_usd,.ad_cap_usd' {measurement_command_path}"

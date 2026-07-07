@@ -989,7 +989,7 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                    "~/.patchrail/run/patchrail_supervisor_last.json"
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
                 ),
                 "ready_to_publish": False,
                 "next_action": "copywriter_required",
@@ -1108,7 +1108,7 @@ class PatchRailCITests(unittest.TestCase):
                         "--amount 25.00 --platform sku1-traffic-boost "
                         "--campaign ci-triage-sku1-gate"
                     ),
-                    "halt_flag": "~/.patchrail/run/AD_SPEND_HALT.flag",
+                    "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
                 },
                 {
                     "name": "organic_distribution",
@@ -1126,7 +1126,7 @@ class PatchRailCITests(unittest.TestCase):
                     "event": "sku1_visits_and_sales_delta",
                     "command": (
                         "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                        "~/.patchrail/run/patchrail_supervisor_last.json"
+                        "~/.openclaw/run/patchrail_supervisor_last.json"
                     ),
                 },
             ],
@@ -1177,7 +1177,7 @@ class PatchRailCITests(unittest.TestCase):
                 "measurement_event": "sku1_visits_and_sales_delta",
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                    "~/.patchrail/run/patchrail_supervisor_last.json"
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
                 ),
                 "claim_command": (
                     "python3 opportunity-desk/scripts/publish_post.py claim "
@@ -1657,7 +1657,7 @@ class PatchRailCITests(unittest.TestCase):
                     "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
                     ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
                     ".ad_spend_committed_usd,.ad_cap_usd' "
-                    "~/.patchrail/run/patchrail_supervisor_last.json"
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
                 ),
             },
         )
@@ -3169,7 +3169,7 @@ class PatchRailCITests(unittest.TestCase):
                     (
                         "measurement_command: jq "
                         "'.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                        "~/.patchrail/run/patchrail_supervisor_last.json"
+                        "~/.openclaw/run/patchrail_supervisor_last.json"
                     ),
                     "ad_spend_committed_usd: 12.50",
                     "ad_cap_usd: 75.00",
@@ -4076,7 +4076,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn(
             "measurement_command: jq "
             "'.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-            "~/.patchrail/run/patchrail_supervisor_last.json",
+            "~/.openclaw/run/patchrail_supervisor_last.json",
             compact,
         )
         self.assertIn("channel: devto", compact)
@@ -4408,7 +4408,7 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn(str(supervisor), payload["measurement_packet"]["next_measurement_command"])
         self.assertIn(str(supervisor), payload["channel_closeout_plan"]["measurement_command"])
         self.assertNotIn(
-            "~/.patchrail/run/patchrail_supervisor_last.json",
+            "~/.openclaw/run/patchrail_supervisor_last.json",
             payload["measurement_packet"]["next_measurement_command"],
         )
 
@@ -4964,7 +4964,7 @@ class PatchRailCITests(unittest.TestCase):
                 "measurement_event": "sku1_visits_and_sales_delta",
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                    "~/.patchrail/run/patchrail_supervisor_last.json"
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
                 ),
                 "claim_command": (
                     "python3 opportunity-desk/scripts/publish_post.py claim "
@@ -5337,7 +5337,7 @@ class PatchRailCITests(unittest.TestCase):
                 ),
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd' "
-                    "~/.patchrail/run/patchrail_supervisor_last.json"
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
                 ),
             },
         )
@@ -5419,11 +5419,11 @@ class PatchRailCITests(unittest.TestCase):
                 },
                 "commit_command_template": "",
                 "fallback_action": "measure_gate_until_eligible_ad_account",
-                "halt_flag": "~/.patchrail/run/AD_SPEND_HALT.flag",
+                "halt_flag": "~/.openclaw/run/AD_SPEND_HALT.flag",
                 "measurement_command": (
                     "jq '.traffic_delivered_total,.gumroad_sales_total,.gumroad_gross_usd,"
                     ".ad_spend_committed_usd,.ad_cap_usd' "
-                    "~/.patchrail/run/patchrail_supervisor_last.json"
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
                 ),
                 "safe_next_step": (
                     "Measure the gate until a logged-in preexisting ad account with card-on-file "
@@ -5494,7 +5494,7 @@ class PatchRailCITests(unittest.TestCase):
                     "jq '.traffic_delivered_total,.pivot_gate_armed,.pivot_gate_fires,"
                     ".gumroad_sales_total,.gumroad_gross_usd,.replies_detected,"
                     ".ad_spend_committed_usd,.ad_cap_usd' "
-                    "~/.patchrail/run/patchrail_supervisor_last.json"
+                    "~/.openclaw/run/patchrail_supervisor_last.json"
                 ),
                 "safe_next_step": (
                     "Measure visits and sales until SKU #1 reaches 300 visits before 2026-06-30, "
