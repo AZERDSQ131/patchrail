@@ -1609,6 +1609,7 @@ class PatchRailCITests(unittest.TestCase):
             payload["evidence_closeout"],
             {
                 "can_update_issue_69_as_adoption": False,
+                "can_update_issue_69_as_conversion_evidence": False,
                 "can_update_issue_69_as_distribution_evidence": True,
                 "adoption_blocker": "no_paid_sale",
                 "required_next_evidence": "measured_traffic_delta_or_sale",
@@ -1618,6 +1619,26 @@ class PatchRailCITests(unittest.TestCase):
                     ".ad_spend_committed_usd,.ad_cap_usd' "
                     "~/.patchrail/run/patchrail_supervisor_last.json"
                 ),
+            },
+        )
+        self.assertEqual(
+            payload["external_adoption_gate"],
+            {
+                "ready": False,
+                "counts_as_external_adoption": False,
+                "issue_69_close_ready": False,
+                "blocker": "no_paid_sale",
+                "conversion_signal_recordable": False,
+                "required_evidence": [
+                    "paid_sale_receipt",
+                    "fulfilled_customer_outcome",
+                    "explicit_public_permission",
+                ],
+                "blocked_public_claims": [
+                    "external_adopter_count",
+                    "public_customer_or_repository_name",
+                    "issue_69_closure",
+                ],
             },
         )
 
@@ -1668,7 +1689,24 @@ class PatchRailCITests(unittest.TestCase):
             payload["evidence_closeout"]["required_next_evidence"],
             "sale_receipt_and_fulfillment_snapshot",
         )
-        self.assertTrue(payload["evidence_closeout"]["can_update_issue_69_as_adoption"])
+        self.assertFalse(payload["evidence_closeout"]["can_update_issue_69_as_adoption"])
+        self.assertTrue(payload["evidence_closeout"]["can_update_issue_69_as_conversion_evidence"])
+        self.assertEqual(
+            payload["external_adoption_gate"]["blocker"],
+            "missing_fulfillment_snapshot_and_public_permission",
+        )
+        self.assertFalse(payload["external_adoption_gate"]["ready"])
+        self.assertFalse(payload["external_adoption_gate"]["counts_as_external_adoption"])
+        self.assertFalse(payload["external_adoption_gate"]["issue_69_close_ready"])
+        self.assertTrue(payload["external_adoption_gate"]["conversion_signal_recordable"])
+        self.assertIn(
+            "explicit_public_permission",
+            payload["external_adoption_gate"]["required_evidence"],
+        )
+        self.assertIn(
+            "issue_69_closure",
+            payload["external_adoption_gate"]["blocked_public_claims"],
+        )
         self.assertIn("permission-safe evidence", payload["safe_next_step"])
         assertions = {item["name"]: item["met"] for item in payload["evidence_assertions"]}
         self.assertTrue(assertions["paid_sale"])
@@ -1706,6 +1744,9 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("evidence_status: traffic_target_met_no_sales\n", output)
         self.assertIn("qualifies_as_adoption: False\n", output)
         self.assertIn("traffic: 300/300\n", output)
+        self.assertIn("external_adoption_ready: False\n", output)
+        self.assertIn("issue_69_close_ready: False\n", output)
+        self.assertIn("external_adoption_blocker: no_paid_sale\n", output)
         self.assertIn("adoption_blocker: no_paid_sale\n", output)
         self.assertIn("required_next_evidence: pivot_decision_snapshot\n", output)
         self.assertIn("next_measurement_command: jq '.traffic_delivered_total", output)

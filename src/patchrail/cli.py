@@ -2110,6 +2110,7 @@ def _distribution_adoption_evidence_packet(
     measurement_command_path: str = _DISTRIBUTION_SUPERVISOR_SNAPSHOT_COMMAND_PATH,
 ) -> dict[str, Any]:
     qualifies_as_adoption = sales_total > 0
+    external_adoption_ready = False
     traffic_target_met = traffic_delivered >= traffic_target
     if qualifies_as_adoption:
         evidence_status = "paid_conversion_signal"
@@ -2139,6 +2140,11 @@ def _distribution_adoption_evidence_packet(
         safe_next_step = "Ship measurable distribution before recording ecosystem evidence."
         required_next_evidence = "distribution_receipt_or_sale"
         adoption_blocker = "no_distribution_or_sale_signal"
+    external_adoption_blocker = (
+        "missing_fulfillment_snapshot_and_public_permission"
+        if qualifies_as_adoption
+        else adoption_blocker
+    )
 
     return {
         "schema_version": "patchrail.adoption_evidence.v1",
@@ -2191,8 +2197,26 @@ def _distribution_adoption_evidence_packet(
                 "required_for_adoption": False,
             },
         ],
+        "external_adoption_gate": {
+            "ready": external_adoption_ready,
+            "counts_as_external_adoption": external_adoption_ready,
+            "issue_69_close_ready": external_adoption_ready,
+            "blocker": external_adoption_blocker,
+            "conversion_signal_recordable": qualifies_as_adoption,
+            "required_evidence": [
+                "paid_sale_receipt",
+                "fulfilled_customer_outcome",
+                "explicit_public_permission",
+            ],
+            "blocked_public_claims": [
+                "external_adopter_count",
+                "public_customer_or_repository_name",
+                "issue_69_closure",
+            ],
+        },
         "evidence_closeout": {
-            "can_update_issue_69_as_adoption": qualifies_as_adoption,
+            "can_update_issue_69_as_adoption": external_adoption_ready,
+            "can_update_issue_69_as_conversion_evidence": qualifies_as_adoption,
             "can_update_issue_69_as_distribution_evidence": bool(
                 qualifies_as_adoption
                 or traffic_target_met
@@ -4594,6 +4618,7 @@ def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
     metric_snapshot = payload["metric_snapshot"]
     signal = payload["distribution_signal_breakdown"]
     closeout = payload["evidence_closeout"]
+    external_gate = payload["external_adoption_gate"]
     return (
         "\n".join(
             [
@@ -4614,6 +4639,9 @@ def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
                 f"posted_channel_total: {metric_snapshot['posted_channel_total']}",
                 f"measurement_url_total: {signal['measurement_url_total']}",
                 f"receipt_measurement_risk: {payload['receipt_measurement_risk']}",
+                f"external_adoption_ready: {external_gate['ready']}",
+                f"issue_69_close_ready: {external_gate['issue_69_close_ready']}",
+                f"external_adoption_blocker: {external_gate['blocker']}",
                 f"adoption_blocker: {closeout['adoption_blocker']}",
                 f"required_next_evidence: {closeout['required_next_evidence']}",
                 f"next_measurement_command: {closeout['next_measurement_command']}",
