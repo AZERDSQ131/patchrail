@@ -3975,6 +3975,16 @@ def _write_ci_share_links_copy_brief(
     }
 
 
+def _ci_share_links_copy_brief_auto_path(directory: Path, payload: dict[str, Any]) -> Path:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    channel = str(payload["measurement"].get("distribution_channel") or "owned-surface")
+    channel_slug = re.sub(r"[^a-z0-9]+", "-", channel.lower()).strip("-") or "owned-surface"
+    failure_slug = re.sub(
+        r"[^a-z0-9]+", "-", str(payload.get("failure_slug") or "unknown").lower()
+    ).strip("-") or "unknown"
+    return directory / f"{timestamp}-ci-share-links-{channel_slug}-{failure_slug}.json"
+
+
 def _ci_share_links_existing_channel_receipt(
     posted_dir: Path | None,
     channel: str | None,
@@ -4006,7 +4016,10 @@ def _ci_share_links(args: argparse.Namespace) -> int:
     if args.receipt_out is not None:
         args.receipt_out.parent.mkdir(parents=True, exist_ok=True)
         args.receipt_out.write_text(_json_dump(payload), encoding="utf-8")
-    if args.copy_brief_out is not None:
+    copy_brief_path = args.copy_brief_out
+    if copy_brief_path is None and args.copy_brief_dir is not None:
+        copy_brief_path = _ci_share_links_copy_brief_auto_path(args.copy_brief_dir, payload)
+    if copy_brief_path is not None:
         channel = payload["measurement"].get("distribution_channel")
         existing_receipt = _ci_share_links_existing_channel_receipt(args.posted_dir, channel)
         if existing_receipt is not None:
@@ -4020,10 +4033,13 @@ def _ci_share_links(args: argparse.Namespace) -> int:
         else:
             payload["copy_brief_write"] = _write_ci_share_links_copy_brief(
                 payload,
-                path=args.copy_brief_out,
+                path=copy_brief_path,
                 copy_file=args.copy_file,
                 urgency=args.brief_urgency,
             )
+            if args.copy_brief_dir is not None:
+                payload["copy_brief_write"]["auto_named"] = True
+                payload["copy_brief_write"]["directory"] = str(args.copy_brief_dir)
     if args.format == "json":
         text = _json_dump(payload)
     elif args.format == "markdown":
@@ -12896,10 +12912,16 @@ def _build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Optional JSON receipt path for local distribution evidence.",
     )
-    share_links.add_argument(
+    copy_brief_target = share_links.add_mutually_exclusive_group()
+    copy_brief_target.add_argument(
         "--copy-brief-out",
         type=Path,
         help="Optional facts-only copywriter brief path for a measured distribution post.",
+    )
+    copy_brief_target.add_argument(
+        "--copy-brief-dir",
+        type=Path,
+        help="Optional directory for an auto-named facts-only measured distribution post brief.",
     )
     share_links.add_argument(
         "--posted-dir",

@@ -8993,6 +8993,52 @@ class PatchRailCITests(unittest.TestCase):
         self.assertNotIn("draft", brief_payload)
         self.assertNotIn("email_body", brief_payload)
 
+    def test_ci_share_links_can_auto_name_social_copy_brief_in_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            requests_dir = Path(tmpdir) / "requests"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "patchrail",
+                    "ci",
+                    "share-links",
+                    "--failure-class",
+                    "python_test_failure",
+                    "--channel",
+                    "devto",
+                    "--traffic-delivered",
+                    "2",
+                    "--copy-brief-dir",
+                    str(requests_dir),
+                    "--format",
+                    "json",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            written_files = list(requests_dir.glob("*.json"))
+            brief_payload = json.loads(written_files[0].read_text(encoding="utf-8"))
+            payload = json.loads(result.stdout)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(written_files), 1)
+        self.assertRegex(
+            written_files[0].name,
+            r"^\d{8}T\d{6}Z-ci-share-links-devto-python-test-failure\.json$",
+        )
+        self.assertEqual(payload["copy_brief_write"]["status"], "written")
+        self.assertTrue(payload["copy_brief_write"]["auto_named"])
+        self.assertEqual(payload["copy_brief_write"]["directory"], str(requests_dir))
+        self.assertEqual(payload["copy_brief_write"]["path"], str(written_files[0]))
+        self.assertEqual(brief_payload["type"], "social_post")
+        self.assertEqual(brief_payload["channel"], "devto")
+        self.assertNotIn("body", brief_payload)
+        self.assertNotIn("draft", brief_payload)
+        self.assertNotIn("email_body", brief_payload)
+
     def test_ci_share_links_skips_copy_brief_when_channel_receipt_exists(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             brief = Path(tmpdir) / "requests" / "show-hn-python-test.json"
@@ -9043,6 +9089,55 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["copy_brief_write"]["channel"], "show-hn")
         self.assertEqual(payload["copy_brief_write"]["receipt_path"], str(receipt))
         self.assertEqual(payload["copy_brief_write"]["receipt_status"], "blocked")
+
+    def test_ci_share_links_copy_brief_dir_skips_when_channel_receipt_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            requests_dir = Path(tmpdir) / "requests"
+            posted_dir = Path(tmpdir) / "posted"
+            posted_dir.mkdir()
+            receipt = posted_dir / "devto-20260701T071152Z.json"
+            receipt.write_text(
+                json.dumps(
+                    {
+                        "channel": "devto",
+                        "status": "posted",
+                        "url": "https://dev.to/patchrail/post",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "patchrail",
+                    "ci",
+                    "share-links",
+                    "--failure-class",
+                    "python_test_failure",
+                    "--channel",
+                    "devto",
+                    "--copy-brief-dir",
+                    str(requests_dir),
+                    "--posted-dir",
+                    str(posted_dir),
+                    "--format",
+                    "json",
+                ],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            payload = json.loads(result.stdout)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(requests_dir.exists())
+        self.assertEqual(payload["copy_brief_write"]["status"], "skipped")
+        self.assertEqual(payload["copy_brief_write"]["reason"], "channel_receipt_exists")
+        self.assertEqual(payload["copy_brief_write"]["channel"], "devto")
+        self.assertEqual(payload["copy_brief_write"]["receipt_path"], str(receipt))
+        self.assertEqual(payload["copy_brief_write"]["receipt_status"], "posted")
 
     def test_ci_share_links_reports_measurement_step_when_channel_completes_target(self) -> None:
         result = subprocess.run(
