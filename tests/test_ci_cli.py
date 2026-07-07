@@ -3445,6 +3445,22 @@ class PatchRailCITests(unittest.TestCase):
             "then claim the channel if copy is available.\n",
             next_step,
         )
+        self.assertIn(
+            "browser_pending_channels: show-hn, linkedin, devto, hashnode\n",
+            next_step,
+        )
+        self.assertIn("browser_claim_after_setup_commands:\n", next_step)
+        self.assertIn(
+            "- python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "
+            "--copy-file products/gumroad/distribution/posts/show-hn.md\n",
+            next_step,
+        )
+        self.assertIn(
+            "- python3 opportunity-desk/scripts/publish_post.py claim --channel linkedin "
+            "--copy-file products/gumroad/distribution/posts/linkedin.md\n",
+            next_step,
+        )
+        self.assertIn("browser_verify_after_claim_commands:\n", next_step)
 
         self.assertEqual(json_exit_code, 0)
         payload = json.loads(json_stdout.getvalue())

@@ -3583,6 +3583,14 @@ def _render_distribution_gate_compact(payload: dict[str, Any]) -> str:
                 ),
             ]
         )
+        if len(browser_handoff["claim_after_setup_commands"]) > 1:
+            lines.append("browser_claim_after_setup_commands:")
+            for command in browser_handoff["claim_after_setup_commands"]:
+                lines.append("- " + command)
+        if len(browser_handoff["verify_after_claim_commands"]) > 1:
+            lines.append("browser_verify_after_claim_commands:")
+            for command in browser_handoff["verify_after_claim_commands"]:
+                lines.append("- " + command)
     return "\n".join(lines) + "\n"
 
 
@@ -3776,6 +3784,14 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
                 ),
             ]
         )
+        if len(browser_handoff["claim_after_setup_commands"]) > 1:
+            lines.append("browser_claim_after_setup_commands:")
+            for command in browser_handoff["claim_after_setup_commands"]:
+                lines.append("- " + command)
+        if len(browser_handoff["verify_after_claim_commands"]) > 1:
+            lines.append("browser_verify_after_claim_commands:")
+            for command in browser_handoff["verify_after_claim_commands"]:
+                lines.append("- " + command)
     return "\n".join(lines) + "\n"
 
 
