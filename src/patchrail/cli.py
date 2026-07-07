@@ -4353,7 +4353,9 @@ def _doctor(args: argparse.Namespace) -> int:
     return 0 if result["status"] == "ok" else 1
 
 
-def _distribution_gate(args: argparse.Namespace) -> int:
+def _distribution_gate_payload_from_args(
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any] | None, int]:
     as_of = args.as_of or date.today().isoformat()
     supervisor_snapshot = _distribution_supervisor_snapshot(
         _distribution_default_supervisor_snapshot_path(args)
@@ -4482,6 +4484,13 @@ def _distribution_gate(args: argparse.Namespace) -> int:
     ]
     if metric_warnings:
         payload["metric_warnings"] = metric_warnings
+    return payload, 0
+
+
+def _distribution_gate(args: argparse.Namespace) -> int:
+    payload, exit_code = _distribution_gate_payload_from_args(args)
+    if payload is None:
+        return exit_code
     if args.write_copy_brief is not None:
         channel_execution_packet = payload["channel_execution_packet"]
         copy_brief_request = channel_execution_packet.get("copy_brief_request")
@@ -4544,6 +4553,47 @@ def _distribution_gate(args: argparse.Namespace) -> int:
     _write_or_print(text, args.out)
     if args.require_worker_actionable and not payload["worker_actionable"]:
         return 2
+    return 0
+
+
+def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
+    metric_snapshot = payload["metric_snapshot"]
+    signal = payload["distribution_signal_breakdown"]
+    return "\n".join(
+        [
+            f"schema_version: {payload['schema_version']}",
+            f"github_issue: {payload['github_issue']}",
+            f"consumer: {payload['consumer']}",
+            f"kpi: {payload['kpi']}",
+            f"as_of: {payload['as_of']}",
+            f"evidence_status: {payload['evidence_status']}",
+            f"qualifies_as_adoption: {payload['qualifies_as_adoption']}",
+            (
+                "traffic: "
+                f"{metric_snapshot['traffic_delivered']}/{metric_snapshot['traffic_target']}"
+            ),
+            f"traffic_gap: {metric_snapshot['traffic_gap']}",
+            f"sales_total: {metric_snapshot['sales_total']}",
+            f"gross_usd: {metric_snapshot['gross_usd']:.2f}",
+            f"posted_channel_total: {metric_snapshot['posted_channel_total']}",
+            f"measurement_url_total: {signal['measurement_url_total']}",
+            f"receipt_measurement_risk: {payload['receipt_measurement_risk']}",
+            f"safe_next_step: {payload['safe_next_step']}",
+        ]
+    ) + "\n"
+
+
+def _distribution_adoption_evidence(args: argparse.Namespace) -> int:
+    payload, exit_code = _distribution_gate_payload_from_args(args)
+    if payload is None:
+        return exit_code
+    adoption_evidence = payload["adoption_evidence_packet"]
+    text = (
+        _json_dump(adoption_evidence)
+        if args.format == "json"
+        else _render_distribution_adoption_evidence_text(adoption_evidence)
+    )
+    _write_or_print(text, args.out)
     return 0
 
 
@@ -13447,6 +13497,119 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     distribution_sku1.set_defaults(func=_distribution_gate)
+
+    distribution_adoption_evidence = distribution_subparsers.add_parser(
+        "adoption-evidence",
+        help="Emit the SKU #1 distribution adoption-evidence packet for issue #69.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--posted-dir",
+        type=Path,
+        default=None,
+        help="Directory containing local publish_post.py receipt JSON files.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--publish-health-file",
+        type=Path,
+        help="Optional JSON output from publish_post.py health --json.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--approved-copy-dir",
+        type=Path,
+        help="Optional directory of copywriter-approved social_post JSON handoffs.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--supervisor-snapshot",
+        type=Path,
+        help=(
+            "Optional patchrail_supervisor_last.json snapshot. Supplies traffic_delivered_total, "
+            "gumroad_sales_total, gumroad_gross_usd and ad_spend_committed_usd when the matching "
+            "manual metric flags are omitted."
+        ),
+    )
+    distribution_adoption_evidence.add_argument(
+        "--traffic-delivered",
+        type=int,
+        help="Verified delivered traffic for SKU #1 distribution.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--sales-total",
+        type=int,
+        help="Verified Gumroad sales count for SKU #1.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--gross-usd",
+        type=float,
+        help="Verified gross USD for SKU #1.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--as-of",
+        help="Snapshot date in YYYY-MM-DD form. Defaults to today's local date.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--traffic-target",
+        type=int,
+        default=_SKU1_PIVOT_TRAFFIC_TARGET,
+        help="Traffic threshold before the pivot gate can fire.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--gate-date",
+        default=_SKU1_PIVOT_GATE_DATE,
+        help="Pivot gate date in YYYY-MM-DD form.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--stalled-after-days",
+        type=int,
+        default=1,
+        help="Blocked distribution channels at or above this age are reported as stalled.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--paid-click-cpc-usd",
+        type=float,
+        default=_SKU1_PAID_CLICK_CPC_USD,
+        help="Assumed paid click CPC for sizing a SKU #1 traffic boost without spending.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--ad-cap-usd",
+        type=float,
+        default=_SKU1_AD_SPEND_CAP_USD,
+        help="Maximum autonomous ad-spend cap used for traffic sizing only.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--ad-boost-max-usd",
+        type=float,
+        default=_SKU1_AD_BOOST_MAX_USD,
+        help="Maximum single paid boost amount used for preflight sizing only.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--ad-spend-committed-usd",
+        type=float,
+        help="Already committed autonomous ad spend, subtracted from the SKU #1 cap.",
+    )
+    distribution_adoption_evidence.add_argument(
+        "--ad-spend-ledger",
+        type=Path,
+        help=(
+            "Optional ad spend state file. Accepts the ad_spend_guard JSON snapshot or an "
+            "append-only JSONL ledger; committed spend overrides --ad-spend-committed-usd."
+        ),
+    )
+    distribution_adoption_evidence.add_argument(
+        "--ad-account-eligibility-file",
+        type=Path,
+        help=(
+            "Optional JSON proof that the paid boost platform is already logged in, preexisting, "
+            "and has card-on-file; without this proof spend is marked non-executable."
+        ),
+    )
+    distribution_adoption_evidence.add_argument(
+        "--format",
+        choices=["json", "text"],
+        default="json",
+        help="Output format. Defaults to json for automation.",
+    )
+    distribution_adoption_evidence.add_argument("--out", type=Path, help="Optional output path.")
+    distribution_adoption_evidence.set_defaults(func=_distribution_adoption_evidence)
 
     distribution_receipt_cleanup = distribution_subparsers.add_parser(
         "receipt-cleanup",

@@ -1547,6 +1547,98 @@ class PatchRailCITests(unittest.TestCase):
             payload["adoption_evidence_packet"]["safe_next_step"],
         )
 
+    def test_distribution_adoption_evidence_subcommand_emits_issue_69_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            (posted / "x.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "x",
+                        "status": "posted",
+                        "url": "https://x.com/pablito3_3/status/1",
+                        "item_id": "1",
+                        "ts_posted": "2026-06-19T07:38:47Z",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (posted / "show-hn.json").write_text(
+                json.dumps(
+                    {
+                        "channel": "show-hn",
+                        "status": "blocked",
+                        "reason": "Chrome route missing extension",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn.md",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "adoption-evidence",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "25",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-06-25",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["schema_version"], "patchrail.adoption_evidence.v1")
+        self.assertEqual(payload["github_issue"], "patchrail/patchrail#69")
+        self.assertEqual(payload["evidence_status"], "distribution_signal_only")
+        self.assertFalse(payload["qualifies_as_adoption"])
+        self.assertEqual(payload["metric_snapshot"]["traffic_delivered"], 25)
+        self.assertEqual(payload["metric_snapshot"]["posted_channel_total"], 1)
+        self.assertEqual(payload["receipt_measurement_risk"], "none")
+
+    def test_distribution_adoption_evidence_subcommand_has_text_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "adoption-evidence",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "300",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-01",
+                        "--format",
+                        "text",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        output = stdout.getvalue()
+        self.assertIn("schema_version: patchrail.adoption_evidence.v1\n", output)
+        self.assertIn("evidence_status: traffic_target_met_no_sales\n", output)
+        self.assertIn("qualifies_as_adoption: False\n", output)
+        self.assertIn("traffic: 300/300\n", output)
+        self.assertIn("safe_next_step: Do not record this as adoption", output)
+
     def test_distribution_sku1_gate_measurement_format_reports_pivot_and_urls(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             posted = Path(tmpdir) / "posted"
