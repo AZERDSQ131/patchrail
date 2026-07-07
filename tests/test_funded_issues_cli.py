@@ -2886,7 +2886,6 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 "report",
                 "--source",
                 "examples/funded-issues-readonly/issues.json",
-                "--safe-only",
                 "--format",
                 "markdown",
             ]
@@ -3003,6 +3002,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 "recheck-queue",
                 "--source",
                 "examples/funded-issues-readonly/issues.json",
+                "--include-risky",
                 "--format",
                 "json",
             ]
@@ -3164,7 +3164,6 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 "recheck-queue",
                 "--source",
                 "examples/funded-issues-readonly/issues.json",
-                "--safe-only",
                 "--format",
                 "markdown",
             ]
@@ -3200,6 +3199,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 "cash-actions",
                 "--source",
                 "examples/funded-issues-readonly/issues.json",
+                "--include-risky",
                 "--format",
                 "json",
             ]
@@ -3334,6 +3334,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 "fulfillment-packet",
                 "--source",
                 "examples/funded-issues-readonly/issues.json",
+                "--include-risky",
                 "--format",
                 "json",
             ]
@@ -3874,6 +3875,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 "score",
                 "--source",
                 "examples/funded-issues-readonly/issues.json",
+                "--include-risky",
                 "--format",
                 "json",
             ]
@@ -3918,7 +3920,6 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 "score",
                 "--source",
                 "examples/funded-issues-readonly/issues.json",
-                "--safe-only",
                 "--format",
                 "markdown",
             ]
@@ -3939,6 +3940,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                 "score",
                 "--source",
                 "examples/funded-issues-readonly/issues.json",
+                "--include-risky",
                 "--opportunity-state",
                 "closed",
                 "--format",
@@ -4064,6 +4066,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                     "score",
                     "--source",
                     str(source),
+                    "--include-risky",
                     "--format",
                     "json",
                 ]
@@ -4084,7 +4087,6 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                     "shortlist",
                     "--source",
                     str(source),
-                    "--safe-only",
                     "--format",
                     "json",
                 ]
@@ -4166,6 +4168,7 @@ class PatchRailFundedIssuesTests(unittest.TestCase):
                     "score",
                     "--source",
                     str(source),
+                    "--include-risky",
                     "--format",
                     "json",
                 ]

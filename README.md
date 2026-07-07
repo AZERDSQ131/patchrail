@@ -168,7 +168,7 @@ The reusable snippet and report artifact shape live in
 | CI failure triage | Beta | GitHub Actions-style logs and common open-source toolchains |
 | Markdown/JSON reports | Beta | Suitable for local review or manually pasted reports |
 | Local queue/control plane | Experimental | SQLite-backed work items with human approval states |
-| Funded issue discovery | Planned | Read-only, later, and explicitly anti-abuse |
+| Funded issue discovery | Experimental (read-only) | Human-gated and explicitly anti-abuse; see [docs/funded-issues-ethics.md](docs/funded-issues-ethics.md) |
 
 ## Safety
 

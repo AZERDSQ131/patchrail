@@ -6689,7 +6689,7 @@ def _funded_issues_report(args: argparse.Namespace) -> int:
         profile = load_client_profile(args.profile) if args.profile else None
         payload = report_funded_issues(
             issues,
-            safe_only=args.safe_only,
+            safe_only=not args.include_risky,
             profile=profile,
             platform=args.platform,
             language=args.language,
@@ -6717,7 +6717,7 @@ def _funded_issues_score(args: argparse.Namespace) -> int:
         profile = load_client_profile(args.profile) if args.profile else None
         payload = score_funded_issues(
             issues,
-            safe_only=args.safe_only,
+            safe_only=not args.include_risky,
             profile=profile,
             platform=args.platform,
             language=args.language,
@@ -6745,7 +6745,7 @@ def _funded_issues_shortlist(args: argparse.Namespace) -> int:
         profile = load_client_profile(args.profile) if args.profile else None
         payload = shortlist_funded_issues(
             issues,
-            safe_only=args.safe_only,
+            safe_only=not args.include_risky,
             profile=profile,
             platform=args.platform,
             language=args.language,
@@ -6777,7 +6777,7 @@ def _funded_issues_client_report(args: argparse.Namespace) -> int:
             client_name=args.client_name,
             report_date=args.date,
             prepared_by=args.prepared_by,
-            safe_only=args.safe_only,
+            safe_only=not args.include_risky,
             profile=profile,
             platform=args.platform,
             language=args.language,
@@ -6806,7 +6806,7 @@ def _funded_issues_recheck_queue(args: argparse.Namespace) -> int:
         profile = load_client_profile(args.profile) if args.profile else None
         payload = recheck_funded_issues(
             issues,
-            safe_only=args.safe_only,
+            safe_only=not args.include_risky,
             profile=profile,
             platform=args.platform,
             language=args.language,
@@ -6835,7 +6835,7 @@ def _funded_issues_cash_actions(args: argparse.Namespace) -> int:
         profile = load_client_profile(args.profile) if args.profile else None
         payload = cash_actions_funded_issues(
             issues,
-            safe_only=args.safe_only,
+            safe_only=not args.include_risky,
             profile=profile,
             platform=args.platform,
             language=args.language,
@@ -6864,7 +6864,7 @@ def _funded_issues_fulfillment_packet(args: argparse.Namespace) -> int:
         profile = load_client_profile(args.profile) if args.profile else None
         payload = fulfillment_packet_funded_issues(
             issues,
-            safe_only=args.safe_only,
+            safe_only=not args.include_risky,
             profile=profile,
             platform=args.platform,
             language=args.language,
@@ -9446,7 +9446,14 @@ def _build_parser() -> argparse.ArgumentParser:
 
     funded = subparsers.add_parser(
         "funded-issues",
-        help="Inspect funded maintenance issues from local read-only metadata.",
+        help=(
+            "Experimental: read-only funded-issue discovery. Human-gated. "
+            "See docs/funded-issues-ethics.md."
+        ),
+        description=(
+            "Experimental: read-only funded-issue discovery. Human-gated. "
+            "See docs/funded-issues-ethics.md."
+        ),
     )
     funded_subparsers = funded.add_subparsers(dest="funded_issues_command", required=True)
 
@@ -9607,9 +9614,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
     )
     funded_report.add_argument(
-        "--safe-only",
+        "--include-risky",
         action="store_true",
-        help="Limit candidate rows to safe-to-list issues while still reporting total coverage.",
+        help="Include high-risk issues in local output. Still read-only.",
     )
     funded_report.add_argument("--platform", help="Filter by funding platform.")
     funded_report.add_argument("--language", help="Filter by repository language.")
@@ -9650,9 +9657,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
     )
     funded_score.add_argument(
-        "--safe-only",
+        "--include-risky",
         action="store_true",
-        help="Only score safe-to-list issues while preserving read-only boundaries.",
+        help="Include high-risk issues in local output. Still read-only.",
     )
     funded_score.add_argument("--platform", help="Filter by funding platform.")
     funded_score.add_argument("--language", help="Filter by repository language.")
@@ -9693,9 +9700,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
     )
     funded_shortlist.add_argument(
-        "--safe-only",
+        "--include-risky",
         action="store_true",
-        help="Only allow safe-to-list issues in shortlist candidates.",
+        help="Include high-risk issues in local output. Still read-only.",
     )
     funded_shortlist.add_argument("--platform", help="Filter by funding platform.")
     funded_shortlist.add_argument("--language", help="Filter by repository language.")
@@ -9757,9 +9764,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Author line for the report.",
     )
     funded_client_report.add_argument(
-        "--safe-only",
+        "--include-risky",
         action="store_true",
-        help="Only allow safe-to-list issues in shortlist candidates.",
+        help="Include high-risk issues in local output. Still read-only.",
     )
     funded_client_report.add_argument("--platform", help="Filter by funding platform.")
     funded_client_report.add_argument("--language", help="Filter by repository language.")
@@ -9806,9 +9813,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
     )
     funded_recheck_queue.add_argument(
-        "--safe-only",
+        "--include-risky",
         action="store_true",
-        help="Only include safe-to-list issues before building the recheck queue.",
+        help="Include high-risk issues in local output. Still read-only.",
     )
     funded_recheck_queue.add_argument("--platform", help="Filter by funding platform.")
     funded_recheck_queue.add_argument("--language", help="Filter by repository language.")
@@ -9854,9 +9861,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
     )
     funded_cash_actions.add_argument(
-        "--safe-only",
+        "--include-risky",
         action="store_true",
-        help="Only include safe-to-list issues before building cash-path actions.",
+        help="Include high-risk issues in local output. Still read-only.",
     )
     funded_cash_actions.add_argument("--platform", help="Filter by funding platform.")
     funded_cash_actions.add_argument("--language", help="Filter by repository language.")
@@ -9902,9 +9909,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Local JSON source. Defaults to examples/funded-issues-readonly/issues.json.",
     )
     funded_fulfillment_packet.add_argument(
-        "--safe-only",
+        "--include-risky",
         action="store_true",
-        help="Only include safe-to-list issues before building the fulfillment packet.",
+        help="Include high-risk issues in local output. Still read-only.",
     )
     funded_fulfillment_packet.add_argument("--platform", help="Filter by funding platform.")
     funded_fulfillment_packet.add_argument("--language", help="Filter by repository language.")
