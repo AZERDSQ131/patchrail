@@ -2664,6 +2664,23 @@ def _distribution_browser_extension_handoff(
         )
     )
     total_estimated_visits = sum(int(item["estimated_visits"]) for item in pending)
+    cumulative_estimated_visits = 0
+    claim_sequence_to_target = []
+    for item in pending:
+        if not item["claim_after_setup_command"]:
+            continue
+        cumulative_estimated_visits += int(item["estimated_visits"])
+        claim_sequence_to_target.append(
+            {
+                "channel": item["channel"],
+                "estimated_visits": item["estimated_visits"],
+                "cumulative_estimated_visits": cumulative_estimated_visits,
+                "traffic_gap_after_sequence": max(traffic_gap - cumulative_estimated_visits, 0),
+                "blocked_days": item["blocked_days"],
+                "claim_after_setup_command": item["claim_after_setup_command"],
+                "verify_after_claim_command": item["verify_after_claim_command"],
+            }
+        )
     return {
         "consumer": _SKU1_CONVERSION_CONSUMER,
         "kpi": _SKU1_DISTRIBUTION_KPI,
@@ -2686,6 +2703,15 @@ def _distribution_browser_extension_handoff(
             for item in pending
             if item["claim_after_setup_command"]
         ],
+        "claim_sequence_to_target": claim_sequence_to_target,
+        "claims_needed_to_close_gap": next(
+            (
+                index
+                for index, item in enumerate(claim_sequence_to_target, start=1)
+                if item["traffic_gap_after_sequence"] == 0
+            ),
+            None,
+        ),
         "claimable_after_setup_count": sum(
             1 for item in pending if item["claim_after_setup_command"]
         ),
@@ -2737,6 +2763,8 @@ def _distribution_pablo_handoff_packet(
             "next_channel": None,
             "commands": {},
             "pending_claims": [],
+            "claim_sequence_to_target": [],
+            "claims_needed_to_close_gap": None,
             "claimable_after_setup_count": 0,
             "total_estimated_visits": 0,
             "traffic_gap_after_all_claims": None,
@@ -2759,6 +2787,8 @@ def _distribution_pablo_handoff_packet(
             "verify_after_claim": browser_extension_handoff["next_verify_after_claim_command"],
         },
         "pending_claims": browser_extension_handoff["pending_claims"],
+        "claim_sequence_to_target": browser_extension_handoff["claim_sequence_to_target"],
+        "claims_needed_to_close_gap": browser_extension_handoff["claims_needed_to_close_gap"],
         "claimable_after_setup_count": browser_extension_handoff["claimable_after_setup_count"],
         "total_estimated_visits": browser_extension_handoff["total_estimated_visits"],
         "traffic_gap_after_all_claims": browser_extension_handoff["traffic_gap_after_all_claims"],
@@ -3763,6 +3793,24 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
                         + (item["verify_after_claim_command"] or "none"),
                     ]
                 )
+        if browser_handoff["claim_sequence_to_target"]:
+            lines.append("browser_claim_sequence_to_target:")
+            for item in browser_handoff["claim_sequence_to_target"]:
+                lines.extend(
+                    [
+                        f"- channel: {item['channel']}",
+                        f"  cumulative_estimated_visits: {item['cumulative_estimated_visits']}",
+                        f"  traffic_gap_after_sequence: {item['traffic_gap_after_sequence']}",
+                    ]
+                )
+            lines.append(
+                "browser_claims_needed_to_close_gap: "
+                + (
+                    str(browser_handoff["claims_needed_to_close_gap"])
+                    if browser_handoff["claims_needed_to_close_gap"] is not None
+                    else "not_enough_claimable_traffic"
+                )
+            )
     return "\n".join(lines) + "\n"
 
 

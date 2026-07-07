@@ -1298,6 +1298,24 @@ class PatchRailCITests(unittest.TestCase):
                         ),
                     }
                 ],
+                "claim_sequence_to_target": [
+                    {
+                        "channel": "show-hn",
+                        "estimated_visits": 120,
+                        "cumulative_estimated_visits": 120,
+                        "traffic_gap_after_sequence": 155,
+                        "blocked_days": 0,
+                        "claim_after_setup_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "
+                            "--copy-file products/gumroad/distribution/posts/show-hn.md"
+                        ),
+                        "verify_after_claim_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py blockers "
+                            "--owner pablo --json --exit-zero"
+                        ),
+                    }
+                ],
+                "claims_needed_to_close_gap": None,
                 "claimable_after_setup_count": 1,
                 "next_channel": "show-hn",
                 "next_verify_command": (
@@ -2681,6 +2699,25 @@ class PatchRailCITests(unittest.TestCase):
                         ),
                     }
                 ],
+                "claim_sequence_to_target": [
+                    {
+                        "channel": "show-hn",
+                        "estimated_visits": 120,
+                        "cumulative_estimated_visits": 120,
+                        "traffic_gap_after_sequence": 155,
+                        "blocked_days": 1,
+                        "claim_after_setup_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py claim "
+                            "--channel show-hn --copy-file "
+                            "products/gumroad/distribution/posts/show-hn-approved.md"
+                        ),
+                        "verify_after_claim_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py blockers "
+                            "--owner pablo --json --exit-zero"
+                        ),
+                    }
+                ],
+                "claims_needed_to_close_gap": None,
                 "claimable_after_setup_count": 1,
                 "total_estimated_visits": 120,
                 "traffic_gap_after_all_claims": 155,
@@ -2842,6 +2879,43 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(payload["pablo_handoff_packet"]["total_estimated_visits"], 165)
         self.assertEqual(payload["browser_extension_handoff"]["traffic_gap_after_all_claims"], 133)
         self.assertEqual(payload["pablo_handoff_packet"]["traffic_gap_after_all_claims"], 133)
+        self.assertEqual(
+            payload["browser_extension_handoff"]["claim_sequence_to_target"],
+            [
+                {
+                    "channel": "show-hn",
+                    "estimated_visits": 120,
+                    "cumulative_estimated_visits": 120,
+                    "traffic_gap_after_sequence": 178,
+                    "blocked_days": 12,
+                    "claim_after_setup_command": payload["browser_extension_handoff"][
+                        "pending_claims"
+                    ][0]["claim_after_setup_command"],
+                    "verify_after_claim_command": payload["browser_extension_handoff"][
+                        "pending_claims"
+                    ][0]["verify_after_claim_command"],
+                },
+                {
+                    "channel": "linkedin",
+                    "estimated_visits": 45,
+                    "cumulative_estimated_visits": 165,
+                    "traffic_gap_after_sequence": 133,
+                    "blocked_days": 12,
+                    "claim_after_setup_command": payload["browser_extension_handoff"][
+                        "pending_claims"
+                    ][1]["claim_after_setup_command"],
+                    "verify_after_claim_command": payload["browser_extension_handoff"][
+                        "pending_claims"
+                    ][1]["verify_after_claim_command"],
+                },
+            ],
+        )
+        self.assertEqual(
+            payload["pablo_handoff_packet"]["claim_sequence_to_target"],
+            payload["browser_extension_handoff"]["claim_sequence_to_target"],
+        )
+        self.assertIsNone(payload["browser_extension_handoff"]["claims_needed_to_close_gap"])
+        self.assertIsNone(payload["pablo_handoff_packet"]["claims_needed_to_close_gap"])
         handoff = handoff_stdout.getvalue()
         self.assertIn(
             "browser_extension_handoff: show-hn "
@@ -2855,6 +2929,67 @@ class PatchRailCITests(unittest.TestCase):
         self.assertIn("blocked_days: 12", handoff)
         self.assertIn("--channel show-hn", handoff)
         self.assertIn("--channel linkedin", handoff)
+        self.assertIn("browser_claim_sequence_to_target:", handoff)
+        self.assertIn("cumulative_estimated_visits: 120", handoff)
+        self.assertIn("traffic_gap_after_sequence: 178", handoff)
+        self.assertIn("cumulative_estimated_visits: 165", handoff)
+        self.assertIn("traffic_gap_after_sequence: 133", handoff)
+        self.assertIn(
+            "browser_claims_needed_to_close_gap: not_enough_claimable_traffic",
+            handoff,
+        )
+
+    def test_distribution_sku1_gate_browser_claim_sequence_counts_to_target(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            for channel in ("show-hn", "linkedin"):
+                (posted / f"{channel}.json").write_text(
+                    json.dumps(
+                        {
+                            "channel": channel,
+                            "status": "blocked",
+                            "reason": (
+                                "approved Chrome publishing extension missing in selected Chrome profile"
+                            ),
+                            "copy_file": f"products/gumroad/distribution/posts/{channel}.md",
+                            "ts_blocked": "2026-06-25T07:40:05Z",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+
+            stdout = StringIO()
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--traffic-delivered",
+                        "180",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-07",
+                        "--format",
+                        "json",
+                    ]
+                )
+
+        self.assertEqual(exit_code, 0)
+        payload = json.loads(stdout.getvalue())
+        self.assertEqual(payload["browser_extension_handoff"]["claims_needed_to_close_gap"], 1)
+        self.assertEqual(
+            [
+                item["traffic_gap_after_sequence"]
+                for item in payload["browser_extension_handoff"]["claim_sequence_to_target"]
+            ],
+            [0, 0],
+        )
 
     def test_distribution_sku1_gate_recommends_uncovered_channel_when_no_blockers(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
