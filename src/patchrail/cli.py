@@ -3872,6 +3872,14 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
                 ),
                 f"pablo_next_traffic_gap_after_claim: {pablo_packet['next_traffic_gap_after_claim']}",
                 (
+                    "browser_claims_needed_to_close_gap: "
+                    + (
+                        str(browser_handoff["claims_needed_to_close_gap"])
+                        if browser_handoff["claims_needed_to_close_gap"] is not None
+                        else "not_enough_claimable_traffic"
+                    )
+                ),
+                (
                     "browser_claim_after_setup_command: "
                     + (browser_handoff["next_claim_after_setup_command"] or "none")
                 ),

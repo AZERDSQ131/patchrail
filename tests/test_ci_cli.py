@@ -3537,6 +3537,7 @@ class PatchRailCITests(unittest.TestCase):
                     "pablo_handoff_next_channel: show-hn",
                     "pablo_traffic_gap_after_all_claims: 175",
                     "pablo_next_traffic_gap_after_claim: 175",
+                    "browser_claims_needed_to_close_gap: not_enough_claimable_traffic",
                     (
                         "browser_claim_after_setup_command: "
                         "python3 opportunity-desk/scripts/publish_post.py claim "
