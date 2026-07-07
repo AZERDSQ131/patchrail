@@ -2173,6 +2173,7 @@ def _distribution_adoption_evidence_packet(
             "command": "",
             "blocked_reason": "",
             "measurement_event": "sku1_paid_sale_fulfillment_evidence",
+            "requires_human": False,
         }
     elif paid_ad_execution_packet.get("required") and paid_ad_execution_packet.get(
         "spend_executable"
@@ -2187,11 +2188,13 @@ def _distribution_adoption_evidence_packet(
             "measurement_event": paid_ad_execution_packet.get(
                 "measurement_event", "sku1_paid_visits_and_sales_delta"
             ),
+            "requires_human": False,
         }
     elif channel_execution_packet.get("required"):
+        executable_owner = channel_execution_packet.get("owner", "worker")
         executable_next_step = {
             "action": channel_execution_packet.get("next_action", ""),
-            "owner": channel_execution_packet.get("owner", "worker"),
+            "owner": executable_owner,
             "channel": channel_execution_packet.get("channel", recommended_channel),
             "required": True,
             "command": channel_execution_packet.get("execute_command", ""),
@@ -2199,6 +2202,7 @@ def _distribution_adoption_evidence_packet(
             "measurement_event": channel_execution_packet.get(
                 "measurement_event", "sku1_visits_and_sales_delta"
             ),
+            "requires_human": executable_owner not in {"worker", "worker_browser"},
         }
     else:
         executable_next_step = {
@@ -2209,6 +2213,7 @@ def _distribution_adoption_evidence_packet(
             "command": "",
             "blocked_reason": "",
             "measurement_event": "sku1_visits_and_sales_delta",
+            "requires_human": False,
         }
 
     return {
@@ -4732,6 +4737,7 @@ def _render_distribution_adoption_evidence_text(payload: dict[str, Any]) -> str:
                 f"issue_69_next_executable_owner: {next_step['owner']}",
                 f"issue_69_next_executable_channel: {next_step['channel']}",
                 f"issue_69_next_executable_command: {next_step['command']}",
+                f"issue_69_next_executable_requires_human: {next_step['requires_human']}",
                 f"adoption_blocker: {closeout['adoption_blocker']}",
                 f"required_next_evidence: {closeout['required_next_evidence']}",
                 f"next_measurement_command: {closeout['next_measurement_command']}",
@@ -4764,6 +4770,7 @@ def _render_distribution_adoption_evidence_next(payload: dict[str, Any]) -> str:
                 f"required: {next_step['required']}",
                 "command: " + (next_step["command"] or "none"),
                 "blocked_reason: " + (next_step["blocked_reason"] or "none"),
+                f"requires_human: {next_step['requires_human']}",
                 f"measurement_event: {next_step['measurement_event']}",
                 "measurement_url: " + (measurement_url or "none"),
                 f"traffic_gap: {metric_snapshot['traffic_gap']}",
