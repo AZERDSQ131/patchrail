@@ -5,16 +5,12 @@ import json
 import os
 from pathlib import Path
 from typing import Any
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 
 OUTPUT_KEYS = {
     "failure-class": "failure_class",
     "confidence": "confidence",
-    "guide-url": "guide_url",
-    "pack-url": "pack_url",
-    "sample-url": "sample_url",
-    "action-url": "action_url",
     "next-step": "minimal_repair_strategy",
     "reproduction-command": "reproduction_command",
 }
@@ -23,8 +19,7 @@ OUTPUT_KEYS = {
 def summary_line(result: dict[str, Any]) -> str:
     failure_class = str(result.get("failure_class") or "unknown")
     confidence = str(result.get("confidence") or "0")
-    guide_url = str(result.get("guide_url") or "")
-    return f"PatchRail CI triage: {failure_class} ({confidence}) -> {guide_url}"
+    return f"PatchRail CI triage: {failure_class} ({confidence})"
 
 
 def redacted_category_count(result: dict[str, Any]) -> int:
@@ -42,21 +37,8 @@ def failure_slug(result: dict[str, Any]) -> str:
     return failure_class.replace("_", "-")
 
 
-def attribution_value(result: dict[str, Any], key: str, default: str) -> str:
-    for field in ("pack_url", "guide_url", "action_url"):
-        url = str(result.get(field) or "")
-        if not url:
-            continue
-        values = parse_qs(urlparse(url).query).get(key)
-        if values and values[0]:
-            return values[0]
-    return default
-
-
 def adoption_key(result: dict[str, Any], slug: str) -> str:
-    source = attribution_value(result, "utm_source", "cli")
-    campaign = attribution_value(result, "utm_campaign", slug)
-    return f"ci-triage:{source}:{campaign}:{slug}"
+    return f"ci-triage:{slug}"
 
 
 def adoption_event_id(
@@ -86,19 +68,15 @@ def adoption_event(
     action_repository: str = "patchrail/ci-triage-action",
     workflow_context: dict[str, str] | None = None,
 ) -> str:
-    source = attribution_value(result, "utm_source", "cli")
-    campaign = attribution_value(result, "utm_campaign", slug)
     event = {
         "schema_version": "patchrail.ci_triage_adoption_event.v1",
         "product": "ci-triage-action",
         "action_ref": action_ref or "local",
         "action_repository": action_repository or "patchrail/ci-triage-action",
-        "adoption_key": f"ci-triage:{source}:{campaign}:{slug}",
+        "adoption_key": adoption_key(result, slug),
         "adoption_event_id": adoption_event_id(result, slug, workflow_context),
         "failure_class": str(result.get("failure_class") or "unknown"),
         "failure_slug": slug,
-        "utm_source": source,
-        "utm_campaign": campaign,
         "confidence": str(result.get("confidence") or "0"),
         "redacted_categories": redacted_category_count(result),
         "artifact_name": f"patchrail-ci-triage-{slug}",
@@ -154,8 +132,6 @@ def action_outputs(
         outputs[output_name] = str(result.get(result_name, ""))
         if output_name == "failure-class":
             outputs["failure-slug"] = slug
-            outputs["utm-source"] = attribution_value(result, "utm_source", "cli")
-            outputs["utm-campaign"] = attribution_value(result, "utm_campaign", slug)
     outputs["artifact-name"] = f"patchrail-ci-triage-{slug}"
     outputs["json-result"] = str(result_path)
     outputs["markdown-report"] = str(report_path)

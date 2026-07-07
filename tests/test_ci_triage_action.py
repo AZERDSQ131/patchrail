@@ -33,11 +33,6 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "$GITHUB_ACTION_PATH/../.." in text
     assert "failure-class:" in text
     assert "failure-slug:" in text
-    assert "utm-source:" in text
-    assert "utm-campaign:" in text
-    assert "guide-url:" in text
-    assert "pack-url:" in text
-    assert "action-url:" in text
     assert "artifact-name:" in text
     assert "next-step:" in text
     assert "reproduction-command:" in text
@@ -52,15 +47,12 @@ def test_ci_triage_action_is_local_composite_action() -> None:
     assert "GITHUB_STEP_SUMMARY" in text
 
 
-def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
+def test_ci_triage_action_snippet_is_local_only() -> None:
     text = ACTION_SNIPPET.read_text(encoding="utf-8")
 
     assert "uses: patchrail/ci-triage-action@v1" in text
     assert "report-dir: patchrail-ci-triage" in text
-    assert "utm_source=github&utm_campaign=ci-triage-action" in text
-    assert "patchrail.gumroad.com/l/ci-failure-triage" in text
     assert "`next-step`" in text
-    assert "`utm-campaign`" in text
     assert "`adoption-key`" in text
     assert "`adoption-event-id`" in text
     assert "`adoption-event-json`" in text
@@ -72,7 +64,9 @@ def test_ci_triage_action_distribution_snippet_is_revenue_attributed() -> None:
     assert "send the log to" in text
     assert "an external service" in text
     assert "sample/ci-result.json" in text
-    assert "utm_source=cli&utm_campaign=python-dependency-resolution" in text
+    assert "docs/fix/python-dependency-resolution.md" in text
+    assert "gumroad" not in text
+    assert "utm_" not in text
 
 
 def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path, monkeypatch) -> None:
@@ -145,38 +139,32 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path, monkey
 
     assert outputs["failure-class"] == result["failure_class"]
     assert outputs["failure-slug"] == "python-dependency-resolution"
-    assert outputs["utm-source"] == "cli"
-    assert outputs["utm-campaign"] == "python-dependency-resolution"
     assert outputs["confidence"] == str(result["confidence"])
-    assert outputs["guide-url"].startswith("https://getpatchrail.com/fix")
-    assert outputs["pack-url"].startswith("https://patchrail.gumroad.com/l/ci-failure-triage")
-    assert outputs["action-url"].startswith("https://github.com/patchrail/ci-triage-action")
+    assert "guide-url" not in outputs
+    assert "pack-url" not in outputs
+    assert "sample-url" not in outputs
+    assert "action-url" not in outputs
+    assert "utm-source" not in outputs
+    assert "utm-campaign" not in outputs
     assert outputs["next-step"] == result["minimal_repair_strategy"]
     assert outputs["reproduction-command"] == result["reproduction_command"]
     assert outputs["json-result"] == str(result_path)
     assert outputs["artifact-name"] == "patchrail-ci-triage-python-dependency-resolution"
     assert outputs["markdown-report"] == str(report_path)
     assert outputs["summary-line"].startswith("PatchRail CI triage: python_dependency_resolution")
-    assert outputs["guide-url"] in outputs["summary-line"]
     assert outputs["redacted-categories"] == "0"
-    assert outputs["adoption-key"] == (
-        "ci-triage:cli:python-dependency-resolution:python-dependency-resolution"
-    )
-    assert outputs["adoption-event-id"] == (
-        "ci-triage:cli:python-dependency-resolution:python-dependency-resolution"
-    )
+    assert outputs["adoption-key"] == "ci-triage:python-dependency-resolution"
+    assert outputs["adoption-event-id"] == "ci-triage:python-dependency-resolution"
     adoption_event = json.loads(outputs["adoption-event-json"])
     assert adoption_event == {
         "schema_version": "patchrail.ci_triage_adoption_event.v1",
         "product": "ci-triage-action",
         "action_ref": "local",
         "action_repository": "patchrail/ci-triage-action",
-        "adoption_key": "ci-triage:cli:python-dependency-resolution:python-dependency-resolution",
-        "adoption_event_id": "ci-triage:cli:python-dependency-resolution:python-dependency-resolution",
+        "adoption_key": "ci-triage:python-dependency-resolution",
+        "adoption_event_id": "ci-triage:python-dependency-resolution",
         "failure_class": "python_dependency_resolution",
         "failure_slug": "python-dependency-resolution",
-        "utm_source": "cli",
-        "utm_campaign": "python-dependency-resolution",
         "confidence": "0.95",
         "redacted_categories": 0,
         "artifact_name": "patchrail-ci-triage-python-dependency-resolution",
@@ -192,24 +180,17 @@ def test_ci_triage_action_helper_exports_reusable_outputs(tmp_path: Path, monkey
     assert outputs["summary-line"] in summary
     assert outputs["next-step"] in summary
     assert "- Redacted categories: `0`" in summary
-    assert (
-        "- Adoption key: `ci-triage:cli:python-dependency-resolution:python-dependency-resolution`"
-    ) in summary
-    assert (
-        "- Adoption event ID: `ci-triage:cli:python-dependency-resolution:python-dependency-resolution`"
-    ) in summary
+    assert "- Adoption key: `ci-triage:python-dependency-resolution`" in summary
+    assert "- Adoption event ID: `ci-triage:python-dependency-resolution`" in summary
     assert str(report_path) in summary
 
 
-def test_ci_triage_action_helper_exports_index_attribution_for_unlisted_classes() -> None:
+def test_ci_triage_action_helper_exports_stable_keys_for_unlisted_classes() -> None:
     helper = _load_helper()
     outputs = helper.action_outputs(
         {
             "failure_class": "pre_commit_hook_failure",
             "confidence": 0.7,
-            "guide_url": "https://getpatchrail.com/fix?utm_source=cli",
-            "pack_url": "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=index",
-            "action_url": "https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=index",
             "minimal_repair_strategy": "Run the hook locally.",
             "reproduction_command": "pre-commit run --all-files",
         },
@@ -218,13 +199,10 @@ def test_ci_triage_action_helper_exports_index_attribution_for_unlisted_classes(
     )
 
     assert outputs["failure-slug"] == "pre-commit-hook-failure"
-    assert outputs["utm-source"] == "cli"
-    assert outputs["utm-campaign"] == "index"
-    assert outputs["adoption-key"] == "ci-triage:cli:index:pre-commit-hook-failure"
-    assert outputs["adoption-event-id"] == "ci-triage:cli:index:pre-commit-hook-failure"
+    assert outputs["adoption-key"] == "ci-triage:pre-commit-hook-failure"
+    assert outputs["adoption-event-id"] == "ci-triage:pre-commit-hook-failure"
     adoption_event = json.loads(outputs["adoption-event-json"])
-    assert adoption_event["utm_campaign"] == "index"
-    assert adoption_event["adoption_event_id"] == "ci-triage:cli:index:pre-commit-hook-failure"
+    assert adoption_event["adoption_event_id"] == "ci-triage:pre-commit-hook-failure"
     assert adoption_event["json_result"] == "ci-result.json"
     assert adoption_event["markdown_report"] == "ci-report.md"
 
@@ -234,9 +212,6 @@ def test_ci_triage_action_helper_exports_workflow_context_when_available(tmp_pat
     result = {
         "failure_class": "python_lint",
         "confidence": 0.88,
-        "guide_url": "https://getpatchrail.com/fix/python-lint?utm_source=cli&utm_campaign=python-lint",
-        "pack_url": "https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-lint",
-        "action_url": "https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-lint",
         "minimal_repair_strategy": "Run ruff locally.",
         "reproduction_command": "ruff check .",
     }
@@ -297,9 +272,6 @@ def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> N
     result = {
         "failure_class": "python_test_failure",
         "confidence": 0.9,
-        "guide_url": "https://getpatchrail.com/fix/python-test-failure?utm_source=cli",
-        "pack_url": "https://patchrail.gumroad.com/l/ci-failure-triage",
-        "action_url": "https://github.com/patchrail/ci-triage-action",
         "minimal_repair_strategy": "Rerun pytest locally.",
         "reproduction_command": "pytest tests/test_app.py",
         "redaction": {
@@ -328,14 +300,14 @@ def test_ci_triage_action_helper_counts_redacted_categories(tmp_path: Path) -> N
 
     helper.write_github_outputs(outputs, output_path)
     assert (
-        "adoption-event-id=ci-triage:cli:python-test-failure:python-test-failure\n"
+        "adoption-event-id=ci-triage:python-test-failure\n"
         in output_path.read_text(encoding="utf-8")
     )
     assert "redacted-categories=2\n" in output_path.read_text(encoding="utf-8")
 
     helper.append_step_summary(result, Path("ci-report.md"), summary_path)
     assert (
-        "- Adoption event ID: `ci-triage:cli:python-test-failure:python-test-failure`"
+        "- Adoption event ID: `ci-triage:python-test-failure`"
         in summary_path.read_text(encoding="utf-8")
     )
     assert "- Redacted categories: `2`" in summary_path.read_text(encoding="utf-8")

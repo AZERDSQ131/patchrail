@@ -279,8 +279,6 @@ def test_readme_and_quickstart_document_published_pypi_install() -> None:
             "- Confidence: `0.89`",
             "- Subsystem: Python tests",
             "- Reproduce: `python -m pytest -q`",
-            "- Pack: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-test-failure",
-            "- Action: https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-test-failure",
             "- `FAILED .*::`",
             "PatchRail classified this log locally.",
         ):
@@ -322,14 +320,6 @@ def test_versioned_demo_output_matches_real_cli_output() -> None:
     )
     assert proc.stdout.strip() in demo
     assert "- Root cause: `python_dependency_resolution`" in demo
-    assert (
-        "- Pack: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-dependency-resolution"
-        in demo
-    )
-    assert (
-        "- Action: https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-dependency-resolution"
-        in demo
-    )
     assert "PatchRail classified this log locally." in demo
 
 
@@ -977,16 +967,9 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
         == "https://github.com/marketplace/actions/patchrail-ci-triage"
     )
     assert payload["workstreams"]["github_action"]["marketplace_counts_as_adoption"] is False
-    assert payload["workstreams"]["github_action"]["conversion_consumer"] == "SKU #1 CI Triage $19"
-    assert (
-        payload["workstreams"]["github_action"]["conversion_url"]
-        == "https://patchrail.gumroad.com/l/ci-failure-triage"
-        "?utm_source=github_marketplace&utm_campaign=ci-triage-action"
-    )
-    assert (
-        payload["workstreams"]["github_action"]["conversion_kpi"]
-        == "visits_and_sales_before_2026-06-30"
-    )
+    assert "conversion_consumer" not in payload["workstreams"]["github_action"]
+    assert "conversion_url" not in payload["workstreams"]["github_action"]
+    assert "conversion_kpi" not in payload["workstreams"]["github_action"]
     assert payload["workstreams"]["agent_control_plane"]["demo_present"] is True
     assert payload["workstreams"]["funded_issue_scout"]["demo_present"] is True
     assert payload["workstreams"]["release_packaging"]["package_smoke_in_ci"] is True
@@ -1041,12 +1024,9 @@ def test_evidence_snapshot_summarizes_public_open_source_signals_without_write_a
         "- Non-countable signals: `PyPI package downloads, owned-repo pilot outcomes, "
         "GitHub Marketplace action listing`" in markdown_proc.stdout
     )
-    assert "conversion_consumer=SKU #1 CI Triage $19" in markdown_proc.stdout
-    assert (
-        "conversion_url=https://patchrail.gumroad.com/l/ci-failure-triage"
-        "?utm_source=github_marketplace&utm_campaign=ci-triage-action" in markdown_proc.stdout
-    )
-    assert "conversion_kpi=visits_and_sales_before_2026-06-30" in markdown_proc.stdout
+    assert "conversion_consumer=" not in markdown_proc.stdout
+    assert "conversion_url=" not in markdown_proc.stdout
+    assert "conversion_kpi=" not in markdown_proc.stdout
 
 
 def test_ci_evidence_artifact_includes_control_plane_bundle() -> None:

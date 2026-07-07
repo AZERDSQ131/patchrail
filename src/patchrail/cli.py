@@ -96,13 +96,8 @@ def _read_log(path: Path | None) -> str:
     return path.read_text(encoding="utf-8", errors="replace")
 
 
-_FIX_GUIDE_BASE = "https://getpatchrail.com/fix"
-_CI_TRIAGE_PACK_BASE = "https://patchrail.gumroad.com/l/ci-failure-triage"
-_CI_TRIAGE_SAMPLE_BASE = "https://patchrail.gumroad.com/l/iwycg"
 _CI_TRIAGE_ACTION_BASE = "https://github.com/patchrail/ci-triage-action"
 _CI_TRIAGE_MARKETPLACE_BASE = "https://github.com/marketplace/actions/patchrail-ci-triage"
-_CI_TRIAGE_MARKETPLACE_CONVERSION_SOURCE = "github_marketplace"
-_CI_TRIAGE_MARKETPLACE_CONVERSION_CAMPAIGN = "ci-triage-action"
 _DISTRIBUTION_GATE_SCHEMA_VERSION = "patchrail.distribution_gate.v1"
 _SKU1_CONVERSION_CONSUMER = "SKU #1 CI Triage $19"
 _SKU1_DISTRIBUTION_KPI = "visits_and_sales_before_2026-06-30"
@@ -116,6 +111,10 @@ _DEFAULT_DISTRIBUTION_SUPERVISOR_SNAPSHOT = (
     _PATCHRAIL_RUNTIME_RUN_DIR / "patchrail_supervisor_last.json"
 )
 _DEFAULT_DISTRIBUTION_POSTED_DIR = Path("products/gumroad/distribution/posted")
+_DISTRIBUTION_PACK_BASE = "https://patchrail.gumroad.com/l/ci-failure-triage"
+_DISTRIBUTION_MARKETPLACE_PACK_URL = (
+    f"{_DISTRIBUTION_PACK_BASE}?utm_source=github_marketplace&utm_campaign=ci-triage-action"
+)
 _SKU1_CHANNEL_UTM_CAMPAIGN = "sku1-organic-distribution"
 _SKU1_PAID_TRAFFIC_PLATFORM = "sku1-traffic-boost"
 _SKU1_PAID_TRAFFIC_CAMPAIGN = "ci-triage-sku1-gate"
@@ -153,114 +152,6 @@ _SKU1_CHANNEL_TRAFFIC_ESTIMATE = {
     "hashnode": 15,
     "x": 5,
 }
-
-# Failure classes with a dedicated /fix/<slug> remediation guide on getpatchrail.com.
-# Unknown or unlisted classes link to the guide index instead. Keep in sync with the
-# classifier taxonomy (patchrail.ci.classify) and the web /fix pages.
-_FIX_GUIDE_SLUGS = frozenset(
-    {
-        "artifact-or-cache-failure",
-        "browser-test-failure",
-        "ci-job-timeout",
-        "code-coverage-threshold",
-        "cpp-build-failure",
-        "docker-build-failure",
-        "dotnet-build-failure",
-        "git-checkout-failure",
-        "git-merge-conflict",
-        "github-actions-workflow",
-        "go-lint",
-        "go-test-failure",
-        "java-build-failure",
-        "javascript-lint",
-        "network-transient-failure",
-        "node-dependency-install",
-        "node-test-failure",
-        "php-composer-failure",
-        "python-dependency-resolution",
-        "python-lint",
-        "python-test-failure",
-        "python-type-check",
-        "release-publish-failure",
-        "ruby-bundle-failure",
-        "runner-resource-exhaustion",
-        "rust-lint",
-        "rust-test-failure",
-        "secrets-or-permissions-failure",
-        "security-scan-failure",
-        "terraform-iac-failure",
-        "typescript-typecheck",
-    }
-)
-
-
-def _default_failure_campaign(failure_class: Any) -> str:
-    slug = str(failure_class or "").replace("_", "-")
-    return slug if slug and slug in _FIX_GUIDE_SLUGS else "index"
-
-
-def _utm_query(utm_source: str, utm_campaign: str | None = None) -> str:
-    query = f"?utm_source={quote(str(utm_source or 'cli'), safe='')}"
-    if utm_campaign:
-        query += f"&utm_campaign={quote(str(utm_campaign), safe='')}"
-    return query
-
-
-def _fix_guide_url(
-    failure_class: Any,
-    *,
-    utm_source: str = "cli",
-    utm_campaign: str | None = None,
-) -> str:
-    """Return the getpatchrail.com /fix guide URL for a failure class.
-
-    Known classes link to their dedicated page; unknown/unlisted classes link to
-    the guide index. Links default to utm_source=cli for attribution.
-    """
-    slug = str(failure_class or "").replace("_", "-")
-    if slug and slug in _FIX_GUIDE_SLUGS:
-        campaign = utm_campaign or slug
-        return f"{_FIX_GUIDE_BASE}/{slug}{_utm_query(utm_source, campaign)}"
-    return f"{_FIX_GUIDE_BASE}{_utm_query(utm_source, utm_campaign)}"
-
-
-def _ci_triage_pack_url(
-    failure_class: Any,
-    *,
-    utm_source: str = "cli",
-    utm_campaign: str | None = None,
-) -> str:
-    campaign = utm_campaign or _default_failure_campaign(failure_class)
-    return f"{_CI_TRIAGE_PACK_BASE}{_utm_query(utm_source, campaign)}"
-
-
-def _ci_triage_sample_url(
-    failure_class: Any,
-    *,
-    utm_source: str = "cli",
-    utm_campaign: str | None = None,
-) -> str:
-    campaign = utm_campaign or _default_failure_campaign(failure_class)
-    return f"{_CI_TRIAGE_SAMPLE_BASE}{_utm_query(utm_source, campaign)}"
-
-
-def _ci_triage_action_url(
-    failure_class: Any,
-    *,
-    utm_source: str = "cli",
-    utm_campaign: str | None = None,
-) -> str:
-    campaign = utm_campaign or _default_failure_campaign(failure_class)
-    return f"{_CI_TRIAGE_ACTION_BASE}{_utm_query(utm_source, campaign)}"
-
-
-def _ci_triage_marketplace_pack_url() -> str:
-    return (
-        f"{_CI_TRIAGE_PACK_BASE}"
-        f"?utm_source={_CI_TRIAGE_MARKETPLACE_CONVERSION_SOURCE}"
-        f"&utm_campaign={_CI_TRIAGE_MARKETPLACE_CONVERSION_CAMPAIGN}"
-    )
-
 
 def _distribution_measurement_command_path(supervisor_snapshot: dict[str, Any]) -> str:
     snapshot_path = str(supervisor_snapshot.get("path") or "")
@@ -1520,14 +1411,14 @@ def _distribution_channel_conversion_plan(
 
 def _distribution_channel_url(channel: str) -> str:
     return (
-        f"{_CI_TRIAGE_PACK_BASE}?utm_source={quote(channel)}"
+        f"{_DISTRIBUTION_PACK_BASE}?utm_source={quote(channel)}"
         f"&utm_campaign={_SKU1_CHANNEL_UTM_CAMPAIGN}"
     )
 
 
 def _distribution_paid_traffic_url() -> str:
     return (
-        f"{_CI_TRIAGE_PACK_BASE}?utm_source={quote(_SKU1_PAID_TRAFFIC_SOURCE)}"
+        f"{_DISTRIBUTION_PACK_BASE}?utm_source={quote(_SKU1_PAID_TRAFFIC_SOURCE)}"
         f"&utm_campaign={quote(_SKU1_PAID_TRAFFIC_CAMPAIGN)}"
     )
 
@@ -3235,7 +3126,7 @@ def _distribution_gate_payload(
         "schema_version": _DISTRIBUTION_GATE_SCHEMA_VERSION,
         "product": "ci-failure-triage-patterns",
         "conversion_consumer": _SKU1_CONVERSION_CONSUMER,
-        "conversion_url": _ci_triage_marketplace_pack_url(),
+        "conversion_url": _DISTRIBUTION_MARKETPLACE_PACK_URL,
         "conversion_kpi": _SKU1_DISTRIBUTION_KPI,
         "posted_dir": str(posted_dir),
         "as_of": as_of,
@@ -4086,428 +3977,6 @@ def _render_distribution_gate_runway(payload: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _with_ci_result_links(result: dict[str, Any]) -> dict[str, Any]:
-    failure_class = result.get("failure_class")
-    result["guide_url"] = _fix_guide_url(failure_class)
-    result["pack_url"] = _ci_triage_pack_url(failure_class)
-    result["sample_url"] = _ci_triage_sample_url(failure_class)
-    result["action_url"] = _ci_triage_action_url(failure_class)
-    return result
-
-
-def _ci_share_links_payload(
-    failure_class: str,
-    *,
-    utm_source: str = "cli",
-    utm_campaign: str | None = None,
-    channel: str | None = None,
-    traffic_delivered: int = 0,
-) -> dict[str, Any]:
-    failure_slug = str(failure_class or "unknown").replace("_", "-")
-    if not failure_slug:
-        failure_slug = "unknown"
-    normalized_failure_class = failure_slug.replace("-", "_")
-    normalized_channel = str(channel or "").strip()
-    source = utm_source
-    if normalized_channel and source == "cli":
-        source = normalized_channel
-    campaign = utm_campaign or (
-        f"{_SKU1_CHANNEL_UTM_CAMPAIGN}-{normalized_channel}"
-        if normalized_channel
-        else _default_failure_campaign(normalized_failure_class)
-    )
-    guide_url = _fix_guide_url(
-        normalized_failure_class,
-        utm_source=source,
-        utm_campaign=campaign,
-    )
-    pack_url = _ci_triage_pack_url(
-        normalized_failure_class,
-        utm_source=source,
-        utm_campaign=campaign,
-    )
-    sample_url = _ci_triage_sample_url(
-        normalized_failure_class,
-        utm_source=source,
-        utm_campaign=campaign,
-    )
-    action_url = _ci_triage_action_url(
-        normalized_failure_class,
-        utm_source=source,
-        utm_campaign=campaign,
-    )
-    estimated_visits = _SKU1_CHANNEL_TRAFFIC_ESTIMATE.get(normalized_channel, 0)
-    delivered = max(int(traffic_delivered), 0)
-    traffic_gap_before = max(_SKU1_PIVOT_TRAFFIC_TARGET - delivered, 0)
-    traffic_gap_after = max(_SKU1_PIVOT_TRAFFIC_TARGET - delivered - estimated_visits, 0)
-    estimated_gap_closed = traffic_gap_before - traffic_gap_after
-    if traffic_gap_before == 0:
-        next_measurement_step = "record_sales_or_pivot_outcome"
-    elif normalized_channel and traffic_gap_after == 0:
-        next_measurement_step = "measure_sales_before_pivot_decision"
-    elif normalized_channel:
-        next_measurement_step = "ship_next_distribution_channel_or_guarded_paid_boost"
-    else:
-        next_measurement_step = "choose_distribution_channel_or_guarded_paid_boost"
-    return {
-        "schema_version": "patchrail.ci_share_links.v1",
-        "failure_class": normalized_failure_class,
-        "failure_slug": failure_slug,
-        "links": {
-            "fix_guide": guide_url,
-            "field_guide_pack": pack_url,
-            "free_sample": sample_url,
-            "github_action": action_url,
-        },
-        "share_packet": {
-            "title": f"PatchRail CI triage links for {failure_slug}",
-            "bullets": [
-                f"Fix guide: {guide_url}",
-                f"Free sample: {sample_url}",
-                f"Field guide pack: {pack_url}",
-                f"GitHub Action: {action_url}",
-            ],
-        },
-        "measurement": {
-            "utm_source": source,
-            "utm_campaign": campaign,
-            "revenue_surface": _SKU1_CONVERSION_CONSUMER,
-            "kpi": _SKU1_DISTRIBUTION_KPI,
-            "distribution_channel": normalized_channel or None,
-            "estimated_visits": estimated_visits,
-            "traffic_target": _SKU1_PIVOT_TRAFFIC_TARGET,
-            "traffic_delivered": delivered,
-            "traffic_gap_before": traffic_gap_before,
-            "traffic_gap_after": traffic_gap_after,
-            "estimated_gap_closed": estimated_gap_closed,
-            "traffic_target_reached": traffic_gap_after == 0,
-            "next_measurement_step": next_measurement_step,
-        },
-        "safety": {
-            "local_only": True,
-            "network_required": False,
-            "github_write_permission_required": False,
-            "billing_required": False,
-            "counts_as_external_adoption": False,
-        },
-        "safe_next_step": (
-            "Use these links on owned or permissioned surfaces; do not post externally without an "
-            "approved distribution path."
-        ),
-    }
-
-
-def _render_ci_share_links_text(payload: dict[str, Any]) -> str:
-    links = payload["links"]
-    measurement = payload["measurement"]
-    lines = [
-        f"failure_class: {payload['failure_class']}",
-        f"fix_guide: {links['fix_guide']}",
-        f"free_sample: {links['free_sample']}",
-        f"field_guide_pack: {links['field_guide_pack']}",
-        f"github_action: {links['github_action']}",
-        f"utm_campaign: {measurement['utm_campaign']}",
-    ]
-    if measurement.get("distribution_channel"):
-        lines.extend(
-            [
-                f"distribution_channel: {measurement['distribution_channel']}",
-                f"estimated_visits: {measurement['estimated_visits']}",
-                f"estimated_gap_closed: {measurement['estimated_gap_closed']}",
-                f"traffic_gap_after: {measurement['traffic_gap_after']}",
-                f"next_measurement_step: {measurement['next_measurement_step']}",
-            ]
-        )
-        handoff = payload.get("publication_handoff") or {}
-        if handoff.get("required"):
-            commands = handoff.get("commands") or {}
-            lines.extend(
-                [
-                    f"copy_file_ready: {str(handoff.get('copy_file_ready')).lower()}",
-                    f"claim_command: {commands.get('claim_command', '')}",
-                    f"record_command: {commands.get('record_command', '')}",
-                ]
-            )
-        elif handoff.get("reason") == "channel_receipt_exists":
-            lines.extend(
-                [
-                    "publication_handoff: skipped",
-                    f"publication_skip_reason: {handoff['reason']}",
-                    f"receipt_status: {handoff['receipt_status']}",
-                    f"receipt_path: {handoff['receipt_path']}",
-                ]
-            )
-    lines.extend(["counts_as_external_adoption: false", "network_required: false"])
-    return "\n".join(lines) + "\n"
-
-
-def _render_ci_share_links_markdown(payload: dict[str, Any]) -> str:
-    links = payload["links"]
-    lines = [
-        f"# PatchRail CI Links: {payload['failure_slug']}",
-        "",
-        f"- Fix guide: {links['fix_guide']}",
-        f"- Free sample: {links['free_sample']}",
-        f"- Field guide pack: {links['field_guide_pack']}",
-        f"- GitHub Action: {links['github_action']}",
-        "",
-        "## Measurement",
-        "",
-        f"- UTM source: `{payload['measurement']['utm_source']}`",
-        f"- UTM campaign: `{payload['measurement']['utm_campaign']}`",
-        f"- Revenue surface: `{payload['measurement']['revenue_surface']}`",
-    ]
-    if payload["measurement"].get("distribution_channel"):
-        lines.extend(
-            [
-                f"- Distribution channel: `{payload['measurement']['distribution_channel']}`",
-                f"- Estimated visits: `{payload['measurement']['estimated_visits']}`",
-                f"- Estimated gap closed: `{payload['measurement']['estimated_gap_closed']}`",
-                f"- Traffic gap after channel: `{payload['measurement']['traffic_gap_after']}`",
-                f"- Next measurement step: `{payload['measurement']['next_measurement_step']}`",
-            ]
-        )
-        handoff = payload.get("publication_handoff") or {}
-        if handoff.get("required"):
-            commands = handoff.get("commands") or {}
-            lines.extend(
-                [
-                    "",
-                    "## Publication Handoff",
-                    "",
-                    f"- Copy file ready: `{handoff.get('copy_file_ready')}`",
-                    f"- Claim command: `{commands.get('claim_command', '')}`",
-                    f"- Record command: `{commands.get('record_command', '')}`",
-                ]
-            )
-        elif handoff.get("reason") == "channel_receipt_exists":
-            lines.extend(
-                [
-                    "",
-                    "## Publication Handoff",
-                    "",
-                    "- Status: `skipped`",
-                    f"- Reason: `{handoff['reason']}`",
-                    f"- Receipt status: `{handoff['receipt_status']}`",
-                    f"- Receipt path: `{handoff['receipt_path']}`",
-                ]
-            )
-    lines.extend(
-        [
-            "",
-            "## Safety",
-            "",
-            "- Local only: `True`",
-            "- Network required: `False`",
-            "- Counts as external adoption: `False`",
-        ]
-    )
-    return "\n".join(lines) + "\n"
-
-
-def _ci_share_links_copy_brief(
-    payload: dict[str, Any],
-    *,
-    copy_file: str | None = None,
-    urgency: str = "normal",
-) -> dict[str, Any]:
-    measurement = payload["measurement"]
-    links = payload["links"]
-    channel = measurement.get("distribution_channel") or "owned-surface"
-    channel_url = links["field_guide_pack"]
-    brief = {
-        "type": "social_post",
-        "channel": channel,
-        "lead": measurement["revenue_surface"],
-        "goal": (
-            f"Create approved PatchRail copy for {channel} that drives measured visits to "
-            f"{measurement['revenue_surface']}."
-        ),
-        "key_facts": [
-            f"Product: {measurement['revenue_surface']}.",
-            f"Failure class angle: {payload['failure_class']}.",
-            f"KPI: {measurement['kpi']}.",
-            f"Channel URL with UTM: {channel_url}.",
-            f"Free sample URL: {links['free_sample']}.",
-            f"Fix guide URL: {links['fix_guide']}.",
-            f"GitHub Action URL: {links['github_action']}.",
-            f"Traffic target: {measurement['traffic_target']}.",
-            f"Current traffic delivered: {measurement['traffic_delivered']}.",
-            f"Estimated channel visits: {measurement['estimated_visits']}.",
-            f"Traffic gap after this channel estimate: {measurement['traffic_gap_after']}.",
-            f"Next measurement step: {measurement['next_measurement_step']}.",
-        ],
-        "tone": "Concise, practical, maintainer-safe, no hype.",
-        "constraints": [
-            "Copywriter authors final external prose; this brief contains facts only.",
-            "Brand-only: PatchRail.",
-            "No internal model/tool names.",
-            "No payout, merge, sales, accuracy, legal, compliance, or maintainer-response guarantees.",
-            "No calls, Zoom, Meet, Calendly, demos, phone CTA, or synchronous-sales CTA.",
-            "Use the provided UTM URLs exactly for measurement.",
-        ],
-        "urgency": urgency,
-        "thread_ref": (
-            f"ci share-links channel={channel}; failure_class={payload['failure_class']}; "
-            f"kpi={measurement['kpi']}; url={channel_url}"
-        ),
-    }
-    if copy_file:
-        brief["copy_file"] = copy_file
-    return brief
-
-
-def _write_ci_share_links_copy_brief(
-    payload: dict[str, Any],
-    *,
-    path: Path,
-    copy_file: str | None = None,
-    urgency: str = "normal",
-) -> dict[str, Any]:
-    brief = _ci_share_links_copy_brief(payload, copy_file=copy_file, urgency=urgency)
-    prohibited = {"body", "draft", "email_body"}
-    prohibited_present = sorted(prohibited.intersection(brief))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_json_dump(brief), encoding="utf-8")
-    return {
-        "status": "written",
-        "path": str(path),
-        "prohibited_fields_present": prohibited_present,
-    }
-
-
-def _ci_share_links_copy_brief_auto_path(directory: Path, payload: dict[str, Any]) -> Path:
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    channel = str(payload["measurement"].get("distribution_channel") or "owned-surface")
-    channel_slug = re.sub(r"[^a-z0-9]+", "-", channel.lower()).strip("-") or "owned-surface"
-    failure_slug = (
-        re.sub(r"[^a-z0-9]+", "-", str(payload.get("failure_slug") or "unknown").lower()).strip("-")
-        or "unknown"
-    )
-    return directory / f"{timestamp}-ci-share-links-{channel_slug}-{failure_slug}.json"
-
-
-def _ci_share_links_existing_channel_receipt(
-    posted_dir: Path | None,
-    channel: str | None,
-) -> dict[str, Any] | None:
-    if posted_dir is None or not channel:
-        return None
-    channel_receipts = [
-        receipt
-        for receipt in _distribution_receipts(posted_dir)
-        if str(receipt.get("channel") or "") == channel
-    ]
-    if not channel_receipts:
-        return None
-    return max(channel_receipts, key=_distribution_receipt_canonical_key)
-
-
-def _ci_share_links_publication_handoff(
-    payload: dict[str, Any],
-    *,
-    copy_file: str | None,
-    posted_dir: Path | None,
-    existing_receipt: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    channel = payload["measurement"].get("distribution_channel")
-    if not channel:
-        return {
-            "required": False,
-            "reason": "no_distribution_channel",
-            "safe_next_step": payload["measurement"]["next_measurement_step"],
-        }
-    if existing_receipt is not None:
-        return {
-            "required": False,
-            "reason": "channel_receipt_exists",
-            "channel": channel,
-            "receipt_path": str(existing_receipt["path"]),
-            "receipt_status": str(existing_receipt["status"]),
-            "safe_next_step": "Do not claim or repost this channel unless the receipt is cleared.",
-        }
-    workspace_root = (
-        _distribution_workspace_root_from_posted_dir(
-            _distribution_default_posted_dir_path(posted_dir)
-        )
-        if posted_dir is not None
-        else None
-    )
-    commands = _distribution_publish_post_commands(
-        {"channel": channel, "copy_file": copy_file or ""},
-        workspace_root=workspace_root,
-    )
-    copy_file_ready = bool(copy_file)
-    safe_next_step = (
-        "Run claim_command with the approved copy_file, publish via logged-in browser, then run record_command."
-        if copy_file_ready
-        else "Copywriter must create approved copy_file before claim_command is runnable."
-    )
-    return {
-        "required": True,
-        "channel": channel,
-        "copy_file": copy_file or "",
-        "copy_file_ready": copy_file_ready,
-        "commands": commands,
-        "safe_next_step": safe_next_step,
-    }
-
-
-def _ci_share_links(args: argparse.Namespace) -> int:
-    if args.failure_class:
-        failure_class = args.failure_class
-    else:
-        failure_class = classify_ci_log(_read_log(args.log))["failure_class"]
-    payload = _ci_share_links_payload(
-        failure_class,
-        utm_source=args.utm_source,
-        utm_campaign=args.utm_campaign,
-        channel=args.channel,
-        traffic_delivered=args.traffic_delivered,
-    )
-    channel = payload["measurement"].get("distribution_channel")
-    existing_receipt = _ci_share_links_existing_channel_receipt(args.posted_dir, channel)
-    payload["publication_handoff"] = _ci_share_links_publication_handoff(
-        payload,
-        copy_file=args.copy_file,
-        posted_dir=args.posted_dir,
-        existing_receipt=existing_receipt,
-    )
-    if args.receipt_out is not None:
-        args.receipt_out.parent.mkdir(parents=True, exist_ok=True)
-        args.receipt_out.write_text(_json_dump(payload), encoding="utf-8")
-    copy_brief_path = args.copy_brief_out
-    if copy_brief_path is None and args.copy_brief_dir is not None:
-        copy_brief_path = _ci_share_links_copy_brief_auto_path(args.copy_brief_dir, payload)
-    if copy_brief_path is not None:
-        if existing_receipt is not None:
-            payload["copy_brief_write"] = {
-                "status": "skipped",
-                "reason": "channel_receipt_exists",
-                "channel": channel,
-                "receipt_path": str(existing_receipt["path"]),
-                "receipt_status": str(existing_receipt["status"]),
-            }
-        else:
-            payload["copy_brief_write"] = _write_ci_share_links_copy_brief(
-                payload,
-                path=copy_brief_path,
-                copy_file=args.copy_file,
-                urgency=args.brief_urgency,
-            )
-            if args.copy_brief_dir is not None:
-                payload["copy_brief_write"]["auto_named"] = True
-                payload["copy_brief_write"]["directory"] = str(args.copy_brief_dir)
-    if args.format == "json":
-        text = _json_dump(payload)
-    elif args.format == "markdown":
-        text = _render_ci_share_links_markdown(payload)
-    else:
-        text = _render_ci_share_links_text(payload)
-    _write_or_print(text, args.out)
-    return 0
-
-
 def _render_text(result: dict[str, Any]) -> str:
     lines = [
         f"Root cause: {result['failure_class']}",
@@ -4515,10 +3984,6 @@ def _render_text(result: dict[str, Any]) -> str:
         f"Subsystem: {result['likely_subsystem']}",
         f"Reproduce: {result['reproduction_command']}",
         f"Suggested action: {result['minimal_repair_strategy']}",
-        f"Guide: {_fix_guide_url(result['failure_class'])}",
-        f"Pack: {_ci_triage_pack_url(result['failure_class'])}",
-        f"Free sample: {_ci_triage_sample_url(result['failure_class'])}",
-        f"Action: {_ci_triage_action_url(result['failure_class'])}",
     ]
     redaction = result.get("redaction")
     if isinstance(redaction, dict):
@@ -4536,10 +4001,6 @@ def _render_markdown(result: dict[str, Any]) -> str:
         f"- Subsystem: {result['likely_subsystem']}",
         f"- Reproduce: `{result['reproduction_command']}`",
         f"- Suggested action: {result['minimal_repair_strategy']}",
-        f"- Guide: {_fix_guide_url(result['failure_class'])}",
-        f"- Pack: {_ci_triage_pack_url(result['failure_class'])}",
-        f"- Free sample: {_ci_triage_sample_url(result['failure_class'])}",
-        f"- Action: {_ci_triage_action_url(result['failure_class'])}",
         "",
         "## Evidence signals",
         "",
@@ -5560,9 +5021,6 @@ def _evidence_snapshot_payload(root: Path) -> dict[str, Any]:
                 "marketplace_listed": github_action_marketplace["listed"],
                 "marketplace_url": github_action_marketplace["url"],
                 "marketplace_counts_as_adoption": github_action_marketplace["counts_as_adoption"],
-                "conversion_consumer": "SKU #1 CI Triage $19",
-                "conversion_url": _ci_triage_marketplace_pack_url(),
-                "conversion_kpi": "visits_and_sales_before_2026-06-30",
             },
             "agent_control_plane": {
                 "status": "local_demo",
@@ -8446,7 +7904,7 @@ def _serve(args: argparse.Namespace) -> int:
 
 def _ci_explain(args: argparse.Namespace) -> int:
     raw_log = _read_log(args.log)
-    result = _with_ci_result_links(classify_ci_log(raw_log))
+    result = classify_ci_log(raw_log)
     if args.redact:
         redaction = redact_ci_log(raw_log)
         result["redaction"] = {
@@ -8603,7 +8061,7 @@ def _ci_pilot_pack(args: argparse.Namespace) -> int:
 
     redaction = redact_ci_log(raw_log)
     redacted_log = str(redaction["text"])
-    result = _with_ci_result_links(classify_ci_log(redacted_log))
+    result = classify_ci_log(redacted_log)
     report = _render_markdown(result)
     source_name = args.log.name if args.log is not None else "stdin"
 
@@ -13487,83 +12945,6 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     classify.add_argument("--out", type=Path, help="Optional output path.")
     classify.set_defaults(func=_ci_explain)
-
-    share_links = ci_subparsers.add_parser(
-        "share-links",
-        help="Emit owned-surface links for one CI failure class.",
-    )
-    share_links.add_argument("--log", type=Path, help="CI log file. Reads stdin when omitted.")
-    share_links.add_argument(
-        "--failure-class",
-        help="Known CI failure class. When omitted, PatchRail classifies --log/stdin locally.",
-    )
-    share_links.add_argument(
-        "--utm-source",
-        default="cli",
-        help="UTM source to stamp on emitted links for owned-surface measurement.",
-    )
-    share_links.add_argument(
-        "--utm-campaign",
-        help=(
-            "UTM campaign to stamp on emitted links. Defaults to the failure class campaign, "
-            "or index when no dedicated fix guide exists."
-        ),
-    )
-    share_links.add_argument(
-        "--channel",
-        choices=sorted(_SKU1_CHANNEL_TRAFFIC_ESTIMATE),
-        help=(
-            "Organic SKU #1 distribution channel. When set without explicit UTM values, "
-            "the channel becomes the UTM source and the campaign becomes channel-specific."
-        ),
-    )
-    share_links.add_argument(
-        "--traffic-delivered",
-        type=int,
-        default=0,
-        help="Already-delivered SKU #1 visits to subtract from the 300-visit pivot gate.",
-    )
-    share_links.add_argument(
-        "--receipt-out",
-        type=Path,
-        help="Optional JSON receipt path for local distribution evidence.",
-    )
-    copy_brief_target = share_links.add_mutually_exclusive_group()
-    copy_brief_target.add_argument(
-        "--copy-brief-out",
-        type=Path,
-        help="Optional facts-only copywriter brief path for a measured distribution post.",
-    )
-    copy_brief_target.add_argument(
-        "--copy-brief-dir",
-        type=Path,
-        help="Optional directory for an auto-named facts-only measured distribution post brief.",
-    )
-    share_links.add_argument(
-        "--posted-dir",
-        type=Path,
-        help=(
-            "Optional publish_post receipt directory. When the selected channel already has a "
-            "receipt, skip writing another copy brief."
-        ),
-    )
-    share_links.add_argument(
-        "--copy-file",
-        help="Optional destination copy file path to include in the copywriter brief.",
-    )
-    share_links.add_argument(
-        "--brief-urgency",
-        default="normal",
-        help="Urgency value to stamp on the optional copywriter brief.",
-    )
-    share_links.add_argument(
-        "--format",
-        choices=["json", "markdown", "text"],
-        default="markdown",
-        help="Output format.",
-    )
-    share_links.add_argument("--out", type=Path, help="Optional output path.")
-    share_links.set_defaults(func=_ci_share_links)
 
     benchmark = ci_subparsers.add_parser(
         "benchmark",

@@ -40,6 +40,3 @@ Canonical, formatted versions live at **[getpatchrail.com/fix](https://getpatchr
 | [Go lint (golangci-lint)](go-lint.md) | `main.go:12:6: Error return value is not checked (errcheck)` |
 | [Terraform and IaC failures](terraform-iac-failure.md) | `Error acquiring the state lock` |
 
----
-
-**Want all of them in one place, offline?** The [*CI Failure Triage Patterns* pack ($19)](https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=github&utm_campaign=index) bundles every class with downloadable playbooks plus the `patchrail` CLI.

@@ -49,9 +49,6 @@ That smoke test prints:
 - Subsystem: Python tests
 - Reproduce: `python -m pytest -q`
 - Suggested action: Reproduce the failing test, patch the narrow behavior drift, and rerun the focused pytest node before broad test runs.
-- Guide: https://getpatchrail.com/fix/python-test-failure?utm_source=cli&utm_campaign=python-test-failure
-- Pack: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-test-failure
-- Action: https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-test-failure
 
 ## Evidence signals
 

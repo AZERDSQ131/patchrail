@@ -9,12 +9,7 @@ PatchRail does not auto-submit pull requests, claim funded issues, or comment on
 third-party repositories. It produces evidence and reviewable suggestions so
 maintainers stay in control.
 
-## Companion guide
-
-**CI Failure Triage Patterns** — a field guide covering 31 CI failure classes
-with the signals that distinguish them and the narrow fix for each. It pairs
-directly with the `patchrail ci explain` classifier in this repo:
-[patchrail.gumroad.com/l/ci-failure-triage](https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=github&utm_campaign=readme).
+## Fix guides
 
 Read the per-class fixes here: **[docs/fix/](docs/fix/README.md)** — each page lists
 the literal log signatures, what actually happened, and the step-by-step fix.
@@ -23,11 +18,11 @@ the literal log signatures, what actually happened, and the step-by-step fix.
 
 ### 10-second reviewer demo
 
-![patchrail ci explain reading a failed CI log and emitting root cause, confidence, reproduce command, and a fix Guide URL](docs/assets/ci-explain-demo.gif)
+![patchrail ci explain reading a failed CI log and emitting root cause, confidence, and a reproduce command](docs/assets/ci-explain-demo.gif)
 
 `patchrail ci explain` reads a failed CI log and prints the root cause, a
-confidence score, a one-line reproduce command, and a `Guide:` link to the
-matching fix page. The screenshot above is real output from the bundled
+confidence score, and a one-line reproduce command. The screenshot above is
+real output from the bundled
 `examples/ci-triage/typescript-import-type-drift.log` fixture.
 
 No install is required to inspect the current behavior. The versioned demo at
@@ -80,9 +75,6 @@ That smoke test prints:
 - Subsystem: Python tests
 - Reproduce: `python -m pytest -q`
 - Suggested action: Reproduce the failing test, patch the narrow behavior drift, and rerun the focused pytest node before broad test runs.
-- Guide: https://getpatchrail.com/fix/python-test-failure?utm_source=cli&utm_campaign=python-test-failure
-- Pack: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-test-failure
-- Action: https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-test-failure
 
 ## Evidence signals
 
@@ -135,16 +127,11 @@ Example output:
 - Reproduce: `python -m pip install -r requirements.txt`
 - Suggested action: Pin or relax the conflicting dependency range, then rerun
   the same install command and the affected tests.
-- Guide: https://getpatchrail.com/fix/python-dependency-resolution?utm_source=cli&utm_campaign=python-dependency-resolution
-- Pack: https://patchrail.gumroad.com/l/ci-failure-triage?utm_source=cli&utm_campaign=python-dependency-resolution
-- Action: https://github.com/patchrail/ci-triage-action?utm_source=cli&utm_campaign=python-dependency-resolution
 ```
 
-Every `ci explain` report ends with a `Guide:` link to the matching
-[getpatchrail.com/fix](https://getpatchrail.com/fix?utm_source=cli) remediation
-page and a `Pack:` link to the companion field guide, so the same command that
-classifies a failure also points to the full write-up and the downloadable
-checklist pack.
+Each failure class has a matching remediation write-up in
+[docs/fix/](docs/fix/README.md), so the same command that classifies a failure
+also points to the full step-by-step fix.
 
 ## GitHub Action
 
@@ -152,9 +139,8 @@ Drop the same triage into any workflow with
 [`patchrail/ci-triage-action`](https://github.com/patchrail/ci-triage-action).
 It is also listed on
 [GitHub Marketplace](https://github.com/marketplace/actions/patchrail-ci-triage).
-On a red run it classifies the log locally and links the matching
-[getpatchrail.com/fix](https://getpatchrail.com/fix) guide — no PR, no comment,
-nothing leaves the runner:
+On a red run it classifies the log locally and points at the matching
+[fix guide](docs/fix/README.md) — no PR, no comment, nothing leaves the runner:
 
 ```yaml
 - name: PatchRail CI triage
@@ -165,8 +151,7 @@ nothing leaves the runner:
 ```
 
 The reusable snippet and report artifact shape live in
-[examples/ci-triage-action](examples/ci-triage-action/README.md), with links back
-to the `/fix` guides and CI Triage field guide using the action campaign.
+[examples/ci-triage-action](examples/ci-triage-action/README.md).
 
 ## Why maintainers use PatchRail
 
