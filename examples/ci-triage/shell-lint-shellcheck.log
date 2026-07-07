@@ -1,0 +1,10 @@
+Run make lint-shell
++ shellcheck scripts/*.sh
+
+In scripts/entrypoint.sh line 4:
+source "$(dirname "$0")/../lib/common.sh"
+^-- SC1091 (info): Not following: ../lib/common.sh was not specified as input.
+
+For more information:
+  https://www.shellcheck.net/wiki/SC1091 -- Not following: ../lib/common.sh...
+make: *** [lint-shell] Error 1

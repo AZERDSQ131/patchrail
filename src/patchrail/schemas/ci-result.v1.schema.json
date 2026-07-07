@@ -53,7 +53,8 @@
         "git_checkout_failure",
         "git_merge_conflict",
         "secrets_or_permissions_failure",
-        "terraform_iac_failure"
+        "terraform_iac_failure",
+        "shell_lint"
       ]
     },
     "likely_subsystem": {
