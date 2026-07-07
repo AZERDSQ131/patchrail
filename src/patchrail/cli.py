@@ -2726,6 +2726,8 @@ def _distribution_pablo_handoff_packet(
             "pending_channels": [],
             "next_channel": None,
             "commands": {},
+            "pending_claims": [],
+            "claimable_after_setup_count": 0,
             "checklist": [],
             "stop_conditions": [],
         }
@@ -2743,6 +2745,8 @@ def _distribution_pablo_handoff_packet(
             "claim_after_setup": browser_extension_handoff["next_claim_after_setup_command"],
             "verify_after_claim": browser_extension_handoff["next_verify_after_claim_command"],
         },
+        "pending_claims": browser_extension_handoff["pending_claims"],
+        "claimable_after_setup_count": browser_extension_handoff["claimable_after_setup_count"],
         "checklist": browser_extension_handoff["checklist"],
         "stop_conditions": ["login_required", "captcha_or_2fa_required"],
     }

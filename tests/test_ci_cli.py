@@ -2656,6 +2656,22 @@ class PatchRailCITests(unittest.TestCase):
                         "--owner pablo --json --exit-zero"
                     ),
                 },
+                "pending_claims": [
+                    {
+                        "channel": "show-hn",
+                        "copy_file": copy_file,
+                        "claim_after_setup_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py claim "
+                            "--channel show-hn --copy-file "
+                            "products/gumroad/distribution/posts/show-hn-approved.md"
+                        ),
+                        "verify_after_claim_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py blockers "
+                            "--owner pablo --json --exit-zero"
+                        ),
+                    }
+                ],
+                "claimable_after_setup_count": 1,
                 "checklist": payload["browser_extension_handoff"]["checklist"],
                 "stop_conditions": ["login_required", "captcha_or_2fa_required"],
             },
@@ -2768,6 +2784,11 @@ class PatchRailCITests(unittest.TestCase):
             [item["channel"] for item in payload["browser_extension_handoff"]["pending_claims"]],
             ["show-hn", "linkedin"],
         )
+        self.assertEqual(
+            [item["channel"] for item in payload["pablo_handoff_packet"]["pending_claims"]],
+            ["show-hn", "linkedin"],
+        )
+        self.assertEqual(payload["pablo_handoff_packet"]["claimable_after_setup_count"], 2)
         handoff = handoff_stdout.getvalue()
         self.assertIn("browser_pending_channels: show-hn, linkedin", handoff)
         self.assertIn("browser_pending_claims:", handoff)
