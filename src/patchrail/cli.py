@@ -3908,7 +3908,9 @@ def _render_distribution_gate_next(payload: dict[str, Any]) -> str:
             lines.append("browser_claim_sequence_to_target:")
             for item in browser_handoff["claim_sequence_to_target"]:
                 lines.append(f"- channel: {item['channel']}")
-                lines.append(f"  cumulative_estimated_visits: {item['cumulative_estimated_visits']}")
+                lines.append(
+                    f"  cumulative_estimated_visits: {item['cumulative_estimated_visits']}"
+                )
                 lines.append(f"  traffic_gap_after_sequence: {item['traffic_gap_after_sequence']}")
                 lines.append("  claim_after_setup_command: " + item["claim_after_setup_command"])
         if len(browser_handoff["verify_after_claim_commands"]) > 1:
