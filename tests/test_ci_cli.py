@@ -1279,6 +1279,20 @@ class PatchRailCITests(unittest.TestCase):
                 "owner": "pablo",
                 "pending_count": 1,
                 "pending_channels": ["show-hn"],
+                "pending_claims": [
+                    {
+                        "channel": "show-hn",
+                        "copy_file": "products/gumroad/distribution/posts/show-hn.md",
+                        "claim_after_setup_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py claim --channel show-hn "
+                            "--copy-file products/gumroad/distribution/posts/show-hn.md"
+                        ),
+                        "verify_after_claim_command": (
+                            "python3 opportunity-desk/scripts/publish_post.py blockers "
+                            "--owner pablo --json --exit-zero"
+                        ),
+                    }
+                ],
                 "claimable_after_setup_count": 1,
                 "next_channel": "show-hn",
                 "next_verify_command": (
@@ -2646,6 +2660,119 @@ class PatchRailCITests(unittest.TestCase):
                 "stop_conditions": ["login_required", "captcha_or_2fa_required"],
             },
         )
+
+    def test_distribution_sku1_gate_handoff_lists_all_browser_extension_claims(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            posted = Path(tmpdir) / "posted"
+            posted.mkdir()
+            health_file = Path(tmpdir) / "publish-health.json"
+            blocked = []
+            for channel in ("show-hn", "linkedin"):
+                copy_file = f"products/gumroad/distribution/posts/{channel}.md"
+                receipt = posted / f"{channel}.json"
+                receipt.write_text(
+                    json.dumps(
+                        {
+                            "channel": channel,
+                            "status": "blocked",
+                            "reason": (
+                                "approved Chrome publishing extension missing in selected Chrome profile"
+                            ),
+                            "copy_file": copy_file,
+                            "ts_blocked": "2026-06-25T07:40:05Z",
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                blocked.append(
+                    {
+                        "channel": channel,
+                        "reason": (
+                            "approved Chrome publishing extension missing in selected Chrome profile"
+                        ),
+                        "receipt": str(receipt),
+                        "path": f"opportunity-desk/outbox/sent/{channel}.json",
+                        "copy_file": copy_file,
+                        "ts_blocked": "2026-06-25T07:40:05Z",
+                    }
+                )
+            health_file.write_text(
+                json.dumps(
+                    {
+                        "ok": False,
+                        "covered_channels": ["show-hn", "linkedin"],
+                        "social_post_blocked_total": 2,
+                        "social_post_uncovered_total": 0,
+                        "social_post_stale_claims_total": 0,
+                        "uncovered": [],
+                        "blocked": blocked,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            json_stdout = StringIO()
+            with redirect_stdout(json_stdout):
+                json_exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "2",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-07",
+                        "--format",
+                        "json",
+                    ]
+                )
+            handoff_stdout = StringIO()
+            with redirect_stdout(handoff_stdout):
+                handoff_exit_code = main(
+                    [
+                        "distribution",
+                        "sku1-gate",
+                        "--posted-dir",
+                        str(posted),
+                        "--publish-health-file",
+                        str(health_file),
+                        "--traffic-delivered",
+                        "2",
+                        "--sales-total",
+                        "0",
+                        "--gross-usd",
+                        "0",
+                        "--as-of",
+                        "2026-07-07",
+                        "--format",
+                        "handoff",
+                    ]
+                )
+
+        self.assertEqual(json_exit_code, 0)
+        self.assertEqual(handoff_exit_code, 0)
+        payload = json.loads(json_stdout.getvalue())
+        self.assertEqual(payload["browser_extension_handoff"]["pending_count"], 2)
+        self.assertEqual(
+            payload["browser_extension_handoff"]["pending_channels"],
+            ["show-hn", "linkedin"],
+        )
+        self.assertEqual(
+            [item["channel"] for item in payload["browser_extension_handoff"]["pending_claims"]],
+            ["show-hn", "linkedin"],
+        )
+        handoff = handoff_stdout.getvalue()
+        self.assertIn("browser_pending_channels: show-hn, linkedin", handoff)
+        self.assertIn("browser_pending_claims:", handoff)
+        self.assertIn("--channel show-hn", handoff)
+        self.assertIn("--channel linkedin", handoff)
 
     def test_distribution_sku1_gate_recommends_uncovered_channel_when_no_blockers(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -2666,6 +2666,16 @@ def _distribution_browser_extension_handoff(
         "owner": "pablo",
         "pending_count": len(pending),
         "pending_channels": [item["channel"] for item in pending],
+        "pending_claims": [
+            {
+                "channel": item["channel"],
+                "copy_file": item["copy_file"],
+                "claim_after_setup_command": item["claim_after_setup_command"],
+                "verify_after_claim_command": item["verify_after_claim_command"],
+            }
+            for item in pending
+            if item["claim_after_setup_command"]
+        ],
         "claimable_after_setup_count": sum(
             1 for item in pending if item["claim_after_setup_command"]
         ),
@@ -3681,6 +3691,23 @@ def _render_distribution_gate_handoff(payload: dict[str, Any]) -> str:
                 ),
             ]
         )
+        if browser_handoff["pending_count"] > 1:
+            lines.append(
+                "browser_pending_channels: "
+                + (", ".join(browser_handoff["pending_channels"]) or "none")
+            )
+        if browser_handoff["pending_claims"]:
+            lines.append("browser_pending_claims:")
+            for item in browser_handoff["pending_claims"]:
+                lines.extend(
+                    [
+                        f"- channel: {item['channel']}",
+                        "  claim_after_setup_command: "
+                        + (item["claim_after_setup_command"] or "none"),
+                        "  verify_after_claim_command: "
+                        + (item["verify_after_claim_command"] or "none"),
+                    ]
+                )
     return "\n".join(lines) + "\n"
 
 
