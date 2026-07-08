@@ -1,0 +1,45 @@
+Running with gitlab-runner 16.11.0 (a1b2c3d4)
+  on k8s-build-runner-07 EfGh5678
+section_start:1700100000:prepare_executor
+Preparing the "kubernetes" executor
+section_end:1700100002:prepare_executor
+section_start:1700100003:get_sources
+Fetching changes with git depth 20...
+section_end:1700100010:get_sources
+section_start:1700100011:restore_cache
+Restoring cache for gradle-cache-main...
+section_end:1700100015:restore_cache
+section_start:1700100016:build_script
+$ ./gradlew compileKotlin --no-daemon
+Downloading https://services.gradle.org/distributions/gradle-8.5-bin.zip
+................................................................................
+Unzipping /home/gitlab-runner/.gradle/wrapper/dists/gradle-8.5-bin/...
+
+> Task :compileKotlin FAILED
+e: /builds/myorg/myapp/src/main/kotlin/com/myorg/service/PaymentProcessor.kt:47:13 Type mismatch: inferred type is BigDecimal? but BigDecimal was expected
+e: /builds/myorg/myapp/src/main/kotlin/com/myorg/service/PaymentProcessor.kt:52:9 Unresolved reference: processRefund
+e: /builds/myorg/myapp/src/main/kotlin/com/myorg/service/PaymentProcessor.kt:58:17 'when' expression must be exhaustive, add necessary 'else' branch
+e: /builds/myorg/myapp/src/main/kotlin/com/myorg/repository/UserRepository.kt:34:33 No value passed for parameter 'fetchEager'
+e: /builds/myorg/myapp/src/main/kotlin/com/myorg/repository/UserRepository.kt:36:18 Using 'findAll' is an error. The method is deprecated and scheduled for removal in the next major release
+e: /builds/myorg/myapp/src/main/kotlin/com/myorg/service/NotificationService.kt:12:26 Unresolved reference: EmailClient
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileKotlin'.
+> Compilation error. See log for details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+
+* Getting more help at https://help.gradle.org
+
+BUILD FAILED in 2m 47s
+section_end:1700100188:build_script
+section_start:1700100189:upload_artifacts
+Uploading artifacts...
+section_end:1700100192:upload_artifacts
+Cleaning up project directory and file based variables...
+ERROR: Job failed: exit code 1
