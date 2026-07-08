@@ -1,0 +1,14 @@
++ npx tsc --noEmit
+src/checkout/discountEngine.ts:44:5 - error TS2322: Type 'string' is not assignable to type 'number'.
+
+44     discountBps = coupon.value;
+       ~~~~~~~~~~~
+
+src/checkout/discountEngine.ts:12:3
+    12   discountBps: number;
+         ~~~~~~~~~~~
+    The expected type comes from property 'discountBps' which is declared here on type 'Discount'.
+
+Found 1 error in src/checkout/discountEngine.ts:44
+
+Harness CI step "typecheck" failed with exit code 1
