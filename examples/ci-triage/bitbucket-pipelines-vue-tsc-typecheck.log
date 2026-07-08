@@ -1,0 +1,31 @@
++ pnpm vue-tsc --noEmit
+
+src/components/DataTable.vue:23:10 - error TS2307: Cannot find module '@/types/table' or its corresponding type declarations.
+
+23 import type { ColumnDef } from '@/types/table';
+           ~~~~~~~~~~~~~~~~~~~~~~~~
+
+src/composables/useAuth.vue:8:14 - error TS6305: Input source file is not located within the rootDir as configured in tsconfig.json.
+  The file is in the workspace 'src/composables/useAuth.vue' but rootDir is expected to be 'src'.
+
+8 const user = ref<User | null>(null);
+               ~~~
+
+src/utils/format.ts:45:3 - error TS2307: Cannot find module './constants' or its corresponding type declarations.
+
+45 import { DATE_FORMAT } from './constants';
+     ~~~~~~~~~~~~~~~~~~~~
+
+src/App.vue:1:1 - error TS6305: Input source file is not located within the rootDir as configured in tsconfig.json.
+  The file is in the workspace 'src/App.vue' but rootDir is expected to be 'src'.
+
+1 <template>
+  ~~~~~~~~
+
+Found 4 errors in 4 files.
+
+Errors Files
+  src/components/DataTable.vue:1
+  src/composables/useAuth.vue:1
+  src/utils/format.ts:1
+  src/App.vue:1
