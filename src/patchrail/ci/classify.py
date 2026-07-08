@@ -394,7 +394,11 @@ RULES: list[dict[str, Any]] = [
         "likely_subsystem": "GitHub Actions workflow wiring",
         "patterns": [
             r"Invalid workflow file",
-            r"\.github/workflows",
+            (
+                r"(?=[\s\S]*\.github/workflows/\S+\.ya?ml)"
+                r"(?=[\s\S]*(?:Invalid workflow file|Unable to resolve action"
+                r"|Resource not accessible by integration))"
+            ),
             r"Unable to resolve action",
             r"Resource not accessible by integration",
         ],
