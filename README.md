@@ -154,6 +154,7 @@ Details in [docs/roadmap.md](docs/roadmap.md).
 - [Fix guides per failure class](docs/fix/README.md)
 - [CI Failure Zoo](docs/ci-failure-zoo.md)
 - [GitHub Actions CI triage](docs/github-action.md)
+- [Using the action in your own repository](docs/using-the-action.md)
 - [Agent Control Plane](docs/agent-control-plane.md)
 - [API reference](docs/api-reference.md)
 - [Threat model](docs/threat-model.md)
