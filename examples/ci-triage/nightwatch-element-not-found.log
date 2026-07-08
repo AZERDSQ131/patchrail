@@ -1,0 +1,11 @@
+Running:  Login page renders correctly
+
+  Testing if element <#login-form> is visible.
+  WARN: Unable to locate element: <#login-form> using: css selector
+  → Completed in 5000ms
+
+ FAILED:  NightwatchAssertError: element <#login-form> was not found in the page after 5000ms. Expected "visible" but got: "not found" (Timed out waiting for element)
+    at Object.loginTest (/tests/loginTest.js:15:10)
+    at processTicksAndRejections (node:internal/process/task_queues:95:5)
+
+FAILED: 1 assertions failed (5.003s)
