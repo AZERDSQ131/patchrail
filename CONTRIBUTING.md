@@ -22,7 +22,8 @@ patchrail redact --log failed-ci.log > failed-ci.redacted.log
 
 3. Review `failed-ci.redacted.log` manually and remove anything PatchRail should
    not publish: secrets, emails, private repo names, user names, customer names,
-   local home paths, and private URLs.
+   local home paths, and private URLs. See `docs/redaction.md` for exactly
+   which categories `patchrail redact` covers and which it doesn't.
 4. Reduce the log to the shortest excerpt that still shows the root cause.
 5. Add the fixture and expected metadata under `examples/ci-triage/`.
 6. Run the fixture hygiene gate and benchmark:
