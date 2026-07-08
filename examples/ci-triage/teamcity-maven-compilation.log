@@ -1,0 +1,12 @@
+[Step 3/4] Starting: mvn -B compile
+[INFO] Scanning for projects...
+[INFO] Building payments-gateway 3.2.0
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR :
+[INFO] -------------------------------------------------------------
+[ERROR] /builds/payments-gateway/src/main/java/com/example/pay/LedgerWriter.java:[27,24] cannot find symbol
+[ERROR]   symbol:   method commit(java.lang.String)
+[ERROR]   location: interface com.example.pay.Ledger
+[INFO] 1 error
+[INFO] BUILD FAILURE
+Process exited with code 1
