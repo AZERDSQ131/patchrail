@@ -1,0 +1,14 @@
++ vue-tsc --noEmit -p tsconfig.json --composite false
+src/components/OrderSummary.vue:28:11 - error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+
+28   <TotalLabel :amount="order.total" />
+             ~~~~~~
+
+  src/types/order.ts:9:3
+    9   total: number;
+        ~~~~~
+    The expected type comes from property 'total' which is declared here on type 'Order'.
+
+Found 1 error in src/components/OrderSummary.vue:28
+
+Build failed with exit code 2
