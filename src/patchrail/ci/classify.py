@@ -41,7 +41,11 @@ REDACTION_PATTERNS: list[tuple[str, str, str]] = [
     ("email", r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "<email>"),
     ("unix_home_path", r"/home/[^/\s'\":]+", "/home/<user>"),
     ("mac_home_path", r"/Users/[^/\s'\":]+", "/Users/<user>"),
-    ("windows_home_path", r"\b[A-Z]:[\\/]+Users[\\/]+[^\\/\s'\":]+", "C:/Users/<user>"),
+    (
+        "windows_home_path",
+        r"\b([A-Z]):[\\/]+Users[\\/]+[^\\/\s'\":]+",
+        r"\1:/Users/<user>",
+    ),
 ]
 
 
