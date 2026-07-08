@@ -1,0 +1,9 @@
+[wdio] Starting session for checkout-e2e
+[wdio] Running: checkout.e2e.ts
+[wdio]
+[wdio] checkout flow > applies saved shipping address
+[wdio]      Error: Timeout 30000ms exceeded while waiting for element locator("#shipping-confirm") to be clickable
+[wdio]      at Timer._onTimeout (webdriver/build/utils.js:88:15)
+[wdio]
+[wdio] Spec file finished with failures: checkout.e2e.ts
+error Command failed with exit code 1.
