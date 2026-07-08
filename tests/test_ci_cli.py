@@ -2401,6 +2401,47 @@ class PatchRailCITests(unittest.TestCase):
         self.assertNotIn("sample_url", result)
         self.assertNotIn("action_url", result)
 
+    def test_ci_classify_fail_on_unknown_exits_nonzero_for_unknown(self) -> None:
+        proc = subprocess.run(
+            [sys.executable, "-m", "patchrail", "ci", "classify", "--fail-on-unknown"],
+            input="build did not work\n",
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(proc.returncode, 1)
+        result = json.loads(proc.stdout)
+        self.assertEqual(result["failure_class"], "unknown")
+
+    def test_ci_classify_fail_on_unknown_exits_zero_for_known(self) -> None:
+        proc = subprocess.run(
+            [sys.executable, "-m", "patchrail", "ci", "classify", "--fail-on-unknown"],
+            input=Path("examples/ci-triage/browser-playwright-navigation-timeout.log").read_text(
+                encoding="utf-8"
+            ),
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(proc.returncode, 0)
+        result = json.loads(proc.stdout)
+        self.assertNotEqual(result["failure_class"], "unknown")
+
+    def test_ci_classify_without_fail_on_unknown_flag_keeps_exit_zero(self) -> None:
+        proc = subprocess.run(
+            [sys.executable, "-m", "patchrail", "ci", "classify"],
+            input="build did not work\n",
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(proc.returncode, 0)
+        result = json.loads(proc.stdout)
+        self.assertEqual(result["failure_class"], "unknown")
+
     def test_ci_classes_lists_every_supported_class_as_json(self) -> None:
         stdout = StringIO()
         with redirect_stdout(stdout):
