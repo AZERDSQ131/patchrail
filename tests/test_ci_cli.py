@@ -1633,6 +1633,29 @@ class PatchRailCITests(unittest.TestCase):
             self.assertNotEqual(payload["failure_class"], "secrets_or_permissions_failure")
             self.assertEqual(payload["failure_class"], "python_test_failure")
 
+    def test_ci_classify_does_not_misclassify_workflow_path_mention_alone(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "changed-files.log"
+            log.write_text(
+                "Changed files:\n"
+                " .github/workflows/ci.yml\n"
+                " .github/workflows/release.yml\n"
+                " README.md\n"
+                "custom-lint: unexpected token at line 4\n",
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [sys.executable, "-m", "patchrail", "ci", "classify", "--log", str(log)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertNotEqual(payload["failure_class"], "github_actions_workflow")
+
     def test_ci_classify_detects_cmake_build_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             log = Path(tmpdir) / "failed.log"
