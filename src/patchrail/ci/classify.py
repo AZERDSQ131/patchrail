@@ -465,7 +465,6 @@ RULES: list[dict[str, Any]] = [
             r"gh release create",
             r"a release with the same tag .* already exists",
             r"Validation Failed.*already_exists",
-            r"already_exists",
         ],
         "reproduction_command": (
             "rerun the publish step locally with the same registry credentials "
