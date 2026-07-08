@@ -3697,6 +3697,8 @@ def _ci_explain(args: argparse.Namespace) -> int:
             "local_only": True,
         }
     _write_or_print(_format_result(result, args.format), args.out)
+    if getattr(args, "fail_on_unknown", False) and result["failure_class"] == "unknown":
+        return 1
     return 0
 
 
@@ -8692,6 +8694,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Output format.",
     )
     explain.add_argument("--out", type=Path, help="Optional output path.")
+    explain.add_argument(
+        "--fail-on-unknown",
+        action="store_true",
+        help="Exit non-zero when the classifier could not recognize the failure (failure_class: unknown).",
+    )
     explain.set_defaults(func=_ci_explain)
 
     classes = ci_subparsers.add_parser(
@@ -8721,6 +8728,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Output format.",
     )
     classify.add_argument("--out", type=Path, help="Optional output path.")
+    classify.add_argument(
+        "--fail-on-unknown",
+        action="store_true",
+        help="Exit non-zero when the classifier could not recognize the failure (failure_class: unknown).",
+    )
     classify.set_defaults(func=_ci_explain)
 
     benchmark = ci_subparsers.add_parser(
