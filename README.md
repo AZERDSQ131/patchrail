@@ -150,6 +150,7 @@ Details in [docs/roadmap.md](docs/roadmap.md).
 ## Documentation
 
 - [Quickstart](docs/quickstart.md)
+- [jq cookbook for the JSON classifier output](docs/json-cookbook.md)
 - [Fix guides per failure class](docs/fix/README.md)
 - [CI Failure Zoo](docs/ci-failure-zoo.md)
 - [GitHub Actions CI triage](docs/github-action.md)

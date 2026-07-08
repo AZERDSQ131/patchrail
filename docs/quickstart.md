@@ -116,3 +116,7 @@ uv run --extra dev patchrail ci explain --log examples/ci-triage/dependency-fail
 
 PatchRail v0.1 does not create pull requests, comments, funded issue claims, or
 remote uploads. The command reads a local log file and writes a local report.
+
+For scripting against the JSON output (extracting fields, gating on
+confidence, batch-triaging a directory of logs), see the
+[jq cookbook](json-cookbook.md).
