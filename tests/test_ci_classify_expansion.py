@@ -763,6 +763,17 @@ class RedactionExpansion(unittest.TestCase):
         self.assertNotIn(token, result["text"])
         self.assertEqual(result["redactions"].get("telegram_bot_token"), 1)
 
+    def test_linux_ci_runner_workspace_path_redacts_org_and_repo(self) -> None:
+        log = (
+            "/home/runner/work/acme-corp/internal-billing-service/docs/index.rst:12: "
+            "toctree contains reference to nonexisting document 'guide/missing'\n"
+        )
+        result = redact_ci_log(log)
+        self.assertIn("/home/<user>/work/<org>/<repo>/docs/index.rst", result["text"])
+        self.assertNotIn("acme-corp", result["text"])
+        self.assertNotIn("internal-billing-service", result["text"])
+        self.assertEqual(result["redactions"].get("linux_ci_runner_home_path"), 1)
+
 
 class ArtifactOrCacheFailureClassification(unittest.TestCase):
     def test_artifact_no_files_classifies_as_artifact_or_cache_failure(self) -> None:
