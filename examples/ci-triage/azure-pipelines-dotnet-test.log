@@ -1,0 +1,18 @@
+##[section]Starting: dotnet test
+==============================================================================
+Task         : .NET Core
+Description  : Build, test, package, or publish a dotnet application
+==============================================================================
+##[command]dotnet test ./tests/Billing.Tests.csproj --logger trx
+Starting test execution, please wait...
+
+  X Billing.Tests.InvoiceCalculatorTests.AppliesDiscountAboveThreshold [12 ms]
+  Error Message:
+   Xunit.Sdk.EqualException
+   Assert.Equal() Failure
+   Expected: 90.00m
+   Actual:   100.00m
+
+Failed!  - Failed:     1, Passed:    47, Skipped:     0, Total:    48
+##[error]Process completed with exit code 1.
+##[section]Finishing: dotnet test
