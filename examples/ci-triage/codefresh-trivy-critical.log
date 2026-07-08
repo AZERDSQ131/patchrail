@@ -1,0 +1,22 @@
+Step: Trivy image scan
+Image: myapp:v1.2.3
+Pull: docker.io/myorg/myapp:v1.2.3
+
+trivy image --severity HIGH,CRITICAL --exit-code 1 myapp:v1.2.3
+
+2026-07-08T10:15:22.451Z	INFO	Vulnerability scanning is enabled
+2026-07-08T10:15:22.451Z	INFO	Detecting vulnerabilities...
+
+python (Python 3.10.12)
+========================
+Total: 2 (HIGH: 1, CRITICAL: 1)
+
++-------------------+------------------+----------+-------------------+---------------+
+|     LIBRARY       | VULNERABILITY ID | SEVERITY | INSTALLED VERSION | FIXED VERSION |
++-------------------+------------------+----------+-------------------+---------------+
+| numpy             | CVE-2025-44200   | CRITICAL | 1.23.5            | 1.25.0        |
+| urllib3           | CVE-2025-32100   | HIGH     | 2.0.7             | 2.2.0         |
++-------------------+------------------+----------+-------------------+---------------+
+
+[Codefresh] Trivy found 1 CRITICAL vulnerability and 1 HIGH vulnerability
+[Codefresh] Exit code: 1 — failing step due to vulnerability threshold
