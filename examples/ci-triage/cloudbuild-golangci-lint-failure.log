@@ -1,0 +1,6 @@
+Step #2 - "lint": + golangci-lint run ./...
+Step #2 - "lint": internal/pricing/discount.go:58:2: ineffectual assignment to err (ineffassign)
+Step #2 - "lint": internal/pricing/discount.go:71:14: S1021: should merge variable declaration with assignment (gosimple)
+Step #2 - "lint": 2 issues found
+Finished Step #2 - "lint"
+ERROR: build step 2 "golangci/golangci-lint" failed: exit status 1

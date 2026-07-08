@@ -1,0 +1,4 @@
+{
+  "failure_class": "go_lint",
+  "minimum_confidence": 0.7
+}
