@@ -1,0 +1,11 @@
+~~~ Running commands
+$ pnpm install --frozen-lockfile
+Lockfile is up to date, resolution step is skipped
+Fetching dependencies
+
+ERR_PNPM_OUTDATED_LOCKFILE  Cannot install with "frozen-lockfile" because pnpm-lock.yaml is not up to date with dashboard-ui/package.json
+
+  Failure reason:
+  specifiers in the lockfile ({"date-fns":"^2.30.0"}) don't match specs in package.json ({"date-fns":"^3.6.0"})
+
+user command error: exited with status 1
