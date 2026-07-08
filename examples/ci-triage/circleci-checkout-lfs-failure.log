@@ -1,0 +1,9 @@
+#!/bin/bash -eo pipefail
+Checkout code
+Cloning git repository
+Cloning into 'project'...
+Downloading assets/demo-render.mov (82 MB)
+Error downloading object: assets/demo-render.mov (a1b2c3d): Smudge error: Error downloading assets/demo-render.mov (a1b2c3d4e5f67890): smudge filter lfs failed
+error downloading object
+
+Exited with code exit status 1
