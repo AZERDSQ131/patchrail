@@ -1,0 +1,9 @@
+Run npx wdio run wdio.conf.ts --spec tests/login.spec.ts
+
+Error: element ("[data-testid=submit]") still not displayed after 15000ms
+WaitForExist timeout: waiting for element ("[data-testid=submit]") to exist
+  at implicit wait for element
+  at async Locator.waitForExist (/project/node_modules/webdriverio/build/commands/element/waitForExist.js:34)
+  at async Context.<anonymous> (tests/login.spec.ts:42:7)
+
+ FAILED: tests/login.spec.ts (1 of 1)
