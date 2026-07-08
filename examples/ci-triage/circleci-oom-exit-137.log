@@ -1,0 +1,12 @@
+#!/bin/bash -eo pipefail
+yarn build
+$ yarn build
+yarn run v1.22.19
+$ webpack --mode production
+<--- Last few GCs --->
+
+FATAL ERROR: JavaScript heap out of memory
+Out of memory: Killed process 412 (node) total-vm:5231212kB
+
+Exited with code exit status 137
+CircleCI received exit code 137
