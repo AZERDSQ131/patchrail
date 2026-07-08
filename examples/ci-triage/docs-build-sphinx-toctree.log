@@ -10,9 +10,9 @@ reading sources... [100%] index
 looking for now-outdated files... none found
 pickling environment... done
 checking consistency...
-/home/runner/work/project/project/docs/guide/advanced.rst: WARNING: document isn't included in any toctree
+/builds/project/docs/guide/advanced.rst: WARNING: document isn't included in any toctree
 
 Warning, treated as error:
-/home/runner/work/project/project/docs/index.rst:12: toctree contains reference to nonexisting document 'guide/missing'
+/builds/project/docs/index.rst:12: toctree contains reference to nonexisting document 'guide/missing'
 make: *** [Makefile:20: html] Error 2
 Error: Process completed with exit code 2.
