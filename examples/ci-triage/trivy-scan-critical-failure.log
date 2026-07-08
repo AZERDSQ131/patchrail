@@ -1,0 +1,16 @@
+Run trivy fs --exit-code 1 --severity HIGH,CRITICAL .
+2026-07-08T10:12:03.114Z	INFO	Vulnerability scanning is enabled
+
+package-lock.json (npm)
+===================
+Total: 1 (HIGH: 0, CRITICAL: 1)
+
++---------+------------------+----------+-------------------+---------------+
+| LIBRARY | VULNERABILITY ID |  SEVERITY | INSTALLED VERSION | FIXED VERSION |
++---------+------------------+----------+-------------------+---------------+
+| ejs     | CVE-2024-33883   | CRITICAL |  3.1.9             | 3.1.10        |
++---------+------------------+----------+-------------------+---------------+
+
+Severity:      CRITICAL
+
+##[error]Process completed with exit code 1.
