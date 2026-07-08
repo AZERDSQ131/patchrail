@@ -535,7 +535,7 @@ RULES: list[dict[str, Any]] = [
             r"Resource not accessible by integration",
             r"Error: Input required and not supplied",
             r"Input required and not supplied",
-            r"is not set\b",
+            r"\b(?-i:[A-Z][A-Z0-9_]{2,})\s+is not set\b",
             r"secret .* (?:is )?(?:not set|missing|empty|required)",
             r"\$\{\{\s*secrets\.[A-Z0-9_]+\s*\}\}",
             r"context access might be invalid",
