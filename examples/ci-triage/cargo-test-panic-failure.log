@@ -1,0 +1,11 @@
+Run cargo test
+running 12 tests
+thread 'store::tests::rejects_negative_balance' panicked at crates/store/src/lib.rs:58:9:
+assertion failed: `(left == right)`
+  left: `-5`,
+ right: `0`
+test store::tests::rejects_negative_balance ... FAILED
+
+test result: FAILED. 11 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out
+
+error: test failed, to rerun pass `-p store --lib`
