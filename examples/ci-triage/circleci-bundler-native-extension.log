@@ -1,0 +1,27 @@
+#!/bin/bash -eo pipefail
+# Restore Cache
+Restoring cache...
+Cache restored from key: bundler-v2-{{ checksum "Gemfile.lock" }}
+
+# Bundle Install
+bundle install --jobs=4 --retry=3
+Fetching gem metadata from https://rubygems.org/.........
+Fetching gem metadata from https://rubygems.org/.
+Resolving dependencies...
+Installing nokogiri 1.16.5 with native extensions
+Gem::Ext::BuildError: ERROR: Failed to build gem native extension.
+
+    current directory: /home/circleci/project/vendor/bundle/ruby/3.3.0/gems/nokogiri-1.16.5/ext/nokogiri
+/usr/local/bin/ruby extconf.rb
+checking for the C compiler... not found
+extconf.rb:17:in `rescue in <main>': libxml2 not found, and --use-system-libraries is set but C compiler is missing (RuntimeError)
+
+*** extconf.rb failed ***
+
+An error occurred while installing nokogiri (1.16.5), and Bundier cannot continue.
+
+Exited with code exit status 5
+
+# Save Cache
+Saving cache...
+Step failed, skipping cache save.
