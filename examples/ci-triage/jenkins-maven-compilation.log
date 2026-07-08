@@ -1,0 +1,13 @@
+[Pipeline] sh
++ mvn -B compile
+[INFO] Scanning for projects...
+[INFO] Building billing-service 2.4.1
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /workspace/billing-service/src/main/java/com/example/billing/InvoiceService.java:[42,17] cannot find symbol
+[ERROR]   symbol:   class InvoiceLedger
+[ERROR] /workspace/billing-service/src/main/java/com/example/billing/InvoiceService.java:[12,8] package com.example.billing.ledger does not exist
+[INFO] BUILD FAILURE
+[Pipeline] }
+Finished: FAILURE
