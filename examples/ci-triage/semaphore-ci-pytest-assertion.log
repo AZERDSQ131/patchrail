@@ -1,0 +1,17 @@
+$ pytest -q
+========================= FAILURES =========================
+_________________ test_apply_discount_stacking _________________
+
+    def test_apply_discount_stacking():
+        cart = Cart(items=[Item(price=100)])
+        cart.apply_discount(0.1)
+        cart.apply_discount(0.2)
+>       assert cart.total == 72
+E       assert 72.0 == 72
+E        +  where 72.0 = Cart(items=[Item(price=100)]).total
+
+tests/test_discounts.py:19: AssertionError
+===================== short test summary info =====================
+FAILED tests/test_discounts.py::test_apply_discount_stacking - AssertionError
+1 failed, 41 passed in 2.11s
+Semaphore CI job failed with exit code 1
