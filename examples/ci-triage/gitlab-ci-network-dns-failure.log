@@ -1,0 +1,12 @@
+Running with gitlab-runner 16.9.1 (5a5c4802)
+  on docker-runner-11 fEdC9876
+section_start:1700000000:prepare_executor
+Preparing the "docker" executor
+section_end:1700000004:prepare_executor
+section_start:1700000005:install_deps
+$ npm install --registry https://registry.example.com
+npm ERR! request to https://registry.example.com/left-pad failed
+npm ERR! Could not resolve host: registry.example.com
+npm ERR! Temporary failure in name resolution
+section_end:1700000030:install_deps
+ERROR: Job failed: exit code 1
