@@ -1,0 +1,10 @@
++ composer install --no-dev --prefer-dist
+Loading composer repositories with package information
+Updating dependencies
+Your requirements could not be resolved to an installable set of packages.
+
+  Problem 1
+    - Root composer.json requires php >=8.2 but your php version (8.1.27) does not satisfy that requirement.
+    - vendor/example/pdf-toolkit v3.0.1 requires php >=8.2 -> your php version (8.1.27) does not satisfy that requirement.
+
+Build failed with exit code 2
