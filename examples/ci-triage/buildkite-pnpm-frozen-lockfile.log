@@ -1,0 +1,40 @@
+~~~ Running commands
+$ pnpm install --frozen-lockfile
+Scope: all 4 workspace projects
+Packages: +1234 -0
+ERR_PNPM_OUTDATED_LOCKFILE Cannot install with frozen-lockfile because pnpm-lock.yaml is not up to date with pnpm-workspace.yaml
+
+  The lockfile is not synchronized with the workspace configuration.
+  Run "pnpm install" to update the lockfile.
+
+  pnpm-lock.yaml: lockfile v7.0
+  pnpm-workspace.yaml: 4 packages
+  Details:
+    - package-a@workspace: catalog protocol requires pnpm-lock.yaml update
+    - package-b@workspace: new catalog dependency react@^19 not recorded
+    - package-c@workspace: catalog:ui version pinned differs from lockfile
+
+  at /buildkite/builds/agent-1/project/ci/.pnpm-store/3.0.0/node_modules/.pnpm/@pnpm+core@9.0.0/node_modules/@pnpm/core/lib/install.ts:1423
+  at process.processTtyrNode.js:processTtyrNode.js:processTtyrNode.js
+  at /buildkite/builds/agent-1/project/ci/node_modules/.pnpm/pnpm@9.0.0/node_modules/pnpm/dist/pnpm.cjs:18432:14
+  at Failover
+
+  --- pnpm-lock.yaml (excerpt) ---
+  catalogs:
+    default:
+      react: ^18.3.1
+      react-dom: ^18.3.1
+
+  --- pnpm-workspace.yaml (excerpt) ---
+  packages:
+    - 'packages/*'
+  catalogs:
+    default:
+      react: ^19.0.0
+      react-dom: ^19.0.0
+
+  This is a catalog drift detected between the lockfile and workspace configuration.
+
+pnpm: install failed
+^^^ +++
+user command error: exited with status 1
