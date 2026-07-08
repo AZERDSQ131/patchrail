@@ -1,0 +1,15 @@
+Run terraform plan -no-color
+
+Initializing the backend...
+Initializing provider plugins...
+
+╷
+│ Error: Reference to undeclared resource
+│
+│   on main.tf line 42, in resource "aws_lb_listener" "app":
+│   42:   target_group_arn = aws_lb_target_group.api.arn
+│
+│ A managed resource "aws_lb_target_group" "api" has not been declared in the root module.
+╵
+
+##[error]Process completed with exit code 1.
