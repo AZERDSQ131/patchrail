@@ -1,0 +1,11 @@
+Running with gitlab-runner 16.9.1 (5a5c4802)
+  on docker-runner-04 aBcD1234
+section_start:1699999000:prepare_executor
+Preparing the "docker" executor
+section_end:1699999005:prepare_executor
+section_start:1699999006:build_script
+$ ./scripts/run-integration-suite.sh
+Running integration suite against staging fixtures...
+section_end:1699999900:build_script
+ERROR: Job failed: execution took longer than 3600 seconds
+(exceeded 60m0s)
