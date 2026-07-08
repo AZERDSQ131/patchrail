@@ -1656,6 +1656,27 @@ class PatchRailCITests(unittest.TestCase):
             payload = json.loads(proc.stdout)
             self.assertNotEqual(payload["failure_class"], "github_actions_workflow")
 
+    def test_ci_classify_does_not_misclassify_unrelated_already_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "seed.log"
+            log.write_text(
+                "Applying database seed...\n"
+                "Error: user with email test@example.com already_exists in target table\n"
+                "Seed script exited with code 1\n",
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [sys.executable, "-m", "patchrail", "ci", "classify", "--log", str(log)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertNotEqual(payload["failure_class"], "release_publish_failure")
+
     def test_ci_classify_detects_cmake_build_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             log = Path(tmpdir) / "failed.log"
