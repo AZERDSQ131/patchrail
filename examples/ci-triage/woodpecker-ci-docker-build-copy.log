@@ -1,0 +1,9 @@
++ docker build -t worker:ci .
+[+] Building 2.8s (7/11)
+ => [3/7] WORKDIR /app
+ => [4/7] COPY package.json package-lock.json ./
+ => [5/7] RUN npm ci --omit=dev
+ => [6/7] COPY dist/worker.entrypoint.sh /app/entrypoint.sh
+failed to solve: failed to compute cache key: "/dist/worker.entrypoint.sh": not found
+no such file or directory
+woodpecker: step "docker-build" failed: exit status 1
