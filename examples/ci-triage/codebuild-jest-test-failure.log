@@ -1,0 +1,19 @@
+[Container] Running command npm test
+
+> checkout-api@1.4.0 test
+> jest --ci
+
+FAIL src/handlers/refund.test.ts
+  refund handler
+    ✕ rejects refunds above the remaining balance (14 ms)
+
+  ● refund handler > rejects refunds above the remaining balance
+
+    expect(received).toBe(expected)
+
+    Expected: 400
+    Received: 200
+
+Tests:       1 failed, 22 passed, 23 total
+Test Suites: 1 failed, 6 passed, 7 total
+[Container] Command did not exit successfully npm test exit status 1
