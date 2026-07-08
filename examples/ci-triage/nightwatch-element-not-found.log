@@ -1,0 +1,10 @@
+[Cart Tests] Test Suite
+==========================
+
+Running: Removes item from cart
+
+  ✖ Timeout 5000ms exceeded while waiting for element locator("#cart-remove-btn") to be present - expected "visible" but got: "not found"
+    at Object.waitForElementVisible (cart.spec.js:22:10)
+
+FAILED: 1 assertions failed. (5.412s)
+Nightwatch run finished with exit code 1
