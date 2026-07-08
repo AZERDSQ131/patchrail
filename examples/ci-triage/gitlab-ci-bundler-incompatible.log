@@ -1,0 +1,14 @@
+$ bundle install
+Fetching gem metadata from https://rubygems.org/.........
+Resolving dependencies...
+Bundler could not find compatible versions for gem "activesupport":
+  In Gemfile:
+    rails (~> 7.0) was resolved to 7.0.8, which depends on activesupport (= 7.0.8)
+
+    sidekiq (~> 7.2) was resolved to 7.2.2, which depends on
+      sidekiq-core (= 7.2.2), which depends on activesupport (>= 7.2, < 7.3)
+
+Error: The build failed because of incompatible gem versions.
+Cleaning up project directory and file based variables
+00:01
+ERROR: Job failed: exit code 1
