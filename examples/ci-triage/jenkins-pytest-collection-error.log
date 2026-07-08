@@ -1,0 +1,10 @@
+[Pipeline] sh
++ python -m pytest tests/ -v --junitxml=report.xml
+ImportError while loading conftest '/workspace/payment-service/tests/conftest.py'.
+tests/conftest.py:7: in <module>
+    from payment_service.db import get_engine
+payment_service/db.py:12: in <module>
+    from sqlalchemy import create_engine
+ModuleNotFoundError: No module named 'sqlalchemy'
+[Pipeline] }
+Finished: FAILURE
