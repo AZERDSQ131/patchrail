@@ -2341,6 +2341,20 @@ class PatchRailCITests(unittest.TestCase):
         self.assertNotIn("pypi-AgEIcHlwaS5vcmcCdGVzdC12YWx1ZQ", proc.stdout)
         self.assertNotIn("npm_1234567890abcdefghijklmnopqrst", proc.stdout)
 
+    def test_redact_command_preserves_windows_drive_letter(self) -> None:
+        proc = subprocess.run(
+            [sys.executable, "-m", "patchrail", "redact"],
+            input="Build path D:\\Users\\jsmith\\project\\build.log\n",
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("D:/Users/<user>", proc.stdout)
+        self.assertNotIn("C:/Users/<user>", proc.stdout)
+        self.assertNotIn("jsmith", proc.stdout)
+
     def test_redact_command_handles_cloud_and_key_material(self) -> None:
         fake_jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0ZXN0In0.s5b3Qd7n0pXcVm9wQ1aZ2k4L8tR6yU0o"
         fake_google_key = "AIza" + "b" * 35
