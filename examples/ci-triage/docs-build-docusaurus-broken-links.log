@@ -17,5 +17,5 @@ Exhaustive list of all broken links found:
    -> linking to ./configuration
 
 Error: Unable to build website for locale en.
-    at Object.build (/home/runner/work/site/node_modules/@docusaurus/core/lib/index.js:210:15)
+    at Object.build (/builds/site/node_modules/@docusaurus/core/lib/index.js:210:15)
 Error: Process completed with exit code 1.
