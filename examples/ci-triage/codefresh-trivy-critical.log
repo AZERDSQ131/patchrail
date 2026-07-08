@@ -1,0 +1,15 @@
+Step: Scan image
+$ trivy image --exit-code 1 --severity CRITICAL registry.example.com/api-gateway:sha-9f31c02
+
+api-gateway:sha-9f31c02 (alpine 3.18.4)
+=======================================
+Total: 2 (CRITICAL: 2)
+
++-------------+------------------+----------+-------------------+---------------+
+|   LIBRARY   | VULNERABILITY ID | SEVERITY | INSTALLED VERSION | FIXED VERSION |
++-------------+------------------+----------+-------------------+---------------+
+| openssl     | CVE-2024-0727    | CRITICAL | 3.1.4-r0           | 3.1.4-r5      |
+| libcrypto3  | CVE-2024-0727    | CRITICAL | 3.1.4-r0           | 3.1.4-r5      |
++-------------+------------------+----------+-------------------+---------------+
+
+Codefresh step failed: exit code 1
