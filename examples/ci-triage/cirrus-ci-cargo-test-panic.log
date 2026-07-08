@@ -1,0 +1,18 @@
+$ cargo test --workspace
+running 18 tests
+test scheduler::tests::retries_backoff_capped ... FAILED
+
+failures:
+
+---- scheduler::tests::retries_backoff_capped stdout ----
+thread 'scheduler::tests::retries_backoff_capped' panicked at crates/scheduler/src/lib.rs:73:9:
+assertion `left == right` failed
+  left: 32
+ right: 30
+
+failures:
+    scheduler::tests::retries_backoff_capped
+
+test result: FAILED. 17 passed; 1 failed; 0 ignored; 0 measured
+error: test failed, to rerun pass `-p scheduler --lib`
+Cirrus CI task failed with exit code 101
