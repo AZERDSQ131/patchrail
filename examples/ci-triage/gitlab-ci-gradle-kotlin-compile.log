@@ -1,0 +1,15 @@
+Running with gitlab-runner 16.9.1 (5a5c4802)
+  on docker-runner-02 cCdD7788
+section_start:1700200000:build_script
+$ ./gradlew compileKotlin
+> Task :notification-service:compileKotlin FAILED
+
+e: /builds/example/notification-service/src/main/kotlin/DeliveryWorker.kt: (34, 21): Unresolved reference: markSent
+e: /builds/example/notification-service/src/main/kotlin/DeliveryWorker.kt: (35, 9): Type mismatch: inferred type is String but Int was expected
+
+FAILURE: Build failed with an exception.
+* What went wrong:
+Execution failed for task ':notification-service:compileKotlin'.
+BUILD FAILED in 12s
+section_end:1700200041:build_script
+ERROR: Job failed: exit code 1
