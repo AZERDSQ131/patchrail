@@ -1,0 +1,10 @@
+> dotnet test .\src\Billing.Tests\Billing.Tests.csproj
+Starting test execution, please wait...
+[xUnit.net 00:00:01.24]     Billing.Tests.InvoiceCalculatorTests.AppliesTaxRate_ForRegion [FAIL]
+[xUnit.net 00:00:01.24]       Assert.Equal() Failure
+[xUnit.net 00:00:01.24]       Expected: 108.50m
+[xUnit.net 00:00:01.24]       Actual:   108.00m
+  Failed Billing.Tests.InvoiceCalculatorTests.AppliesTaxRate_ForRegion [12 ms]
+
+Failed!  - Failed:     1, Passed:    46, Skipped:     0, Total:    47
+Command exited with code 1
