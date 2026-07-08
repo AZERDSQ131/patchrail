@@ -1,0 +1,14 @@
+[Pipeline] sh
++ pytest -q
+======================== ERRORS ========================
+_______ ERROR collecting tests/test_notifications.py _______
+ImportError while importing test module '/workspace/tests/test_notifications.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+tests/test_notifications.py:4: in <module>
+    from app.notifications import DigestBuilder
+E   ImportError: cannot import name 'DigestBuilder' from 'app.notifications' (/workspace/app/notifications.py)
+!!!!!!!! Interrupted: 1 error during collection !!!!!!!!
+1 error in 0.34s
+[Pipeline] }
+Finished: FAILURE
