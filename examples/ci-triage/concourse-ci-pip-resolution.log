@@ -1,0 +1,11 @@
++ pip install -r requirements.txt
+Collecting requests==2.31.0
+Collecting httpx==0.24.0
+ERROR: Cannot install -r requirements.txt (line 3) and requests==2.31.0 because these package versions have conflicting dependencies.
+
+The conflict is caused by:
+    The user requested requests==2.31.0
+    httpx 0.24.0 depends on httpcore<0.18.0 and >=0.15.0, which requires urllib3<2 in this environment
+
+ERROR: ResolutionImpossible: for help visit https://pip.pypa.io/en/latest/topics/dependency-resolution/#dealing-with-dependency-conflicts
+task failed with exit status 1
