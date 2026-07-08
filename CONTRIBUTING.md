@@ -39,6 +39,10 @@ patchrail ci benchmark examples/ci-triage --format json
 If a real log cannot be safely redacted, create a minimal synthetic fixture that
 preserves the error pattern without preserving private identifiers.
 
+To catch a forgotten secret or a malformed fixture before it reaches a pull
+request, see `docs/pre-commit-example.md` for an optional pre-commit hook
+that runs `patchrail ci fixture-check` and `patchrail redact` automatically.
+
 ## Adding a CI fixture
 
 1. Copy the smallest failing log excerpt that still shows the root cause.
