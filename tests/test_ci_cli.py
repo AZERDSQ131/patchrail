@@ -1571,6 +1571,27 @@ class PatchRailCITests(unittest.TestCase):
             self.assertIn("docker build", payload["reproduction_command"])
             self.assertEqual(payload["requirements"]["external_model_required"], False)
 
+    def test_ci_classify_does_not_misclassify_generic_missing_file_as_docker(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log = Path(tmpdir) / "pytest-failure.log"
+            log.write_text(
+                "FAILED test_app.py::test_load - FileNotFoundError: "
+                "[Errno 2] No such file or directory: 'missing.json'\n",
+                encoding="utf-8",
+            )
+
+            proc = subprocess.run(
+                [sys.executable, "-m", "patchrail", "ci", "classify", "--log", str(log)],
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            payload = json.loads(proc.stdout)
+            self.assertNotEqual(payload["failure_class"], "docker_build_failure")
+            self.assertEqual(payload["failure_class"], "python_test_failure")
+
     def test_ci_classify_detects_cmake_build_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             log = Path(tmpdir) / "failed.log"

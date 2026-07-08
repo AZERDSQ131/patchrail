@@ -654,7 +654,6 @@ RULES: list[dict[str, Any]] = [
             r"\bdocker compose\b",
             r"failed to solve",
             r"failed to compute cache key",
-            r"no such file or directory",
             r"target stage .* could not be found",
             r"service .* is unhealthy",
             r"manifest .* not found",
