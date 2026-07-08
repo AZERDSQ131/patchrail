@@ -39,6 +39,16 @@ REDACTION_PATTERNS: list[tuple[str, str, str]] = [
         r"\1=<redacted>",
     ),
     ("email", r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "<email>"),
+    (
+        # Must run before unix_home_path: GitHub-hosted runner workspace
+        # paths follow /home/runner/work/<org>/<repo>/... . "runner" itself
+        # isn't sensitive, but the org/repo segments after it can leak a
+        # private repository's name; unix_home_path alone only scrubs
+        # "runner" and leaves those segments exposed.
+        "linux_ci_runner_home_path",
+        r"/home/runner/work/[^/\s'\":]+/[^/\s'\":]+",
+        "/home/runner/work/<org>/<repo>",
+    ),
     ("unix_home_path", r"/home/[^/\s'\":]+", "/home/<user>"),
     ("mac_home_path", r"/Users/[^/\s'\":]+", "/Users/<user>"),
     ("windows_home_path", r"\b[A-Z]:[\\/]+Users[\\/]+[^\\/\s'\":]+", "C:/Users/<user>"),
