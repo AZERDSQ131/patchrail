@@ -1,0 +1,12 @@
+$ bundle install --jobs=3 --retry=3
+Fetching gem metadata from https://rubygems.org/.........
+Installing nokogiri 1.15.4 with native extensions
+Gem::Ext::BuildError: ERROR: Failed to build gem native extension.
+
+    current directory: /build/example/app/vendor/bundle/ruby/3.2.0/gems/nokogiri-1.15.4/ext/nokogiri
+/opt/rvm/rubies/ruby-3.2.2/bin/ruby extconf.rb
+checking if the C compiler accepts ... *** extconf.rb failed ***
+
+An error occurred while installing nokogiri (1.15.4), and Bundler cannot continue.
+
+The command "bundle install --jobs=3 --retry=3" exited with 5.
