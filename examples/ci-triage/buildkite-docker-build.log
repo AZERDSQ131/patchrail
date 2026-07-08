@@ -1,0 +1,8 @@
+~~~ Running commands
+$ docker build -t app:ci .
+[+] Building 4.2s (8/12)
+#8 [5/9] COPY app/config/production.yaml /app/config/production.yaml
+failed to solve: failed to compute cache key: "/app/config/production.yaml": not found
+no such file or directory
+^^^ +++
+user command error: exited with status 1
