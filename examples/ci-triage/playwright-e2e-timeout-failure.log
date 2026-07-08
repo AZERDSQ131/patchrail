@@ -1,0 +1,14 @@
+Run npx playwright test tests/checkout.spec.ts
+
+Running 1 test using 1 worker
+
+  1) tests/checkout.spec.ts:14:5 › checkout flow › completes purchase
+
+    Error: Timeout 30000ms exceeded.
+
+    waiting for locator('[data-testid="confirm-order"]')
+      at tests/checkout.spec.ts:22:41
+
+  1 failed
+    tests/checkout.spec.ts:14:5 › checkout flow › completes purchase
+##[error]Process completed with exit code 1.
