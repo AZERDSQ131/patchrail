@@ -5,6 +5,10 @@ reviewable CI reports without automatic repository writes.
 
 The workflow lives at `.github/workflows/ci-triage.yml`.
 
+This page documents the workflow that triages PatchRail's own `CI` runs. If
+you want to add the same triage step to a *different* repository's workflow,
+see [Using the action in your own repository](using-the-action.md) instead.
+
 ## What It Does
 
 - Runs after the main `CI` workflow fails, or manually with `workflow_dispatch`.
