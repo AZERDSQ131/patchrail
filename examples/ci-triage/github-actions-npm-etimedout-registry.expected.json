@@ -1,0 +1,4 @@
+{
+  "failure_class": "network_transient_failure",
+  "minimum_confidence": 0.7
+}
