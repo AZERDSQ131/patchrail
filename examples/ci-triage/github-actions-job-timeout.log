@@ -1,0 +1,12 @@
+Run npm run e2e
+> app@1.0.0 e2e
+> playwright test --project=chromium
+
+Running 142 tests using 4 workers
+
+  ✓  1 [chromium] › checkout.spec.ts:12:3 › completes checkout (3.2s)
+  ✓  2 [chromium] › checkout.spec.ts:40:3 › applies coupon (2.1s)
+  ...
+
+Error: The job running on runner GitHub Actions 12 has exceeded the maximum execution time of 360 minutes.
+##[error]The operation was canceled.
