@@ -1,0 +1,14 @@
+$ RAILS_ENV=test bin/rails test spec/requests/orders_test.rb
+
+An error occurred while loading ./spec/requests/orders_test.rb.
+
+ActiveRecord::PendingMigrationError:
+
+Migrations are pending. To resolve this issue, run:
+
+        bin/rails db:migrate RAILS_ENV=test
+
+Target database is not up to date.
+
+# ./config/environment.rb:5:in `<main>'
+ERROR: Job failed: exit code 1
