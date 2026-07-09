@@ -7,6 +7,14 @@
 - `patchrail -V` is now a short alias for `--version`. Both print
   `patchrail <version>` and exit `0`, matching the conventional single-letter
   flag most CLIs expose (handy in bug reports and CI logs).
+- New `tests/test_schema_conformance.py` validates real CLI output against
+  `src/patchrail/schemas/*.v1.schema.json` with `jsonschema` (dev-only
+  dependency; the installed package still ships with zero runtime
+  dependencies). Previously `_load_schema()` only read schema files as text
+  to print them via `patchrail ci schema`; nothing checked that a payload
+  builder's output still matched its schema. Covers `ci-result` (every
+  fixture in `examples/ci-triage/`, 220 cases), `ci-benchmark`, and
+  `ci-fixture-check`.
 
 ## 0.3.0 - 2026-07-09
 
