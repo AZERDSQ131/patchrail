@@ -1,0 +1,16 @@
+##[group]Run cmake --build build --config Release
+cmake --build build --config Release
+##[endgroup]
+[ 12%] Building CXX object CMakeFiles/geoindex.dir/src/rtree.cpp.o
+[ 25%] Building CXX object CMakeFiles/geoindex.dir/src/tile_cache.cpp.o
+src/tile_cache.cpp: In member function 'void TileCache::evict(std::size_t)':
+src/tile_cache.cpp:87:18: error: 'lru_index_' was not declared in this scope
+   87 |     auto it = lru_index_.find(key);
+      |               ^~~~~~~~~~
+src/tile_cache.cpp:88:9: error: use of undeclared identifier 'lru_index_'
+   88 |     lru_index_.erase(it);
+      |     ^~~~~~~~~~
+gmake[2]: *** [CMakeFiles/geoindex.dir/build.make:118: CMakeFiles/geoindex.dir/src/tile_cache.cpp.o] Error 1
+gmake[1]: *** [CMakeFiles/Makefile2:112: CMakeFiles/geoindex.dir/all] Error 2
+gmake: *** [Makefile:146: all] Error 2
+##[error]Process completed with exit code 2.
