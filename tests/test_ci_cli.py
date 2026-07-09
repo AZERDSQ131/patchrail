@@ -2683,6 +2683,50 @@ class PatchRailCITests(unittest.TestCase):
         self.assertEqual(stdout.getvalue(), "")
         self.assertFalse(out_path.exists())
 
+    def test_ci_explain_missing_log_file_fails_clearly(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_path = Path(tmpdir) / "does-not-exist.log"
+
+            stdout = StringIO()
+            stderr = StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = main(["ci", "explain", "--log", str(missing_path)])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("log file not found", stderr.getvalue())
+        self.assertIn(str(missing_path), stderr.getvalue())
+        # No raw Python traceback leaks to the user.
+        self.assertNotIn("Traceback (most recent call last)", stderr.getvalue())
+        self.assertEqual(stdout.getvalue(), "")
+
+    def test_ci_classify_missing_log_file_fails_clearly(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_path = Path(tmpdir) / "does-not-exist.log"
+
+            stdout = StringIO()
+            stderr = StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = main(["ci", "classify", "--log", str(missing_path)])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("log file not found", stderr.getvalue())
+        self.assertIn(str(missing_path), stderr.getvalue())
+        self.assertEqual(stdout.getvalue(), "")
+
+    def test_redact_missing_log_file_fails_clearly(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_path = Path(tmpdir) / "does-not-exist.log"
+
+            stdout = StringIO()
+            stderr = StringIO()
+            with redirect_stdout(stdout), redirect_stderr(stderr):
+                exit_code = main(["redact", "--log", str(missing_path)])
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("log file not found", stderr.getvalue())
+        self.assertIn(str(missing_path), stderr.getvalue())
+        self.assertEqual(stdout.getvalue(), "")
+
     def test_ci_classify_whitespace_only_log_fails_clearly(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             log_path = Path(tmpdir) / "blank.log"
