@@ -1,0 +1,7 @@
+Run helm template ./charts/api -f values/production.yaml
+Error: values don't meet the specifications of the schema(s) in the following chart(s):
+api:
+- image.tag: Required value
+
+Error: template: api/templates/deployment.yaml:18:24: executing "api/templates/deployment.yaml" at <.Values.image.tag>: nil pointer evaluating interface {}.tag
+##[error]Process completed with exit code 1.
