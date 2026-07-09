@@ -1,0 +1,8 @@
+Run twine upload dist/*
+Uploading distributions to https://upload.pypi.org/legacy/
+Uploading mypkg-1.4.2-py3-none-any.whl
+100% ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 18.2/18.2 kB
+
+HTTPError: 400 Bad Request from https://upload.pypi.org/legacy/
+File already exists. See https://pypi.org/help/#file-name-reuse for more information.
+##[error]Process completed with exit code 1.
