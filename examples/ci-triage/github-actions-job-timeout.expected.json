@@ -1,0 +1,4 @@
+{
+  "failure_class": "ci_job_timeout",
+  "minimum_confidence": 0.7
+}
