@@ -20,6 +20,10 @@
   format --check`. The module already passed strict type checking with no
   changes required; this locks that in against regressions. See
   `[tool.mypy]` in `pyproject.toml`.
+- New sanitized `github-actions-cmake-gcc-compile-error` fixture covers a real
+  CMake + g++ undeclared-identifier link failure for `cpp_build_failure`, which
+  previously had a classifier rule but no fixture in the benchmark zoo despite
+  the README advertising C++ support. Bringing the benchmark zoo to 220 cases.
 
 ### Changed
 
