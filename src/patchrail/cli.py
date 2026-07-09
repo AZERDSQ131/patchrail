@@ -3680,7 +3680,13 @@ def _ci_classes(args: argparse.Namespace) -> int:
 
 
 def _ci_explain(args: argparse.Namespace) -> int:
-    raw_log = _read_log(args.log)
+    try:
+        raw_log = _read_log(args.log)
+    except FileNotFoundError as exc:
+        print(
+            f"patchrail ci {args.ci_command}: log file not found: {exc.filename}", file=sys.stderr
+        )
+        return 2
     if not raw_log.strip():
         source = f"--log {args.log}" if args.log is not None else "stdin"
         print(
@@ -3841,7 +3847,11 @@ def _render_pilot_summary_markdown(payload: dict[str, Any]) -> str:
 
 
 def _ci_pilot_pack(args: argparse.Namespace) -> int:
-    raw_log = _read_log(args.log)
+    try:
+        raw_log = _read_log(args.log)
+    except FileNotFoundError as exc:
+        print(f"patchrail ci pilot-pack: log file not found: {exc.filename}", file=sys.stderr)
+        return 2
     out_dir = args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -4445,7 +4455,12 @@ def _ci_adoption_event(args: argparse.Namespace) -> int:
 
 
 def _redact(args: argparse.Namespace) -> int:
-    redaction = redact_ci_log(_read_log(args.log))
+    try:
+        raw_log = _read_log(args.log)
+    except FileNotFoundError as exc:
+        print(f"patchrail redact: log file not found: {exc.filename}", file=sys.stderr)
+        return 2
+    redaction = redact_ci_log(raw_log)
     if args.format == "json":
         text = json.dumps(redaction, indent=2, sort_keys=True) + "\n"
     else:
