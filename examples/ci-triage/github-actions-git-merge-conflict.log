@@ -1,0 +1,8 @@
+Run git rebase origin/main
+Auto-merging src/api/handlers.py
+CONFLICT (content): Merge conflict in src/api/handlers.py
+Auto-merging src/api/routes.py
+CONFLICT (content): Merge conflict in src/api/routes.py
+error: could not apply 8f3c1a2... feat: add pagination to /orders
+Automatic merge failed; fix conflicts and then commit the result.
+##[error]Process completed with exit code 1.
