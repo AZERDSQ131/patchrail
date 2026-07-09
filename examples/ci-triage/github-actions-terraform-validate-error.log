@@ -1,0 +1,14 @@
+Run terraform validate
+
+Initializing the backend...
+Initializing provider plugins...
+
+╷
+│ Error: Unsupported argument
+│
+│   on main.tf line 24, in resource "aws_s3_bucket" "assets":
+│   24:   acceleration_status = "Enabled"
+│
+│ An argument named "acceleration_status" is not expected here.
+╵
+##[error]Process completed with exit code 1.
