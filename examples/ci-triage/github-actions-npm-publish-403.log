@@ -1,0 +1,12 @@
+Run npm publish --access public
+npm notice
+npm notice 📦  @acme/widgets@2.3.0
+npm notice === Tarball Contents ===
+npm notice 4.2kB  package.json
+npm notice 1.1kB  README.md
+npm error code E403
+npm error 403 403 Forbidden - PUT https://registry.npmjs.org/@acme%2fwidgets - You do not have permission to publish "@acme/widgets". Are you logged in as the correct user?
+npm error 403 In most cases, you or one of your dependencies are requesting
+npm error 403 a package version that is forbidden by your security policy, or
+npm error 403 on a server you do not have access to.
+##[error]Process completed with exit code 1.
