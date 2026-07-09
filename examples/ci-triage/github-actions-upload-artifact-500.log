@@ -1,0 +1,10 @@
+Run actions/upload-artifact@v4
+With the provided path, there will be 1 file uploaded
+Artifact name is valid!
+Root directory input is valid!
+Beginning upload of artifact content to blob storage
+Uploaded bytes 20971520
+Cache service responded with 500
+Failed to upload build-output.zip. Error: Artifact upload failed
+##[error]An error occurred while trying to determine the artifact upload location, contact us for more information.
+##[error]Process completed with exit code 1.
