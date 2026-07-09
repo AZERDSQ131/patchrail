@@ -35,7 +35,7 @@ Issues = "https://github.com/patchrail/patchrail/issues"
 patchrail = "patchrail.cli:main"
 
 [project.optional-dependencies]
-dev = ["build>=1.2", "jsonschema>=4.20", "pytest>=8", "ruff>=0.5", "twine>=5.1"]
+dev = ["build>=1.2", "jsonschema>=4.20", "mypy>=1.10", "pytest>=8", "ruff>=0.5", "twine>=5.1"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/patchrail"]
@@ -76,3 +76,9 @@ target-version = "py311"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/patchrail/ci/classify.py"]
+strict = true
+warn_unused_ignores = true

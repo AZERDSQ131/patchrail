@@ -15,6 +15,11 @@
   builder's output still matched its schema. Covers `ci-result` (every
   fixture in `examples/ci-triage/`, 220 cases), `ci-benchmark`, and
   `ci-fixture-check`.
+- `mypy --strict` now runs on `src/patchrail/ci/classify.py` (the classifier
+  engine) as a dev dependency and a CI step, alongside `ruff check`/`ruff
+  format --check`. The module already passed strict type checking with no
+  changes required; this locks that in against regressions. See
+  `[tool.mypy]` in `pyproject.toml`.
 
 ### Changed
 
