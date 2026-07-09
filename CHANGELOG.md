@@ -16,6 +16,18 @@
   fixture in `examples/ci-triage/`, 220 cases), `ci-benchmark`, and
   `ci-fixture-check`.
 
+### Changed
+
+- Extracted the entire `funded-issues` subcommand group (20 argparse handlers,
+  ~50 markdown/text/CSV/JSONL renderers, and the argparse wiring for all 20
+  sub-subcommands — 3853 of `cli.py`'s 10368 lines) into a new
+  `src/patchrail/cli_funded.py` module, registered from `_build_parser()` via
+  `cli_funded.register(subparsers)`. No behavior change: same commands, same
+  flags, same output. `cli.py` drops from 10368 to ~5650 lines. If you import
+  `patchrail.cli._normalize_recheck_observation` or similar funded-issues
+  internals directly (rather than going through the public CLI), import from
+  `patchrail.cli_funded` instead.
+
 ## 0.3.0 - 2026-07-09
 
 ### Fixed
