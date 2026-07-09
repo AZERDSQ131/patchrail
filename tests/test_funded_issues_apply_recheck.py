@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from patchrail.cli import _normalize_recheck_observation
+from patchrail.cli_funded import _normalize_recheck_observation
 from patchrail.funded_issues.discovery import FundedIssue
 from patchrail.funded_issues.store import (
     STORE_SCHEMA_VERSION,
